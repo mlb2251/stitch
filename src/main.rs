@@ -622,52 +622,122 @@ impl CostFunction<Lambda> for BeamCostFn {
 #[derive(Debug,Clone)]
 struct BeamCost {
     cost_nolambda: f64,
-    child_nolambda: Id,
+    child_nolambda: Lambda,
     cost_any: f64,
-    child_any: Id
+    child_any: Lambda,
 }
 struct Beam {
-    inventionless: BeamCost,
-    invention_to_cost: HashMap<Id,BeamCost>,
+    cost_nolambda_inventionless: (f64,Lambda),
+    cost_any_inventionless: (f64,Lambda),
+    cost_nolambda_under_invention: HashMap<Id,(f64,Lambda)>,
+    cost_any_under_invention: HashMap<Id,(f64,Lambda)>,
 }
 
 struct BeamSearch {
     epsilon: f64,
     beam_size: usize,
+    seen: HashMap<Id,Beam>,
 }
 
 impl BeamSearch {
-    fn enode_cost(&mut self, enode: &Lambda) -> BeamCost
-    {
-        match enode {
-            Lambda::Var(_) => BeamCost {cost_nolambda: 1., cost_any: 1. },
-            Lambda::Prim(_) => BeamCost {cost_nolambda: 1., cost_any: 1. },
-            Lambda::App([f, x]) => {
-                let fcost = costs(*f);
-                let xcost = costs(*x);
-                fcost + xcost + self.epsilon
+    fn eclass_cost(&mut self, eclass: Id, egraph: &EGraph) -> Beam {
+        if self.seen.contains_key(&eclass) {
+            return self.seen[&eclass]
+        }
+        // temporarily give ourselves infinite cost so if we encounter this
+        // eclass further down in recursion we won't self loop
+        self.seen.insert(eclass, BeamCost {
+            cost_nolambda: f64::INFINITY,
+            child_nolambda: Lambda::Var(100), // dummy
+            cost_any: f64::INFINITY,
+            child_any: Lambda::Var(100), // dummy
+        });
+        let enodes: Vec<Lambda> = egraph[eclass].iter().cloned().collect();
+        let costs: Vec<f64> = enodes.iter().map(|enode| {
+            match enode {
+                Lambda::Var(_) => 1.,
+                Lambda::Prim(_) => 1.,
+                Lambda::App([f, x]) => {
+                    let fcost = self.eclass_cost(*f, egraph).cost_nolambda;
+                    let xcost = self.eclass_cost(*x, egraph).cost_any;
+                    fcost + xcost + self.epsilon
+                }
+                Lambda::Lam([b]) => {
+                    let bcost = self.eclass_cost(*b, egraph).cost_any;
+                    bcost + self.epsilon
+                }
+                Lambda::Programs(ps) => {
+                    ps.iter().map(|p| self.eclass_cost(*p, egraph).cost_any).sum()
+                }
             }
-            Lambda::Lam([b]) => {
-                let bcost = costs(*b);
-                bcost + self.epsilon
+        }).collect();
+
+        let mut beamcost = BeamCost {
+            cost_nolambda: f64::INFINITY,
+            child_nolambda: Lambda::Var(100), // dummy
+            cost_any: f64::INFINITY,
+            child_any: Lambda::Var(100), // dummy
+        };
+
+        for (node,cost) in enodes.iter().zip(costs.iter()) {
+            if *cost < beamcost.cost_any {
+                beamcost.cost_any = *cost;
+                beamcost.child_any = node.clone();
             }
-            Lambda::Programs(ps) => {
-                ps.iter().map(|p| costs(*p)).sum()
+            match node {
+                Lambda::Lam(_) => { }
+                _ => {
+                    if *cost < beamcost.cost_nolambda {
+                        beamcost.cost_nolambda = *cost;
+                        beamcost.child_nolambda = node.clone();
+                    }
+                }
             }
         }
+
+        // all terms should have a legit noninfininte cost
+        assert!(beamcost.cost_any < f64::INFINITY);
+        assert!(beamcost.cost_nolambda < f64::INFINITY);
+
+        self.seen.insert(eclass, beamcost.clone());
+        return beamcost
     }
-    fn eclass_cost(&mut self, eclass: &EClass<Lambda,Data>) -> BeamCost
-    {
-        eclass.min(|enode| self.enode_cost(enode))
-        let mut cost_nolambda = 0.;
-        let mut cost_any = 0.;
-        for enode in eclass.iter() {
-            let cost = self.enode_cost(enode);
-            cost_nolambda += cost.cost_nolambda;
-            cost_any += cost.cost_any;
-        }
-        BeamCost {cost_nolambda, cost_any}
-    }
+
+
+
+
+
+    // fn enode_cost(&mut self, enode: &Lambda) -> BeamCost
+    // {
+    //     match enode {
+    //         Lambda::Var(_) => BeamCost {cost_nolambda: 1., cost_any: 1. },
+    //         Lambda::Prim(_) => BeamCost {cost_nolambda: 1., cost_any: 1. },
+    //         Lambda::App([f, x]) => {
+    //             let fcost = costs(*f);
+    //             let xcost = costs(*x);
+    //             fcost + xcost + self.epsilon
+    //         }
+    //         Lambda::Lam([b]) => {
+    //             let bcost = costs(*b);
+    //             bcost + self.epsilon
+    //         }
+    //         Lambda::Programs(ps) => {
+    //             ps.iter().map(|p| costs(*p)).sum()
+    //         }
+    //     }
+    // }
+    // fn eclass_cost(&mut self, eclass: &EClass<Lambda,Data>) -> BeamCost
+    // {
+    //     eclass.min(|enode| self.enode_cost(enode))
+    //     let mut cost_nolambda = 0.;
+    //     let mut cost_any = 0.;
+    //     for enode in eclass.iter() {
+    //         let cost = self.enode_cost(enode);
+    //         cost_nolambda += cost.cost_nolambda;
+    //         cost_any += cost.cost_any;
+    //     }
+    //     BeamCost {cost_nolambda, cost_any}
+    // }
 }
 
 
