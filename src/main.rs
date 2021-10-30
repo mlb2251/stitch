@@ -636,30 +636,35 @@ struct Beam {
 struct BeamSearch {
     epsilon: f64,
     beam_size: usize,
-    seen: HashMap<Id,Beam>,
+    seen: HashMap<Id,Option<Beam>>,
 }
 
 impl BeamSearch {
-    fn eclass_cost(&mut self, eclass: Id, egraph: &EGraph) -> Beam {
+    fn eclass_cost(&mut self, eclass: Id, egraph: &EGraph) {
         if self.seen.contains_key(&eclass) {
-            return self.seen[&eclass]
+            return
         }
         // temporarily give ourselves infinite cost so if we encounter this
         // eclass further down in recursion we won't self loop
-        self.seen.insert(eclass, BeamCost {
-            cost_nolambda: f64::INFINITY,
-            child_nolambda: Lambda::Var(100), // dummy
-            cost_any: f64::INFINITY,
-            child_any: Lambda::Var(100), // dummy
+        self.seen.insert(eclass, Beam {
+            cost_nolambda_inventionless: (f64::INFINITY,Lambda::Var(100)),
+            cost_any_inventionless: (f64::INFINITY,Lambda::Var(100)),
+            cost_nolambda_under_invention: HashMap::new(),
+            cost_any_under_invention: HashMap::new(),
         });
+
         let enodes: Vec<Lambda> = egraph[eclass].iter().cloned().collect();
         let costs: Vec<f64> = enodes.iter().map(|enode| {
             match enode {
-                Lambda::Var(_) => 1.,
-                Lambda::Prim(_) => 1.,
+                Lambda::Var(_) | Lambda::Prim(_) => {
+                    self.seen[&eclass].cost_any_inventionless = (1.,enode.clone());
+                    self.seen[&eclass].cost_nolambda_inventionless = (1.,enode.clone());
+                }
                 Lambda::App([f, x]) => {
-                    let fcost = self.eclass_cost(*f, egraph).cost_nolambda;
-                    let xcost = self.eclass_cost(*x, egraph).cost_any;
+                    self.eclass_cost(*f, egraph);
+                    self.eclass_cost(*x, egraph);
+                    let fcost = self.seen[f].cost_nolambda_inventionless.0;
+                    let xcost = self.seen[x].cost_any_inventionless.0;
                     fcost + xcost + self.epsilon
                 }
                 Lambda::Lam([b]) => {
