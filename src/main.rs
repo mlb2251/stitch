@@ -644,35 +644,57 @@ impl BeamSearch {
         if self.seen.contains_key(&eclass) {
             return
         }
-        // temporarily give ourselves infinite cost so if we encounter this
-        // eclass further down in recursion we won't self loop
-        self.seen.insert(eclass, Beam {
+        // sentinel so we know if we're trying to self loop
+        // todo question: what if its a self loop from nolambda to any or vis versa tho is that ever a thing?
+        self.seen.insert(eclass, None);
+
+        let mut beam = Beam {
             cost_nolambda_inventionless: (f64::INFINITY,Lambda::Var(100)),
             cost_any_inventionless: (f64::INFINITY,Lambda::Var(100)),
             cost_nolambda_under_invention: HashMap::new(),
             cost_any_under_invention: HashMap::new(),
-        });
+        };
 
         let enodes: Vec<Lambda> = egraph[eclass].iter().cloned().collect();
         let costs: Vec<f64> = enodes.iter().map(|enode| {
             match enode {
                 Lambda::Var(_) | Lambda::Prim(_) => {
-                    self.seen[&eclass].cost_any_inventionless = (1.,enode.clone());
-                    self.seen[&eclass].cost_nolambda_inventionless = (1.,enode.clone());
+                    let cost = 1.;
+                    beam.cost_any_inventionless = (cost,enode.clone());
+                    beam.cost_nolambda_inventionless = (cost,enode.clone());
                 }
                 Lambda::App([f, x]) => {
                     self.eclass_cost(*f, egraph);
                     self.eclass_cost(*x, egraph);
-                    let fcost = self.seen[f].cost_nolambda_inventionless.0;
-                    let xcost = self.seen[x].cost_any_inventionless.0;
-                    fcost + xcost + self.epsilon
+                    if self.seen[f].is_none() || self.seen[x].is_none() {
+                        beam.cost_any_inventionless = (f64::INFINITY,enode.clone());
+                        beam.cost_nolambda_inventionless = (f64::INFINITY,enode.clone());
+                    } else {
+                        let fcost = self.seen[f].unwrap().cost_nolambda_inventionless.0;
+                        let xcost = self.seen[x].unwrap().cost_any_inventionless.0;
+                        let cost = fcost + xcost + self.epsilon;
+                        beam.cost_any_inventionless = (cost,enode.clone());
+                        beam.cost_nolambda_inventionless = (cost,enode.clone());
+                    }
                 }
                 Lambda::Lam([b]) => {
-                    let bcost = self.eclass_cost(*b, egraph).cost_any;
-                    bcost + self.epsilon
+                    self.eclass_cost(*b, egraph);
+                    let bcost = self.seen[b].unwrap().cost_any_inventionless.0;
+                    let cost = bcost + self.epsilon;
+                    beam.cost_any_inventionless = (cost,enode.clone());
+                    for (inv,(cost,_)) in self.seen[b].unwrap().cost_any_under_invention.iter() {
+                        beam.cost_any_under_invention.insert(*inv, (*cost,enode.clone()));
+                    }
                 }
                 Lambda::Programs(ps) => {
-                    ps.iter().map(|p| self.eclass_cost(*p, egraph).cost_any).sum()
+                    ps.iter().for_each(|p| self.eclass_cost(*p, egraph));
+                    if ps.iter().any(|p| self.seen[p].is_none()) {
+                        beam.cost_any_inventionless = (f64::INFINITY,enode.clone());
+                        beam.cost_nolambda_inventionless = (f64::INFINITY,enode.clone());
+                    }
+                    let cost = ps.iter().map(|p| self.seen[p].unwrap().cost_any_inventionless.0).sum();
+                    beam.cost_any_inventionless = (cost,enode.clone());
+                    beam.cost_nolambda_inventionless = (cost,enode.clone());
                 }
             }
         }).collect();
