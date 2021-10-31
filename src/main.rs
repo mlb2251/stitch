@@ -664,94 +664,116 @@ impl BeamSearch {
 
         let enodes: Vec<Lambda> = egraph[eclass].iter().cloned().collect();
         enodes.iter().enumerate().for_each(|(node_id,enode)| {
-            match enode {
+            // recurse on children
+            enode.for_each(|eclass| self.eclass_cost(eclass, egraph));
+            let (cost_inventionless,cost_inventions) = match enode {
                 Lambda::Var(_) | Lambda::Prim(_) => {
-                    let cost_inventionless = 1.;
-                    update_if_better(&mut beam.cost_any_inventionless, (cost_inventionless,node_id));
-                    update_if_better(&mut beam.cost_nolambda_inventionless, (cost_inventionless,node_id));
+                    (1.,vec![])
                 }
                 Lambda::App([f, x]) => {
-                    self.eclass_cost(*f, egraph);
-                    self.eclass_cost(*x, egraph);
-                    match (self.seen[f],self.seen[x]) {
+                    match (&self.seen[f],&self.seen[x]) {
                         (Some(fbeam),Some(xbeam)) => {
+                            // inventionless costs
                             let fcost_inventionless = fbeam.cost_nolambda_inventionless.0;
                             let xcost_inventionless = xbeam.cost_any_inventionless.0;
                             let cost_inventionless = fcost_inventionless + xcost_inventionless + self.epsilon;
-                            update_if_better(&mut beam.cost_any_inventionless, (cost_inventionless,node_id));
-                            update_if_better(&mut beam.cost_nolambda_inventionless, (cost_inventionless,node_id));
+                            
+                            // figure out which inventions helped `f` and `x` and union them
                             let mut inventions: HashSet<Id> = fbeam.cost_nolambda_under_invention.keys().cloned().collect();
                             inventions.extend(xbeam.cost_any_under_invention.keys().cloned());
-                            inventions.iter().for_each(|invention| {
+                            
+                            // costs with inventions
+                            let cost_inventions: Vec<(Id,f64)> = inventions.iter().map(|invention| {
                                 let fcost_invention = fbeam.cost_nolambda_under_invention.get(invention)
                                     .map(|(cst,nid)|*cst) // extract out cost from cost,node_id tuple
                                     .unwrap_or(fcost_inventionless); // default to inventionless
                                 let xcost_invention = xbeam.cost_any_under_invention.get(invention)
                                     .map(|(cst,nid)|*cst)
                                     .unwrap_or(xcost_inventionless);
-                                let cost_invention = fcost_invention + xcost_invention + self.epsilon;
-                                let mut entry = beam.cost_any_under_invention.entry(*invention).or_insert((f64::INFINITY,usize::MAX));
-                                update_if_better(entry, (cost_invention,node_id));
-                                let mut entry = beam.cost_nolambda_under_invention.entry(*invention).or_insert((f64::INFINITY,usize::MAX));
-                                update_if_better(entry, (cost_invention,node_id));
-                            });
+                                (*invention, fcost_invention + xcost_invention + self.epsilon)
+                            }).collect();
+                            (cost_inventionless,cost_inventions)
                         }
-                        _ => {} // one of the pointers caused a loop so not worth pursuing
+                        _ => {
+                            // one of the pointers caused a loop so not worth pursuing
+                            (f64::INFINITY,vec![])
+                        } 
                     }
                 }
                 Lambda::Lam([b]) => {
-                    self.eclass_cost(*b, egraph);
-                    let bcost = self.seen[b].unwrap().cost_any_inventionless.0;
-                    let cost = bcost + self.epsilon;
-                    beam.cost_any_inventionless = (cost,node_id);
-                    for (inv,(inv_bcost,_)) in self.seen[b].unwrap().cost_any_under_invention.iter() {
-                        let inv_cost = inv_bcost + self.epsilon;
-                        assert!(inv_cost <= cost); // it would be nonsensical if this invention was chosen for a child yet didnt improve the cost of the parent above the baseline
-                        beam.cost_any_under_invention.insert(*inv, (inv_cost,node_id));
+                    match &self.seen[b] {
+                        Some(bbeam) => {
+                            // inventionless cost
+                            let bcost_inventionless = bbeam.cost_any_inventionless.0;
+                            let cost_inventionless = bcost_inventionless + self.epsilon;
+
+                            // cost with inventions
+                            let cost_inventions: Vec<(Id,f64)> = bbeam.cost_any_under_invention.iter()
+                                .map(|(invention,(cst,nid))| {
+                                    (*invention, *cst + self.epsilon)
+                                }).collect();
+                            (cost_inventionless,cost_inventions)
+                        }
+                        None => {
+                            // looped back to something we've seen so not worth pursuing
+                            (f64::INFINITY,vec![])
+                        }
                     }
                 }
                 Lambda::Programs(ps) => {
-                    ps.iter().for_each(|p| self.eclass_cost(*p, egraph));
                     if ps.iter().any(|p| self.seen[p].is_none()) {
-                        beam.cost_any_inventionless = (f64::INFINITY,node_id);
-                        beam.cost_nolambda_inventionless = (f64::INFINITY,node_id);
+                        (f64::INFINITY,vec![]) // self loop
+                    } else {
+                        let costs_inventionless: Vec<f64> = ps.iter().map(|p| self.seen[p].as_ref().unwrap().cost_any_inventionless.0).collect();
+                        let cost_inventionless = costs_inventionless.iter().sum();
+
+                        // union together all the useful inventions of diff programs
+                        let mut inventions: HashSet<Id> = HashSet::new();
+                        for p in ps.iter().map(|p| self.seen[p].as_ref().unwrap()){
+                            inventions.extend(p.cost_any_under_invention.keys().cloned())
+                        }
+
+                        // cost with inventions
+                        let cost_inventions: Vec<(Id,f64)> = inventions.iter().enumerate().map(|(i,invention)|{
+                            let cost = ps.iter().map(|p| self.seen[p].as_ref().unwrap()
+                                .cost_any_under_invention.get(invention)
+                                .map(|(cst,_)|*cst)
+                                .unwrap_or(costs_inventionless[i])
+                            ).sum();
+                            (*invention,cost)
+                        }).collect();
+                        (cost_inventionless,cost_inventions)
                     }
-                    let cost = ps.iter().map(|p| self.seen[p].unwrap().cost_any_inventionless.0).sum();
-                    beam.cost_any_inventionless = (cost,node_id);
-                    beam.cost_nolambda_inventionless = (cost,node_id);
+                }
+            };
+            // update inventionless costs
+            match enode {
+                Lambda::Lam(_) => {
+                    update_if_better(&mut beam.cost_any_inventionless, (cost_inventionless,node_id));
+                    for (inv,cost) in cost_inventions {
+                        let entry = beam.cost_any_under_invention.entry(inv).or_insert((f64::INFINITY,usize::MAX));
+                        update_if_better(entry, (cost,node_id));
+                    }
+                }
+                _ => {
+                    update_if_better(&mut beam.cost_nolambda_inventionless, (cost_inventionless,node_id));
+                    update_if_better(&mut beam.cost_any_inventionless, (cost_inventionless,node_id));
+                    for (inv,cost) in cost_inventions {
+                        let entry = beam.cost_any_under_invention.entry(inv).or_insert((f64::INFINITY,usize::MAX));
+                        update_if_better(entry, (cost,node_id));
+                        let entry = beam.cost_nolambda_under_invention.entry(inv).or_insert((f64::INFINITY,usize::MAX));
+                        update_if_better(entry, (cost,node_id));
+                    }
                 }
             }
+            
         });
 
-        let mut beamcost = BeamCost {
-            cost_nolambda: f64::INFINITY,
-            child_nolambda: Lambda::Var(100), // dummy
-            cost_any: f64::INFINITY,
-            child_any: Lambda::Var(100), // dummy
-        };
-
-        for (node,cost) in enodes.iter().zip(costs.iter()) {
-            if *cost < beamcost.cost_any {
-                beamcost.cost_any = *cost;
-                beamcost.child_any = node.clone();
-            }
-            match node {
-                Lambda::Lam(_) => { }
-                _ => {
-                    if *cost < beamcost.cost_nolambda {
-                        beamcost.cost_nolambda = *cost;
-                        beamcost.child_nolambda = node.clone();
-                    }
-                }
-            }
-        }
-
         // all terms should have a legit noninfininte cost
-        assert!(beamcost.cost_any < f64::INFINITY);
-        assert!(beamcost.cost_nolambda < f64::INFINITY);
+        // assert!(beamcost.cost_any < f64::INFINITY);
+        // assert!(beamcost.cost_nolambda < f64::INFINITY);
 
-        self.seen.insert(eclass, beamcost.clone());
-        return beamcost
+        self.seen.insert(eclass, Some(beam)); 
     }
 
 
