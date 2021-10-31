@@ -1,10 +1,7 @@
 use egg::{rewrite as rw, *};
 use std::collections::{HashSet,HashMap};
 
-#[macro_use]
 extern crate log;
-
-
 
 const ARGC: i32 = 2;
 
@@ -19,12 +16,6 @@ define_language! {
 }
 
 impl Lambda {
-    // fn num(&self) -> Option<i32> {
-    //     match self {
-    //         Lambda::Num(n) => Some(*n),
-    //         _ => None,
-    //     }
-    // }
 }
 
 type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
@@ -47,10 +38,6 @@ fn extract(eclass: Id, egraph: &EGraph) -> RecExpr<Lambda> {
 }
 
 fn extract_enode(enode: Lambda, egraph: &EGraph) -> String {
-    // let mut expr : RecExpr<Lambda> = RecExpr::default();
-    // enode.children().iter().for_each(|c| {
-    //     expr.add(extract(*c, egraph).to_string());
-    // });
     match enode {
         Lambda::Prim(p) => {format!("{}",p)},
         Lambda::Var(i) => {format!("{}",i)},
@@ -59,24 +46,6 @@ fn extract_enode(enode: Lambda, egraph: &EGraph) -> String {
         _ => {format!("not rendered")},
     }
 }
-
-
-// fn eval(egraph: &EGraph, enode: &Lambda) -> Option<(Lambda, PatternAst<Lambda>)> {
-//     let x = |i: &Id| egraph[*i].data.constant.as_ref().map(|c| &c.0);
-//     match enode {
-//         Lambda::Num(n) => Some((enode.clone(), format!("{}", n).parse().unwrap())),
-//         Lambda::Bool(b) => Some((enode.clone(), format!("{}", b).parse().unwrap())),
-//         Lambda::Add([a, b]) => Some((
-//             Lambda::Num(x(a)?.num()? + x(b)?.num()?),
-//             format!("(+ {} {})", x(a)?, x(b)?).parse().unwrap(),
-//         )),
-//         Lambda::Eq([a, b]) => Some((
-//             Lambda::Bool(x(a)? == x(b)?),
-//             format!("(= {} {})", x(a)?, x(b)?).parse().unwrap(),
-//         )),
-//         _ => None,
-//     }
-// }
 
 impl Analysis<Lambda> for LambdaAnalysis {
     type Data = Data;
@@ -137,180 +106,6 @@ fn var(s: &str) -> Var {
     s.parse().unwrap()
 }
 
-fn is_not_same_var(v1: Var, v2: Var) -> impl Fn(&mut EGraph, Id, &Subst) -> bool {
-    move |egraph, _, subst| egraph.find(subst[v1]) != egraph.find(subst[v2])
-}
-
-// fn not_all_same(a: Var, b: Var, c: Pattern<Lambda>) -> impl Fn(&mut EGraph, Id, &Subst) -> bool {
-//     move |egraph, eclass, subst|{
-//         println!("checking sameness");
-//         if egraph.find(subst[a]) != egraph.find(subst[b]) { return true; }
-//         println!("passed first");
-//         // should be rare to get this far
-//         let cc = c.apply_one(egraph, eclass, subst);
-//         assert_eq!(cc.len(), 1);
-//         let res = egraph.find(subst[a]) != egraph.find(cc[0]);
-//         println!("passed second? {}", res);
-//         println!("extracted: cc: {} a: {}",extract(cc[0],egraph), extract(egraph.find(subst[a]),egraph));
-//         res
-//     }
-// }
-
-
-
-// egg::test_fn! {
-//     lambda_under, rules(),
-//     "(lam x (+ 4
-//                (app (lam y (var y))
-//                     4)))"
-//     =>
-//     // "(lam x (+ 4 (let y 4 (var y))))",
-//     // "(lam x (+ 4 4))",
-//     "(lam x 8))",
-// }
-
-// egg::test_fn! {
-//     lambda_if_elim, rules(),
-//     "(if (= (var a) (var b))
-//          (+ (var a) (var a))
-//          (+ (var a) (var b)))"
-//     =>
-//     "(+ (var a) (var b))"
-// }
-
-// egg::test_fn! {
-//     lambda_let_simple, rules(),
-//     "(let x 0
-//      (let y 1
-//      (+ (var x) (var y))))"
-//     =>
-//     // "(let ?a 0
-//     //  (+ (var ?a) 1))",
-//     // "(+ 0 1)",
-//     "1",
-// }
-
-// egg::test_fn! {
-//     #[should_panic(expected = "Could not prove goal 0")]
-//     lambda_capture, rules(),
-//     "(let x 1 (lam x (var x)))" => "(lam x 1)"
-// }
-
-// egg::test_fn! {
-//     #[should_panic(expected = "Could not prove goal 0")]
-//     lambda_capture_free, rules(),
-//     "(let y (+ (var x) (var x)) (lam x (var y)))" => "(lam x (+ (var x) (var x)))"
-// }
-
-// egg::test_fn! {
-//     #[should_panic(expected = "Could not prove goal 0")]
-//     lambda_closure_not_seven, rules(),
-//     "(let five 5
-//      (let add-five (lam x (+ (var x) (var five)))
-//      (let five 6
-//      (app (var add-five) 1))))"
-//     =>
-//     "7"
-// }
-
-// egg::test_fn! {
-//     lambda_compose, rules(),
-//     "(let compose (lam f (lam g (lam x (app (var f)
-//                                        (app (var g) (var x))))))
-//      (let add1 (lam y (+ (var y) 1))
-//      (app (app (var compose) (var add1)) (var add1))))"
-//     =>
-//     "(lam ?x (+ 1
-//                 (app (lam ?y (+ 1 (var ?y)))
-//                      (var ?x))))",
-//     "(lam ?x (+ (var ?x) 2))"
-// }
-
-// egg::test_fn! {
-//     lambda_if_simple, rules(),
-//     "(if (= 1 1) 7 9)" => "7"
-// }
-
-// egg::test_fn! {
-//     lambda_compose_many, rules(),
-//     "(let compose (lam f (lam g (lam x (app (var f)
-//                                        (app (var g) (var x))))))
-//      (let add1 (lam y (+ (var y) 1))
-//      (app (app (var compose) (var add1))
-//           (app (app (var compose) (var add1))
-//                (app (app (var compose) (var add1))
-//                     (app (app (var compose) (var add1))
-//                          (app (app (var compose) (var add1))
-//                               (app (app (var compose) (var add1))
-//                                    (var add1)))))))))"
-//     =>
-//     "(lam ?x (+ (var ?x) 7))"
-// }
-
-// egg::test_fn! {
-//     #[cfg(not(debug_assertions))]
-//     lambda_function_repeat, rules(),
-//     runner = Runner::default()
-//         .with_time_limit(std::time::Duration::from_secs(20))
-//         .with_node_limit(150_000)
-//         .with_iter_limit(60),
-//     "(let compose (lam f (lam g (lam x (app (var f)
-//                                        (app (var g) (var x))))))
-//      (let repeat (fix repeat (lam fun (lam n
-//         (if (= (var n) 0)
-//             (lam i (var i))
-//             (app (app (var compose) (var fun))
-//                  (app (app (var repeat)
-//                            (var fun))
-//                       (+ (var n) -1)))))))
-//      (let add1 (lam y (+ (var y) 1))
-//      (app (app (var repeat)
-//                (var add1))
-//           2))))"
-//     =>
-//     "(lam ?x (+ (var ?x) 2))"
-// }
-
-// egg::test_fn! {
-//     lambda_if, rules(),
-//     "(let zeroone (lam x
-//         (if (= (var x) 0)
-//             0
-//             1))
-//         (+ (app (var zeroone) 0)
-//         (app (var zeroone) 10)))"
-//     =>
-//     // "(+ (if false 0 1) (if true 0 1))",
-//     // "(+ 1 0)",
-//     "1",
-// }
-
-// egg::test_fn! {
-//     #[cfg(not(debug_assertions))]
-//     lambda_fib, rules(),
-//     runner = Runner::default()
-//         .with_iter_limit(60)
-//         .with_node_limit(50_000),
-//     "(let fib (fix fib (lam n
-//         (if (= (var n) 0)
-//             0
-//         (if (= (var n) 1)
-//             1
-//         (+ (app (var fib)
-//                 (+ (var n) -1))
-//             (app (var fib)
-//                 (+ (var n) -2)))))))
-//         (app (var fib) 4))"
-//     => "3"
-// }
-
-
-fn diff_eclasses(v1: Var, v2: Var) -> impl Fn(&mut EGraph, Id, &Subst) -> bool {
-    move |egraph, _, subst| egraph.find(subst[v1]) != egraph.find(subst[v2])
-}
-
-
-
 // here I copied the ConditionEqual code to make my own
 pub struct ConditionNotEqual<A1, A2>(pub A1, pub A2);
 
@@ -342,24 +137,6 @@ where
         vars
     }
 }
-
-fn no_upward_refs(v: Var) -> impl Fn(&mut EGraph, Id, &Subst) -> bool {
-    move |egraph, _, subst| egraph[subst[v]].data.upward_refs.is_empty()
-}
-fn zero_not_in_upward_refs(v: Var) -> impl Fn(&mut EGraph, Id, &Subst) -> bool {
-    move |egraph, _, subst| !egraph[subst[v]].data.upward_refs.contains(&0)
-}
-
-// fn large_upward_refs(v: Var) -> impl Fn(&mut EGraph, Id, &Subst) -> bool {
-//     // true if has an outgoing ref of 2 or more (meaning theres a )
-//     move |egraph, _, subst| {
-//         match egraph[subst[v]].data.upward_refs.iter().max() {
-//             Some(max) => ,
-//             None => ,
-//         }
-//         }
-//     }
-// }
 
 
 struct Shifter {
@@ -587,10 +364,6 @@ fn inline(
         Some(new_eclass)
 }
 
-
-
-
-
 struct BeamSearch {
     epsilon: f64,
     beam_size: usize,
@@ -598,39 +371,13 @@ struct BeamSearch {
     seen: HashMap<Id,Option<Beam>>,
 }
 
+#[derive(Clone,Debug)]
 struct Beam {
     cost_nolambda_inventionless: (f64,usize),
     cost_any_inventionless: (f64,usize),
     cost_nolambda_under_invention: HashMap<Id,(f64,usize)>,
     cost_any_under_invention: HashMap<Id,(f64,usize)>,
 }
-
-
-fn beam_extract(
-    eclass: Id,
-    inv: Id,
-    nolambda: bool,
-    beam_search: &BeamSearch,
-    egraph: &EGraph) {
-        // extract the cheapest program under an invention
-        // beam_search.seen[&eclass];
-
-        let mut r: RecExpr<Lambda> = RecExpr::default();
-        let prev = r.add(Lambda::Var(0));
-        r.add(Lambda::Lam([prev]));
-        ()
-}
-
-fn beam_extract_rec(
-
-    eclass: Id,
-    inv: Id,
-    nolambda: bool,
-    beam_search: &BeamSearch,
-    egraph: &EGraph) {
-
-    }
-
 
 fn update_if_better(old: &mut (f64,usize), new: (f64,usize)) {
     if new.0 < old.0 {
@@ -646,6 +393,87 @@ fn update_if_better_inv(cost_under_inv: &mut HashMap<Id,(f64,usize)>, inv: Id, n
 
 
 impl BeamSearch {
+
+    fn best_inventions(
+        &self,
+        eclass: Id,
+        nolambda: bool
+    ) -> (f64, Vec<(f64,Id)>) {
+        // gives a sorted list of the best inventions (and costs under them) along with the inventionless cost
+        let beam: &Beam = self.seen[&eclass].as_ref().unwrap();
+        let inventionless_cost: f64 = if nolambda {beam.cost_nolambda_inventionless.0} else {beam.cost_any_inventionless.0};
+        let hashmap = if nolambda {&beam.cost_nolambda_under_invention} else {&beam.cost_any_under_invention};
+        let mut invention_costs: Vec<_> = hashmap.iter().map(|(inv,(cost,_))| (*cost,*inv)).collect();
+        invention_costs.sort_by(|(cost1,_),(cost2,_)| cost1.partial_cmp(cost2).unwrap());
+        (inventionless_cost, invention_costs)
+    }
+
+    fn extract_cheapest(
+        &mut self,
+        root: Id,
+        inv: Option<Id>, // invention to use when extracting. None means no invention.
+        egraph: &EGraph,
+    ) -> RecExpr<Lambda> {
+        // runs beam search in case we haven't (cached if we already have)
+        self.eclass_cost(root, egraph);
+
+        let mut expr = RecExpr::default();
+        self.extract_cheapest_rec(root, inv, false, egraph, &mut expr);
+        expr
+    }
+
+    fn extract_cheapest_rec(
+        &mut self,
+        root: Id,
+        inv: Option<Id>, // invention to use when extracting. None means no invention.
+        nolambda: bool, // whether or not a toplevel lambda is okay
+        egraph: &EGraph,
+        into_expr: &mut RecExpr<Lambda> // expr we're extracting into
+    ) -> Id { // returns the recexpr id of this node in into_expr
+
+        if let Some(inv) = inv {
+            if inv == root {
+                // this node is the we're extracting with
+                return into_expr.add(Lambda::Prim(format!("inv{}",inv).into()));
+            }
+        }
+
+        let beam: &Beam = self.seen[&root].as_ref().unwrap();
+
+        let inventionless_cost: (f64,usize) = if nolambda {beam.cost_nolambda_inventionless} else {beam.cost_any_inventionless};
+
+        let (cost,node_id) = match inv {
+            Some(inv) => {
+                let hashmap = if nolambda {&beam.cost_nolambda_under_invention} else {&beam.cost_any_under_invention};
+                hashmap.get(&inv).unwrap_or(&inventionless_cost).clone()
+            }
+            None => {inventionless_cost.clone()}
+        };
+
+        match &egraph[root].nodes[node_id] {
+            Lambda::Prim(prim) => {
+                into_expr.add(Lambda::Prim(*prim))
+            }
+            Lambda::Var(var) => {
+                into_expr.add(Lambda::Var(*var))
+            }
+            Lambda::App([f,x]) => {
+                let f_id = self.extract_cheapest_rec(*f, inv, true, egraph, into_expr);
+                let x_id = self.extract_cheapest_rec(*x, inv, false, egraph, into_expr);
+                into_expr.add(Lambda::App([f_id,x_id]))
+            }
+            Lambda::Lam([b]) => {
+                let b_id = self.extract_cheapest_rec(*b, inv, false, egraph, into_expr);
+                into_expr.add(Lambda::Lam([b_id]))
+            }
+            Lambda::Programs(programs) => {
+                let p_ids: Vec<Id> = programs.iter().map(|p| self.extract_cheapest_rec(*p, inv, false, egraph, into_expr)).collect();
+                into_expr.add(Lambda::Programs(p_ids))
+            }
+        }
+    }
+
+
     fn eclass_cost(&mut self, eclass: Id, egraph: &EGraph) {
         // compute the cost of an eclass and add a Beam to self.seen for it. Recursively calculate children as needed.
         if self.seen.contains_key(&eclass) {
@@ -703,6 +531,18 @@ impl BeamSearch {
         beam.cost_nolambda_under_invention.retain(|_,(cost,_)| *cost < best_cost_inventionless);
         // no assertion about infinity for no_lambda since sometimes that will be impossible to construct
 
+        // now lets narrow the beams to the beam_size
+        let mut invention_costs: Vec<_> = beam.cost_any_under_invention.into_iter().collect();
+        invention_costs.sort_by(|(_,(cost1,_)),(_,(cost2,_))| cost1.partial_cmp(cost2).unwrap());
+        invention_costs.truncate(self.beam_size);
+        beam.cost_any_under_invention = invention_costs.into_iter().collect();
+
+        //narrow the nolambda beam
+        let mut invention_costs: Vec<_> = beam.cost_nolambda_under_invention.into_iter().collect();
+        invention_costs.sort_by(|(_,(cost1,_)),(_,(cost2,_))| cost1.partial_cmp(cost2).unwrap());
+        invention_costs.truncate(self.beam_size);
+        beam.cost_nolambda_under_invention = invention_costs.into_iter().collect();
+
         self.seen.insert(eclass, Some(beam)); 
     }
 
@@ -710,23 +550,6 @@ impl BeamSearch {
         // calculate the cost of an enode and return the
         // inventionless cost as well as the cost under any inventions that
         // improve it
-
-        // union together all the useful inventions of our child eclasses if we have children
-        // since these same inventions are the only ones that will improve our cost as well
-        // let mut inventions: HashSet<Id> = HashSet::new();
-        // for child in enode.children() {
-        //     match self.seen[child] {
-        //         Some(beam) => {
-        //             inventions.extend(beam.cost_any_under_invention.keys().cloned());
-        //         },
-        //         None => {
-        //             // this is a self loop, so we can't do anything with it
-        //             // todo question: what if its a self loop from nolambda to any or vis versa tho is that ever a thing?
-        //             continue;
-        //         }
-        //     }
-        //     inventions.extend(p.cost_any_under_invention.keys().cloned())
-        // }
 
         match enode {
             Lambda::Var(_) | Lambda::Prim(_) => {
@@ -958,15 +781,20 @@ fn main() {
         };
         println!("beam searchin");
         beam_search.eclass_cost(root, &egraph);
-        let root_beam = beam_search.seen[&egraph.find(root)].as_ref().unwrap();
-        // beam.cost_any_inventionless
+
+        let (inventionless_cost, top_inventions) = beam_search.best_inventions(root, false);
+
+        let expr = beam_search.extract_cheapest(root, None, &egraph);
+        println!("cheapest inventionless ({}):\n{}\n", inventionless_cost, expr);
+
+        for (i,(cost,invention)) in top_inventions.iter().take(5).enumerate() {
+            let inv_expr = beam_search.extract_cheapest(*invention, None, &egraph);
+            let rewritten_expr = beam_search.extract_cheapest(root, Some(*invention), &egraph);
+            println!("Invention {}: {}", i, inv_expr);
+            println!("Rewritten({}):\n{}\n", cost, rewritten_expr);
+        }
 
 
-        println!("did beam search");
-        let mut r: RecExpr<Lambda> = RecExpr::default();
-        let prev = r.add(Lambda::Var(0));
-        r.add(Lambda::Lam([prev]));
-        println!("{}", r);
         // runner.egraph.dot().to_png("target/final.png").unwrap();
     }
     else { 
