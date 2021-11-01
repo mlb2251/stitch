@@ -32,17 +32,17 @@ struct Data {
 
 fn extract(eclass: Id, egraph: &EGraph) -> RecExpr<Lambda> {
     // expensively extracts a small program from the eclass
-    let mut extractor = Extractor::new(&egraph, AstSize);
+    let mut extractor = Extractor::new(&egraph, ProgramCost);
     let (_,p) = extractor.find_best(eclass);
     p // this is printable
 }
 
-fn extract_enode(enode: Lambda, egraph: &EGraph) -> String {
+fn extract_enode(enode: &Lambda, egraph: &EGraph) -> String {
     match enode {
         Lambda::Prim(p) => {format!("{}",p)},
         Lambda::Var(i) => {format!("{}",i)},
-        Lambda::App([f,x]) => {format!("(app {} {})",extract(f,egraph),extract(x,egraph))},
-        Lambda::Lam([b]) => {format!("(lam {})",extract(b,egraph))},
+        Lambda::App([f,x]) => {format!("(app {} {})",extract(*f,egraph),extract(*x,egraph))},
+        Lambda::Lam([b]) => {format!("(lam {})",extract(*b,egraph))},
         _ => {format!("not rendered")},
     }
 }
@@ -104,6 +104,10 @@ impl Analysis<Lambda> for LambdaAnalysis {
 
 fn var(s: &str) -> Var {
     s.parse().unwrap()
+}
+
+fn zero_not_in_upward_refs(v: Var) -> impl Fn(&mut EGraph, Id, &Subst) -> bool {
+    move |egraph, _, subst| !egraph[subst[v]].data.upward_refs.contains(&0)
 }
 
 // here I copied the ConditionEqual code to make my own
@@ -365,7 +369,6 @@ fn inline(
 }
 
 struct BeamSearch {
-    epsilon: f64,
     beam_size: usize,
     inventions: HashSet<Id>,
     seen: HashMap<Id,Option<Beam>>,
@@ -391,6 +394,23 @@ fn update_if_better_inv(cost_under_inv: &mut HashMap<Id,(f64,usize)>, inv: Id, n
     }
 }
 
+const EPSILON_COST: f64 = 0.01;
+
+struct ProgramCost;
+impl CostFunction<Lambda> for ProgramCost {
+    type Cost = f64;
+    fn cost<C>(&mut self, enode: &Lambda, mut costs: C) -> Self::Cost
+    where
+        C: FnMut(Id) -> Self::Cost
+    {
+        match enode {
+            Lambda::Var(_) | Lambda::Prim(_) => 1.,
+            Lambda::App([f, x]) => EPSILON_COST + costs(*f) + costs(*x),
+            Lambda::Lam([b]) => EPSILON_COST + costs(*b),
+            Lambda::Programs(ps) => ps.iter().map(|p| costs(*p)).sum(),
+        }
+    }
+}
 
 impl BeamSearch {
 
@@ -419,6 +439,14 @@ impl BeamSearch {
 
         let mut expr = RecExpr::default();
         self.extract_cheapest_rec(root, inv, false, egraph, &mut expr);
+
+        // ProgramCost.rec_cost(&expr) - 
+
+        // let beam: &Beam = self.seen[&root].as_ref().unwrap();
+        // beam.cost_any_under_invention.get(invention)
+        //                         .map(|(cst,_)|*cst)
+        //                         .unwrap_or(xcost_inventionless);
+
         expr
     }
 
@@ -449,7 +477,10 @@ impl BeamSearch {
             }
             None => {inventionless_cost.clone()}
         };
-
+        if node_id == usize::MAX {
+            println!("{:?} {} {}", inv, extract(root, &egraph), cost);
+            println!("{:?}",beam);
+        }
         match &egraph[root].nodes[node_id] {
             Lambda::Prim(prim) => {
                 into_expr.add(Lambda::Prim(*prim))
@@ -502,7 +533,13 @@ impl BeamSearch {
             enode.for_each(|eclass| self.eclass_cost(eclass, egraph));
 
             // get inventionless and inventionful costs
-            let (cost_inventionless,cost_inventions) = self.enode_cost(enode);
+            let (cost_inventionless,cost_inventions) = self.enode_cost(enode,&egraph);
+            // if !(cost_inventionless < f64::INFINITY) {
+            //     println!("enode cost invless is inf: {}",extract_enode(enode, &egraph));
+            //     // println!("len:{:?} cost[0]:{:?}",enodes.len(), self.enode_cost(&enodes[0],&egraph).0);
+            //     panic!("enode cost invless is infinite");
+            // }
+            // cost may very well be infinite thats ok
 
             // update the beam if these costs are better than what we have
             if let Lambda::Lam(_) = enode {
@@ -513,8 +550,8 @@ impl BeamSearch {
                 }
             } else {
                 // not a lambda case: update the `any` and `nolambda` costs
-                update_if_better(&mut beam.cost_nolambda_inventionless, (cost_inventionless,node_id));
                 update_if_better(&mut beam.cost_any_inventionless, (cost_inventionless,node_id));
+                update_if_better(&mut beam.cost_nolambda_inventionless, (cost_inventionless,node_id));
                 for (inv,cost) in cost_inventions {
                     update_if_better_inv(&mut beam.cost_any_under_invention, inv, (cost,node_id));
                     update_if_better_inv(&mut beam.cost_nolambda_under_invention, inv, (cost,node_id));
@@ -522,10 +559,22 @@ impl BeamSearch {
             }
         };
 
+        // if !(beam.cost_any_inventionless.0 < f64::INFINITY) {
+        //     println!("{}", extract(eclass, &egraph));
+        //     panic!("aaa");
+        // }
+
         // no point keeping around inventionful values that are worse than inventionless ones
         let best_cost_inventionless = beam.cost_any_inventionless.0.clone();
         beam.cost_any_under_invention.retain(|_,(cost,_)| *cost < best_cost_inventionless);
-        assert!(best_cost_inventionless < f64::INFINITY);
+        // assert!(best_cost_inventionless < f64::INFINITY);
+        // if !(best_cost_inventionless < f64::INFINITY) {
+        //     println!("best cost inventionaless is inf: {}",extract(eclass, &egraph));
+        //     println!("len:{:?} cost[0]:{:?}",enodes.len(), self.enode_cost(&enodes[0],&egraph).0);
+        //     panic!("best cost inventionless is infinite");
+        // }
+        // todo not certain if its ok to not have the above assert. I think maybe its ok and certain terms that get marked as infinite have necessary self loops or something. idk multiarg is the only think that intros them it seems.
+
         // same for no_lambda
         let best_cost_inventionless = beam.cost_nolambda_inventionless.0.clone();
         beam.cost_nolambda_under_invention.retain(|_,(cost,_)| *cost < best_cost_inventionless);
@@ -546,7 +595,7 @@ impl BeamSearch {
         self.seen.insert(eclass, Some(beam)); 
     }
 
-    fn enode_cost(&self, enode: &Lambda) -> (f64,Vec<(Id,f64)>) {
+    fn enode_cost(&self, enode: &Lambda, egraph: &EGraph) -> (f64,Vec<(Id,f64)>) {
         // calculate the cost of an enode and return the
         // inventionless cost as well as the cost under any inventions that
         // improve it
@@ -561,7 +610,7 @@ impl BeamSearch {
                         // inventionless costs
                         let fcost_inventionless = fbeam.cost_nolambda_inventionless.0;
                         let xcost_inventionless = xbeam.cost_any_inventionless.0;
-                        let cost_inventionless = fcost_inventionless + xcost_inventionless + self.epsilon;
+                        let cost_inventionless = fcost_inventionless + xcost_inventionless + EPSILON_COST;
                         
                         // figure out which inventions helped `f` and `x` and union them
                         let mut inventions: HashSet<Id> = fbeam.cost_nolambda_under_invention.keys().cloned().collect();
@@ -575,7 +624,7 @@ impl BeamSearch {
                             let xcost_invention = xbeam.cost_any_under_invention.get(invention)
                                 .map(|(cst,_)|*cst)
                                 .unwrap_or(xcost_inventionless);
-                            (*invention, fcost_invention + xcost_invention + self.epsilon)
+                            (*invention, fcost_invention + xcost_invention + EPSILON_COST)
                         }).collect();
                         (cost_inventionless,cost_inventions)
                     }
@@ -590,16 +639,17 @@ impl BeamSearch {
                     Some(bbeam) => {
                         // inventionless cost
                         let bcost_inventionless = bbeam.cost_any_inventionless.0;
-                        let cost_inventionless = bcost_inventionless + self.epsilon;
+                        let cost_inventionless = bcost_inventionless + EPSILON_COST;
 
                         // cost with inventions
                         let cost_inventions: Vec<(Id,f64)> = bbeam.cost_any_under_invention.iter()
-                            .map(|(invention,(cst,nid))| {
-                                (*invention, *cst + self.epsilon)
+                            .map(|(invention,(cst,_))| {
+                                (*invention, *cst + EPSILON_COST)
                             }).collect();
                         (cost_inventionless,cost_inventions)
                     }
                     None => {
+                        // println!("hit a self loop on {}", extract(*b, &egraph));
                         // looped back to something we've seen so not worth pursuing
                         (f64::INFINITY,vec![])
                     }
@@ -691,25 +741,6 @@ fn main() {
             // if not_all_same(var("?body1"), var("?body2"), "(app ?body1 ?body2)".parse().unwrap())
             // if ConditionNotEqual::parse("(?body1)", "(app ?body1 ?body2)")
         ),
-
-        //todo multiarg is an insane slowdown. Ofc you could investigate why this is, but also i think its just fine to run it at the END bc if we do all possible refactorings then everything will already be in a perfect position for multiarg abstracting?
-        // applam-multiarg: this is just the transformation that takes an applam applam setup and moves it so
-        // its appapplamlam. Theres a tradeoff here bc this feels superficial and I worry about adding rewrite rules,
-        // but a) this feels relatively safe and b) structural hashing wise you actually REALLY want the two lambdas on
-        // top of each other.
-        // btw we do need to downshift the outgoing refs of arginner since it gets hoisted up,
-        // and furthermore we need to make sure its not pointing to argouter (by making sure $0 isnt an
-        // upward ref)
-        // rw!("applam-multiarg"; "(app (lam (app (lam ?body) ?arginner)) ?argouter)"
-        //     => {Shifter {
-        //         incr_by: -1, // how much to increment by eg +1 or -1
-        //         to_shift: var("?arginner"), // expression to shift
-        //         rhs: "(app (app (lam (lam (?body))) ?argouter) ?arginner)".parse().unwrap(), // expr to be unified with original LHS - but with to_shift modified!
-        //     }}
-        //     // condition: cant raise arginner above argouter if arginner points to argouter
-        //     if zero_not_in_upward_refs(var("?arginner"))
-        // ),
-
         
         // this is a subset of the applam-inline rule which catches the same immediately
         // anyways without deep analysis. Yes good to turn this on if you turn that one off.
@@ -734,6 +765,26 @@ fn main() {
         ),
     ];
 
+    let final_rules: &[Rewrite<Lambda, LambdaAnalysis>] = &[
+        //todo multiarg is an insane slowdown. Ofc you could investigate why this is, but also i think its just fine to run it at the END bc if we do all possible refactorings then everything will already be in a perfect position for multiarg abstracting?
+        // applam-multiarg: this is just the transformation that takes an applam applam setup and moves it so
+        // its appapplamlam. Theres a tradeoff here bc this feels superficial and I worry about adding rewrite rules,
+        // but a) this feels relatively safe and b) structural hashing wise you actually REALLY want the two lambdas on
+        // top of each other.
+        // btw we do need to downshift the outgoing refs of arginner since it gets hoisted up,
+        // and furthermore we need to make sure its not pointing to argouter (by making sure $0 isnt an
+        // upward ref)
+        rw!("applam-multiarg"; "(app (lam (app (lam ?body) ?arginner)) ?argouter)"
+            => {Shifter {
+                incr_by: -1, // how much to increment by eg +1 or -1
+                to_shift: var("?arginner"), // expression to shift
+                rhs: "(app (app (lam (lam (?body))) ?argouter) ?arginner)".parse().unwrap(), // expr to be unified with original LHS - but with to_shift modified!
+            }}
+            // condition: cant raise arginner above argouter if arginner points to argouter
+            if zero_not_in_upward_refs(var("?arginner"))
+        ),
+    ];
+
     let mut egraph: EGraph = Default::default();
     // egraph.add_expr(&"(x)".parse().unwrap());
     // let root = egraph.add_expr(&"(programs (app - y))".parse().unwrap());
@@ -743,7 +794,31 @@ fn main() {
     // egraph.add_expr(&"(programs (app (app (app + x) z) (app (app + x) y)) (app (app (app + x) z) (app (app + x) y)))".parse().unwrap());
 
     // first dreamcoder program
-    let root = egraph.add_expr(&"(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))".parse().unwrap());
+    let programs: Vec<RecExpr<Lambda>> = vec![
+        // "(app - y)",
+
+        "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
+
+        // "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t1)) logo_epsA) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t2)) logo_epsA) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t5)) logo_epsA) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        // "(lam (app (app (app logo_FWRT logo_UL) logo_ZA) 0))",
+        // "(lam (app (app (app logo_FWRT logo_ZL) (app (app logo_DIVA logo_UA) t4)) (app (app (app logo_FWRT logo_UL) logo_ZA) 0)))",
+        // "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t7) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t7)) 0)))) 0))",
+            ].iter().map(|p| p.parse().unwrap()).collect();
+    let roots: Vec<Id> = programs.iter().map(|p| egraph.add_expr(&p)).collect();
     // second dreamcoder program
     // egraph.add_expr(&"(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))".parse().unwrap());
 
@@ -767,31 +842,61 @@ fn main() {
         let runner = Runner::default().with_egraph(runner.egraph).with_iter_limit(1).run(intro_rules);
         let runner = Runner::default().with_egraph(runner.egraph).with_iter_limit(400).with_time_limit(core::time::Duration::from_secs(200)).with_node_limit(3000000).run(propagate_rules);
         runner.print_report();
+        let runner = Runner::default().with_egraph(runner.egraph).with_iter_limit(400).with_time_limit(core::time::Duration::from_secs(200)).with_node_limit(3000000).run(final_rules);
+        runner.print_report();
         let mut egraph = runner.egraph;
+        egraph.rebuild(); // idk if this is needed at lal
+
+        // egraph.dot().to_png("target/zzz.png").unwrap();
+
+
         let find_cand: Pattern<Lambda> = "(lam ?b)".parse().unwrap();
         let matches = find_cand.search(&egraph);
+        let cands: HashSet<Id> = matches.iter().map(|m| m.eclass)
+            .filter(|eclass|egraph[*eclass].data.upward_refs.is_empty()) // cant have free vars in an invention!
+            .collect();
 
-        let cands: HashSet<Id> = matches.iter().map(|m| m.eclass).collect();
-        println!("{:?}", cands.len());
+        println!("candidates: {:?}", cands.len());
         let mut beam_search = BeamSearch {
-            beam_size: 100000,
-            epsilon: 0.01,
+            beam_size: 1000000,
             inventions: cands,
             seen: HashMap::new(),
         };
-        println!("beam searchin");
-        beam_search.eclass_cost(root, &egraph);
+        println!("beam searchin\n");
+        let programs_id = egraph.add(Lambda::Programs(roots.clone()));
+        beam_search.eclass_cost(programs_id, &egraph);
 
-        let (inventionless_cost, top_inventions) = beam_search.best_inventions(root, false);
+        // get the top inventions used by at least two programs
+        let top_inventions_all: Vec<Id> = roots.iter().map(|r| beam_search.best_inventions(*r, false).1).flatten().map(|(_,inv)| inv).collect();
+        let mut top_inv_uniq: Vec<Id> = top_inventions_all.clone();
+        top_inv_uniq.sort();
+        top_inv_uniq.dedup();
+        let top_inventions: Vec<Id> = top_inv_uniq.into_iter().filter(|i| top_inventions_all.iter().filter(|j|i==*j).count() > 1).collect();
 
-        let expr = beam_search.extract_cheapest(root, None, &egraph);
-        println!("cheapest inventionless ({}):\n{}\n", inventionless_cost, expr);
+        // these are the top individual inventions, which isn't as interesting
+        // since they tend to just replace most of the program with a learned chunk
+        let (inventionless_cost, top_individual_inventions) = beam_search.best_inventions(programs_id, false);
 
-        for (i,(cost,invention)) in top_inventions.iter().take(5).enumerate() {
-            let inv_expr = beam_search.extract_cheapest(*invention, None, &egraph);
-            let rewritten_expr = beam_search.extract_cheapest(root, Some(*invention), &egraph);
+        // println!("extracting: {}", extract(programs_id,&egraph));
+        // let expr = beam_search.extract_cheapest(programs_id, None, &egraph);
+        let expr = extract(programs_id,&egraph);
+        println!("Inventionless ({}):\n{}\n", inventionless_cost, expr);
+
+        let mut top_inventions: Vec<(f64,Id,RecExpr<Lambda>)> = top_inventions.iter().map(|inv| {
+            let p = beam_search.extract_cheapest(programs_id, Some(*inv), &egraph);
+            (ProgramCost.cost_rec(&p), *inv, p)
+        }).collect();
+        top_inventions.sort_by(|a,b| a.0.partial_cmp(&b.0).unwrap());
+
+        for (i,(cost,inv,rewritten)) in top_inventions.iter().take(5).enumerate() {
+            // println!("boutta extract");
+            // println!("Invention  : {}", extract(*inv,&egraph));
+            // beam_search.seen = HashMap::new();
+            let inv_expr = beam_search.extract_cheapest(*inv, None, &egraph);
+            let inv_expr = extract(*inv,&egraph);
+            // println!("stracted");
             println!("Invention {}: {}", i, inv_expr);
-            println!("Rewritten({}):\n{}\n", cost, rewritten_expr);
+            println!("Rewritten({}):\n{}\n", cost, rewritten);
         }
 
 
