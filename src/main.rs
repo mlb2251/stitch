@@ -396,6 +396,32 @@ fn update_if_better_inv(cost_under_inv: &mut HashMap<Id,(f64,usize)>, inv: Id, n
 
 const EPSILON_COST: f64 = 0.01;
 
+// #[derive(Debug)]
+// struct CostPair {any:f64, nolambda:f64}
+// struct ProgramCost;
+// impl CostFunction<Lambda> for ProgramCost {
+//     type Cost = CostPair;
+//     fn cost<C>(&mut self, enode: &Lambda, mut costs: C) -> Self::Cost
+//     where
+//         C: FnMut(Id) -> Self::Cost
+//     {
+//         match enode {
+//             Lambda::Var(_) | Lambda::Prim(_) => CostPair { any: 1., nolambda: 1.},
+//             Lambda::App([f, x]) => {
+//                 let cost = EPSILON_COST + costs(*f).nolambda + costs(*x).any;
+//                 CostPair { any: cost, nolambda: cost}
+//             }
+//             Lambda::Lam([b]) => {
+//                 CostPair { any: EPSILON_COST + costs(*b).any, nolambda: f64::INFINITY }
+//             }
+//             Lambda::Programs(ps) => {
+//                 let cost = ps.iter().map(|p| costs(*p).any).sum();
+//                 CostPair { any: cost, nolambda: cost}
+//             }
+//         }
+//     }
+// }
+
 struct ProgramCost;
 impl CostFunction<Lambda> for ProgramCost {
     type Cost = f64;
@@ -417,8 +443,10 @@ impl BeamSearch {
     fn best_inventions(
         &self,
         eclass: Id,
-        nolambda: bool
+        nolambda: bool,
+        egraph: &EGraph,
     ) -> (f64, Vec<(f64,Id)>) {
+        let eclass = egraph.find(eclass);
         // gives a sorted list of the best inventions (and costs under them) along with the inventionless cost
         let beam: &Beam = self.seen[&eclass].as_ref().unwrap();
         let inventionless_cost: f64 = if nolambda {beam.cost_nolambda_inventionless.0} else {beam.cost_any_inventionless.0};
@@ -434,6 +462,7 @@ impl BeamSearch {
         inv: Option<Id>, // invention to use when extracting. None means no invention.
         egraph: &EGraph,
     ) -> RecExpr<Lambda> {
+        let root = egraph.find(root);
         // runs beam search in case we haven't (cached if we already have)
         self.eclass_cost(root, egraph);
 
@@ -458,6 +487,7 @@ impl BeamSearch {
         egraph: &EGraph,
         into_expr: &mut RecExpr<Lambda> // expr we're extracting into
     ) -> Id { // returns the recexpr id of this node in into_expr
+        let root = egraph.find(root);
 
         if let Some(inv) = inv {
             if inv == root {
@@ -506,6 +536,7 @@ impl BeamSearch {
 
 
     fn eclass_cost(&mut self, eclass: Id, egraph: &EGraph) {
+        let eclass = egraph.find(eclass);
         // compute the cost of an eclass and add a Beam to self.seen for it. Recursively calculate children as needed.
         if self.seen.contains_key(&eclass) {
             return
@@ -605,6 +636,8 @@ impl BeamSearch {
                 (1.,vec![])
             }
             Lambda::App([f, x]) => {
+                let f = &egraph.find(*f);
+                let x = &egraph.find(*x);
                 match (&self.seen[f],&self.seen[x]) {
                     (Some(fbeam),Some(xbeam)) => {
                         // inventionless costs
@@ -635,6 +668,7 @@ impl BeamSearch {
                 }
             }
             Lambda::Lam([b]) => {
+                let b = &egraph.find(*b);
                 match &self.seen[b] {
                     Some(bbeam) => {
                         // inventionless cost
@@ -656,6 +690,7 @@ impl BeamSearch {
                 }
             }
             Lambda::Programs(ps) => {
+                let ps: Vec<Id> = ps.iter().map(|p| egraph.find(*p)).collect();
                 if ps.iter().any(|p| self.seen[p].is_none()) {
                     (f64::INFINITY,vec![]) // self loop
                 } else {
@@ -852,7 +887,7 @@ fn main() {
 
         let find_cand: Pattern<Lambda> = "(lam ?b)".parse().unwrap();
         let matches = find_cand.search(&egraph);
-        let cands: HashSet<Id> = matches.iter().map(|m| m.eclass)
+        let cands: HashSet<Id> = matches.iter().map(|m| egraph.find(m.eclass))
             .filter(|eclass|egraph[*eclass].data.upward_refs.is_empty()) // cant have free vars in an invention!
             .collect();
 
@@ -867,7 +902,7 @@ fn main() {
         beam_search.eclass_cost(programs_id, &egraph);
 
         // get the top inventions used by at least two programs
-        let top_inventions_all: Vec<Id> = roots.iter().map(|r| beam_search.best_inventions(*r, false).1).flatten().map(|(_,inv)| inv).collect();
+        let top_inventions_all: Vec<Id> = roots.iter().map(|r| beam_search.best_inventions(*r, false, &egraph).1).flatten().map(|(_,inv)| inv).collect();
         let mut top_inv_uniq: Vec<Id> = top_inventions_all.clone();
         top_inv_uniq.sort();
         top_inv_uniq.dedup();
@@ -875,12 +910,12 @@ fn main() {
 
         // these are the top individual inventions, which isn't as interesting
         // since they tend to just replace most of the program with a learned chunk
-        let (inventionless_cost, top_individual_inventions) = beam_search.best_inventions(programs_id, false);
+        let (inventionless_cost, top_individual_inventions) = beam_search.best_inventions(programs_id, false, &egraph);
 
         // println!("extracting: {}", extract(programs_id,&egraph));
         // let expr = beam_search.extract_cheapest(programs_id, None, &egraph);
         let expr = extract(programs_id,&egraph);
-        println!("Inventionless ({}):\n{}\n", inventionless_cost, expr);
+        println!("Inventionless ({} | {}):\n{}\n", inventionless_cost, ProgramCost.cost_rec(&expr), expr);
 
         let mut top_inventions: Vec<(f64,Id,RecExpr<Lambda>)> = top_inventions.iter().map(|inv| {
             let p = beam_search.extract_cheapest(programs_id, Some(*inv), &egraph);
@@ -891,12 +926,15 @@ fn main() {
         for (i,(cost,inv,rewritten)) in top_inventions.iter().take(5).enumerate() {
             // println!("boutta extract");
             // println!("Invention  : {}", extract(*inv,&egraph));
-            // beam_search.seen = HashMap::new();
-            let inv_expr = beam_search.extract_cheapest(*inv, None, &egraph);
             let inv_expr = extract(*inv,&egraph);
             // println!("stracted");
-            println!("Invention {}: {}", i, inv_expr);
-            println!("Rewritten({}):\n{}\n", cost, rewritten);
+            println!("\nInvention {}: {}", i, inv_expr);
+            println!("Rewritten({}):\n{}", cost, rewritten);
+            println!("Beam of invention itself: {:?}", beam_search.seen[&inv]);
+            beam_search.seen.remove(&inv);
+            let inv_expr = beam_search.extract_cheapest(*inv, None, &egraph);
+            println!("Again_Invention {}: {}", i, inv_expr);
+            println!("Again Beam of invention itself: {:?}", beam_search.seen[&inv]);
         }
 
 
