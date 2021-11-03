@@ -4,6 +4,8 @@ use std::collections::{HashSet,HashMap};
 extern crate log;
 
 const ARGC: i32 = 2;
+const BEAM_SIZE: usize = 1000000;
+
 
 define_language! {
     enum Lambda {
@@ -28,6 +30,9 @@ struct Data {
     upward_refs: HashSet<i32>, // "how much higher"
     inventionless_cost_any: Option<i32>,
     inventionless_cost_nolambda: Option<i32>,
+    is_invention: bool, // true if theres a lambda in the eclass
+    inventionful_cost_any: HashMap<Id, i32>,
+    inventionful_cost_nolambda: HashMap<Id, i32>,
     // free: HashSet<Id>,
     // constant: Option<(Lambda, PatternAst<Lambda>)>,
 }
@@ -49,32 +54,138 @@ fn extract_enode(enode: &Lambda, egraph: &EGraph) -> String {
     }
 }
 
-// min cost among two options, and Some beats None (unlike normal Option.min())
-fn mincost_NoneIsLow(a: &Option<i32>, b: &Option<i32>) -> Option<i32> {
-    match (*a,*b) {
-        (Some(a), Some(b)) => {Some(a.min(b))},
-        (Some(a), None) => {Some(a)},
-        (None, Some(b)) => {Some(b)},
-        (None, None) => {None},
+// // min cost among two options, and Some beats None (unlike normal Option.min())
+// fn mincost_discard_none(a: &Option<i32>, b: &Option<i32>) -> Option<i32> {
+//     match (*a,*b) {
+//         (Some(a), Some(b)) => {Some(a.min(b))},
+//         (Some(a), None) => {Some(a)},
+//         (None, Some(b)) => {Some(b)},
+//         (None, None) => {None},
+//     }
+// }
+
+
+fn best_inventions(beam: &HashMap<Id,i32>) -> Vec<Id> {
+    let mut costs: Vec<(Id,i32)> = beam.iter().map(|(id,cost)|(*id,*cost)).collect();
+    // INCREASING order of cost (lowest first)
+    costs.sort_by(|(_,cost1),(_,cost2)| cost1.cmp(cost2));
+    costs.iter().map(|(id,_)| id).cloned().collect()
+}
+
+fn noncanonical_inventions(beam: &HashMap<Id,i32>, egraph: &EGraph) -> Vec<Id> {
+    beam.keys().cloned().filter(|id| canonical(id,egraph)).collect()
+}
+
+fn safe_to_remove_noncanonical(beam: &HashMap<Id,i32>, egraph: &EGraph) -> bool {
+    noncanonical_inventions(beam,egraph).iter().all(|id|{
+        let canonical_id = egraph.find(*id);
+        beam.get(&id) == beam.get(&canonical_id)
+    })
+}
+
+#[inline]
+fn canonical(id:&Id, egraph: &EGraph) -> bool {
+    egraph.find(*id) == *id
+}
+
+fn merge_inventionless(to: &mut Option<i32>, from: &Option<i32>) -> bool {
+    match (*to,*from) {
+        (Some(to_cost), Some(from_cost)) => {
+            if to_cost > from_cost {
+                // from is cheaper so we replace ourselves with it
+                *to = Some(from_cost);
+                true
+            } else {
+                false
+            }
+        },
+        (None, Some(from_cost)) => {
+            // we were None so we replace ourselves with from
+            *to = Some(from_cost);
+            true
+        },
+        // merging a `None` into ourselves so no change
+        (_, None) => false,
     }
+}
+
+fn merge_inventionful(to: &mut HashMap<Id, i32>, from: &HashMap<Id, i32>) -> bool {
+    if from.is_empty() {
+        return false;
+    }
+    if to.is_empty() {
+        *to = from.clone();
+        return true;
+    }
+    let mut modified = false;
+    for (k,v) in from.iter() {
+        if to.contains_key(k) {
+            if to[k] > *v {
+                // from is cheaper so we replace ourselves with it
+                modified = true;
+                to.insert(*k,*v);
+            }
+        } else {
+            to.insert(*k,*v);
+            modified = true;
+        }
+    }
+    modified
+}
+
+fn prune_inventionful(beam: &mut HashMap<Id, i32>, inventionless: Option<i32>) {
+    // remove anything with a cost greater than the inventionless cost
+    if let Some(inventionless) = inventionless {
+        let mut to_remove = Vec::new();
+        for (k,v) in beam.iter() {
+            if *v > inventionless {
+                to_remove.push(*k);
+            }
+        }
+        for k in to_remove {
+            beam.remove(&k);
+        }
+    }
+}
+
+fn narrow_beam(beam: &mut HashMap<Id,i32>) {
+    if beam.len() < BEAM_SIZE {
+        // beam.shrink_to_fit(); // todo idk if this is expensive but prob fine - does it duplicate anything?
+        return
+    }
+    println!("Narrowing beam!");
+    let num_to_drop = BEAM_SIZE - beam.len();
+    let mut costs: Vec<(Id,i32)> = beam.iter().map(|(id,cost)|(*id,*cost)).collect();
+    // DECREASING order of cost (since i do cost2.cmp(cost1))
+    costs.sort_by(|(_,cost1),(_,cost2)| cost2.cmp(cost1));
+    for (id,_) in costs.iter().take(num_to_drop) {
+        beam.remove(id);
+    }
+    // beam.shrink_to_fit(); // todo idk if this is expensive but prob fine - does it duplicate anything?
 }
 
 impl Analysis<Lambda> for LambdaAnalysis {
     type Data = Data;
     fn merge(&self, to: &mut Data, from: Data) -> bool {
-        // println!("merge {:?} {:?}", to, from);
-        assert_eq!(to.upward_refs,from.upward_refs);
-        // false // says we did not modify `to` data i think
-        // egg::merge_if_different(to., new)
 
-        let inventionless_cost_any = mincost_NoneIsLow(&to.inventionless_cost_any, &from.inventionless_cost_any);
-        let inventionless_cost_nolambda = mincost_NoneIsLow(&to.inventionless_cost_nolambda, &from.inventionless_cost_nolambda);
+        let mut modified = false;
+        assert_eq!(to.upward_refs,from.upward_refs);
+
+        // keep the lowest inventionless cost
+        modified |= merge_inventionless(&mut to.inventionless_cost_any, &from.inventionless_cost_any);
+        modified |= merge_inventionless(&mut to.inventionless_cost_nolambda, &from.inventionless_cost_nolambda);
         
-        let modified = (to.inventionless_cost_any != inventionless_cost_any) ||
-            (to.inventionless_cost_nolambda != inventionless_cost_nolambda);
-        
-        to.inventionless_cost_any = inventionless_cost_any;
-        to.inventionless_cost_nolambda = inventionless_cost_nolambda;
+        // merge the inventionful costs
+        modified |= merge_inventionful(&mut to.inventionful_cost_any, &from.inventionful_cost_any);
+        modified |= merge_inventionful(&mut to.inventionful_cost_nolambda, &from.inventionful_cost_nolambda);
+
+        // prune ones smaller than inventionless cost (since merging may have affected this)
+        prune_inventionful(&mut to.inventionful_cost_any, to.inventionless_cost_any);
+        prune_inventionful(&mut to.inventionful_cost_nolambda, to.inventionless_cost_nolambda);
+
+        // narrow beam if needed
+        narrow_beam(&mut to.inventionful_cost_any);
+        narrow_beam(&mut to.inventionful_cost_nolambda);
         modified
     }
 
@@ -127,10 +238,146 @@ impl Analysis<Lambda> for LambdaAnalysis {
             Lambda::Lam([_]) => None,
             _ => inventionless_cost_any
         };
-        Data { upward_refs: upward_refs, inventionless_cost_any: inventionless_cost_any, inventionless_cost_nolambda: inventionless_cost_nolambda }
+        let mut inventionful_cost_any: HashMap<Id,i32> = match enode {
+            Lambda::Var(_) | Lambda::Prim(_) => HashMap::new(),
+            Lambda::App([f,x]) => {
+
+                let ref f_nolambda = egraph[*f].data.inventionful_cost_nolambda;
+                let ref x_any = egraph[*x].data.inventionful_cost_any;
+                let f_inventionless = egraph[*f].data.inventionless_cost_nolambda;
+                let x_inventionless = egraph[*x].data.inventionless_cost_any;
+                
+                debug_assert!(safe_to_remove_noncanonical(f_nolambda, egraph));
+                debug_assert!(safe_to_remove_noncanonical(x_any,      egraph));
+
+                // figure out which (canonical) inventions helped `f` and `x` and union them
+                let mut inventions: HashSet<Id> = HashSet::new();
+                inventions.extend(f_nolambda.keys().cloned().filter(|id|canonical(id,egraph)));
+                inventions.extend(x_any     .keys().cloned().filter(|id|canonical(id,egraph)));
+                // if egraph[*f].data.is_invention {
+                //     inventions.insert(*f);
+                // }
+                // if egraph[*x].data.is_invention {
+                //     inventions.insert(*x);
+                // }
+                
+                // costs with inventions as 1 + fcost + xcost. Use inventionless cost as a default.
+                // if either fcost or xcost is None (ie infinite)
+                inventions.iter().filter_map(|invention| {
+                    let fcost = f_nolambda.get(invention).cloned()
+                        .or(f_inventionless);
+                    let xcost = x_any.get(invention).cloned()
+                        .or(x_inventionless);
+                    if let (Some(fcost), Some(xcost)) = (fcost, xcost) {
+                        let cost = 1+fcost+xcost;
+                        debug_assert!(cost <= inventionless_cost_any.unwrap_or(i32::MAX), "cost {} is greater than inventionless cost {} for {} and inv {}", cost, inventionless_cost_any.unwrap_or(i32::MAX), extract_enode(enode, egraph), extract(*invention, egraph));
+                        Some((*invention, 1+fcost+xcost))
+                    } else {
+                        None
+                    }
+                }).collect()
+                // if egraph[*f].data.is_invention {
+                //     // child is an invention so we can add it
+                //     inventionful.insert(egraph[*b].id, 100);
+                // }
+                // inventionful
+            }
+            Lambda::Lam([b]) => {
+                // just map +1 over the costs
+                // let mut inventionful: HashMap<Id,i32> = egraph[*b].data.inventionful_cost_any.clone().iter().map(|(k,v)| (*k,*v+1)).collect();
+                // if egraph[*b].data.is_invention {
+                //     // child is an invention so we can add it
+                //     inventionful.insert(egraph[*b].id, 100);
+                // }
+                // inventionful
+                let ref b_any = egraph[*b].data.inventionful_cost_any;
+                debug_assert!(safe_to_remove_noncanonical(b_any, egraph));
+
+                b_any.iter().clone()
+                    .filter(|(k,_)|canonical(k, egraph))
+                    .map(|(k,v)| (*k,*v+1)).collect()
+            }
+            Lambda::Programs(roots) => {
+                // note we only add Programs node after running the egraph so it doesnt matter how expensive this is
+
+                debug_assert!(roots.iter().all(|r|safe_to_remove_noncanonical(&egraph[*r].data.inventionful_cost_any,egraph)));
+
+                // union together all the useful inventions of diff programs
+                let inventions: Vec<Id> = roots.iter()
+                    .map(|r| egraph[*r].data.inventionful_cost_any.keys().cloned())
+                    .flatten()
+                    .filter(|id| canonical(id, egraph))
+                    .collect();
+                // count num occurences of each invention
+                let mut counts: HashMap<Id,i32> = inventions.iter().map(|i| (*i,0)).collect();
+                for inv in inventions {
+                    counts.insert(inv, counts[&inv] + 1);
+                }
+
+                let inventions: Vec<Id> = counts.iter()
+                    .filter_map(|(i,c)| if *c > 1 { Some(*i) } else { None }).collect();
+                
+                // get the inventionless costs (turns a vector of options into an option of vectors via type annotation)
+                let costs_inventionless: Option<Vec<i32>> = roots.iter()
+                    .map(|r| egraph[*r].data.inventionless_cost_any).collect();
+                assert_ne!(costs_inventionless, None); // something is wrong if we cant write a toplevel program inventionlessly...
+                let costs_inventionless = costs_inventionless.unwrap();
+
+                inventions.iter().map(|invention| {
+                    let cost = roots.iter().enumerate()
+                        .map(|(idx,root)| {
+                            egraph[*root].data.inventionful_cost_any.get(invention).cloned()
+                            .unwrap_or(costs_inventionless[idx])
+                        })
+                        .sum();
+                    (*invention, cost)
+                }).collect()
+            }
+        };
+        narrow_beam(&mut inventionful_cost_any);
+        let inventionful_cost_nolambda = match enode {
+            Lambda::Lam([_]) => HashMap::new(),
+            _ => inventionful_cost_any.clone()
+        };
+        let is_invention = upward_refs.is_empty() && match enode { Lambda::Lam(_) => true, _ => false };
+
+        Data { upward_refs: upward_refs,
+               inventionless_cost_any: inventionless_cost_any,
+               inventionless_cost_nolambda: inventionless_cost_nolambda,
+               inventionful_cost_any: inventionful_cost_any,
+               inventionful_cost_nolambda: inventionful_cost_nolambda,
+               is_invention: is_invention }
     }
 
     fn modify(egraph: &mut EGraph, id: Id) {
+        if egraph[id].data.is_invention {
+            debug_assert_eq!(id,egraph.find(id)); // just wanna make sure modify always gets called w canonicals, else we want a find() call here
+
+            // if we just merged two is_invention eclasses to make this one
+            if egraph[id].data.inventionful_cost_any.values().any(|&v| v == 0) {
+                let mut to_remove = Vec::new();
+                for (k,v) in egraph[id].data.inventionful_cost_any.iter() {
+                    if *v == 100 {
+                        debug_assert_eq!(id,egraph.find(*k));
+                        to_remove.push(*k);
+                    }
+                }
+                for k in to_remove {
+                    egraph[id].data.inventionful_cost_any.remove(&k);
+                }
+            }
+            egraph[id].data.inventionful_cost_any.insert(id, 100);
+            egraph[id].data.inventionful_cost_nolambda.insert(id, 100);
+    }
+
+    // let to_remove = noncanonical_inventions(&egraph[id].data.inventionful_cost_any,egraph);
+    // for k in to_remove {
+    //     assert_eq!(egraph[id].data.inventionful_cost_any[&k], egraph[id].data.inventionful_cost_any[&egraph.find(k)]);
+    //     // println!("removing {} from {}", k, id);
+    //     // egraph[id].data.inventionful_cost_any.remove(&k);
+    // }
+    
+
         // important: modify() must be idempotent
 
 
@@ -929,7 +1176,7 @@ fn main() {
         let runner = Runner::default().with_egraph(runner.egraph).with_iter_limit(400).with_time_limit(core::time::Duration::from_secs(200)).with_node_limit(3000000).run(final_rules);
         runner.print_report();
         let mut egraph = runner.egraph;
-        egraph.rebuild(); // idk if this is needed at lal
+        egraph.rebuild();
 
         // egraph.dot().to_png("target/zzz.png").unwrap();
 
@@ -948,6 +1195,7 @@ fn main() {
         };
         println!("beam searchin\n");
         let programs_id = egraph.add(Lambda::Programs(roots.clone()));
+        egraph.rebuild();
         beam_search.eclass_cost(programs_id, &egraph);
 
         // get the top inventions used by at least two programs
@@ -981,13 +1229,22 @@ fn main() {
             println!("\nInvention {} (id={}) ({} | {:?}): {}", i, inv, ProgramCost.cost_rec(&inv_expr), egraph[*inv].data.inventionless_cost_any, inv_expr);
             let rwid = egraph.add_expr(&rewritten);
             println!("Rewritten({} | {:?}):\n{}", cost, egraph[rwid].data.inventionless_cost_any, rewritten);
-            println!("Beam of invention itself: {:?}", beam_search.seen[&inv]);
+            // println!("Beam of invention itself: {:?}", beam_search.seen[&inv]);
             // beam_search.seen.remove(&inv);
             // let inv_expr = beam_search.extract_cheapest(*inv, None, &egraph);
             // println!("Again_Invention {}: {}", i, inv_expr);
             // println!("Again Beam of invention itself: {:?}", beam_search.seen[&inv]);
         }
 
+        println!("\n");
+        let top_invs: Vec<Id> = best_inventions(&egraph[programs_id].data.inventionful_cost_any)
+            .into_iter()
+            // .filter(|id| *id == egraph.find(*id))
+            .take(10).collect();
+        assert!(top_invs.iter().all(|id| canonical(id,&egraph)));
+        for (i,inv) in top_invs.iter().enumerate() {
+            println!("Invention {} (id={} -> {}) (inv_cost={:?}) (rewritten cost = {:?}): ", i, inv, egraph.find(*inv), egraph[*inv].data.inventionless_cost_any, egraph[programs_id].data.inventionful_cost_any[&inv] );
+        }
 
         // runner.egraph.dot().to_png("target/final.png").unwrap();
     }
