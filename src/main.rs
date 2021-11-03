@@ -26,6 +26,8 @@ struct LambdaAnalysis;
 #[derive(Debug)]
 struct Data {
     upward_refs: HashSet<i32>, // "how much higher"
+    inventionless_cost_any: Option<i32>,
+    inventionless_cost_nolambda: Option<i32>,
     // free: HashSet<Id>,
     // constant: Option<(Lambda, PatternAst<Lambda>)>,
 }
@@ -47,12 +49,33 @@ fn extract_enode(enode: &Lambda, egraph: &EGraph) -> String {
     }
 }
 
+// min cost among two options, and Some beats None (unlike normal Option.min())
+fn mincost_NoneIsLow(a: &Option<i32>, b: &Option<i32>) -> Option<i32> {
+    match (*a,*b) {
+        (Some(a), Some(b)) => {Some(a.min(b))},
+        (Some(a), None) => {Some(a)},
+        (None, Some(b)) => {Some(b)},
+        (None, None) => {None},
+    }
+}
+
 impl Analysis<Lambda> for LambdaAnalysis {
     type Data = Data;
     fn merge(&self, to: &mut Data, from: Data) -> bool {
         // println!("merge {:?} {:?}", to, from);
         assert_eq!(to.upward_refs,from.upward_refs);
-        false // says we did not modify `to` data i think
+        // false // says we did not modify `to` data i think
+        // egg::merge_if_different(to., new)
+
+        let inventionless_cost_any = mincost_NoneIsLow(&to.inventionless_cost_any, &from.inventionless_cost_any);
+        let inventionless_cost_nolambda = mincost_NoneIsLow(&to.inventionless_cost_nolambda, &from.inventionless_cost_nolambda);
+        
+        let modified = (to.inventionless_cost_any != inventionless_cost_any) ||
+            (to.inventionless_cost_nolambda != inventionless_cost_nolambda);
+        
+        to.inventionless_cost_any = inventionless_cost_any;
+        to.inventionless_cost_nolambda = inventionless_cost_nolambda;
+        modified
     }
 
     fn make(egraph: &EGraph, enode: &Lambda) -> Data {
@@ -61,6 +84,7 @@ impl Analysis<Lambda> for LambdaAnalysis {
             Lambda::Var(i) => {
                 // upward_refs: singleton set
                 upward_refs.insert(*i);
+                
             }
             Lambda::Prim(_) => {
                 // upward_refs: empty set
@@ -82,10 +106,35 @@ impl Analysis<Lambda> for LambdaAnalysis {
                 assert!(programs.iter().all(|p| egraph[*p].data.upward_refs.is_empty()));
             }
         }
-        Data { upward_refs: upward_refs }
+        let inventionless_cost_any = match enode {
+            Lambda::Var(_) | Lambda::Prim(_) => Some(100),
+            Lambda::App([f,x]) => {
+                match (egraph[*f].data.inventionless_cost_nolambda, egraph[*x].data.inventionless_cost_any) {
+                    (Some(f), Some(x)) => Some(1+f+x),
+                    _ => None,
+                }
+            }
+            Lambda::Lam([b]) => {
+                egraph[*b].data.inventionless_cost_any.map(|x| x+1)
+            }
+            Lambda::Programs(ps) => {
+                // type annotate to make collect() turn a vec<opt<>> into an opt<vec<>>
+                let costs: Option<Vec<i32>> = ps.iter().map(|p| egraph[*p].data.inventionless_cost_any).collect();
+                costs.map(|xs| xs.iter().sum())
+            }
+        };
+        let inventionless_cost_nolambda = match enode {
+            Lambda::Lam([_]) => None,
+            _ => inventionless_cost_any
+        };
+        Data { upward_refs: upward_refs, inventionless_cost_any: inventionless_cost_any, inventionless_cost_nolambda: inventionless_cost_nolambda }
     }
 
     fn modify(egraph: &mut EGraph, id: Id) {
+        // important: modify() must be idempotent
+
+
+
         // if let Some(c) = egraph[id].data.constant.clone() {
         //     if egraph.are_explanations_enabled() {
         //         egraph.union_instantiations(
@@ -424,15 +473,15 @@ const EPSILON_COST: f64 = 0.01;
 
 struct ProgramCost;
 impl CostFunction<Lambda> for ProgramCost {
-    type Cost = f64;
+    type Cost = i32;
     fn cost<C>(&mut self, enode: &Lambda, mut costs: C) -> Self::Cost
     where
         C: FnMut(Id) -> Self::Cost
     {
         match enode {
-            Lambda::Var(_) | Lambda::Prim(_) => 1.,
-            Lambda::App([f, x]) => EPSILON_COST + costs(*f) + costs(*x),
-            Lambda::Lam([b]) => EPSILON_COST + costs(*b),
+            Lambda::Var(_) | Lambda::Prim(_) => 100,
+            Lambda::App([f, x]) => 1 + costs(*f) + costs(*x),
+            Lambda::Lam([b]) => 1 + costs(*b),
             Lambda::Programs(ps) => ps.iter().map(|p| costs(*p)).sum(),
         }
     }
@@ -915,9 +964,9 @@ fn main() {
         // println!("extracting: {}", extract(programs_id,&egraph));
         // let expr = beam_search.extract_cheapest(programs_id, None, &egraph);
         let expr = extract(programs_id,&egraph);
-        println!("Inventionless ({} | {}):\n{}\n", inventionless_cost, ProgramCost.cost_rec(&expr), expr);
+        println!("Inventionless ({} | {} | {:?}):\n{}\n", inventionless_cost, ProgramCost.cost_rec(&expr), egraph[programs_id].data.inventionless_cost_any, expr);
 
-        let mut top_inventions: Vec<(f64,Id,RecExpr<Lambda>)> = top_inventions.iter().map(|inv| {
+        let mut top_inventions: Vec<(i32,Id,RecExpr<Lambda>)> = top_inventions.iter().map(|inv| {
             let p = beam_search.extract_cheapest(programs_id, Some(*inv), &egraph);
             (ProgramCost.cost_rec(&p), *inv, p)
         }).collect();
@@ -928,13 +977,15 @@ fn main() {
             // println!("Invention  : {}", extract(*inv,&egraph));
             let inv_expr = extract(*inv,&egraph);
             // println!("stracted");
-            println!("\nInvention {}: {}", i, inv_expr);
-            println!("Rewritten({}):\n{}", cost, rewritten);
+            
+            println!("\nInvention {} (id={}) ({} | {:?}): {}", i, inv, ProgramCost.cost_rec(&inv_expr), egraph[*inv].data.inventionless_cost_any, inv_expr);
+            let rwid = egraph.add_expr(&rewritten);
+            println!("Rewritten({} | {:?}):\n{}", cost, egraph[rwid].data.inventionless_cost_any, rewritten);
             println!("Beam of invention itself: {:?}", beam_search.seen[&inv]);
-            beam_search.seen.remove(&inv);
-            let inv_expr = beam_search.extract_cheapest(*inv, None, &egraph);
-            println!("Again_Invention {}: {}", i, inv_expr);
-            println!("Again Beam of invention itself: {:?}", beam_search.seen[&inv]);
+            // beam_search.seen.remove(&inv);
+            // let inv_expr = beam_search.extract_cheapest(*inv, None, &egraph);
+            // println!("Again_Invention {}: {}", i, inv_expr);
+            // println!("Again Beam of invention itself: {:?}", beam_search.seen[&inv]);
         }
 
 
