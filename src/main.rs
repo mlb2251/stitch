@@ -3,7 +3,7 @@ use std::collections::{HashSet,HashMap};
 
 extern crate log;
 
-const ARGC: i32 = 4;
+const ARGC: i32 = 2;
 const BEAM_SIZE: usize = 1000000;
 const COST_NONTERMINAL: i32 = 1;
 const COST_TERMINAL: i32 = 100;
@@ -486,6 +486,10 @@ struct Shifter {
     rhs: Pattern<Lambda>, // expr to be unified with original LHS - but with to_shift modified!
 }
 
+struct ShifterVM {
+    incr_by: i32, // how much to increment by eg +1 or -1
+}
+
 impl Applier<Lambda, LambdaAnalysis> for Shifter {
     fn apply_one(
         &self,
@@ -495,7 +499,7 @@ impl Applier<Lambda, LambdaAnalysis> for Shifter {
         {
             let e = subst[self.to_shift];
             // println!("Shifter on {}", extract(eclass, egraph));
-            let e_new = class_shift(e, self.incr_by, 0, egraph, &mut HashMap::new());
+            let e_new = ShifterVM { incr_by: self.incr_by }.recursive_var_mod(e, egraph);
             if e_new.is_none() { return vec![]; }
             let mut subst = subst.clone(); // they do this in the example
             subst.insert(self.to_shift, e_new.unwrap()); // overwrites the e with shifted_e
@@ -506,80 +510,135 @@ impl Applier<Lambda, LambdaAnalysis> for Shifter {
     }
 }
 
-fn class_shift(
-    eclass:Id,
-    incr_by:i32,
-    shift_refs_geq: i32,
-    egraph: &mut EGraph,
-    seen : &mut HashMap<(Id,i32),Option<Id>>,
-    ) -> Option<Id>
-    {
-        let key = (eclass,shift_refs_geq); // for caching
-        // check if we've seen this before (ie we're looping). If so return our shifted value for it.
-        if seen.contains_key(&key) {
-            return seen[&key];
-        }
-        if egraph[eclass].data.upward_refs.iter().all(|i| *i < shift_refs_geq) {
-            // no refs inside need modification, so the shifted eclass == original eclass
-            seen.insert(key, Some(eclass));
-            return Some(eclass)
-        }
-        // we temporarily insert None to break any loops (ie if a recursive call asks us to compute the same thing). Note that at the end of this function we insert the real result in the cache
-        seen.insert(key, None);
-        // ALL children need modification (since ofc they all have the same free vars)
-        // we need to fully clone all the ENodes so we can let go of the borrow
-        // of `egraph` (which is happening bc of the iter()) so we can use `egraph` in the body of the loop
-        let enodes: Vec<Lambda> = egraph[eclass].iter().cloned().collect();
-        let eclasses_to_union : Vec<Id> = enodes.iter().cloned().filter_map(|enode| {
-            // println!("[change if >= {}] entering: {}", shift_refs_geq, extract_enode(enode.clone(), egraph));
-            match enode {
-                Lambda::Var(i) => {
-                    // since we didnt return early, this must be a variable that needs shifting
-                    assert!(i >= shift_refs_geq);
-                    if i + incr_by >= ARGC { seen.insert(key, None); return None }; // $3+ get pruned
-                    Some(egraph.add(Lambda::Var(i + incr_by)))
-                }
-                Lambda::Prim(_) => {
-                    panic!("attempted to shift Prim, which shouldnt be attempted since Prim never has free vars")
-                }
-                Lambda::App([f, x]) => {
-                    // recurse in each (class shift will return early if no shifting is needed) and build a new App
-                    let fnew_opt = class_shift(f, incr_by, shift_refs_geq, egraph, seen);
-                    let xnew_opt = class_shift(x, incr_by, shift_refs_geq, egraph, seen);
-                    match (fnew_opt,xnew_opt) {
-                        (Some(fnew),Some(xnew)) => Some(egraph.add(Lambda::App([fnew, xnew]))),
-                        _ => None,
-                    }
-                }
-                Lambda::Lam([b]) => {
-                    // increment shift_refs_geq since refs must point even FURTHER to point out of the shifted region now
-                    let res = class_shift(b, incr_by, shift_refs_geq + 1, egraph, seen)
-                        .map(|bnew| egraph.add(Lambda::Lam([bnew])));
-                    res
-                }
-                Lambda::Programs(_) => {
-                    panic!("attempted to shift a Programs node")
-                }
-            }
-        }).collect();
-        // todo figure out why this fires
-        // assert!(!eclasses_to_union.contains(&eclass)); // implies shifting wasnt needed, so why didnt we return early
-        // union the eclasses
-        if eclasses_to_union.is_empty() {
-            seen.insert(key, None);
-            return None
-        }
-        let new_eclass = egraph.find(eclasses_to_union[0]); // dont need to canonicalize like this, but will prob speed up the unionfind later
-        eclasses_to_union.iter().skip(1).for_each(|id| {egraph.union(*id, new_eclass);});
-        seen.insert(key, Some(new_eclass));
-        Some(new_eclass)
-}
-
 struct Inliner {
     replace_with: Var, // what to inline
     inline_into: Var, // what to inline it into
     rhs: Pattern<Lambda>, // expr to be unified with original LHS - but with inline_into modified!
 }
+
+struct InlinerVM {
+    replace_with: Id, // what to inline
+}
+
+
+trait VarMod {
+    fn var_mod(&self, actual_idx:i32, depth:i32, which_upward_ref:i32, egraph: &mut EGraph) -> Option<Id> {
+        panic!("implement me")
+    }
+    fn recursive_var_mod(
+        &self,
+        eclass:Id,
+        egraph: &mut EGraph,
+        ) -> Option<Id>
+        {
+            self.recursive_var_mod_helper(
+                eclass,
+                0,
+                egraph,
+                &mut HashMap::new(),
+            )
+        }
+    fn recursive_var_mod_helper(
+        &self,
+        eclass:Id,
+        depth: i32,
+        egraph: &mut EGraph,
+        seen : &mut HashMap<(Id,i32),Option<Id>>,
+        ) -> Option<Id>
+        {
+            // important invariant: a $i with i==depth would be a $0 pointer at the top level
+            // meaning i<depth is an internal pointer that doesnt break the top level
+
+            let key = (eclass,depth);
+            // check if we've seen this before (ie we're looping). If so return whatever we got last time we calculated it.
+            if seen.contains_key(&key) {
+                return seen[&key];
+            }
+            if egraph[eclass].data.upward_refs.iter().all(|i| *i < depth) {
+                // from our invariant (above) we know i<depth is an internal pointer that doesnt point out of the top level
+                seen.insert(key, Some(eclass));
+                return Some(eclass)
+            }
+            // we temporarily insert None to break any loops (ie if a recursive call asks us to compute the same thing). Note that at the end of this function we insert the real result in the cache
+            seen.insert(key, None);
+    
+            // ALL children need modification (since they all contain us in some form or need decrementing)
+            // we need to fully clone all the ENodes so we can let go of the borrow
+            // of `egraph` (which is happening bc of the iter()) so we can use `egraph` in the body of the loop
+            let enodes: Vec<Lambda> = egraph[eclass].iter().cloned().collect();
+            let eclasses_to_union : Vec<Id> = enodes.iter().cloned().filter_map(|enode| {
+                match enode {
+                    Lambda::Var(i) => {
+                        assert!(i >= depth); // otherwise we should have returned earlier
+                        // by our invariant be have i-depth as the toplevel version of this index
+                        self.var_mod(i, depth, i-depth, egraph)
+                    }
+                    Lambda::Prim(_) => {
+                        panic!("attempted to shift Prim, which shouldnt be attempted since Prim never has free vars")
+                    }
+                    Lambda::App([f, x]) => {
+                        // recurse in each (class shift will return early if no shifting is needed) and build a new App
+                        let fnew_opt = self.recursive_var_mod_helper(f, depth, egraph, seen);
+                        let xnew_opt = self.recursive_var_mod_helper(x, depth, egraph, seen);
+                        match (fnew_opt,xnew_opt) {
+                            (Some(fnew),Some(xnew)) => Some(egraph.add(Lambda::App([fnew, xnew]))),
+                            _ => None,
+                        }
+                    }
+                    Lambda::Lam([b]) => {
+                        // increment depth
+                        self.recursive_var_mod_helper(b, depth+1, egraph, seen)
+                        .map(|bnew| egraph.add(Lambda::Lam([bnew])))
+                    }
+                    Lambda::Programs(_) => {
+                        panic!("attempted to shift a Programs node")
+                    }
+                }
+            }).collect();
+            
+            // todo figure out why this fires
+            // assert!(!eclasses_to_union.contains(&eclass)); // should pass else why didnt we return early
+            // union the eclasses
+            if eclasses_to_union.is_empty() {
+                seen.insert(key, None); // redundant since we did this above to prevent loops anyways
+                return None
+            }
+            let new_eclass = egraph.find(eclasses_to_union[0]); // dont need to canonicalize like this, but will prob speed up the unionfind later
+            eclasses_to_union.iter().skip(1).for_each(|id| {egraph.union(*id, new_eclass);});
+            seen.insert(key, Some(new_eclass));
+            Some(new_eclass)
+    }
+
+}
+
+
+
+
+impl VarMod for InlinerVM {
+    /// called on each index that points out of the toplevel region, and is
+    /// given which upward ref this index corresponds to. Does not get called
+    /// on vars that point within the region. Return Some(Id) to replace the index
+    /// with a new node or None to STOP the search completely or ofc Var(i) 
+    fn var_mod(&self, actual_idx:i32, depth:i32, which_upward_ref:i32, egraph: &mut EGraph) -> Option<Id> {
+        if which_upward_ref == 0 {
+            ShifterVM { incr_by: depth }.recursive_var_mod(self.replace_with, egraph)
+        } else {
+            // we need to decrement this by 1 since its a pointer above the lambda we removed
+            Some(egraph.add(Lambda::Var(actual_idx - 1)))
+        }
+    }
+}
+
+impl VarMod for ShifterVM {
+    fn var_mod(&self, actual_idx:i32, depth:i32, which_upward_ref:i32, egraph: &mut EGraph) -> Option<Id> {
+        if actual_idx + self.incr_by >= ARGC {
+            return None // $3+ get pruned
+        } 
+        Some(egraph.add(Lambda::Var(actual_idx + self.incr_by)))
+    }
+}
+
+
 
 impl Applier<Lambda, LambdaAnalysis> for Inliner {
     fn apply_one(
@@ -589,7 +648,8 @@ impl Applier<Lambda, LambdaAnalysis> for Inliner {
         subst: &Subst) -> Vec<Id> 
         {
             let e = subst[self.inline_into];
-            let e_new = inline(e, subst[self.replace_with], 0, egraph, &mut HashMap::new());
+            // let e_new = inline(e, subst[self.replace_with], 0, egraph, &mut HashMap::new());
+            let e_new = InlinerVM { replace_with: subst[self.replace_with] }.recursive_var_mod(e, egraph);
             if e_new.is_none() { return vec![]; }
             let mut subst = subst.clone(); // they do this in the example
             subst.insert(self.inline_into, e_new.unwrap()); // overwrites the e with shifted_e
@@ -601,88 +661,8 @@ impl Applier<Lambda, LambdaAnalysis> for Inliner {
 }
 
 
-// inline() is shockingly annoying to do bc you gotta
-// a) downshift indices that point above whatever ur inlining
-// b) replace indices that point to what ur inlining w the new contents
-// c) actually modify that new contents for the specific location ur putting
-//    it by upshifting all the indices that point outside of it
-fn inline(
-    eclass:Id,
-    replace_with:Id,
-    arg_idx: i32, // starts at 0
-    egraph: &mut EGraph,
-    seen : &mut HashMap<(Id,i32),Option<Id>>,
-    ) -> Option<Id>
-    {
-        let key = (eclass,arg_idx);
-        // check if we've seen this before (ie we're looping). If so return whatever we got last time we calculated it.
-        if seen.contains_key(&key) {
-            return seen[&key];
-        }
-        if egraph[eclass].data.upward_refs.iter().all(|i| *i < arg_idx) {
-            // theres no ref to us or any parent of us in here so we dont need to modify anything
-            seen.insert(key, Some(eclass));
-            return Some(eclass)
-        }
-        // we temporarily insert None to break any loops (ie if a recursive call asks us to compute the same thing). Note that at the end of this function we insert the real result in the cache
-        seen.insert(key, None);
 
-        // ALL children need modification (since they all contain us in some form or need decrementing)
-        // we need to fully clone all the ENodes so we can let go of the borrow
-        // of `egraph` (which is happening bc of the iter()) so we can use `egraph` in the body of the loop
-        let enodes: Vec<Lambda> = egraph[eclass].iter().cloned().collect();
-        let eclasses_to_union : Vec<Id> = enodes.iter().cloned().filter_map(|enode| {
-            match enode {
-                Lambda::Var(i) => {
-                    if i == arg_idx {
-                        // we need to replace this with whatever we're inlining
-                        // and sadly we actually need to add +arg_idx to all outgoing indices
-                        // in replace_with bc we've moved it from its home down deeper.
-                        // dont worry the new `seen` is a) needed and b) cant form a loop since
-                        // inline isnt mutually recursive with class_shift, its just one direction of inline calling class shift.
-                        class_shift(replace_with, arg_idx, 0, egraph, &mut HashMap::new())
-                    } else if i > arg_idx {
-                        // we need to decrement this by 1 since its a pointer above the lambda we removed
-                        Some(egraph.add(Lambda::Var(i - 1)))
-                    } else {
-                        panic!("should have returned earlier")
-                    }
-                }
-                Lambda::Prim(_) => {
-                    panic!("attempted to shift Prim, which shouldnt be attempted since Prim never has free vars")
-                }
-                Lambda::App([f, x]) => {
-                    // recurse in each (class shift will return early if no shifting is needed) and build a new App
-                    let fnew_opt = inline(f, replace_with, arg_idx, egraph, seen);
-                    let xnew_opt = inline(x, replace_with, arg_idx, egraph, seen);
-                    match (fnew_opt,xnew_opt) {
-                        (Some(fnew),Some(xnew)) => Some(egraph.add(Lambda::App([fnew, xnew]))),
-                        _ => None,
-                    }
-                }
-                Lambda::Lam([b]) => {
-                    // increment arg_idx since refs must point even FURTHER to point out of the shifted region now
-                    inline(b, replace_with, arg_idx + 1, egraph, seen)
-                    .map(|bnew| egraph.add(Lambda::Lam([bnew])))
-                }
-                Lambda::Programs(_) => {
-                    panic!("attempted to shift a Programs node")
-                }
-            }
-        }).collect();
-        
-        // todo figure out why this fires
-        // assert!(!eclasses_to_union.contains(&eclass)); // should pass else why didnt we return early
-        // union the eclasses
-        if eclasses_to_union.is_empty() {
-            seen.insert(key, None);
-            return None
-        }
-        let new_eclass = egraph.find(eclasses_to_union[0]); // dont need to canonicalize like this, but will prob speed up the unionfind later
-        eclasses_to_union.iter().skip(1).for_each(|id| {egraph.union(*id, new_eclass);});
-        seen.insert(key, Some(new_eclass));
-        Some(new_eclass)
-}
+
 
 
 // this is the cost where applams are allowed - just a very naive cost
