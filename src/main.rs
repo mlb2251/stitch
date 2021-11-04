@@ -3,7 +3,7 @@ use std::collections::{HashSet,HashMap};
 
 extern crate log;
 
-const ARGC: i32 = 2;
+const ARGC: i32 = 4;
 const BEAM_SIZE: usize = 1000000;
 const COST_NONTERMINAL: i32 = 1;
 const COST_TERMINAL: i32 = 100;
@@ -433,6 +433,17 @@ fn var(s: &str) -> Var {
     s.parse().unwrap()
 }
 
+// outward references are $0 or $1 but not greater
+fn upward_refs_lt_2(v: Var) -> impl Fn(&mut EGraph, Id, &Subst) -> bool {
+    move |egraph, _, subst| {
+        match egraph[subst[v]].data.upward_refs.iter().min() {
+            Some(min) => *min < 2,
+            None => true
+        }
+    }
+}
+
+// Theres no $0 upward ref
 fn zero_not_in_upward_refs(v: Var) -> impl Fn(&mut EGraph, Id, &Subst) -> bool {
     move |egraph, _, subst| !egraph[subst[v]].data.upward_refs.contains(&0)
 }
@@ -542,10 +553,8 @@ fn class_shift(
                 }
                 Lambda::Lam([b]) => {
                     // increment shift_refs_geq since refs must point even FURTHER to point out of the shifted region now
-                    // println!("entering lam with {:?}", seen);
                     let res = class_shift(b, incr_by, shift_refs_geq + 1, egraph, seen)
                         .map(|bnew| egraph.add(Lambda::Lam([bnew])));
-                    // println!("exited lam with {:?}", seen);
                     res
                 }
                 Lambda::Programs(_) => {
@@ -676,7 +685,7 @@ fn inline(
 }
 
 
-// this is the cost where applams are allowed
+// this is the cost where applams are allowed - just a very naive cost
 struct NaiveCost;
 impl CostFunction<Lambda> for NaiveCost {
     type Cost = i32;
@@ -693,6 +702,35 @@ impl CostFunction<Lambda> for NaiveCost {
     }
 }
 
+/// finds everywhere the rewrite rules matches and applies it to each of them
+/// and rebuilds the egraph. Will only apply to matches that are visible before
+/// any rewriting occurs. This is the same as running a runner with an iter limit of 1.
+/// I guess I'm not using this in the code right now bc I like the runner's report.
+fn run_all_matches_once(rule: &Rewrite<Lambda,LambdaAnalysis>, egraph: &mut EGraph) {
+    let matches = rule.search(egraph);
+    rule.apply(egraph, &matches).len();
+    egraph.rebuild();
+}
+
+fn run_pretty(rule: &Rewrite<Lambda,LambdaAnalysis>, name:&str, egraph: &mut EGraph) {
+    let matches = rule.search(egraph);
+    egraph.dot().to_png(format!("target/match_{}_0pre.png",name)).unwrap();
+    rule.apply(egraph, &matches).len();
+    egraph.dot().to_png(format!("target/match_{}_1post.png",name)).unwrap();
+    egraph.rebuild();
+    egraph.dot().to_png(format!("target/match_{}_2rebuild.png",name)).unwrap();
+
+    // for (i,m) in matches.into_iter().enumerate().take(n) {
+    //     rule.apply(egraph, &[m]).len();
+    //     egraph.rebuild();
+    //     egraph.dot().to_png(format!("target/match_{}.png",i)).unwrap();
+    // }
+}
+
+fn search(pat: &str, egraph: &EGraph) -> Vec<SearchMatches>{
+    let applam:Pattern<Lambda> = pat.parse().unwrap();
+    applam.search(&egraph)
+}
 
 fn main() {
     env_logger::init();
@@ -702,8 +740,33 @@ fn main() {
         // $0 in the body and the subtree in the arg. Applies to all nodes
         // not just leaves. This rule necessarily introduces a self loop.
         rw!("applam-intro"; "(?subtree)" => "(app (lam 0) ?subtree)"
-        // abstracting the identity out just leads to insane blowups everywhere...
+        // abstracting the identity out just leads to insane blowups everywhere as
+        // a result of (app (lam 0) (lam 0)) == (lam 0) which lets you build infinite
+        // trees of things and it just gets messy.
         if ConditionNotEqual::parse("(?subtree)", "(lam 0)")
+        if ConditionNotEqual::parse("(?subtree)", "(0)")
+        ),
+    ];
+    let intro2_rules: &[Rewrite<Lambda, LambdaAnalysis>] = &[
+        rw!("applam-bubble-from-left"; "(app (app (lam ?body) ?arginner) ?argouter)"
+            => {Shifter {
+                incr_by: 1, // how much to increment by eg +1 or -1
+                to_shift: var("?argouter"), // expression to shift
+                rhs: "(app (lam (app ?body ?argouter)) ?arginner)".parse().unwrap(), // expr to be unified with original LHS - but with to_shift modified!
+            }}
+            // condition accounts for avoiding blowup from bubbling out of self-loop. If the two apps are the same eclass already it doesnt bubble the lower one up. Not sure if this will limit anything, its just my quick fix.
+            if ConditionNotEqual::parse("(app (app (lam ?body) ?arginner) ?argouter)", "(app (lam ?body) ?arginner)")
+            // if ConditionNotEqual::parse("(?arginner)", "(0)")
+        ),
+        rw!("applam-bubble-from-right"; "(app ?f (app (lam ?body) ?arg))"
+            => {Shifter {
+                incr_by: 1, // how much to increment by eg +1 or -1
+                to_shift: var("?f"), // expression to shift
+                rhs: "(app (lam (app ?f ?body)) ?arg)".parse().unwrap(), // expr to be unified with original LHS - but with to_shift modified!
+            }}
+            // condition accounts for avoiding blowup from bubbling out of self-loop. If the two apps are the same eclass already it doesnt bubble the lower one up. Not sure if this will limit anything, its just my quick fix.
+            if ConditionNotEqual::parse("(app ?f (app (lam ?body) ?arg))", "(app (lam ?body) ?arg)")
+            // if ConditionNotEqual::parse("(?arg)", "(0)")
         ),
     ];
     let propagate_rules: &[Rewrite<Lambda, LambdaAnalysis>] = &[
@@ -720,8 +783,8 @@ fn main() {
             }}
             // condition accounts for avoiding blowup from bubbling out of self-loop. If the two apps are the same eclass already it doesnt bubble the lower one up. Not sure if this will limit anything, its just my quick fix.
             if ConditionNotEqual::parse("(app (app (lam ?body) ?arginner) ?argouter)", "(app (lam ?body) ?arginner)")
-            // dont do this if itll create a $3 or more
-            // if large_upward_refs(var("?f"))
+            if ConditionNotEqual::parse("(?body)", "(0)")
+            // if ConditionNotEqual::parse("(?arginner)", "(0)")
         ),
         rw!("applam-bubble-from-right"; "(app ?f (app (lam ?body) ?arg))"
             => {Shifter {
@@ -731,23 +794,16 @@ fn main() {
             }}
             // condition accounts for avoiding blowup from bubbling out of self-loop. If the two apps are the same eclass already it doesnt bubble the lower one up. Not sure if this will limit anything, its just my quick fix.
             if ConditionNotEqual::parse("(app ?f (app (lam ?body) ?arg))", "(app (lam ?body) ?arg)")
-            // dont do this if itll create a $3 or more
-            // if large_upward_refs(var("?f"))
+            if ConditionNotEqual::parse("(?body)", "(0)")
+            // if ConditionNotEqual::parse("(?arg)", "(0)")
         ),
+        
 
         // applam-merge: this rule says when you have an app of two applams
         // that have a shared arg, you can bubble the lambda up above the inner
         // applications and merge them (body of left gets applied to body of right).
         rw!("applam-merge"; "(app (app (lam ?body1) ?argshared) (app (lam ?body2) ?argshared))"
             => "(app (lam (app ?body1 ?body2)) ?argshared)"
-            // todo this is overly strict but its hard to do better. detecting self application
-            // doesnt help because technically when looking in isolation at (app 0 0) w no
-            // lambdas you cant actually prove that it equals 0.
-        // todo this is a p important thing to fix bc for example you cant abstract across same branches like (app x x) or (app (-y) (-y)) etc
-        // the "if is_not_same_var(var("?body1"), var("?body2"))" is all i settled on btw
-            // if is_not_same_var(var("?body1"), var("?body2"))
-            // if not_all_same(var("?body1"), var("?body2"), "(app ?body1 ?body2)".parse().unwrap())
-            // if ConditionNotEqual::parse("(?body1)", "(app ?body1 ?body2)")
         ),
         
         // this is a subset of the applam-inline rule which catches the same immediately
@@ -773,7 +829,7 @@ fn main() {
         ),
     ];
 
-    let final_rules: &[Rewrite<Lambda, LambdaAnalysis>] = &[
+    let multiarg_rules: &[Rewrite<Lambda, LambdaAnalysis>] = &[
         // applam-multiarg: this is just the transformation that takes an applam applam setup and moves it so
         // its appapplamlam. Theres a tradeoff here bc this feels superficial and I worry about adding rewrite rules,
         // but a) this feels relatively safe and b) structural hashing wise you actually REALLY want the two lambdas on
@@ -789,6 +845,8 @@ fn main() {
             }}
             // condition: cant raise arginner above argouter if arginner points to argouter
             if zero_not_in_upward_refs(var("?arginner"))
+            // condition: since we're using this to expose inventions, they must not have any upward refs
+            if upward_refs_lt_2(var("?body"))
         ),
     ];
 
@@ -797,6 +855,8 @@ fn main() {
     // first dreamcoder program
     let programs: Vec<RecExpr<Lambda>> = vec![
         // "(app - y)",
+        // "(lam (app - (lam (app + y))))",
+        // "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
 
         "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
         "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
@@ -823,13 +883,63 @@ fn main() {
 
     egraph.dot().to_png("target/0.png").unwrap();
 
+    let applam:Pattern<Lambda> = "(app (lam ?body) ?arg)".parse().unwrap();
+    assert!(applam.search(&egraph).is_empty(),
+        "Normal dreamcoder programs never have unapplied lambdas in them. 
+        it's important to avoid this because if we abstract this term with
+        applam-intro then prove its equivalence to the identity function (lam 0),
+        the search will explode (which is why we forbid lam 0 in the first place).
+        If you really want to use this program, run applam-inline on it until it no
+        longer has an applam (assuming its possible to put it in normal form without
+        looping infinitely)");
 
-    let runner = Runner::default().with_egraph(egraph);
-    let runner = Runner::default().with_egraph(runner.egraph).with_iter_limit(1).run(intro_rules);
-    let runner = Runner::default().with_egraph(runner.egraph).with_iter_limit(400).with_time_limit(core::time::Duration::from_secs(200)).with_node_limit(3000000).run(propagate_rules);
+    println!("Initial egraph size: {}", egraph.total_size());
+
+    // run intro rule 1x everywhere
+    let runner = Runner::default()
+        .with_egraph(egraph)
+        .with_iter_limit(1)
+        .with_time_limit(core::time::Duration::from_secs(200))
+        .with_node_limit(3000000)
+        .with_scheduler(SimpleScheduler)
+        .run(intro_rules);
     runner.print_report();
-    let runner = Runner::default().with_egraph(runner.egraph).with_iter_limit(400).with_time_limit(core::time::Duration::from_secs(200)).with_node_limit(3000000).run(final_rules);
+    let runner = Runner::default()
+        .with_egraph(runner.egraph)
+        .with_iter_limit(1)
+        .with_time_limit(core::time::Duration::from_secs(200))
+        .with_node_limit(3000000)
+        .with_scheduler(SimpleScheduler)
+        .run(intro2_rules);
     runner.print_report();
+
+    let mut egraph = runner.egraph;
+    // run_pretty(&propagate_rules[0], "1bubbleright", &mut egraph);
+    // run_pretty(&propagate_rules[0], "2bubbleright", &mut egraph);
+    // run_pretty(&propagate_rules[1], "3inline", &mut egraph);
+    // run_pretty(&propagate_rules[0], "4bubbleright", &mut egraph);
+
+    // run_pretty(&propagate_rules[1], "inline", &mut egraph);
+
+    // run propagation rules until saturation
+    let runner = Runner::default()
+        .with_egraph(egraph)
+        .with_iter_limit(400)
+        .with_time_limit(core::time::Duration::from_secs(200))
+        .with_node_limit(3000000)
+        .run(propagate_rules);
+    runner.print_report();
+
+    // run multiarg rules once
+    let runner = Runner::default()
+        .with_egraph(runner.egraph)
+        .with_iter_limit(1)
+        .with_time_limit(core::time::Duration::from_secs(200))
+        .with_node_limit(3000000)
+        .with_scheduler(SimpleScheduler)
+        .run(multiarg_rules);
+    runner.print_report();
+    
     let mut egraph = runner.egraph;
 
     // add a parent Programs node
@@ -842,13 +952,13 @@ fn main() {
         beam_extract(programs_id, None, &egraph)
     );
 
-    let top_invs: Vec<Id> = best_inventions(&egraph[programs_id].data.inventionful_cost_any)
-        .into_iter()
-        .take(5).collect();
+    let top_invs: Vec<Id> = best_inventions(&egraph[programs_id].data.inventionful_cost_any);
     assert!(top_invs.iter().all(|id| canonical(id,&egraph)));
 
-    for (i,inv) in top_invs.iter().enumerate() {
-        println!("\nInvention {} (id={}) (inv_cost={:?}; rewritten_cost={:?}): {}\n Rewritten:\n{}",
+    println!("Found {} Inventions that helped at the top level", top_invs.len());
+
+    for (i,inv) in top_invs.iter().take(5).enumerate() {
+        println!("\nInvention {} (id={}) (inv_cost={:?}; rewritten_cost={:?}):\n{}\n Rewritten:\n{}",
             i,
             inv,
             min_cost(*inv, None, false, &egraph),
@@ -857,6 +967,22 @@ fn main() {
             beam_extract(programs_id, Some(*inv), &egraph),
         );
     }
-    // runner.egraph.dot().to_png("target/final.png").unwrap();
+
+    for inv in top_invs.iter(){
+        let expr = beam_extract(*inv, None, &egraph);
+        if expr.to_string().contains("logo_forLoop") {
+            println!("Found!: {}", expr);
+        }
+    }
+
+
+    for i in 0..10 {
+        println!("{}: {}", i, search(format!("({})",i).as_str(),&egraph).len());
+    }
+
+
+
+
+    // egraph.dot().to_png("target/final.png").unwrap();
     
 }
