@@ -54,6 +54,108 @@ fn extract_enode(enode: &Lambda, egraph: &EGraph) -> String {
     }
 }
 
+
+
+fn min_cost(eclass:Id, inv: Option<Id>, nolambda:bool, egraph: &EGraph) -> Option<i32>{
+    let ref data = egraph[eclass].data;
+    match (inv,nolambda) {
+        (Some(inv),true) =>  data.inventionful_cost_nolambda
+            .get(&inv).cloned()
+            .or(data.inventionless_cost_nolambda),
+        (Some(inv),false) => data.inventionful_cost_any
+            .get(&inv).cloned()
+            .or(data.inventionless_cost_any),
+        (None,true) => data.inventionless_cost_nolambda,
+        (None,false) => data.inventionless_cost_any,
+    }
+}
+
+fn beam_extract(
+    root: Id,
+    inv: Option<Id>, // invention to use when extracting. None means no invention.
+    egraph: &EGraph,
+) -> RecExpr<Lambda> {
+    let root = egraph.find(root);
+    let mut expr = RecExpr::default();
+    beam_extract_rec(root, inv, false, egraph, &mut expr);
+    expr
+}
+
+fn beam_extract_rec(
+    root: Id,
+    inv: Option<Id>, // invention to use when extracting. None means no invention.
+    nolambda: bool, // whether or not a toplevel lambda is okay
+    egraph: &EGraph,
+    into_expr: &mut RecExpr<Lambda> // expr we're extracting into
+) -> Id {
+    let root = egraph.find(root);
+
+    let ref data = egraph[root].data;
+
+
+    let target_cost:i32 = min_cost(root, inv, nolambda, egraph)
+        .expect("attempting to extract something with infinite cost");
+
+    if Some(root) == inv {
+        assert!(target_cost == 100);
+        return into_expr.add(Lambda::Prim(format!("inv{}",root).into()));
+    }
+
+    for enode in egraph[root].iter() {
+        match enode {
+            Lambda::Prim(prim) => {
+                assert!(target_cost == 100);
+                return into_expr.add(Lambda::Prim(*prim))
+            }
+            Lambda::Var(var) => {
+                assert!(target_cost == 100);
+                return into_expr.add(Lambda::Var(*var))
+            }
+            Lambda::App([f,x]) => {
+                let fcost = min_cost(*f, inv, true, egraph);
+                let xcost = min_cost(*x, inv, false, egraph);
+                if let (Some(fcost),Some(xcost)) = (fcost,xcost) {
+                    if target_cost == 1 + fcost + xcost {
+                        let f_id = beam_extract_rec(*f, inv, true, egraph, into_expr);
+                        let x_id = beam_extract_rec(*x, inv, false, egraph, into_expr);
+                        return into_expr.add(Lambda::App([f_id,x_id]))    
+                    }
+                }
+            }
+            Lambda::Lam([b]) => {
+                if !nolambda {
+                    let bcost = min_cost(*b, inv, false, egraph);
+                    if let Some(bcost) = bcost {
+                        if target_cost == 1 + bcost {
+                            let b_id = beam_extract_rec(*b, inv, false, egraph, into_expr);
+                            return into_expr.add(Lambda::Lam([b_id]))   
+                        }
+                    }
+                }
+            }
+            Lambda::Programs(roots) => {
+                let costs: Option<Vec<i32>> = roots.iter()
+                    .map(|r| min_cost(*r,inv,false,egraph))
+                    .collect();
+                let total_cost = costs.map(|xs| xs.iter().sum());
+                if total_cost == Some(target_cost) {
+                    let root_ids: Vec<Id> = roots.iter()
+                        .map(|r| beam_extract_rec(*r, inv, false, egraph, into_expr))
+                        .collect();
+                    return into_expr.add(Lambda::Programs(root_ids))
+                }
+            }
+        }
+    }
+    panic!("Couldn't find the mincost node in this eclass");
+}
+
+
+
+
+
+
+
 // // min cost among two options, and Some beats None (unlike normal Option.min())
 // fn mincost_discard_none(a: &Option<i32>, b: &Option<i32>) -> Option<i32> {
 //     match (*a,*b) {
@@ -718,8 +820,56 @@ const EPSILON_COST: f64 = 0.01;
 //     }
 // }
 
-struct ProgramCost;
-impl CostFunction<Lambda> for ProgramCost {
+// struct CostPair {
+//     any: Option<i32>,
+//     nolambda: Option<i32>,
+// }
+// struct CleverCost<'a> { inv:Option<Id>, egraph: &'a EGraph }
+// impl<'a> CostFunction<Lambda> for CleverCost<'a> {
+//     type Cost = CostPair;
+//     fn cost<C>(&mut self, enode: &Lambda, mut costs: C) -> Self::Cost
+//     where
+//         C: FnMut(Id) -> Self::Cost
+//     {
+//         let cost_any: Option<i32> = match enode {
+//             Lambda::Var(_) | Lambda::Prim(_) => Some(100),
+//             Lambda::App([f, x]) => {
+//                 let fcost = costs(*f).nolambda;
+//                 let xcost = costs(*x).any;
+//                 match (fcost,xcost) {
+//                     (Some(fcost),Some(xcost)) => Some(1 + fcost + xcost),
+//                     _ => None,
+//                 }
+//             }
+//             Lambda::Lam([b]) => {
+//                 if self.inv == Some(self.egraph.find(*b)) {
+//                     Some(1 + 100)
+//                 } else {
+//                     costs(*b).any.map(|c| 1 + c)
+//                 }
+//             }
+//             Lambda::Programs(roots) => {
+//                 let costs: Option<Vec<i32>> = roots.iter().map(|p| costs(*p).any).collect();
+//                 costs.map(|cs| cs.iter().sum())
+//             }
+//         };
+//         let cost_nolambda = match enode {
+//             Lambda::Lam(_) => None,
+//             _ => cost_any.clone()
+//         };
+//         CostPair { any: cost_any, nolambda: cost_nolambda }
+//         // match enode {
+//         //     Lambda::Var(_) | Lambda::Prim(_) => 100,
+//         //     Lambda::App([f, x]) => 1 + costs(*f) + costs(*x),
+//         //     Lambda::Lam([b]) => 1 + costs(*b),
+//         //     Lambda::Programs(ps) => ps.iter().map(|p| costs(*p)).sum(),
+//         // }
+//     }
+// }
+
+// this is the cost where applams are allowed
+struct NaiveCost;
+impl CostFunction<Lambda> for NaiveCost {
     type Cost = i32;
     fn cost<C>(&mut self, enode: &Lambda, mut costs: C) -> Self::Cost
     where
@@ -1131,23 +1281,23 @@ fn main() {
         "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
         "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
 
-        // "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t1)) logo_epsA) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t2)) logo_epsA) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t5)) logo_epsA) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        // "(lam (app (app (app logo_FWRT logo_UL) logo_ZA) 0))",
-        // "(lam (app (app (app logo_FWRT logo_ZL) (app (app logo_DIVA logo_UA) t4)) (app (app (app logo_FWRT logo_UL) logo_ZA) 0)))",
-        // "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t7) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t7)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t1)) logo_epsA) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t2)) logo_epsA) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t5)) logo_epsA) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        "(lam (app (app (app logo_FWRT logo_UL) logo_ZA) 0))",
+        "(lam (app (app (app logo_FWRT logo_ZL) (app (app logo_DIVA logo_UA) t4)) (app (app (app logo_FWRT logo_UL) logo_ZA) 0)))",
+        "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t7) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t7)) 0)))) 0))",
             ].iter().map(|p| p.parse().unwrap()).collect();
     let roots: Vec<Id> = programs.iter().map(|p| egraph.add_expr(&p)).collect();
     // second dreamcoder program
@@ -1193,58 +1343,73 @@ fn main() {
             inventions: cands,
             seen: HashMap::new(),
         };
-        println!("beam searchin\n");
+        // println!("beam searchin\n");
         let programs_id = egraph.add(Lambda::Programs(roots.clone()));
         egraph.rebuild();
-        beam_search.eclass_cost(programs_id, &egraph);
 
-        // get the top inventions used by at least two programs
-        let top_inventions_all: Vec<Id> = roots.iter().map(|r| beam_search.best_inventions(*r, false, &egraph).1).flatten().map(|(_,inv)| inv).collect();
-        let mut top_inv_uniq: Vec<Id> = top_inventions_all.clone();
-        top_inv_uniq.sort();
-        top_inv_uniq.dedup();
-        let top_inventions: Vec<Id> = top_inv_uniq.into_iter().filter(|i| top_inventions_all.iter().filter(|j|i==*j).count() > 1).collect();
 
-        // these are the top individual inventions, which isn't as interesting
-        // since they tend to just replace most of the program with a learned chunk
-        let (inventionless_cost, top_individual_inventions) = beam_search.best_inventions(programs_id, false, &egraph);
+        // println!("\n***DOING IT THE OLD WAY\n");
 
-        // println!("extracting: {}", extract(programs_id,&egraph));
-        // let expr = beam_search.extract_cheapest(programs_id, None, &egraph);
-        let expr = extract(programs_id,&egraph);
-        println!("Inventionless ({} | {} | {:?}):\n{}\n", inventionless_cost, ProgramCost.cost_rec(&expr), egraph[programs_id].data.inventionless_cost_any, expr);
+        // beam_search.eclass_cost(programs_id, &egraph);
 
-        let mut top_inventions: Vec<(i32,Id,RecExpr<Lambda>)> = top_inventions.iter().map(|inv| {
-            let p = beam_search.extract_cheapest(programs_id, Some(*inv), &egraph);
-            (ProgramCost.cost_rec(&p), *inv, p)
-        }).collect();
-        top_inventions.sort_by(|a,b| a.0.partial_cmp(&b.0).unwrap());
+        // // get the top inventions used by at least two programs
+        // let top_inventions_all: Vec<Id> = roots.iter().map(|r| beam_search.best_inventions(*r, false, &egraph).1).flatten().map(|(_,inv)| inv).collect();
+        // let mut top_inv_uniq: Vec<Id> = top_inventions_all.clone();
+        // top_inv_uniq.sort();
+        // top_inv_uniq.dedup();
+        // let top_inventions: Vec<Id> = top_inv_uniq.into_iter().filter(|i| top_inventions_all.iter().filter(|j|i==*j).count() > 1).collect();
 
-        for (i,(cost,inv,rewritten)) in top_inventions.iter().take(5).enumerate() {
-            // println!("boutta extract");
-            // println!("Invention  : {}", extract(*inv,&egraph));
-            let inv_expr = extract(*inv,&egraph);
-            // println!("stracted");
-            
-            println!("\nInvention {} (id={}) ({} | {:?}): {}", i, inv, ProgramCost.cost_rec(&inv_expr), egraph[*inv].data.inventionless_cost_any, inv_expr);
-            let rwid = egraph.add_expr(&rewritten);
-            println!("Rewritten({} | {:?}):\n{}", cost, egraph[rwid].data.inventionless_cost_any, rewritten);
-            // println!("Beam of invention itself: {:?}", beam_search.seen[&inv]);
-            // beam_search.seen.remove(&inv);
-            // let inv_expr = beam_search.extract_cheapest(*inv, None, &egraph);
-            // println!("Again_Invention {}: {}", i, inv_expr);
-            // println!("Again Beam of invention itself: {:?}", beam_search.seen[&inv]);
-        }
+        // let (inventionless_cost, top_individual_inventions) = beam_search.best_inventions(programs_id, false, &egraph);
 
-        println!("\n");
+        // let expr = extract(programs_id,&egraph);
+        // println!("Inventionless ({} | {} | {:?}):\n{}\n", inventionless_cost, ProgramCost.cost_rec(&expr), egraph[programs_id].data.inventionless_cost_any, expr);
+
+        // let mut top_inventions: Vec<(i32,Id,RecExpr<Lambda>)> = top_inventions.iter().map(|inv| {
+        //     let p = beam_search.extract_cheapest(programs_id, Some(*inv), &egraph);
+        //     (ProgramCost.cost_rec(&p), *inv, p)
+        // }).collect();
+        // top_inventions.sort_by(|a,b| a.0.partial_cmp(&b.0).unwrap());
+
+        // for (i,(cost,inv,rewritten)) in top_inventions.iter().take(5).enumerate() {
+        //     let inv_expr = extract(*inv,&egraph);            
+        //     println!("\nInvention {} (id={}) ({} | {:?}): {}", i, inv, ProgramCost.cost_rec(&inv_expr), egraph[*inv].data.inventionless_cost_any, inv_expr);
+        //     let rwid = egraph.add_expr(&rewritten);
+        //     println!("Rewritten({} | {:?}):\n{}", cost, egraph[rwid].data.inventionless_cost_any, rewritten);
+        // }
+
+        // println!("\n***DOING IT THE NEW WAY\n");
+
+        println!("Inventionless (cost={:?}):\n{}\n",
+            min_cost(programs_id, None, false, &egraph),
+            beam_extract(programs_id, None, &egraph)
+        );
+
         let top_invs: Vec<Id> = best_inventions(&egraph[programs_id].data.inventionful_cost_any)
             .into_iter()
-            // .filter(|id| *id == egraph.find(*id))
-            .take(10).collect();
+            .take(5).collect();
         assert!(top_invs.iter().all(|id| canonical(id,&egraph)));
+
         for (i,inv) in top_invs.iter().enumerate() {
-            println!("Invention {} (id={} -> {}) (inv_cost={:?}) (rewritten cost = {:?}): ", i, inv, egraph.find(*inv), egraph[*inv].data.inventionless_cost_any, egraph[programs_id].data.inventionful_cost_any[&inv] );
+            println!("\nInvention {} (id={}) (inv_cost={:?}; rewritten_cost={:?}): {}\n Rewritten:\n{}",
+                i,
+                inv,
+                min_cost(*inv, None, false, &egraph),
+                min_cost(programs_id, Some(*inv), false, &egraph),
+                beam_extract(*inv, None, &egraph),
+                beam_extract(programs_id, Some(*inv), &egraph),
+            );
         }
+
+
+
+        // println!("\n");
+        // let top_invs: Vec<Id> = best_inventions(&egraph[programs_id].data.inventionful_cost_any)
+        //     .into_iter()
+        //     .take(10).collect();
+        // assert!(top_invs.iter().all(|id| canonical(id,&egraph)));
+        // for (i,inv) in top_invs.iter().enumerate() {
+        //     println!("Invention {} (id={} -> {}) (inv_cost={:?}) (rewritten cost = {:?}): ", i, inv, egraph.find(*inv), egraph[*inv].data.inventionless_cost_any, egraph[programs_id].data.inventionful_cost_any[&inv]);
+        // }
 
         // runner.egraph.dot().to_png("target/final.png").unwrap();
     }
