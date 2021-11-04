@@ -8,7 +8,6 @@ const BEAM_SIZE: usize = 1000000;
 const COST_NONTERMINAL: i32 = 1;
 const COST_TERMINAL: i32 = 100;
 
-
 define_language! {
     enum Lambda {
         Var(i32), // db index
@@ -53,8 +52,6 @@ fn extract_enode(enode: &Lambda, egraph: &EGraph) -> String {
         _ => {format!("not rendered")},
     }
 }
-
-
 
 fn min_cost(eclass:Id, inv: Option<Id>, nolambda:bool, egraph: &EGraph) -> Option<i32>{
     let ref data = egraph[eclass].data;
@@ -276,26 +273,22 @@ impl Analysis<Lambda> for LambdaAnalysis {
         let mut upward_refs: HashSet<i32> = HashSet::new();
         match enode {
             Lambda::Var(i) => {
-                // upward_refs: singleton set
                 upward_refs.insert(*i);
-                
             }
             Lambda::Prim(_) => {
-                // upward_refs: empty set
             }
             Lambda::App([f, x]) => {
-                // upward_refs: union of f and x
+                // union of f and x
                 upward_refs.extend(egraph[*f].data.upward_refs.iter());
                 upward_refs.extend(egraph[*x].data.upward_refs.iter());
             }
             Lambda::Lam([b]) => {
-                // upward_refs: body, subtract 1 from all values, remove the -1 if its in there
+                // body, subtract 1 from all values, remove the -1 if its in there
                 upward_refs.extend(egraph[*b].data.upward_refs.iter()
                     .map(|x| x-1)
                     .filter(|x| *x >= 0));
             }
             Lambda::Programs(programs) => {
-                // upward_refs: empty set
                 // assert no free variables in programs
                 assert!(programs.iter().all(|p| egraph[*p].data.upward_refs.is_empty()));
             }
@@ -358,16 +351,13 @@ impl Analysis<Lambda> for LambdaAnalysis {
                 // just map +1 over the costs
                 let ref b_any = egraph[*b].data.inventionful_cost_any;
                 debug_assert!(safe_to_remove_noncanonical(b_any, egraph));
-
                 b_any.iter().clone()
                     .filter(|(k,_)|canonical(k, egraph))
                     .map(|(k,v)| (*k,*v+COST_NONTERMINAL)).collect()
             }
             Lambda::Programs(roots) => {
                 // note we only add Programs node after running the egraph so it doesnt matter how expensive this is
-
                 debug_assert!(roots.iter().all(|r|safe_to_remove_noncanonical(&egraph[*r].data.inventionful_cost_any,egraph)));
-
                 // union together all the useful inventions of diff programs
                 let inventions: Vec<Id> = roots.iter()
                     .map(|r| egraph[*r].data.inventionful_cost_any.keys().cloned())
@@ -419,7 +409,7 @@ impl Analysis<Lambda> for LambdaAnalysis {
         if egraph[id].data.is_invention {
             debug_assert_eq!(id,egraph.find(id)); // just wanna make sure modify always gets called w canonicals, else we want a find() call here
 
-            // if we just merged two is_invention eclasses to make this one
+            // if we just merged two is_invention eclasses we wanna remove any leftover noncanonical inventions
             if egraph[id].data.inventionful_cost_any.values().any(|&v| v == 0) {
                 let mut to_remove = Vec::new();
                 for (k,v) in egraph[id].data.inventionful_cost_any.iter() {
@@ -432,6 +422,7 @@ impl Analysis<Lambda> for LambdaAnalysis {
                     egraph[id].data.inventionful_cost_any.remove(&k);
                 }
             }
+            // add our new invention!
             egraph[id].data.inventionful_cost_any.insert(id, COST_TERMINAL);
             egraph[id].data.inventionful_cost_nolambda.insert(id, COST_TERMINAL);
     }
@@ -467,7 +458,6 @@ where
         let a2 = self.1.apply_one(egraph, eclass, subst);
         assert_eq!(a1.len(), 1);
         assert_eq!(a2.len(), 1);
-        // println!("{:?} {:?}", a1, a2);
         a1[0] != a2[0]
     }
 
@@ -498,12 +488,7 @@ impl Applier<Lambda, LambdaAnalysis> for Shifter {
             if e_new.is_none() { return vec![]; }
             let mut subst = subst.clone(); // they do this in the example
             subst.insert(self.to_shift, e_new.unwrap()); // overwrites the e with shifted_e
-            let res = self.rhs.apply_one(egraph, eclass, &subst);
-            // assert!(res.len() == 1);
-            // // println!("Shifter {} == {}", extract(res[0], egraph), extract(eclass, egraph));
-            // egraph.union(eclass,res[0]);
-            res
-            
+            self.rhs.apply_one(egraph, eclass, &subst)
             // warning: there are unions that happen during class_shift internally which arent reported
             // to apply_matches. That seems totally okay though from reading the source code (which only
             // uses the Ids you return from apply_one to figure out how many places were modified)
@@ -518,21 +503,16 @@ fn class_shift(
     seen : &mut HashMap<(Id,i32),Option<Id>>,
     ) -> Option<Id>
     {
-        // println!("class_shift[>={}] {}", shift_refs_geq, extract(eclass, egraph));
-        // println!("seen: {:?}", seen);
         let key = (eclass,shift_refs_geq); // for caching
         // check if we've seen this before (ie we're looping). If so return our shifted value for it.
         if seen.contains_key(&key) {
-            // println!("was seen!: {:?}", seen[&key]);
             return seen[&key];
         }
         if egraph[eclass].data.upward_refs.iter().all(|i| *i < shift_refs_geq) {
             // no refs inside need modification, so the shifted eclass == original eclass
             seen.insert(key, Some(eclass));
-            // println!("2 ez");
             return Some(eclass)
         }
-        // println!("not simple");
         // we temporarily insert None to break any loops (ie if a recursive call asks us to compute the same thing). Note that at the end of this function we insert the real result in the cache
         seen.insert(key, None);
         // ALL children need modification (since ofc they all have the same free vars)
@@ -573,8 +553,6 @@ fn class_shift(
                 }
             }
         }).collect();
-        // println!("original eclass: {}", extract(eclass,egraph));
-        // print("{:?}",enodes)
         // todo figure out why this fires
         // assert!(!eclasses_to_union.contains(&eclass)); // implies shifting wasnt needed, so why didnt we return early
         // union the eclasses
@@ -592,7 +570,6 @@ struct Inliner {
     replace_with: Var, // what to inline
     inline_into: Var, // what to inline it into
     rhs: Pattern<Lambda>, // expr to be unified with original LHS - but with inline_into modified!
-    // abort_if_equal: Pattern<Lambda>,
 }
 
 impl Applier<Lambda, LambdaAnalysis> for Inliner {
@@ -607,11 +584,7 @@ impl Applier<Lambda, LambdaAnalysis> for Inliner {
             if e_new.is_none() { return vec![]; }
             let mut subst = subst.clone(); // they do this in the example
             subst.insert(self.inline_into, e_new.unwrap()); // overwrites the e with shifted_e
-            let res = self.rhs.apply_one(egraph, eclass, &subst);
-            // assert!(res.len() == 1);
-            // // println!("Inliner {} == {}", extract(res[0], egraph), extract(eclass, egraph));
-            // egraph.union(eclass,res[0]);
-            res
+            self.rhs.apply_one(egraph, eclass, &subst)
             // warning: there are unions that happen during inline internally which arent reported
             // to apply_matches. That seems totally okay though from reading the source code (which only
             // uses the Ids you return from apply_one to figure out how many places were modified)
@@ -851,80 +824,39 @@ fn main() {
     egraph.dot().to_png("target/0.png").unwrap();
 
 
-    let fast:bool = true;
-    if fast {
-        let runner = Runner::default().with_egraph(egraph);
-        let runner = Runner::default().with_egraph(runner.egraph).with_iter_limit(1).run(intro_rules);
-        let runner = Runner::default().with_egraph(runner.egraph).with_iter_limit(400).with_time_limit(core::time::Duration::from_secs(200)).with_node_limit(3000000).run(propagate_rules);
-        runner.print_report();
-        let runner = Runner::default().with_egraph(runner.egraph).with_iter_limit(400).with_time_limit(core::time::Duration::from_secs(200)).with_node_limit(3000000).run(final_rules);
-        runner.print_report();
-        let mut egraph = runner.egraph;
-        egraph.rebuild();
+    let runner = Runner::default().with_egraph(egraph);
+    let runner = Runner::default().with_egraph(runner.egraph).with_iter_limit(1).run(intro_rules);
+    let runner = Runner::default().with_egraph(runner.egraph).with_iter_limit(400).with_time_limit(core::time::Duration::from_secs(200)).with_node_limit(3000000).run(propagate_rules);
+    runner.print_report();
+    let runner = Runner::default().with_egraph(runner.egraph).with_iter_limit(400).with_time_limit(core::time::Duration::from_secs(200)).with_node_limit(3000000).run(final_rules);
+    runner.print_report();
+    let mut egraph = runner.egraph;
 
-        // egraph.dot().to_png("target/zzz.png").unwrap();
+    // add a parent Programs node
+    let programs_id = egraph.add(Lambda::Programs(roots.clone()));
+    // rebuild the invariants bc we're totally done!
+    egraph.rebuild();
 
+    println!("Inventionless (cost={:?}):\n{}\n",
+        min_cost(programs_id, None, false, &egraph),
+        beam_extract(programs_id, None, &egraph)
+    );
 
-        let find_cand: Pattern<Lambda> = "(lam ?b)".parse().unwrap();
-        let matches = find_cand.search(&egraph);
-        let cands: HashSet<Id> = matches.iter().map(|m| egraph.find(m.eclass))
-            .filter(|eclass|egraph[*eclass].data.upward_refs.is_empty()) // cant have free vars in an invention!
-            .collect();
+    let top_invs: Vec<Id> = best_inventions(&egraph[programs_id].data.inventionful_cost_any)
+        .into_iter()
+        .take(5).collect();
+    assert!(top_invs.iter().all(|id| canonical(id,&egraph)));
 
-        println!("candidates: {:?}", cands.len());
-        let programs_id = egraph.add(Lambda::Programs(roots.clone()));
-        egraph.rebuild();
-
-        println!("Inventionless (cost={:?}):\n{}\n",
-            min_cost(programs_id, None, false, &egraph),
-            beam_extract(programs_id, None, &egraph)
+    for (i,inv) in top_invs.iter().enumerate() {
+        println!("\nInvention {} (id={}) (inv_cost={:?}; rewritten_cost={:?}): {}\n Rewritten:\n{}",
+            i,
+            inv,
+            min_cost(*inv, None, false, &egraph),
+            min_cost(programs_id, Some(*inv), false, &egraph),
+            beam_extract(*inv, None, &egraph),
+            beam_extract(programs_id, Some(*inv), &egraph),
         );
-
-        let top_invs: Vec<Id> = best_inventions(&egraph[programs_id].data.inventionful_cost_any)
-            .into_iter()
-            .take(5).collect();
-        assert!(top_invs.iter().all(|id| canonical(id,&egraph)));
-
-        for (i,inv) in top_invs.iter().enumerate() {
-            println!("\nInvention {} (id={}) (inv_cost={:?}; rewritten_cost={:?}): {}\n Rewritten:\n{}",
-                i,
-                inv,
-                min_cost(*inv, None, false, &egraph),
-                min_cost(programs_id, Some(*inv), false, &egraph),
-                beam_extract(*inv, None, &egraph),
-                beam_extract(programs_id, Some(*inv), &egraph),
-            );
-        }
-
-        // runner.egraph.dot().to_png("target/final.png").unwrap();
     }
-    else { 
-        egraph.dot().to_png("target/0.png").unwrap();
-
-        // let limit = 1;
-        let runner = Runner::default().with_egraph(egraph).with_iter_limit(1).run(intro_rules);
-        egraph = runner.egraph;
-        egraph.dot().to_png("target/1.png").unwrap();
-
-        let runner = Runner::default().with_egraph(egraph).with_iter_limit(1).run(propagate_rules);
-        egraph = runner.egraph;
-        egraph.dot().to_png("target/2.png").unwrap();
-
-        let runner = Runner::default().with_egraph(egraph).with_iter_limit(1).run(propagate_rules);
-        egraph = runner.egraph;
-        egraph.dot().to_png("target/3.png").unwrap();
-
-        let runner = Runner::default().with_egraph(egraph).with_iter_limit(1).run(propagate_rules);
-        egraph = runner.egraph;
-        egraph.dot().to_png("target/4.png").unwrap();
-
-        let runner = Runner::default().with_egraph(egraph).with_iter_limit(5).run(propagate_rules);
-        runner.print_report();
-        egraph = runner.egraph;
-        egraph.dot().to_png("target/5.png").unwrap();
-        println!("nodes: {}; classes: {}", egraph.total_size(), egraph.number_of_classes());
-        println!("stop reason: {:?}", runner.stop_reason);
-    }
-
+    // runner.egraph.dot().to_png("target/final.png").unwrap();
     
 }
