@@ -1,5 +1,7 @@
 use egg::{rewrite as rw, *};
 use std::collections::{HashSet,HashMap};
+use chrono;
+
 
 extern crate log;
 
@@ -703,29 +705,33 @@ impl CostFunction<Lambda> for NaiveCost {
     }
 }
 
+fn timestamp() -> String {
+    format!("{}", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"))
+}
+
+
 /// finds everywhere the rewrite rules matches and applies it to each of them
 /// and rebuilds the egraph. Will only apply to matches that are visible before
 /// any rewriting occurs. This is the same as running a runner with an iter limit of 1.
 /// I guess I'm not using this in the code right now bc I like the runner's report.
-fn run_all_matches_once(rule: &Rewrite<Lambda,LambdaAnalysis>, egraph: &mut EGraph) {
-    let matches = rule.search(egraph);
-    rule.apply(egraph, &matches).len();
+fn apply_everywhere_once(rules_: &[&str], egraph: &mut EGraph) {
+    let rules: Vec<Rewrite<Lambda,LambdaAnalysis>> = rules(rules_);
+    let matches: Vec<Vec<SearchMatches>> = rules.iter().map(|r| r.search(egraph)).collect();
+    for (r,m) in rules.iter().zip(matches) {
+        let hits = r.apply(egraph, &m).len();
+        println!("(applied {} {} times)",r.name(),hits)
+    }
     egraph.rebuild();
 }
 
-fn run_pretty(rule: &Rewrite<Lambda,LambdaAnalysis>, name:&str, egraph: &mut EGraph) {
+fn run_pretty(rule_: &str, name:&str, egraph: &mut EGraph) {
+    let rule: Rewrite<Lambda,LambdaAnalysis> = rule(rule_);
     let matches = rule.search(egraph);
     egraph.dot().to_png(format!("target/match_{}_0pre.png",name)).unwrap();
     rule.apply(egraph, &matches).len();
     egraph.dot().to_png(format!("target/match_{}_1post.png",name)).unwrap();
     egraph.rebuild();
     egraph.dot().to_png(format!("target/match_{}_2rebuild.png",name)).unwrap();
-
-    // for (i,m) in matches.into_iter().enumerate().take(n) {
-    //     rule.apply(egraph, &[m]).len();
-    //     egraph.rebuild();
-    //     egraph.dot().to_png(format!("target/match_{}.png",i)).unwrap();
-    // }
 }
 
 fn search(pat: &str, egraph: &EGraph) -> Vec<SearchMatches>{
@@ -733,7 +739,9 @@ fn search(pat: &str, egraph: &EGraph) -> Vec<SearchMatches>{
     applam.search(&egraph)
 }
 
-
+fn save(egraph: &EGraph, name: &str, outdir: &str) {
+    egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
+}
 
 
 fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
@@ -864,6 +872,7 @@ fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
             }}
             // condition: cant raise arg above a lambda that it points to
             if zero_not_in_upward_refs(var("?arg"))
+            if ConditionNotEqual::parse("(?body)", "(0)")
         ),
 
         // this `-if-under-lam` version is the same as the `-unrestrained` version but only
@@ -876,6 +885,7 @@ fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
             }}
             // condition: cant raise arg above a lambda that it points to
             if zero_not_in_upward_refs(var("?arg"))
+            if ConditionNotEqual::parse("(?body)", "(0)")
         ),
 
         // this `-if-arg-of-app` version is the same as the `-unrestrained` version but only
@@ -888,6 +898,7 @@ fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
             }}
             // condition: cant raise arg above a lambda that it points to
             if zero_not_in_upward_refs(var("?arg"))
+            if ConditionNotEqual::parse("(?body)", "(0)") // todo explore removing this not sure if its limiting us
         ),
 
     ].into_iter().map(|r| (r.name().to_string(),r)).collect()
@@ -902,43 +913,54 @@ fn rules(names: &[&str]) -> Vec<Rewrite<Lambda, LambdaAnalysis>> {
     names.iter().map(|name|rule(name)).collect()
 }
 
-
+fn egraph_info(egraph: &EGraph) -> String {
+    format!("{} nodes, {} classes, {} memo", egraph.total_number_of_nodes(), egraph.number_of_classes(), egraph.total_size())
+}
 
 fn main() {
     env_logger::init();
+
+    // create a new directory for logging outputs
+    let out_dir = format!("target/{}",timestamp());
+    let out_dir_p = std::path::Path::new(out_dir.as_str());
+    assert!(!out_dir_p.exists());
+    std::fs::create_dir(out_dir_p).unwrap();
+
 
     let mut egraph: EGraph = Default::default();
 
     // first dreamcoder program
     let programs: Vec<RecExpr<Lambda>> = vec![
         // "(app - y)",
-        // "(lam (app - (lam (app + y))))",
+        "(lam (app - (lam (app + y))))",
+        // "(lam (app - y))",
+
         // "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
 
-        "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
 
-        "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t1)) logo_epsA) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t2)) logo_epsA) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t5)) logo_epsA) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        "(lam (app (app (app logo_FWRT logo_UL) logo_ZA) 0))",
-        "(lam (app (app (app logo_FWRT logo_ZL) (app (app logo_DIVA logo_UA) t4)) (app (app (app logo_FWRT logo_UL) logo_ZA) 0)))",
-        "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t7) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t7)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t1)) logo_epsA) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t2)) logo_epsA) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t5)) logo_epsA) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        // "(lam (app (app (app logo_FWRT logo_UL) logo_ZA) 0))",
+        // "(lam (app (app (app logo_FWRT logo_ZL) (app (app logo_DIVA logo_UA) t4)) (app (app (app logo_FWRT logo_UL) logo_ZA) 0)))",
+        // "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t7) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t7)) 0)))) 0))",
             ].iter().map(|p| p.parse().unwrap()).collect();
     let roots: Vec<Id> = programs.iter().map(|p| egraph.add_expr(&p)).collect();
 
-    egraph.dot().to_png("target/0.png").unwrap();
+    save(&egraph, "0", &out_dir);
 
     let applam:Pattern<Lambda> = "(app (lam ?body) ?arg)".parse().unwrap();
     assert!(applam.search(&egraph).is_empty(),
@@ -950,42 +972,19 @@ fn main() {
         longer has an applam (assuming its possible to put it in normal form without
         looping infinitely)");
 
-    println!("Initial egraph size: {}", egraph.total_size());
-
     // let rules_ = rules();
 
     println!("Available rules:");
     rule_map().keys().for_each(|r| println!("\t{}", r));
 
-    // run intro rule 1x everywhere
-    println!("*** Intro");
-    let runner = Runner::default()
-        .with_egraph(egraph)
-        .with_iter_limit(1)
-        .with_time_limit(core::time::Duration::from_secs(200))
-        .with_node_limit(3000000)
-        .with_scheduler(SimpleScheduler)
-        .run(rules(&["applam-intro"]).iter());
-    runner.print_report();
-    println!("*** Intro bubbles");
-    let runner = Runner::default()
-        .with_egraph(runner.egraph)
-        .with_iter_limit(1)
-        .with_time_limit(core::time::Duration::from_secs(200))
-        .with_node_limit(3000000)
-        .with_scheduler(SimpleScheduler)
-        .run(rules(&["applam-bubble-from-left-unrestrained",
-                     "applam-bubble-from-right-unrestrained"]).iter());
-    runner.print_report();
+    println!("Initial egraph:\n\t{}\n", egraph_info(&egraph));
 
-    let mut egraph = runner.egraph;
+    apply_everywhere_once(&["applam-intro"], &mut egraph);
+    println!("After applam-intro:\n\t{}\n", egraph_info(&egraph));
 
-    // run_pretty(&propagate_rules[0], "1bubbleright", &mut egraph);
-    // run_pretty(&propagate_rules[0], "2bubbleright", &mut egraph);
-    // run_pretty(&propagate_rules[1], "3inline", &mut egraph);
-    // run_pretty(&propagate_rules[0], "4bubbleright", &mut egraph);
-
-    // run_pretty(&propagate_rules[1], "inline", &mut egraph);
+    apply_everywhere_once(&["applam-bubble-from-left-unrestrained",
+                            "applam-bubble-from-right-unrestrained"], &mut egraph);
+    println!("After unrestrained bubble:\n\t{}\n", egraph_info(&egraph));
 
     // run propagation rules until saturation
     println!("*** Propagation");
@@ -994,28 +993,21 @@ fn main() {
         .with_iter_limit(400)
         .with_time_limit(core::time::Duration::from_secs(200))
         .with_node_limit(3000000)
-        .run(rules(&["applam-bubble-from-left",
+        .run(rules(&[
+                    //  "applam-bubble-from-left",
                      "applam-bubble-from-right",
                     //  "applam-bubble-over-lam-if-under-lam",
-                    //  "applam-bubble-over-lam-if-arg-of-app",
+                     "applam-bubble-over-lam-if-arg-of-app",
                     //  "applam-bubble-over-lam-unrestrained",
-                     "applam-merge",
+                    //  "applam-merge",
                      "applam-inline",
                      ]).iter());
     runner.print_report();
-
-    // run multiarg rules once
-    println!("*** Finalizing");
-    let runner = Runner::default()
-        .with_egraph(runner.egraph)
-        .with_iter_limit(1)
-        .with_time_limit(core::time::Duration::from_secs(200))
-        .with_node_limit(3000000)
-        .with_scheduler(SimpleScheduler)
-        .run(rules(&["applam-multiarg"]).iter());
-    runner.print_report();
-    
     let mut egraph = runner.egraph;
+
+    apply_everywhere_once(&["applam-multiarg"], &mut egraph);
+    println!("After applam-multiarg:\n\t{}\n", egraph_info(&egraph));
+
 
     // add a parent Programs node
     let programs_id = egraph.add(Lambda::Programs(roots.clone()));
@@ -1056,8 +1048,6 @@ fn main() {
     }
 
 
-
-
-    // egraph.dot().to_png("target/final.png").unwrap();
+    save(&egraph, "final", &out_dir);
     
 }
