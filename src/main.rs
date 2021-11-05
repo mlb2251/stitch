@@ -555,6 +555,49 @@ impl Applier<Lambda, LambdaAnalysis> for Inliner {
     }
 }
 
+struct ApplamBubbleOverLam {
+    arg: Var,
+    body: Var,
+    rhs: Pattern<Lambda>,
+}
+impl Applier<Lambda, LambdaAnalysis> for ApplamBubbleOverLam {
+    fn apply_one(
+        &self,
+        egraph: &mut EGraph,
+        eclass: Id,
+        subst: &Subst) -> Vec<Id> 
+        {
+            // downshift arg
+            let arg_new = shift(subst[self.arg], -1, egraph);
+
+            // increment upward_refs to 0 and decrement upward_refs to 1 in the body
+            let body_new = recursive_var_mod(
+                |actual_idx, depth, which_upward_ref, egraph| {
+                    if which_upward_ref == 0 {
+                        Some(egraph.add(Lambda::Var(actual_idx + 1)))
+                    } else if which_upward_ref == 1 {
+                        Some(egraph.add(Lambda::Var(actual_idx - 1)))
+                    }
+                    else {
+                        Some(egraph.add(Lambda::Var(actual_idx)))
+                    }
+                },
+                subst[self.body], egraph
+            );
+
+            if body_new.is_none() || arg_new.is_none() { return vec![]; }
+
+            // construct the rhs an return it!
+            let mut subst = subst.clone(); // they do this in the example
+            subst.insert(self.arg, arg_new.unwrap());
+            subst.insert(self.body, body_new.unwrap());
+            self.rhs.apply_one(egraph, eclass, &subst)
+    }
+}
+
+
+
+
 fn recursive_var_mod(
     var_mod: impl Fn(i32, i32, i32, &mut EGraph) -> Option<Id>,
     eclass:Id,
@@ -569,8 +612,6 @@ fn recursive_var_mod(
             &mut HashMap::new(),
         )
 }
-
-
 
 fn recursive_var_mod_helper(
     var_mod: &impl Fn(i32, i32, i32, &mut EGraph) -> Option<Id>,
@@ -692,47 +733,50 @@ fn search(pat: &str, egraph: &EGraph) -> Vec<SearchMatches>{
     applam.search(&egraph)
 }
 
-fn main() {
-    env_logger::init();
 
-    let intro_rules: &[Rewrite<Lambda, LambdaAnalysis>] = &[
+
+
+fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
+    vec![
+
         // applam-intro: this rule matches any node and rewrites it to be an applam with
         // $0 in the body and the subtree in the arg. Applies to all nodes
         // not just leaves. This rule necessarily introduces a self loop.
         rw!("applam-intro"; "(?subtree)" => "(app (lam 0) ?subtree)"
-        // abstracting the identity out just leads to insane blowups everywhere as
+        // conditions: abstracting the identity out just leads to insane blowups everywhere as
         // a result of (app (lam 0) (lam 0)) == (lam 0) which lets you build infinite
         // trees of things and it just gets messy.
         if ConditionNotEqual::parse("(?subtree)", "(lam 0)")
-        if ConditionNotEqual::parse("(?subtree)", "(0)")
+        if ConditionNotEqual::parse("(?subtree)", "(0)") // todo unclear if this does anything -- and why dont we do it for the other vars? worth considering
         ),
-    ];
-    let intro2_rules: &[Rewrite<Lambda, LambdaAnalysis>] = &[
-        rw!("applam-bubble-from-left"; "(app (app (lam ?body) ?arginner) ?argouter)"
-            => {Shifter {
-                incr_by: 1, // how much to increment by eg +1 or -1
-                to_shift: var("?argouter"), // expression to shift
-                rhs: "(app (lam (app ?body ?argouter)) ?arginner)".parse().unwrap(), // expr to be unified with original LHS - but with to_shift modified!
-            }}
-            // condition accounts for avoiding blowup from bubbling out of self-loop. If the two apps are the same eclass already it doesnt bubble the lower one up. Not sure if this will limit anything, its just my quick fix.
-            if ConditionNotEqual::parse("(app (app (lam ?body) ?arginner) ?argouter)", "(app (lam ?body) ?arginner)")
-            // if ConditionNotEqual::parse("(?arginner)", "(0)")
+
+        // these `-unrestrained` rules are version of `applam-bubble-from-left` and `applam-bubble-from-right` that are
+        // have less restrictions on where they can apply. In particular theyre allowed to bubble up an identity applam.
+        // which causes huge blowups if used repeatedly but is important to use once at the start.
+        rw!("applam-bubble-from-left-unrestrained"; "(app (app (lam ?body) ?arginner) ?argouter)"
+        => {Shifter {
+            incr_by: 1, // how much to increment by eg +1 or -1
+            to_shift: var("?argouter"), // expression to shift
+            rhs: "(app (lam (app ?body ?argouter)) ?arginner)".parse().unwrap(), // expr to be unified with original LHS - but with to_shift modified!
+        }}
+        // condition accounts for avoiding blowup from bubbling out of self-loop. If the two apps are the same eclass already it doesnt bubble the lower one up. Not sure if this will limit anything, its just my quick fix.
+        // todo should be able to safely remove condition
+        if ConditionNotEqual::parse("(app (app (lam ?body) ?arginner) ?argouter)", "(app (lam ?body) ?arginner)")
         ),
-        rw!("applam-bubble-from-right"; "(app ?f (app (lam ?body) ?arg))"
+        rw!("applam-bubble-from-right-unrestrained"; "(app ?f (app (lam ?body) ?arg))"
             => {Shifter {
                 incr_by: 1, // how much to increment by eg +1 or -1
                 to_shift: var("?f"), // expression to shift
                 rhs: "(app (lam (app ?f ?body)) ?arg)".parse().unwrap(), // expr to be unified with original LHS - but with to_shift modified!
             }}
             // condition accounts for avoiding blowup from bubbling out of self-loop. If the two apps are the same eclass already it doesnt bubble the lower one up. Not sure if this will limit anything, its just my quick fix.
+            // todo should be able to safely remove condition
             if ConditionNotEqual::parse("(app ?f (app (lam ?body) ?arg))", "(app (lam ?body) ?arg)")
-            // if ConditionNotEqual::parse("(?arg)", "(0)")
         ),
-    ];
-    let propagate_rules: &[Rewrite<Lambda, LambdaAnalysis>] = &[
+
         // applam-bubble-from-left and applam-bubble-from-right:
         // these are the rules for bubbling an applam up out of the left and right sides
-        // of an app respectively In the left case, the `arg` of the above app will be dropped
+        // of an app respectively. In the left case, the `arg` of the above app will be dropped
         // below the lambda meaning any pointers in it that point above its own root need
         // incrementing. In the right case its the same but with the `body` of the above app.
         rw!("applam-bubble-from-left"; "(app (app (lam ?body) ?arginner) ?argouter)"
@@ -742,6 +786,7 @@ fn main() {
                 rhs: "(app (lam (app ?body ?argouter)) ?arginner)".parse().unwrap(), // expr to be unified with original LHS - but with to_shift modified!
             }}
             // condition accounts for avoiding blowup from bubbling out of self-loop. If the two apps are the same eclass already it doesnt bubble the lower one up. Not sure if this will limit anything, its just my quick fix.
+            // todo maybe only the second condition is needed, worth seeing
             if ConditionNotEqual::parse("(app (app (lam ?body) ?arginner) ?argouter)", "(app (lam ?body) ?arginner)")
             if ConditionNotEqual::parse("(?body)", "(0)")
             // if ConditionNotEqual::parse("(?arginner)", "(0)")
@@ -754,10 +799,10 @@ fn main() {
             }}
             // condition accounts for avoiding blowup from bubbling out of self-loop. If the two apps are the same eclass already it doesnt bubble the lower one up. Not sure if this will limit anything, its just my quick fix.
             if ConditionNotEqual::parse("(app ?f (app (lam ?body) ?arg))", "(app (lam ?body) ?arg)")
+            // todo maybe only the second condition is needed, worth seeing
             if ConditionNotEqual::parse("(?body)", "(0)")
             // if ConditionNotEqual::parse("(?arg)", "(0)")
         ),
-        
 
         // applam-merge: this rule says when you have an app of two applams
         // that have a shared arg, you can bubble the lambda up above the inner
@@ -777,6 +822,9 @@ fn main() {
         // applam-inline: this inlines an applam to destroy it. I have a feeling itll help kill
         // some infinities by proving equivalences. But I also fear it. Though it doesnt introduce new
         // lambdas so it seems like it might not blow things up.
+        // todo its unclear if this rule is actually useful. It used to avoid certain blowups but I've fixed those in other ways now.
+        // todo ...And it still decreases the egraph size but at massive compute cost so worth seeing if I can fix the blowups
+        // todo ...in alternative ways and not need this inlining
         rw!("applam-inline"; "(app (lam ?body) ?arg)"
             => {Inliner {
                 replace_with: var("?arg"), // what to inline
@@ -784,19 +832,12 @@ fn main() {
                 rhs: "(?body)".parse().unwrap(), // expr to be unified with original LHS - but with inline_into modified!
                 // abort_if_equal: "(lam 0)".parse().unwrap(),
             }}
-            // we dont inline the identity function ??? idk this is just me trying ot fix things
-            // if ConditionNotEqual::parse("?arg", "(lam 0)")
         ),
-    ];
 
-    let multiarg_rules: &[Rewrite<Lambda, LambdaAnalysis>] = &[
         // applam-multiarg: this is just the transformation that takes an applam applam setup and moves it so
-        // its appapplamlam. Theres a tradeoff here bc this feels superficial and I worry about adding rewrite rules,
-        // but a) this feels relatively safe and b) structural hashing wise you actually REALLY want the two lambdas on
-        // top of each other.
-        // btw we do need to downshift the outgoing refs of arginner since it gets hoisted up,
-        // and furthermore we need to make sure its not pointing to argouter (by making sure $0 isnt an
-        // upward ref)
+        // its appapplamlam. Basically it lets you stack two lambdas on top of each other.
+        // todo we need to make a 3arg version of this
+        // todo this might be replacable by an unrestrained version of applam-bubble-over-lam which is worth experimenting with in case it doesnt cause a blowup
         rw!("applam-multiarg"; "(app (lam (app (lam ?body) ?arginner)) ?argouter)"
             => {Shifter {
                 incr_by: -1, // how much to increment by eg +1 or -1
@@ -808,7 +849,63 @@ fn main() {
             // condition: since we're using this to expose inventions, they must not have any upward refs
             if upward_refs_lt_2(var("?body"))
         ),
-    ];
+
+        // applam-bubble-over-lam: this is the transformation that lets you bubble an applam up over a lambda.
+        rw!("applam-bubble-over-lam-unrestrained"; "(lam (app (lam ?body) ?arg))"
+            // details:
+            // - downshift ?arg
+            // - since the lambdas swapped places, the body still has just as many lambda over it
+            //     as before, but we need to increment all the pointers to the previously-lower lambda
+            //     and decrement all the pointers to the previously-higher lambda
+            => {ApplamBubbleOverLam {
+                arg: var("?arg"),
+                body: var("?body"),
+                rhs: "(app (lam (lam ?body)) ?arg)".parse().unwrap(),
+            }}
+            // condition: cant raise arg above a lambda that it points to
+            if zero_not_in_upward_refs(var("?arg"))
+        ),
+
+        // this `-if-under-lam` version is the same as the `-unrestrained` version but only
+        // fires when theres a lambda wrapping everything
+        rw!("applam-bubble-over-lam-if-under-lam"; "(lam (lam (app (lam ?body) ?arg)))"
+            => {ApplamBubbleOverLam {
+                arg: var("?arg"),
+                body: var("?body"),
+                rhs: "(lam (app (lam (lam ?body)) ?arg))".parse().unwrap(),
+            }}
+            // condition: cant raise arg above a lambda that it points to
+            if zero_not_in_upward_refs(var("?arg"))
+        ),
+
+        // this `-if-arg-of-app` version is the same as the `-unrestrained` version but only
+        // fires when the lam is the right hand argument of an application
+        rw!("applam-bubble-over-lam-if-arg-of-app"; "(app ?f (lam (app (lam ?body) ?arg)))"
+            => {ApplamBubbleOverLam {
+                arg: var("?arg"),
+                body: var("?body"),
+                rhs: "(app ?f (app (lam (lam ?body)) ?arg))".parse().unwrap(),
+            }}
+            // condition: cant raise arg above a lambda that it points to
+            if zero_not_in_upward_refs(var("?arg"))
+        ),
+
+    ].into_iter().map(|r| (r.name().to_string(),r)).collect()
+}
+
+// ownership is a pain so this is a helper
+fn rule(name: &str) -> Rewrite<Lambda, LambdaAnalysis> {
+    rule_map().remove(name).expect(format!("rule {} not found",name).as_str())
+}
+
+fn rules(names: &[&str]) -> Vec<Rewrite<Lambda, LambdaAnalysis>> {
+    names.iter().map(|name|rule(name)).collect()
+}
+
+
+
+fn main() {
+    env_logger::init();
 
     let mut egraph: EGraph = Default::default();
 
@@ -855,25 +952,34 @@ fn main() {
 
     println!("Initial egraph size: {}", egraph.total_size());
 
+    // let rules_ = rules();
+
+    println!("Available rules:");
+    rule_map().keys().for_each(|r| println!("\t{}", r));
+
     // run intro rule 1x everywhere
+    println!("*** Intro");
     let runner = Runner::default()
         .with_egraph(egraph)
         .with_iter_limit(1)
         .with_time_limit(core::time::Duration::from_secs(200))
         .with_node_limit(3000000)
         .with_scheduler(SimpleScheduler)
-        .run(intro_rules);
+        .run(rules(&["applam-intro"]).iter());
     runner.print_report();
+    println!("*** Intro bubbles");
     let runner = Runner::default()
         .with_egraph(runner.egraph)
         .with_iter_limit(1)
         .with_time_limit(core::time::Duration::from_secs(200))
         .with_node_limit(3000000)
         .with_scheduler(SimpleScheduler)
-        .run(intro2_rules);
+        .run(rules(&["applam-bubble-from-left-unrestrained",
+                     "applam-bubble-from-right-unrestrained"]).iter());
     runner.print_report();
 
     let mut egraph = runner.egraph;
+
     // run_pretty(&propagate_rules[0], "1bubbleright", &mut egraph);
     // run_pretty(&propagate_rules[0], "2bubbleright", &mut egraph);
     // run_pretty(&propagate_rules[1], "3inline", &mut egraph);
@@ -882,22 +988,31 @@ fn main() {
     // run_pretty(&propagate_rules[1], "inline", &mut egraph);
 
     // run propagation rules until saturation
+    println!("*** Propagation");
     let runner = Runner::default()
         .with_egraph(egraph)
         .with_iter_limit(400)
         .with_time_limit(core::time::Duration::from_secs(200))
         .with_node_limit(3000000)
-        .run(propagate_rules);
+        .run(rules(&["applam-bubble-from-left",
+                     "applam-bubble-from-right",
+                    //  "applam-bubble-over-lam-if-under-lam",
+                    //  "applam-bubble-over-lam-if-arg-of-app",
+                    //  "applam-bubble-over-lam-unrestrained",
+                     "applam-merge",
+                     "applam-inline",
+                     ]).iter());
     runner.print_report();
 
     // run multiarg rules once
+    println!("*** Finalizing");
     let runner = Runner::default()
         .with_egraph(runner.egraph)
         .with_iter_limit(1)
         .with_time_limit(core::time::Duration::from_secs(200))
         .with_node_limit(3000000)
         .with_scheduler(SimpleScheduler)
-        .run(multiarg_rules);
+        .run(rules(&["applam-multiarg"]).iter());
     runner.print_report();
     
     let mut egraph = runner.egraph;
