@@ -921,7 +921,7 @@ fn main() {
     env_logger::init();
 
     // create a new directory for logging outputs
-    let out_dir = format!("target/{}",timestamp());
+    let out_dir: String = format!("target/{}",timestamp());
     let out_dir_p = std::path::Path::new(out_dir.as_str());
     assert!(!out_dir_p.exists());
     std::fs::create_dir(out_dir_p).unwrap();
@@ -960,7 +960,6 @@ fn main() {
             ].iter().map(|p| p.parse().unwrap()).collect();
     let roots: Vec<Id> = programs.iter().map(|p| egraph.add_expr(&p)).collect();
 
-    save(&egraph, "0", &out_dir);
 
     let applam:Pattern<Lambda> = "(app (lam ?body) ?arg)".parse().unwrap();
     assert!(applam.search(&egraph).is_empty(),
@@ -978,18 +977,31 @@ fn main() {
     rule_map().keys().for_each(|r| println!("\t{}", r));
 
     println!("Initial egraph:\n\t{}\n", egraph_info(&egraph));
+    save(&egraph, "0_init", &out_dir);
 
     apply_everywhere_once(&["applam-intro"], &mut egraph);
     println!("After applam-intro:\n\t{}\n", egraph_info(&egraph));
+    save(&egraph, "1_applam-intro", &out_dir);
 
     apply_everywhere_once(&["applam-bubble-from-left-unrestrained",
                             "applam-bubble-from-right-unrestrained"], &mut egraph);
     println!("After unrestrained bubble:\n\t{}\n", egraph_info(&egraph));
+    save(&egraph, "2_applam-bubble-unrestrained", &out_dir);
+
+    // let render_hook = 
 
     // run propagation rules until saturation
     println!("*** Propagation");
     let runner = Runner::default()
         .with_egraph(egraph)
+        .with_hook(
+            {let out_dir = out_dir.clone(); // silly thing to clone into the closure
+            move |runner|{
+                let iter = runner.iterations.len();
+                println!("Iter {}: {}", iter, egraph_info(&runner.egraph));
+                save(&runner.egraph, format!("3_propagate_{}",iter).as_str(), &out_dir);
+                Ok(())
+        }})
         .with_iter_limit(400)
         .with_time_limit(core::time::Duration::from_secs(200))
         .with_node_limit(3000000)
@@ -1007,7 +1019,9 @@ fn main() {
 
     apply_everywhere_once(&["applam-multiarg"], &mut egraph);
     println!("After applam-multiarg:\n\t{}\n", egraph_info(&egraph));
+    save(&egraph, "4_applam-multiarg", &out_dir);
 
+    if false {
 
     // add a parent Programs node
     let programs_id = egraph.add(Lambda::Programs(roots.clone()));
@@ -1045,6 +1059,7 @@ fn main() {
 
     for i in 0..10 {
         println!("{}: {}", i, search(format!("({})",i).as_str(),&egraph).len());
+    }
     }
 
 
