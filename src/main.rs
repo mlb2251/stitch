@@ -738,6 +738,7 @@ fn saturate(rules_: &[&str], render: bool, out_dir: String, egraph: EGraph) -> E
     let runner = Runner::default()
         .with_egraph(egraph)
         .with_iter_limit(400)
+        .with_scheduler(SimpleScheduler)
         .with_time_limit(core::time::Duration::from_secs(200))
         .with_node_limit(3000000);
     
@@ -786,16 +787,16 @@ fn save(egraph: &EGraph, name: &str, outdir: &str) {
 fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
     vec![
 
-        // applam-intro: this rule matches any node and rewrites it to be an applam with
-        // $0 in the body and the subtree in the arg. Applies to all nodes
-        // not just leaves. This rule necessarily introduces a self loop.
-        rw!("applam-intro"; "(?subtree)" => "(app (lam 0) ?subtree)"
-        // conditions: abstracting the identity out just leads to insane blowups everywhere as
-        // a result of (app (lam 0) (lam 0)) == (lam 0) which lets you build infinite
-        // trees of things and it just gets messy.
-        if ConditionNotEqual::parse("(?subtree)", "(lam 0)")
-        if ConditionNotEqual::parse("(?subtree)", "(0)") // todo unclear if this does anything -- and why dont we do it for the other vars? worth considering
-        ),
+        // // applam-intro: this rule matches any node and rewrites it to be an applam with
+        // // $0 in the body and the subtree in the arg. Applies to all nodes
+        // // not just leaves. This rule necessarily introduces a self loop.
+        // rw!("applam-intro"; "(?subtree)" => "(app (lam 0) ?subtree)"
+        // // conditions: abstracting the identity out just leads to insane blowups everywhere as
+        // // a result of (app (lam 0) (lam 0)) == (lam 0) which lets you build infinite
+        // // trees of things and it just gets messy.
+        // if ConditionNotEqual::parse("(?subtree)", "(lam 0)")
+        // if ConditionNotEqual::parse("(?subtree)", "(0)") // todo unclear if this does anything -- and why dont we do it for the other vars? worth considering
+        // ),
 
         rw!("alt-intro-left"; "(app ?left ?right)" =>
         {Shifter {
@@ -813,30 +814,32 @@ fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
         }}
         ),
 
+        //todo need to add an alt-intro for jumping a lambda right away as in `(lam y)` when you abstract y
 
-        // these `-unrestrained` rules are version of `applam-bubble-from-left` and `applam-bubble-from-right` that are
-        // have less restrictions on where they can apply. In particular theyre allowed to bubble up an identity applam.
-        // which causes huge blowups if used repeatedly but is important to use once at the start.
-        rw!("applam-bubble-from-left-unrestrained"; "(app (app (lam ?body) ?arginner) ?argouter)"
-        => {Shifter {
-            incr_by: 1, // how much to increment by eg +1 or -1
-            to_shift: var("?argouter"), // expression to shift
-            rhs: "(app (lam (app ?body ?argouter)) ?arginner)".parse().unwrap(), // expr to be unified with original LHS - but with to_shift modified!
-        }}
-        // condition accounts for avoiding blowup from bubbling out of self-loop. If the two apps are the same eclass already it doesnt bubble the lower one up. Not sure if this will limit anything, its just my quick fix.
-        // todo should be able to safely remove condition
-        if ConditionNotEqual::parse("(app (app (lam ?body) ?arginner) ?argouter)", "(app (lam ?body) ?arginner)")
-        ),
-        rw!("applam-bubble-from-right-unrestrained"; "(app ?f (app (lam ?body) ?arg))"
-            => {Shifter {
-                incr_by: 1, // how much to increment by eg +1 or -1
-                to_shift: var("?f"), // expression to shift
-                rhs: "(app (lam (app ?f ?body)) ?arg)".parse().unwrap(), // expr to be unified with original LHS - but with to_shift modified!
-            }}
-            // condition accounts for avoiding blowup from bubbling out of self-loop. If the two apps are the same eclass already it doesnt bubble the lower one up. Not sure if this will limit anything, its just my quick fix.
-            // todo should be able to safely remove condition
-            if ConditionNotEqual::parse("(app ?f (app (lam ?body) ?arg))", "(app (lam ?body) ?arg)")
-        ),
+
+        // // these `-unrestrained` rules are version of `applam-bubble-from-left` and `applam-bubble-from-right` that are
+        // // have less restrictions on where they can apply. In particular theyre allowed to bubble up an identity applam.
+        // // which causes huge blowups if used repeatedly but is important to use once at the start.
+        // rw!("applam-bubble-from-left-unrestrained"; "(app (app (lam ?body) ?arginner) ?argouter)"
+        // => {Shifter {
+        //     incr_by: 1, // how much to increment by eg +1 or -1
+        //     to_shift: var("?argouter"), // expression to shift
+        //     rhs: "(app (lam (app ?body ?argouter)) ?arginner)".parse().unwrap(), // expr to be unified with original LHS - but with to_shift modified!
+        // }}
+        // // condition accounts for avoiding blowup from bubbling out of self-loop. If the two apps are the same eclass already it doesnt bubble the lower one up. Not sure if this will limit anything, its just my quick fix.
+        // // todo should be able to safely remove condition
+        // if ConditionNotEqual::parse("(app (app (lam ?body) ?arginner) ?argouter)", "(app (lam ?body) ?arginner)")
+        // ),
+        // rw!("applam-bubble-from-right-unrestrained"; "(app ?f (app (lam ?body) ?arg))"
+        //     => {Shifter {
+        //         incr_by: 1, // how much to increment by eg +1 or -1
+        //         to_shift: var("?f"), // expression to shift
+        //         rhs: "(app (lam (app ?f ?body)) ?arg)".parse().unwrap(), // expr to be unified with original LHS - but with to_shift modified!
+        //     }}
+        //     // condition accounts for avoiding blowup from bubbling out of self-loop. If the two apps are the same eclass already it doesnt bubble the lower one up. Not sure if this will limit anything, its just my quick fix.
+        //     // todo should be able to safely remove condition
+        //     if ConditionNotEqual::parse("(app ?f (app (lam ?body) ?arg))", "(app (lam ?body) ?arg)")
+        // ),
 
         // applam-bubble-from-left and applam-bubble-from-right:
         // these are the rules for bubbling an applam up out of the left and right sides
@@ -851,9 +854,8 @@ fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
             }}
             // condition accounts for avoiding blowup from bubbling out of self-loop. If the two apps are the same eclass already it doesnt bubble the lower one up. Not sure if this will limit anything, its just my quick fix.
             // todo maybe only the second condition is needed, worth seeing
-            if ConditionNotEqual::parse("(app (app (lam ?body) ?arginner) ?argouter)", "(app (lam ?body) ?arginner)")
-            if ConditionNotEqual::parse("(?body)", "(0)")
-            // if ConditionNotEqual::parse("(?arginner)", "(0)")
+            // if ConditionNotEqual::parse("(app (app (lam ?body) ?arginner) ?argouter)", "(app (lam ?body) ?arginner)")
+            // if ConditionNotEqual::parse("(?body)", "(0)")
         ),
         rw!("applam-bubble-from-right"; "(app ?f (app (lam ?body) ?arg))"
             => {Shifter {
@@ -862,10 +864,9 @@ fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
                 rhs: "(app (lam (app ?f ?body)) ?arg)".parse().unwrap(), // expr to be unified with original LHS - but with to_shift modified!
             }}
             // condition accounts for avoiding blowup from bubbling out of self-loop. If the two apps are the same eclass already it doesnt bubble the lower one up. Not sure if this will limit anything, its just my quick fix.
-            if ConditionNotEqual::parse("(app ?f (app (lam ?body) ?arg))", "(app (lam ?body) ?arg)")
+            // if ConditionNotEqual::parse("(app ?f (app (lam ?body) ?arg))", "(app (lam ?body) ?arg)")
             // todo maybe only the second condition is needed, worth seeing
-            if ConditionNotEqual::parse("(?body)", "(0)")
-            // if ConditionNotEqual::parse("(?arg)", "(0)")
+            // if ConditionNotEqual::parse("(?body)", "(0)")
         ),
 
         // applam-merge: this rule says when you have an app of two applams
@@ -928,7 +929,7 @@ fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
             }}
             // condition: cant raise arg above a lambda that it points to
             if zero_not_in_upward_refs(var("?arg"))
-            if ConditionNotEqual::parse("(?body)", "(0)")
+            // if ConditionNotEqual::parse("(?body)", "(0)")
         ),
 
         // this `-if-under-lam` version is the same as the `-unrestrained` version but only
@@ -941,7 +942,7 @@ fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
             }}
             // condition: cant raise arg above a lambda that it points to
             if zero_not_in_upward_refs(var("?arg"))
-            if ConditionNotEqual::parse("(?body)", "(0)")
+            // if ConditionNotEqual::parse("(?body)", "(0)")
         ),
 
         // this `-if-arg-of-app` version is the same as the `-unrestrained` version but only
@@ -955,7 +956,7 @@ fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
             // condition: cant raise arg above a lambda that it points to
             if zero_not_in_upward_refs(var("?arg"))
             if ConditionNotEqual::parse("(?body)", "(0)") // todo explore removing this not sure if its limiting us
-            if ConditionNotEqual::parse("(?f)", "(lam 0)")
+            // if ConditionNotEqual::parse("(?f)", "(lam 0)")
         ),
 
     ].into_iter().map(|r| (r.name().to_string(),r)).collect()
@@ -989,10 +990,12 @@ fn main() {
     // first dreamcoder program
     let programs: Vec<RecExpr<Lambda>> = vec![
         // "(lam (app - 0))",
-        // "(app - y)",
-
         // "(lam (app - y))",
-        
+
+        // "(lam (lam (app (app - x) y)))",
+
+        // "(app - (lam (lam (app + 0))))",
+
         // "(app - (lam (app + y)))",
         // "(lam (app - (lam (lam (y)))))",
 
@@ -1015,23 +1018,23 @@ fn main() {
         // second:
         "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
 
-        "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t1)) logo_epsA) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t2)) logo_epsA) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t5)) logo_epsA) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        "(lam (app (app (app logo_FWRT logo_UL) logo_ZA) 0))",
-        "(lam (app (app (app logo_FWRT logo_ZL) (app (app logo_DIVA logo_UA) t4)) (app (app (app logo_FWRT logo_UL) logo_ZA) 0)))",
-        "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t7) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t7)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t1)) logo_epsA) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t2)) logo_epsA) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t5)) logo_epsA) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        // "(lam (app (app (app logo_FWRT logo_UL) logo_ZA) 0))",
+        // "(lam (app (app (app logo_FWRT logo_ZL) (app (app logo_DIVA logo_UA) t4)) (app (app (app logo_FWRT logo_UL) logo_ZA) 0)))",
+        // "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t7) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t7)) 0)))) 0))",
             ].iter().map(|p| p.parse().unwrap()).collect();
     let roots: Vec<Id> = programs.iter().map(|p| egraph.add_expr(&p)).collect();
     egraph.rebuild(); // this is VERY important to run before you try applying any searches or rewrites
@@ -1078,11 +1081,11 @@ fn main() {
     let mut egraph = saturate(&[
                      "applam-bubble-from-left",
                      "applam-bubble-from-right",
-                    //  "applam-bubble-over-lam-if-under-lam",
-                    //  "applam-bubble-over-lam-if-arg-of-app",
+                     "applam-bubble-over-lam-if-under-lam",
+                     "applam-bubble-over-lam-if-arg-of-app",
                     //  "applam-bubble-over-lam-unrestrained",
                      "applam-merge",
-                     "applam-inline",
+                    //  "applam-inline",
                      ], false, out_dir.to_string(), egraph);
 
     // save(&egraph, "4_propagate", &out_dir);
@@ -1105,7 +1108,7 @@ fn main() {
 
 
 
-    if true {
+    if false {
 
     // add a parent Programs node
     let programs_id = egraph.add(Lambda::Programs(roots.clone()));
