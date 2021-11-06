@@ -508,11 +508,18 @@ impl Applier<Lambda, LambdaAnalysis> for Shifter {
         eclass: Id,
         subst: &Subst) -> Vec<Id> 
         {
+            // println!("initial: left={} right={}", extract(subst[var("?left")],egraph),extract(subst[var("?right")],egraph));
             let e_new = shift(subst[self.to_shift], self.incr_by, egraph);
             if e_new.is_none() { return vec![]; }
             let mut subst = subst.clone(); // they do this in the example
             subst.insert(self.to_shift, e_new.unwrap()); // overwrites the e with shifted_e
-            self.rhs.apply_one(egraph, eclass, &subst)
+            let res = self.rhs.apply_one(egraph, eclass, &subst);
+            // println!("{} | left={} right={}", self.rhs.ast, extract(subst[var("?left")],egraph),extract(subst[var("?right")],egraph));
+            // println!("{} {}", extract(eclass,egraph), extract(res[0],egraph));
+            // egraph.union(res[0],eclass);
+            // println!("safe");
+            res
+
             // warning: there are unions that happen during class_shift internally which arent reported
             // to apply_matches. That seems totally okay though from reading the source code (which only
             // uses the Ids you return from apply_one to figure out how many places were modified)
@@ -721,7 +728,7 @@ fn apply_everywhere_once(rules_: &[&str], egraph: &mut EGraph) {
     let matches: Vec<Vec<SearchMatches>> = rules.iter().map(|r| r.search(egraph)).collect();
     for (r,m) in rules.iter().zip(matches) {
         let hits = r.apply(egraph, &m).len();
-        println!("(applied {} {} times)",r.name(),hits)
+        println!("(applied {} {} times out of {} matches)",r.name(),hits, m.len());
     }
     egraph.rebuild();
 }
@@ -789,6 +796,23 @@ fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
         if ConditionNotEqual::parse("(?subtree)", "(lam 0)")
         if ConditionNotEqual::parse("(?subtree)", "(0)") // todo unclear if this does anything -- and why dont we do it for the other vars? worth considering
         ),
+
+        rw!("alt-intro-left"; "(app ?left ?right)" =>
+        {Shifter {
+            incr_by: 1, // how much to increment by eg +1 or -1
+            to_shift: var("?right"), // expression to shift
+            rhs: "(app (lam (app 0 ?right)) ?left)".parse().unwrap(), // expr to be unified with original LHS - but with to_shift modified!
+        }}
+        ),
+
+        rw!("alt-intro-right"; "(app ?left ?right)" =>
+        {Shifter {
+            incr_by: 1, // how much to increment by eg +1 or -1
+            to_shift: var("?left"), // expression to shift
+            rhs: "(app (lam (app ?left 0)) ?right)".parse().unwrap(), // expr to be unified with original LHS - but with to_shift modified!
+        }}
+        ),
+
 
         // these `-unrestrained` rules are version of `applam-bubble-from-left` and `applam-bubble-from-right` that are
         // have less restrictions on where they can apply. In particular theyre allowed to bubble up an identity applam.
@@ -964,7 +988,9 @@ fn main() {
 
     // first dreamcoder program
     let programs: Vec<RecExpr<Lambda>> = vec![
+        // "(lam (app - 0))",
         // "(app - y)",
+
         // "(lam (app - y))",
         
         // "(app - (lam (app + y)))",
@@ -1008,7 +1034,7 @@ fn main() {
         "(lam (app (app (app logo_forLoop t7) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t7)) 0)))) 0))",
             ].iter().map(|p| p.parse().unwrap()).collect();
     let roots: Vec<Id> = programs.iter().map(|p| egraph.add_expr(&p)).collect();
-
+    egraph.rebuild(); // this is VERY important to run before you try applying any searches or rewrites
 
     let applam:Pattern<Lambda> = "(app (lam ?body) ?arg)".parse().unwrap();
     assert!(applam.search(&egraph).is_empty(),
@@ -1028,18 +1054,24 @@ fn main() {
 
     // *** ACTUAL EGRAPH RUNNING ***
 
-    
+
     println!("Initial egraph:\n\t{}\n", egraph_info(&egraph));
     save(&egraph, "0_init", &out_dir);
 
-    apply_everywhere_once(&["applam-intro"], &mut egraph);
-    println!("After applam-intro:\n\t{}\n", egraph_info(&egraph));
+    // apply_everywhere_once(&["applam-intro"], &mut egraph);
+    // println!("After applam-intro:\n\t{}\n", egraph_info(&egraph));
     // save(&egraph, "1_applam-intro", &out_dir);
 
-    apply_everywhere_once(&["applam-bubble-from-left-unrestrained",
-                            "applam-bubble-from-right-unrestrained"], &mut egraph);
-    println!("After unrestrained bubble:\n\t{}\n", egraph_info(&egraph));
+    // apply_everywhere_once(&["applam-bubble-from-left-unrestrained",
+    //                         "applam-bubble-from-right-unrestrained"], &mut egraph);
+    // println!("After unrestrained bubble:\n\t{}\n", egraph_info(&egraph));
     // save(&egraph, "2_applam-bubble-unrestrained", &out_dir);
+
+    // println!("hits {}",search("(lam ?a)", &egraph).len());
+
+    apply_everywhere_once(&["alt-intro-left","alt-intro-right"], &mut egraph);
+    println!("After alt intro:\n\t{}\n", egraph_info(&egraph));
+
 
     // run propagation rules until saturation
     println!("*** Propagation");
@@ -1065,6 +1097,7 @@ fn main() {
     apply_everywhere_once(&["applam-inline"], &mut egraph);
     println!("After inline:\n\t{}\n", egraph_info(&egraph));
 
+    // save(&egraph, "final", &out_dir);
 
     // *** END OF ACTUAL EGRAPH RUNNING ***
 
@@ -1072,7 +1105,7 @@ fn main() {
 
 
 
-    if false {
+    if true {
 
     // add a parent Programs node
     let programs_id = egraph.add(Lambda::Programs(roots.clone()));
@@ -1114,6 +1147,5 @@ fn main() {
     }
 
 
-    // save(&egraph, "final", &out_dir);
     
 }
