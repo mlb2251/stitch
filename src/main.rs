@@ -5,7 +5,7 @@ use chrono;
 
 extern crate log;
 
-const ARGC: i32 = 2;
+const ARGC: i32 = 6;
 const BEAM_SIZE: usize = 1000000;
 const COST_NONTERMINAL: i32 = 1;
 const COST_TERMINAL: i32 = 100;
@@ -990,7 +990,8 @@ fn main() {
     // first dreamcoder program
     let programs: Vec<RecExpr<Lambda>> = vec![
         // "(lam (app - 0))",
-        // "(lam (app - y))",
+        "(lam (app (app (app + x) y) z))",
+        "(lam (app (app + x) (app - y)) )",
 
         // "(lam (lam (app (app - x) y)))",
 
@@ -1014,9 +1015,9 @@ fn main() {
         // "(lam (app - y))",
 
         // first:
-        "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
         // second:
-        "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
+        // "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
 
         // "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
         // "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
@@ -1081,8 +1082,8 @@ fn main() {
     let mut egraph = saturate(&[
                      "applam-bubble-from-left",
                      "applam-bubble-from-right",
-                     "applam-bubble-over-lam-if-under-lam",
-                     "applam-bubble-over-lam-if-arg-of-app",
+                    //  "applam-bubble-over-lam-if-under-lam",
+                    //  "applam-bubble-over-lam-if-arg-of-app",
                     //  "applam-bubble-over-lam-unrestrained",
                      "applam-merge",
                     //  "applam-inline",
@@ -1100,7 +1101,7 @@ fn main() {
     apply_everywhere_once(&["applam-inline"], &mut egraph);
     println!("After inline:\n\t{}\n", egraph_info(&egraph));
 
-    // save(&egraph, "final", &out_dir);
+    save(&egraph, "final", &out_dir);
 
     // *** END OF ACTUAL EGRAPH RUNNING ***
 
