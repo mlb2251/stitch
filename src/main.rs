@@ -10,6 +10,8 @@ const BEAM_SIZE: usize = 1000000;
 const COST_NONTERMINAL: i32 = 1;
 const COST_TERMINAL: i32 = 100;
 
+// const SAVE: &str = "all";
+
 define_language! {
     enum Lambda {
         Var(i32), // db index
@@ -724,6 +726,36 @@ fn apply_everywhere_once(rules_: &[&str], egraph: &mut EGraph) {
     egraph.rebuild();
 }
 
+fn saturate(rules_: &[&str], render: bool, out_dir: String, egraph: EGraph) -> EGraph {
+    let rules: Vec<Rewrite<Lambda,LambdaAnalysis>> = rules(rules_);
+    let runner = Runner::default()
+        .with_egraph(egraph)
+        .with_iter_limit(400)
+        .with_time_limit(core::time::Duration::from_secs(200))
+        .with_node_limit(3000000);
+    
+    // i know this is awful but its the best i can do that makes rust happy
+    let runner = if !render {runner} else {runner.with_hook(
+        {
+            let out_dir = out_dir.clone(); // silly thing to clone into the closure
+            move |runner|{
+                let iter = runner.iterations.len();
+                println!("Iter {}: {}", iter, egraph_info(&runner.egraph));
+                save(&runner.egraph, format!("3_propagate_{}",iter).as_str(), &out_dir);
+                Ok(())
+            }
+    })};
+
+    
+    let runner = runner.run(rules.iter());
+    runner.print_report();
+    runner.egraph
+}
+
+
+
+
+
 fn run_pretty(rule_: &str, name:&str, egraph: &mut EGraph) {
     let rule: Rewrite<Lambda,LambdaAnalysis> = rule(rule_);
     let matches = rule.search(egraph);
@@ -899,6 +931,7 @@ fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
             // condition: cant raise arg above a lambda that it points to
             if zero_not_in_upward_refs(var("?arg"))
             if ConditionNotEqual::parse("(?body)", "(0)") // todo explore removing this not sure if its limiting us
+            if ConditionNotEqual::parse("(?f)", "(lam 0)")
         ),
 
     ].into_iter().map(|r| (r.name().to_string(),r)).collect()
@@ -932,31 +965,47 @@ fn main() {
     // first dreamcoder program
     let programs: Vec<RecExpr<Lambda>> = vec![
         // "(app - y)",
-        "(lam (app - (lam (app + y))))",
+        // "(lam (app - y))",
+        
+        // "(app - (lam (app + y)))",
+        // "(lam (app - (lam (lam (y)))))",
+
+
+        // 116/74 (no-inline: 136/94)
+        // "(lam (app - (app + y)))",
+
+        // 55/34 (no-inline: 63/42)
+        // "(app - (app + y))",
+
+        // "(lam (app x y))",
+
+
+
+
         // "(lam (app - y))",
 
-        // "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
+        // first:
+        "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
+        // second:
+        "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
 
-        // "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
-
-        // "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t1)) logo_epsA) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t2)) logo_epsA) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t5)) logo_epsA) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        // "(lam (app (app (app logo_FWRT logo_UL) logo_ZA) 0))",
-        // "(lam (app (app (app logo_FWRT logo_ZL) (app (app logo_DIVA logo_UA) t4)) (app (app (app logo_FWRT logo_UL) logo_ZA) 0)))",
-        // "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t7) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t7)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t1)) logo_epsA) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t2)) logo_epsA) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t5)) logo_epsA) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        "(lam (app (app (app logo_FWRT logo_UL) logo_ZA) 0))",
+        "(lam (app (app (app logo_FWRT logo_ZL) (app (app logo_DIVA logo_UA) t4)) (app (app (app logo_FWRT logo_UL) logo_ZA) 0)))",
+        "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t7) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t7)) 0)))) 0))",
             ].iter().map(|p| p.parse().unwrap()).collect();
     let roots: Vec<Id> = programs.iter().map(|p| egraph.add_expr(&p)).collect();
 
@@ -976,50 +1025,52 @@ fn main() {
     println!("Available rules:");
     rule_map().keys().for_each(|r| println!("\t{}", r));
 
+
+    // *** ACTUAL EGRAPH RUNNING ***
+
+    
     println!("Initial egraph:\n\t{}\n", egraph_info(&egraph));
     save(&egraph, "0_init", &out_dir);
 
     apply_everywhere_once(&["applam-intro"], &mut egraph);
     println!("After applam-intro:\n\t{}\n", egraph_info(&egraph));
-    save(&egraph, "1_applam-intro", &out_dir);
+    // save(&egraph, "1_applam-intro", &out_dir);
 
     apply_everywhere_once(&["applam-bubble-from-left-unrestrained",
                             "applam-bubble-from-right-unrestrained"], &mut egraph);
     println!("After unrestrained bubble:\n\t{}\n", egraph_info(&egraph));
-    save(&egraph, "2_applam-bubble-unrestrained", &out_dir);
-
-    // let render_hook = 
+    // save(&egraph, "2_applam-bubble-unrestrained", &out_dir);
 
     // run propagation rules until saturation
     println!("*** Propagation");
-    let runner = Runner::default()
-        .with_egraph(egraph)
-        .with_hook(
-            {let out_dir = out_dir.clone(); // silly thing to clone into the closure
-            move |runner|{
-                let iter = runner.iterations.len();
-                println!("Iter {}: {}", iter, egraph_info(&runner.egraph));
-                save(&runner.egraph, format!("3_propagate_{}",iter).as_str(), &out_dir);
-                Ok(())
-        }})
-        .with_iter_limit(400)
-        .with_time_limit(core::time::Duration::from_secs(200))
-        .with_node_limit(3000000)
-        .run(rules(&[
-                    //  "applam-bubble-from-left",
+    let mut egraph = saturate(&[
+                     "applam-bubble-from-left",
                      "applam-bubble-from-right",
                     //  "applam-bubble-over-lam-if-under-lam",
-                     "applam-bubble-over-lam-if-arg-of-app",
+                    //  "applam-bubble-over-lam-if-arg-of-app",
                     //  "applam-bubble-over-lam-unrestrained",
-                    //  "applam-merge",
+                     "applam-merge",
                      "applam-inline",
-                     ]).iter());
-    runner.print_report();
-    let mut egraph = runner.egraph;
+                     ], false, out_dir.to_string(), egraph);
+
+    // save(&egraph, "4_propagate", &out_dir);
+
+    // todo i just put an inline in here
+    apply_everywhere_once(&["applam-inline"], &mut egraph);
+    println!("After inline:\n\t{}\n", egraph_info(&egraph));
 
     apply_everywhere_once(&["applam-multiarg"], &mut egraph);
-    println!("After applam-multiarg:\n\t{}\n", egraph_info(&egraph));
-    save(&egraph, "4_applam-multiarg", &out_dir);
+    println!("After multiarg:\n\t{}\n", egraph_info(&egraph));
+    // save(&egraph, "5_multiarg", &out_dir);
+    apply_everywhere_once(&["applam-inline"], &mut egraph);
+    println!("After inline:\n\t{}\n", egraph_info(&egraph));
+
+
+    // *** END OF ACTUAL EGRAPH RUNNING ***
+
+
+
+
 
     if false {
 
@@ -1063,6 +1114,6 @@ fn main() {
     }
 
 
-    save(&egraph, "final", &out_dir);
+    // save(&egraph, "final", &out_dir);
     
 }
