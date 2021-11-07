@@ -1,12 +1,12 @@
 use egg::{rewrite as rw, *};
 use std::collections::{HashSet,HashMap};
 use chrono;
+use serde_json;
 
 
 extern crate log;
 
 const MAX_ARITY: usize = 2;
-
 const BEAM_SIZE: usize = 1000000;
 const COST_NONTERMINAL: i32 = 1;
 const COST_TERMINAL: i32 = 100;
@@ -226,7 +226,7 @@ fn narrow_beam(beam: &mut HashMap<Invention,i32>) {
     if beam.len() < BEAM_SIZE {
         return
     }
-    println!("Need to narrow beam! (worth turning this print message off if it ever actually prints)");
+    // println!("Need to narrow beam! (worth turning this print message off if it ever actually prints)");
     let num_to_drop = BEAM_SIZE - beam.len();
     let mut costs: Vec<(Invention,i32)> = beam.iter().map(|(id,cost)|(*id,*cost)).collect();
     // DECREASING order of cost (since i do cost2.cmp(cost1))
@@ -851,37 +851,26 @@ fn run_inversions(treenodes: &Vec<Id>, egraph: &mut EGraph)
 fn main() {
     env_logger::init();
 
+    let args: Vec<String> = std::env::args().collect();
+    println!("args: {:?}", args);
+
     // create a new directory for logging outputs
     let out_dir: String = format!("target/{}",timestamp());
     let out_dir_p = std::path::Path::new(out_dir.as_str());
     assert!(!out_dir_p.exists());
     std::fs::create_dir(out_dir_p).unwrap();
 
+    let file:Option<&str> = if args.len() > 1 { Some(&args[1]) } else { None };
 
     // first dreamcoder program
-    let programs: Vec<String> = vec![
+    
+    let programs: Vec<String> = if let Some(file) = file {
+        serde_json::de::from_reader(std::fs::File::open(file).expect("file not found")).expect("json deserializing error")
+    } else {
+        vec![
         // "(lam (app - 0))",
         // "(lam (app (app (app + x) y) z))",
         // "(lam (app (app + x) (app - y)) )",
-
-        // "(lam (lam (app (app - x) y)))",
-
-        // "(app - (lam (lam (app + 0))))",
-
-        // "(app - (lam (app + y)))",
-        // "(lam (app - (lam (lam (y)))))",
-
-
-        // 116/74 (no-inline: 136/94)
-        // "(lam (app - (app + y)))",
-
-        // 55/34 (no-inline: 63/42)
-        // "(app - (app + y))",
-
-        // "(lam (app x y))",
-
-
-
 
         // "(lam (app - y))",
 
@@ -907,7 +896,12 @@ fn main() {
         "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
         "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
         "(lam (app (app (app logo_forLoop t7) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t7)) 0)))) 0))",
-            ].iter().map(|p| p.parse().unwrap()).collect();
+
+            ].iter().map(|x| x.to_string()).collect()
+        };
+    // let programs: Vec<RecExpr<Lambda>> = programs.iter().map(|p| p.parse().unwrap()).collect();
+
+    println!("Programs: {}", programs.len());
         
     let programs_expr: RecExpr<Lambda> = format!("(programs {})",programs.join(" ")).parse().unwrap();
 
@@ -927,7 +921,7 @@ fn main() {
         looping infinitely)");
 
     println!("Initial egraph:\n\t{}\n", egraph_info(&egraph));
-    save(&egraph, "0_programs", &out_dir);
+    // save(&egraph, "0_programs", &out_dir);
 
 
     let tstart = std::time::Instant::now();
@@ -944,6 +938,8 @@ fn main() {
 
     let elapsed = tstart.elapsed().as_millis();
 
+
+
     println!("Inventionless (cost={:?}):\n{}\n",
         egraph[programs_id].data.inventionless_cost,
         extract(programs_id, &egraph)
@@ -952,7 +948,9 @@ fn main() {
     let top_invs: Vec<Invention> = best_inventions_of_treenode[&programs_id].top_inventions();
     println!("Found {} Inventions that helped at the top level", top_invs.len());
 
-    for (i,inv) in top_invs.iter().take(5).enumerate() {
+    println!("\n*** Core stuff took: {}ms ***\n", elapsed);
+
+    for (i,inv) in top_invs.iter().take(1).enumerate() {
         let inv_expr = inv.to_expr(&egraph);
         let rewritten = extract_under_inv(programs_id, *inv, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
         println!("\nInvention {} {:?} (inv_cost={:?}; rewritten_cost={:?}):\n{}\n Rewritten:\n{}",
@@ -963,7 +961,7 @@ fn main() {
             inv_expr,
             rewritten,
         );
-        save_expr(&inv_expr, &format!("inv{}",i), &out_dir);
+        // save_expr(&inv_expr, &format!("inv{}",i), &out_dir);
     }
 
     println!("Final egraph: {}",egraph_info(&egraph));
@@ -987,8 +985,9 @@ fn main() {
     // }
 
     // save(&egraph, "final", &out_dir);
-
-    println!("\n*** Core stuff took: {}ms ***\n", elapsed);
+    println!("\nPrograms: {}", programs.len());
+    println!("Cands useful at top level: {}",top_invs.len());
+    println!("*** Core stuff took: {}ms ***\n", elapsed);
 
 
 
