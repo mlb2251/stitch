@@ -5,7 +5,7 @@ use chrono;
 
 extern crate log;
 
-const MAX_ARITY: usize = 3;
+const MAX_ARITY: usize = 2;
 
 const BEAM_SIZE: usize = 1000000;
 const COST_NONTERMINAL: i32 = 1;
@@ -118,13 +118,15 @@ impl BestInventions {
         // in this algorithm I don't think we should ever insert a key
         // we've already inserted
         if cost < self.inventionless_cost {
-            assert!(!self.inventionful_cost.contains_key(&inv));
-            self.inventionful_cost.insert(inv, cost);
+            if !self.inventionful_cost.contains_key(&inv)
+               || cost < self.inventionful_cost[&inv]  {
+                self.inventionful_cost.insert(inv, cost);
+            }
         }
     }
     fn top_inventions(&self) -> Vec<Invention> {
         let mut top_inventions: Vec<Invention> = self.inventionful_cost.keys().cloned().collect();
-        top_inventions.sort_by(|a,b| self.inventionful_cost[b].cmp(&self.inventionful_cost[a]));
+        top_inventions.sort_by(|a,b| self.inventionful_cost[a].cmp(&self.inventionful_cost[b]));
         top_inventions
     }
 }
@@ -170,7 +172,8 @@ fn extract_under_inv_rec(
     let root = egraph.find(root);
     let target_cost:i32 = best_inventions_of_treenode[&root].cost_under_inv(&inv);
 
-    if best_inventions_of_treenode[&root].inventionful_cost.contains_key(&inv) {
+    if best_inventions_of_treenode[&root].inventionful_cost.contains_key(&inv)
+       && applams_of_treenode[&root].iter().any(|applam| applam.inv == inv) {
         let applam: Vec<AppLam> = applams_of_treenode[&root].iter().filter(|applam| applam.inv == inv).cloned().collect();
         assert!(applam.len() == 1);
         let applam = &applam[0];
@@ -549,6 +552,12 @@ fn save(egraph: &EGraph, name: &str, outdir: &str) {
     egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
 }
 
+fn save_expr(expr: &RecExpr<Lambda>, name: &str, outdir: &str) {
+    let mut egraph: EGraph = Default::default();
+    egraph.add_expr(expr);
+    egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
+}
+
 fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
     vec![
     ].into_iter().map(|r:Rewrite<Lambda, LambdaAnalysis>| (r.name().to_string(),r)).collect()
@@ -600,10 +609,13 @@ fn run_inversions(treenodes: &Vec<Id>, egraph: &mut EGraph)
     let var0: Id = egraph.add(Lambda::Var(0));
 
     // init caches
+    // be SUPER careful to index with arity-1 not plain arity
     let mut cache_bubble_lam: [HashMap<(Id,i32),Option<Id>>; MAX_ARITY] = Default::default();
     let mut cache_shift: [HashMap<(Id,i32),Option<Id>>; MAX_ARITY] = Default::default();
 
     for treenode in treenodes.iter() {
+        // println!("processing id={}: {}", treenode, extract(*treenode, egraph) );
+
         // im essentially using the egraph just for its structural hashing rn
         assert!(egraph[*treenode].nodes.len() == 1);
         // clone to appease the borrow checker
@@ -650,28 +662,72 @@ fn run_inversions(treenodes: &Vec<Id>, egraph: &mut EGraph)
 
                 for f_applam in f_applams.iter() {
                     for x_applam in x_applams.iter() {
-                        if f_applam.args == x_applam.args {
-                            // merging: when f_applam and x_applam have identical args we can merge them
-                            // (app f x) == (app (applam body1 arg) (applam body2 arg)) => (applam (app body1 body2) arg)
-                            let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body, x_applam.inv.body]));
-                            applams.push(AppLam::new(new_applam_body, f_applam.args.clone()));
-                        } else {
-                            // making a higher arity applam out of two diff applams
-                            // (app f x) == (app (applam body1 arg1) (applam body2 arg2)) => (applam (app body1 upshift(body2)) arg1 arg2)
-                            // note that (applam body arg0 arg1) means arg0 will fill upward refs to $0 and arg1 will fill upward refs to $1
-                            // so somewhat confusingly (applam body arg0 arg1) == (app (app (lam (lam body)) arg1) arg0) - but hopefully you dont need to think about that
-                            if {f_applam.inv.arity + x_applam.inv.arity} > MAX_ARITY {
-                                continue;
+                        // making a higher arity applam out of two diff applams
+                        // and merging any shared arguments. Higher arity applam looks a bit like:
+                        // (app f x) == (app (applam body1 arg1) (applam body2 arg2)) => (applam (app body1 upshift(body2)) arg1 arg2)
+                        // note that (applam body arg0 arg1) means arg0 will fill upward refs to $0 and arg1 will fill upward refs to $1
+                        // so somewhat confusingly (applam body arg0 arg1) == (app (app (lam (lam body)) arg1) arg0) - but hopefully you dont need to think about that
+                        // Merging: when f_applam and x_applam have identical args we can merge them
+                        // (app f x) == (app (applam body1 arg) (applam body2 arg)) => (applam (app body1 body2) arg)
+                        // here we do that for partial overlap between the two as well!
+
+                        let (shifted_x_applam_body,new_x_applam_args) = if
+                            f_applam.args.iter().any(|farg| x_applam.args.contains(farg)) {
+                            // merging is needed
+
+                            // x_shift_table[1] tells us how much to shift an upward ref to $1 in x_applam.body
+                            // (note without merging this would be the arity of f_applam)
+                            let mut x_shift_table: Vec<i32> = vec![];
+                            let mut to_remove: Vec<usize> = vec![];
+                            let mut shift_rest_by = f_applam.inv.arity as i32; // normal amt we shift x by, except if there are merges to be done. If a merge happens all the higher x vars get shifted less, and the specific x var gets shifted a very specific amount
+                            for (x_idx,xarg) in x_applam.args.iter().enumerate() {
+                                if let Some(f_idx) = f_applam.args.iter().position(|farg| farg == xarg) {
+                                    // we found a match! $x_idx should map to the same thing as $f_idx.
+                                    // remember, our body currently has $x_idx at the toplevel so now
+                                    // we want to shift it by $(f_idx-x_idx) so that it ends up as f_idx.
+                                    x_shift_table.push((f_idx as i32) - (x_idx as i32));
+                                    to_remove.push(x_idx);
+                                    shift_rest_by -= 1; // effectively downshifts all the higher args now that this one is gone
+                                } else {
+                                    // shift fully without merging
+                                    x_shift_table.push(shift_rest_by);
+                                }
                             }
-                            let arity = f_applam.inv.arity;
-                            let arity_i32 = arity as i32;        
-                            let shifted_x_applam_body = shift(x_applam.inv.body, arity_i32, egraph, &mut cache_shift[arity-1]).unwrap();
-                            let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body, shifted_x_applam_body]));
-                            let mut new_applam_args = f_applam.args.clone();
-                            new_applam_args.extend(x_applam.args.clone());
-                            applams.push(AppLam::new(new_applam_body, new_applam_args));
+
+                            // remove the args from xargs that we can merge into fargs
+                            let mut new_x_applam_args = x_applam.args.clone();
+                            for x_idx in to_remove.iter().rev() {
+                                new_x_applam_args.remove(*x_idx);
+                            }
+
+
+                            let shifted_x_applam_body = recursive_var_mod(
+                                |actual_idx, _depth, which_upward_ref, egraph| {
+                                    if which_upward_ref < x_applam.inv.arity as i32 {
+                                        Some(egraph.add(Lambda::Var(actual_idx + x_shift_table[which_upward_ref as usize])))
+                                    } else {
+                                        Some(egraph.add(Lambda::Var(actual_idx)))
+                                    }
+                                }, x_applam.inv.body, egraph, &mut HashMap::new()).unwrap();
+                            (shifted_x_applam_body, new_x_applam_args)
+                        } else {
+                            let shifted_x_applam_body = shift(x_applam.inv.body, f_applam.inv.arity as i32, egraph, &mut cache_shift[f_applam.inv.arity-1]).unwrap();
+                            let new_x_applam_args = x_applam.args.clone();
+                            (shifted_x_applam_body, new_x_applam_args)
+                        };
+
+                        // no merging needed!
+                        if {f_applam.inv.arity + new_x_applam_args.len()} > MAX_ARITY {
+                            continue;
                         }
+
+                        let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x_applam_body]));
+                        let mut new_applam_args = f_applam.args.clone();
+                        new_applam_args.extend(new_x_applam_args);
+                        applams.push(AppLam::new(new_applam_body, new_applam_args));
+                            
                     }
+                    
                 }
 
             },
@@ -702,7 +758,7 @@ fn run_inversions(treenodes: &Vec<Id>, egraph: &mut EGraph)
                             } else {
                                 Some(egraph.add(Lambda::Var(actual_idx)))
                             }
-                        }, b_applam.inv.body, egraph, &mut cache_bubble_lam[arity]).unwrap();
+                        }, b_applam.inv.body, egraph, &mut cache_bubble_lam[arity-1]).unwrap();
 
                     let new_applam_body = egraph.add(Lambda::Lam([shifted_b]));
                     applams.push(AppLam::new(new_applam_body, b_applam.args.clone()));
@@ -718,7 +774,7 @@ fn run_inversions(treenodes: &Vec<Id>, egraph: &mut EGraph)
 
         // replacing this node with a call to an invention
         for applam in applams.iter() {
-            if applam.inv.valid_invention(egraph) {
+            if applam.inv.valid_invention(egraph) && applam.inv.body != var0 {
                 let cost: i32 =
                     COST_TERMINAL // the new primitive for this invention
                     + COST_NONTERMINAL * applam.inv.arity as i32 // the chain of app()s needed to apply the new primitive
@@ -805,8 +861,8 @@ fn main() {
     // first dreamcoder program
     let programs: Vec<String> = vec![
         // "(lam (app - 0))",
-        "(lam (app (app (app + x) y) z))",
-        "(lam (app (app + x) (app - y)) )",
+        // "(lam (app (app (app + x) y) z))",
+        // "(lam (app (app + x) (app - y)) )",
 
         // "(lam (lam (app (app - x) y)))",
 
@@ -830,27 +886,27 @@ fn main() {
         // "(lam (app - y))",
 
         // first:
-        // "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
         // second:
-        // "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
 
-        // "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t1)) logo_epsA) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t2)) logo_epsA) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t5)) logo_epsA) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        // "(lam (app (app (app logo_FWRT logo_UL) logo_ZA) 0))",
-        // "(lam (app (app (app logo_FWRT logo_ZL) (app (app logo_DIVA logo_UA) t4)) (app (app (app logo_FWRT logo_UL) logo_ZA) 0)))",
-        // "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
-        // "(lam (app (app (app logo_forLoop t7) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t7)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t1)) logo_epsA) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t2)) logo_epsA) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t5)) logo_epsA) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        "(lam (app (app (app logo_FWRT logo_UL) logo_ZA) 0))",
+        "(lam (app (app (app logo_FWRT logo_ZL) (app (app logo_DIVA logo_UA) t4)) (app (app (app logo_FWRT logo_UL) logo_ZA) 0)))",
+        "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
+        "(lam (app (app (app logo_forLoop t7) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t7)) 0)))) 0))",
             ].iter().map(|p| p.parse().unwrap()).collect();
         
     let programs_expr: RecExpr<Lambda> = format!("(programs {})",programs.join(" ")).parse().unwrap();
@@ -874,12 +930,19 @@ fn main() {
     save(&egraph, "0_programs", &out_dir);
 
 
+    let tstart = std::time::Instant::now();
     let treenodes: Vec<Id> = toplogical_ordering(programs_id, &egraph);
+    // println!("Topological ordering:");
+    treenodes.iter().for_each(|&id| {
+        // println!("id={}: {}", id, extract(id,&egraph));
+    });
 
     let (applams_of_treenode,best_inventions_of_treenode)
         = run_inversions(&treenodes, &mut egraph);
 
     egraph.rebuild(); // hopefully doesnt matter at all anyways, not sure if we needed to do this thruout inversions
+
+    let elapsed = tstart.elapsed().as_millis();
 
     println!("Inventionless (cost={:?}):\n{}\n",
         egraph[programs_id].data.inventionless_cost,
@@ -900,14 +963,33 @@ fn main() {
             inv_expr,
             rewritten,
         );
+        save_expr(&inv_expr, &format!("inv{}",i), &out_dir);
     }
 
-    for inv in top_invs.iter(){
-        let inv_expr = inv.to_expr(&egraph);
-        if inv_expr.to_string().contains("logo_forLoop") {
-            println!("Found!: {}", inv_expr);
-        }
+    println!("Final egraph: {}",egraph_info(&egraph));
+    println!("Variables used:");
+    for i in 0..10 {
+        println!("{}: {}", i, search(format!("({})",i).as_str(),&egraph).len());
     }
+
+    // for (i,inv) in top_invs.iter().enumerate() {
+    //     let inv_expr = inv.to_expr(&egraph).to_string();
+    //     let targets =
+    //     ["(app logo_FWRT (app (app logo_MULL logo_UL) 0))",
+    //      "(app logo_FWRT (app (app logo_MULL logo_UL) 1))",
+    //      "(app logo_FWRT (app (app logo_MULL logo_UL) 2))",
+    //      "(app logo_FWRT (app (app logo_MULL logo_UL) 3))",
+    //      "(app logo_FWRT (app (app logo_MULL logo_UL) 4))"];
+    //     if targets.iter().any(|target|inv_expr.contains(target)) {
+    //         println!("Found target: {}", inv_expr);
+    //         save_expr(&inv.to_expr(&egraph), &format!("inv{}",i), &out_dir);
+    //     }
+    // }
+
+    // save(&egraph, "final", &out_dir);
+
+    println!("\n*** Core stuff took: {}ms ***\n", elapsed);
+
 
 
     
