@@ -1,13 +1,55 @@
 use egg::{rewrite as rw, *};
 use std::collections::{HashSet,HashMap};
+use std::path::PathBuf;
 use chrono;
 use serde_json;
-
-
 extern crate log;
+use clap::Parser;
+use serde_json::de::from_reader;
+use std::fs::File;
 
-const MAX_ARITY: usize = 2;
-const BEAM_SIZE: usize = 1000000;
+
+/// egg dream
+#[derive(Parser, Debug)]
+#[clap(name = "Dream Egg")]
+struct Args {
+    /// json file to read compression input programs from
+    #[clap(short, long, parse(from_os_str), default_value = "data/train_19.json")]
+    file: PathBuf,
+
+    /// Number of iterations to run compression for
+    #[clap(short, long, default_value = "20")]
+    iterations: usize,
+
+    /// max arity of inventions
+    #[clap(short='a', long, default_value = "2")]
+    max_arity: usize,
+
+    /// beam size
+    #[clap(short, long, default_value = "10000000")]
+    beam_size: usize,
+
+    /// whether to print out the found inventions
+    #[clap(long)]
+    no_print_inventions: bool,
+
+    /// whether to render the inventions
+    #[clap(long)]
+    render_inventions: bool,
+
+    /// render the final egraph
+    #[clap(long)]
+    render_final: bool,
+
+    /// render initial egraph
+    #[clap(long)]
+    render_initial: bool,
+
+    /// number of inventions to extract
+    #[clap(long, default_value="5")]
+    num_inventions: usize,
+}
+
 const COST_NONTERMINAL: i32 = 1;
 const COST_TERMINAL: i32 = 100;
 
@@ -69,7 +111,6 @@ struct AppLam {
     args: Vec<Id>,
 }
 
-
 impl AppLam {
     fn new(body: Id, args: Vec<Id>) -> AppLam {
         AppLam {
@@ -130,7 +171,6 @@ impl BestInventions {
         top_inventions
     }
 }
-
 
 
 fn extract(eclass: Id, egraph: &EGraph) -> RecExpr<Lambda> {
@@ -222,12 +262,12 @@ fn canonical(id:&Id, egraph: &EGraph) -> bool {
     egraph.find(*id) == *id
 }
 
-fn narrow_beam(beam: &mut HashMap<Invention,i32>) {
-    if beam.len() < BEAM_SIZE {
+fn narrow_beam(beam: &mut HashMap<Invention,i32>, beam_size: usize) {
+    if beam.len() < beam_size {
         return
     }
     // println!("Need to narrow beam! (worth turning this print message off if it ever actually prints)");
-    let num_to_drop = BEAM_SIZE - beam.len();
+    let num_to_drop = beam_size - beam.len();
     let mut costs: Vec<(Invention,i32)> = beam.iter().map(|(id,cost)|(*id,*cost)).collect();
     // DECREASING order of cost (since i do cost2.cmp(cost1))
     costs.sort_by(|(_,cost1),(_,cost2)| cost2.cmp(cost1));
@@ -443,51 +483,6 @@ fn cost_rec(expr: &RecExpr<Lambda>) -> i32 {
     ProgramCost{}.cost_rec(expr)
 }
 
-
-
-
-
-// struct ProgramCost<'a> {inv : Option<Id>, egraph: &'a EGraph}
-
-// impl ProgramCost<'_> {
-//     fn new(inv: Option<Id>, egraph: &EGraph) -> ProgramCost {
-//         ProgramCost {inv, egraph}
-//     }
-// }
-
-
-// impl<'a> CostFunction<Lambda> for ProgramCost<'a> {
-//     type Cost = i32;
-//     fn cost<C>(&mut self, enode: &Lambda, mut costs: C) -> Self::Cost
-//     where
-//         C: FnMut(Id) -> Self::Cost
-//     {
-//         match enode {
-//             Lambda::Var(_) | Lambda::Prim(_) => COST_TERMINAL,
-//             Lambda::App([f, x]) => {
-//                 let f = self.egraph.find(*f);
-//                 let x = self.egraph.find(*x);
-//                 let fcost = if Some(f) == self.inv {COST_TERMINAL} else {costs(f)};
-//                 let xcost = if Some(x) == self.inv {COST_TERMINAL} else {costs(x)};
-//                 COST_NONTERMINAL + fcost + xcost
-//             }
-//             Lambda::Lam([b]) => {
-//                 let b = self.egraph.find(*b);
-//                 let bcost = if Some(b) == self.inv {COST_TERMINAL} else {costs(b)};
-//                 COST_NONTERMINAL + bcost
-//             }
-//             Lambda::Programs(ps) => {
-//                 ps.iter()
-//                 .map(|p| self.egraph.find(*p)) // canonicalizing node children is actually not done by Extractor afaik
-//                 .map(|p| if Some(p) == self.inv {COST_TERMINAL} else {costs(p)})
-//                 .sum()
-//             }
-//         }
-//     }
-// }
-
-
-
 fn timestamp() -> String {
     format!("{}", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"))
 }
@@ -508,15 +503,15 @@ fn apply_everywhere_once(rules_: &[&str], egraph: &mut EGraph) {
 
 fn saturate(rules_: &[&str], render: bool, out_dir: String, egraph: EGraph) -> EGraph {
     let rules: Vec<Rewrite<Lambda,LambdaAnalysis>> = rules(rules_);
-    let runner = Runner::default()
+    let mut runner = Runner::default()
         .with_egraph(egraph)
         .with_iter_limit(400)
         .with_scheduler(SimpleScheduler)
         .with_time_limit(core::time::Duration::from_secs(200))
         .with_node_limit(3000000);
     
-    // i know this is awful but its the best i can do that makes rust happy
-    let runner = if !render {runner} else {runner.with_hook(
+    if render {
+        runner = runner.with_hook(
         {
             let out_dir = out_dir.clone(); // silly thing to clone into the closure
             move |runner|{
@@ -525,9 +520,9 @@ fn saturate(rules_: &[&str], render: bool, out_dir: String, egraph: EGraph) -> E
                 save(&runner.egraph, format!("3_propagate_{}",iter).as_str(), &out_dir);
                 Ok(())
             }
-    })};
+        });
+    }
 
-    
     let runner = runner.run(rules.iter());
     runner.print_report();
     runner.egraph
@@ -576,8 +571,6 @@ fn egraph_info(egraph: &EGraph) -> String {
     format!("{} nodes, {} classes, {} memo", egraph.total_number_of_nodes(), egraph.number_of_classes(), egraph.total_size())
 }
 
-
-
 fn toplogical_ordering(root: Id, egraph: &EGraph) -> Vec<Id> {
     // returns a Vec of Ids ending in the root Id (ie child first traversal)
     // and notably an Id never shows up twice (if it was already there earlier it wont be added again)
@@ -600,7 +593,13 @@ fn toplogical_ordering_rec(root: Id, egraph: &EGraph, vec: &mut Vec<Id>) {
     }
 }
 
-fn run_inversions(treenodes: &Vec<Id>, egraph: &mut EGraph)
+/// Does all the work
+fn run_inversions(
+    treenodes: &Vec<Id>,
+    max_arity: usize,
+    beam_size: usize,
+    egraph: &mut EGraph
+)
    -> (HashMap<Id,Vec<AppLam>>,HashMap<Id,BestInventions>) {
     // one vector of applams per tree node
     let mut applams_of_treenode: HashMap<Id,Vec<AppLam>> = Default::default();
@@ -610,8 +609,12 @@ fn run_inversions(treenodes: &Vec<Id>, egraph: &mut EGraph)
 
     // init caches
     // be SUPER careful to index with arity-1 not plain arity
-    let mut cache_bubble_lam: [HashMap<(Id,i32),Option<Id>>; MAX_ARITY] = Default::default();
-    let mut cache_shift: [HashMap<(Id,i32),Option<Id>>; MAX_ARITY] = Default::default();
+    let mut cache_bubble_lam: Vec<HashMap<(Id,i32),Option<Id>>> = Default::default();
+    let mut cache_shift: Vec<HashMap<(Id,i32),Option<Id>>> = Default::default();
+    for _ in 0..max_arity {
+        cache_bubble_lam.push(Default::default());
+        cache_shift.push(Default::default());
+    }
 
     for treenode in treenodes.iter() {
         // println!("processing id={}: {}", treenode, extract(*treenode, egraph) );
@@ -717,7 +720,7 @@ fn run_inversions(treenodes: &Vec<Id>, egraph: &mut EGraph)
                         };
 
                         // no merging needed!
-                        if {f_applam.inv.arity + new_x_applam_args.len()} > MAX_ARITY {
+                        if {f_applam.inv.arity + new_x_applam_args.len()} > max_arity {
                             continue;
                         }
 
@@ -835,7 +838,7 @@ fn run_inversions(treenodes: &Vec<Id>, egraph: &mut EGraph)
                 }
             }
         }
-        narrow_beam(&mut best_inventions.inventionful_cost);
+        narrow_beam(&mut best_inventions.inventionful_cost, beam_size);
 
         applams_of_treenode.insert(*treenode, applams);
         best_inventions_of_treenode.insert(*treenode, best_inventions);
@@ -851,8 +854,7 @@ fn run_inversions(treenodes: &Vec<Id>, egraph: &mut EGraph)
 fn main() {
     env_logger::init();
 
-    let args: Vec<String> = std::env::args().collect();
-    println!("args: {:?}", args);
+    let args: Args = Args::parse();
 
     // create a new directory for logging outputs
     let out_dir: String = format!("target/{}",timestamp());
@@ -860,85 +862,48 @@ fn main() {
     assert!(!out_dir_p.exists());
     std::fs::create_dir(out_dir_p).unwrap();
 
-    let file:Option<&str> = if args.len() > 1 { Some(&args[1]) } else { None };
-
     // first dreamcoder program
-    
-    let programs: Vec<String> = if let Some(file) = file {
-        serde_json::de::from_reader(std::fs::File::open(file).expect("file not found")).expect("json deserializing error")
-    } else {
-        vec![
-        // "(lam (app - 0))",
-        // "(lam (app (app (app + x) y) z))",
-        // "(lam (app (app + x) (app - y)) )",
-
-        // "(lam (app - y))",
-
-        // first:
-        "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
-        // second:
-        "(lam (app (app (app logo_forLoop t3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t3)) 0)))) 0))",
-
-        "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t8)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t9)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t1)) logo_epsA) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t2)) logo_epsA) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop logo_IFTY) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_epsL) t5)) logo_epsA) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        "(lam (app (app (app logo_FWRT logo_UL) logo_ZA) 0))",
-        "(lam (app (app (app logo_FWRT logo_ZL) (app (app logo_DIVA logo_UA) t4)) (app (app (app logo_FWRT logo_UL) logo_ZA) 0)))",
-        "(lam (app (app (app logo_forLoop t4) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t5) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t5)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t9) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 1)) (app (app logo_DIVA logo_UA) t4)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t6) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t2)) (app (app logo_DIVA logo_UA) t6)) 0)))) 0))",
-        "(lam (app (app (app logo_forLoop t7) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) t1)) (app (app logo_DIVA logo_UA) t7)) 0)))) 0))",
-
-            ].iter().map(|x| x.to_string()).collect()
-        };
-    // let programs: Vec<RecExpr<Lambda>> = programs.iter().map(|p| p.parse().unwrap()).collect();
+    let programs: Vec<String> = from_reader(File::open(args.file).expect("file not found")).expect("json deserializing error");
 
     println!("Programs: {}", programs.len());
         
+    // my way of combining the programs since RecExprs arent easily combinable
     let programs_expr: RecExpr<Lambda> = format!("(programs {})",programs.join(" ")).parse().unwrap();
 
     let mut egraph: EGraph = Default::default();
     let programs_id = egraph.add_expr(&programs_expr);
-
     egraph.rebuild(); // this is VERY important to run before you try applying any searches or rewrites
 
     let applam:Pattern<Lambda> = "(app (lam ?body) ?arg)".parse().unwrap();
     assert!(applam.search(&egraph).is_empty(),
-        "Normal dreamcoder programs never have unapplied lambdas in them. 
-        it's important to avoid this because if we abstract this term with
-        applam-intro then prove its equivalence to the identity function (lam 0),
-        the search will explode (which is why we forbid lam 0 in the first place).
-        If you really want to use this program, run applam-inline on it until it no
-        longer has an applam (assuming its possible to put it in normal form without
-        looping infinitely)");
+        "Normal dreamcoder programs never have unapplied lambdas in them! 
+         Who knows what might happen if you run this. Side note you can probably
+         inline them and it'd be fine (we've got a function for that!) and also
+         who knows maybe it wouldnt be an issue in the first place");
 
     println!("Initial egraph:\n\t{}\n", egraph_info(&egraph));
-    // save(&egraph, "0_programs", &out_dir);
-
+    if args.render_initial {
+        save(&egraph, "0_programs", &out_dir);
+    }
 
     let tstart = std::time::Instant::now();
     let treenodes: Vec<Id> = toplogical_ordering(programs_id, &egraph);
     // println!("Topological ordering:");
-    treenodes.iter().for_each(|&id| {
-        // println!("id={}: {}", id, extract(id,&egraph));
-    });
+    // treenodes.iter().for_each(|&id| {
+    //     println!("id={}: {}", id, extract(id,&egraph));
+    // });
 
     let (applams_of_treenode,best_inventions_of_treenode)
-        = run_inversions(&treenodes, &mut egraph);
+        = run_inversions(
+            &treenodes,
+            args.max_arity,
+            args.beam_size,
+            &mut egraph
+        );
 
     egraph.rebuild(); // hopefully doesnt matter at all anyways, not sure if we needed to do this thruout inversions
 
     let elapsed = tstart.elapsed().as_millis();
-
-
 
     println!("Inventionless (cost={:?}):\n{}\n",
         egraph[programs_id].data.inventionless_cost,
@@ -950,7 +915,7 @@ fn main() {
 
     println!("\n*** Core stuff took: {}ms ***\n", elapsed);
 
-    for (i,inv) in top_invs.iter().take(1).enumerate() {
+    for (i,inv) in top_invs.iter().take(args.num_inventions).enumerate() {
         let inv_expr = inv.to_expr(&egraph);
         let rewritten = extract_under_inv(programs_id, *inv, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
         println!("\nInvention {} {:?} (inv_cost={:?}; rewritten_cost={:?}):\n{}\n Rewritten:\n{}",
@@ -961,7 +926,9 @@ fn main() {
             inv_expr,
             rewritten,
         );
-        // save_expr(&inv_expr, &format!("inv{}",i), &out_dir);
+        if args.render_inventions {
+            save_expr(&inv_expr, &format!("inv{}",i), &out_dir);
+        }
     }
 
     println!("Final egraph: {}",egraph_info(&egraph));
@@ -984,12 +951,14 @@ fn main() {
     //     }
     // }
 
-    // save(&egraph, "final", &out_dir);
     println!("\nPrograms: {}", programs.len());
     println!("Cands useful at top level: {}",top_invs.len());
     println!("*** Core stuff took: {}ms ***\n", elapsed);
 
-
+    if args.render_final {
+        println!("Rendering final egraph");
+        save(&egraph, "final", &out_dir);
+    }
 
     
 }
