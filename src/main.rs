@@ -663,7 +663,7 @@ fn run_inversions(
                     applams.push(AppLam::new(new_applam_body, x_applam.args.clone()));
                 }
 
-                println!("f_applam x_applam pairwise product size: {} x {} -> {}",f_applams.len(), x_applams.len(), f_applams.len() * x_applams.len());
+                // println!("f_applam x_applam pairwise product size: {} x {} -> {}",f_applams.len(), x_applams.len(), f_applams.len() * x_applams.len());
 
                 for f_applam in f_applams.iter() {
                     for x_applam in x_applams.iter() {
@@ -676,14 +676,18 @@ fn run_inversions(
                         // (app f x) == (app (applam body1 arg) (applam body2 arg)) => (applam (app body1 body2) arg)
                         // here we do that for partial overlap between the two as well!
 
-                        let (shifted_x_applam_body,new_x_applam_args) = if
-                            f_applam.args.iter().any(|farg| x_applam.args.contains(farg)) {
+                        let overlap: usize = f_applam.args.iter().filter(|farg| x_applam.args.contains(farg)).count();
+                        if f_applam.inv.arity + x_applam.inv.arity - overlap > max_arity {
+                            continue;
+                        }
+
+                        if overlap > 0 {
                             // merging is needed
 
                             // x_shift_table[1] tells us how much to shift an upward ref to $1 in x_applam.body
                             // (note without merging this would be the arity of f_applam)
-                            let mut x_shift_table: Vec<i32> = vec![];
-                            let mut to_remove: Vec<usize> = vec![];
+                            let mut x_shift_table = vec![]; // just gonna assume nobody wants an arity greater than 10 (for static speed)
+                            let mut to_remove = vec![];
                             let mut shift_rest_by = f_applam.inv.arity as i32; // normal amt we shift x by, except if there are merges to be done. If a merge happens all the higher x vars get shifted less, and the specific x var gets shifted a very specific amount
                             for (x_idx,xarg) in x_applam.args.iter().enumerate() {
                                 if let Some(f_idx) = f_applam.args.iter().position(|farg| farg == xarg) {
@@ -691,20 +695,21 @@ fn run_inversions(
                                     // remember, our body currently has $x_idx at the toplevel so now
                                     // we want to shift it by $(f_idx-x_idx) so that it ends up as f_idx.
                                     x_shift_table.push((f_idx as i32) - (x_idx as i32));
-                                    to_remove.push(x_idx);
+                                    to_remove.push(true);
                                     shift_rest_by -= 1; // effectively downshifts all the higher args now that this one is gone
                                 } else {
                                     // shift fully without merging
                                     x_shift_table.push(shift_rest_by);
+                                    to_remove.push(false);
                                 }
                             }
 
                             // remove the args from xargs that we can merge into fargs
-                            let mut new_x_applam_args = x_applam.args.clone();
-                            for x_idx in to_remove.iter().rev() {
-                                new_x_applam_args.remove(*x_idx);
-                            }
-
+                            let new_x_applam_args: Vec<Id> = x_applam.args.iter()
+                                .zip(to_remove)
+                                .filter(|(_,b)| !*b)
+                                .map(|(xarg,_)| xarg)
+                                .cloned().collect();
 
                             let shifted_x_applam_body = recursive_var_mod(
                                 |actual_idx, _depth, which_upward_ref, egraph| {
@@ -714,23 +719,19 @@ fn run_inversions(
                                         Some(egraph.add(Lambda::Var(actual_idx)))
                                     }
                                 }, x_applam.inv.body, egraph, &mut HashMap::new()).unwrap();
-                            (shifted_x_applam_body, new_x_applam_args)
+
+                            let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x_applam_body]));
+                            let mut new_applam_args = f_applam.args.clone();
+                            new_applam_args.extend(new_x_applam_args);
+                            applams.push(AppLam::new(new_applam_body, new_applam_args));
                         } else {
+                            // no overlap so no merging
                             let shifted_x_applam_body = shift(x_applam.inv.body, f_applam.inv.arity as i32, egraph, &mut cache_shift[f_applam.inv.arity-1]).unwrap();
-                            let new_x_applam_args = x_applam.args.clone();
-                            (shifted_x_applam_body, new_x_applam_args)
+                            let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x_applam_body]));
+                            let mut new_applam_args = f_applam.args.clone();
+                            new_applam_args.extend(x_applam.args.clone());
+                            applams.push(AppLam::new(new_applam_body, new_applam_args));
                         };
-
-                        // no merging needed!
-                        if {f_applam.inv.arity + new_x_applam_args.len()} > max_arity {
-                            continue;
-                        }
-
-                        let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x_applam_body]));
-                        let mut new_applam_args = f_applam.args.clone();
-                        new_applam_args.extend(new_x_applam_args);
-                        applams.push(AppLam::new(new_applam_body, new_applam_args));
-                            
                     }
                     
                 }
