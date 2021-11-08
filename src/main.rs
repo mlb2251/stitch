@@ -663,6 +663,8 @@ fn run_inversions(
                     applams.push(AppLam::new(new_applam_body, x_applam.args.clone()));
                 }
 
+                println!("f_applam x_applam pairwise product size: {} x {} -> {}",f_applams.len(), x_applams.len(), f_applams.len() * x_applams.len());
+
                 for f_applam in f_applams.iter() {
                     for x_applam in x_applams.iter() {
                         // making a higher arity applam out of two diff applams
@@ -915,19 +917,21 @@ fn main() {
 
     println!("\n*** Core stuff took: {}ms ***\n", elapsed);
 
-    for (i,inv) in top_invs.iter().take(args.num_inventions).enumerate() {
-        let inv_expr = inv.to_expr(&egraph);
-        let rewritten = extract_under_inv(programs_id, *inv, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
-        println!("\nInvention {} {:?} (inv_cost={:?}; rewritten_cost={:?}):\n{}\n Rewritten:\n{}",
-            i,
-            inv,
-            cost_rec(&inv_expr),
-            cost_rec(&rewritten),
-            inv_expr,
-            rewritten,
-        );
-        if args.render_inventions {
-            save_expr(&inv_expr, &format!("inv{}",i), &out_dir);
+    if !args.no_print_inventions {
+        for (i,inv) in top_invs.iter().take(args.num_inventions).enumerate() {
+            let inv_expr = inv.to_expr(&egraph);
+            let rewritten = extract_under_inv(programs_id, *inv, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
+            println!("\nInvention {} {:?} (inv_cost={:?}; rewritten_cost={:?}):\n{}\n Rewritten:\n{}",
+                i,
+                inv,
+                cost_rec(&inv_expr),
+                cost_rec(&rewritten),
+                inv_expr,
+                rewritten,
+            );
+            if args.render_inventions {
+                save_expr(&inv_expr, &format!("inv{}",i), &out_dir);
+            }
         }
     }
 
