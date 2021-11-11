@@ -30,6 +30,10 @@ struct Args {
     #[clap(short, long, default_value = "10000000")]
     beam_size: usize,
 
+    /// disable caching
+    #[clap(long)]
+    no_cache: bool,
+
     /// whether to render the inventions
     #[clap(long)]
     render_inventions: bool,
@@ -368,7 +372,8 @@ fn var(s: &str) -> Var {
     s.parse().unwrap()
 }
 
-fn shift(e: Id, incr_by: i32, egraph: &mut EGraph, seen: &mut HashMap<(Id,i32),Option<Id>>) -> Option<Id> {
+#[inline(never)] // for flamegraph debugging
+fn shift(e: Id, incr_by: i32, egraph: &mut EGraph, seen: &mut RecVarModCache) -> Option<Id> {
     recursive_var_mod(
         |actual_idx, depth, which_upward_ref, egraph| {
             // if actual_idx + incr_by >= ARGC {
@@ -381,7 +386,7 @@ fn shift(e: Id, incr_by: i32, egraph: &mut EGraph, seen: &mut HashMap<(Id,i32),O
 }
 
 // not used in the new verison but should be compatible with everything we've got!
-fn inline(e: Id, replace_with: Id, egraph: &mut EGraph, seen: &mut HashMap<(Id,i32),Option<Id>>) -> Option<Id> {
+fn inline(e: Id, replace_with: Id, egraph: &mut EGraph, seen: &mut RecVarModCache) -> Option<Id> {
     recursive_var_mod(
         |actual_idx, depth, which_upward_ref, egraph| {
             if which_upward_ref == 0 {
@@ -400,7 +405,7 @@ fn recursive_var_mod(
     var_mod: impl Fn(i32, i32, i32, &mut EGraph) -> Option<Id>,
     eclass:Id,
     egraph: &mut EGraph,
-    seen: &mut HashMap<(Id,i32),Option<Id>>
+    seen: &mut RecVarModCache
     ) -> Option<Id>
     {
         recursive_var_mod_helper(
@@ -417,7 +422,7 @@ fn recursive_var_mod_helper(
     eclass:Id,
     depth: i32,
     egraph: &mut EGraph,
-    seen : &mut HashMap<(Id,i32),Option<Id>>,
+    seen : &mut RecVarModCache,
     ) -> Option<Id>
     {
         // important invariant: a $i with i==depth would be a $0 pointer at the top level
@@ -619,12 +624,42 @@ fn toplogical_ordering_rec(root: Id, egraph: &EGraph, vec: &mut Vec<Id>) {
     }
 }
 
+
+type RecVarModCache = HashMap<(Id,i32),Option<Id>>;
+#[derive(Debug,Clone,Eq,PartialEq,Hash)]
+enum CacheContext {
+    Shift(i32), // shift everything by some amount
+    TableShift(Vec<i32>,i32), // shift any ref < table.len() based on table, with a default shift for refs that point even higher
+    OffsetShift(usize,i32), // this skips the upward refs less than usize, and shifts the higher ones
+    RotateShift(i32), // this is like a "rotation" of indices where most shift by 1 and one wraps around: downshift refs to i32 by i32, increment refs less than i32, leave higher refs unchanged
+}
+struct CacheGenerator {
+    caches: HashMap<CacheContext,RecVarModCache>,
+    enabled: bool,
+}
+impl CacheGenerator {
+    fn new(enabled: bool) -> CacheGenerator {
+        CacheGenerator { caches: Default::default(), enabled: enabled }
+    }
+    fn get_cache(&mut self, context: CacheContext) -> &mut RecVarModCache {
+        if !self.enabled {
+            // wipe the cache before returning it
+            self.caches.insert(context.clone(),Default::default());
+         }
+        if !self.caches.contains_key(&context) {
+            self.caches.insert(context.clone(),Default::default());
+        }
+        self.caches.get_mut(&context).unwrap()
+    }
+}
+
 struct InversionResult {
     applams_of_treenode: HashMap<Id,Vec<AppLam>>,
     best_inventions_of_treenode: HashMap<Id,BestInventions>
 }
 
 /// Does all the work
+#[inline(never)] // for flamegraph debugging
 fn run_inversions(
     treenodes: &Vec<Id>,
     max_arity: usize,
@@ -637,10 +672,10 @@ fn run_inversions(
     
     let var0: Id = egraph.add(Lambda::Var(0));
 
-    // init caches
+    // init caches. These give us considerable speedup (26s -> 18s)
     // be SUPER careful to index with arity-1 not plain arity
-    let mut cache_bubble_lam: Vec<HashMap<(Id,i32),Option<Id>>> = Default::default();
-    let mut cache_shift: Vec<HashMap<(Id,i32),Option<Id>>> = Default::default();
+    let mut cache_bubble_lam: Vec<RecVarModCache> = Default::default();
+    let mut cache_shift: Vec<RecVarModCache> = Default::default();
     for _ in 0..max_arity {
         cache_bubble_lam.push(Default::default());
         cache_shift.push(Default::default());
@@ -679,7 +714,7 @@ fn run_inversions(
                 for f_applam in f_applams.iter() {
                     let arity = f_applam.inv.arity;
                     let arity_i32 = arity as i32;
-                    let shifted_x = shift(x, arity_i32, egraph, &mut cache_shift[arity-1]).unwrap();
+                    let shifted_x = shift(x, arity_i32, egraph, &mut Default::default()).unwrap();
                     let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x]));
                     applams.push(AppLam::new(new_applam_body, f_applam.args.clone()));
                     debug_assert_eq!(applams.last().unwrap().upward_refs(egraph),egraph[*treenode].data.upward_refs);                        
@@ -690,7 +725,7 @@ fn run_inversions(
                 for x_applam in x_applams.iter() {
                     let arity = x_applam.inv.arity;
                     let arity_i32 = arity as i32;
-                    let shifted_f = shift(f, arity_i32, egraph, &mut cache_shift[arity-1]).unwrap();
+                    let shifted_f = shift(f, arity_i32, egraph, &mut Default::default()).unwrap();
                     let new_applam_body = egraph.add(Lambda::App([shifted_f, x_applam.inv.body]));
                     applams.push(AppLam::new(new_applam_body, x_applam.args.clone()));
                     debug_assert_eq!(applams.last().unwrap().upward_refs(egraph), egraph[*treenode].data.upward_refs);
@@ -830,7 +865,7 @@ fn run_inversions(
                                 // refs to way up high dont get changed by this swap
                                 Some(egraph.add(Lambda::Var(actual_idx)))
                             }
-                        }, b_applam.inv.body, egraph, &mut cache_bubble_lam[arity-1]).unwrap();
+                        }, b_applam.inv.body, egraph, &mut Default::default()).unwrap();
                     
                     // downshift the args since the lambda above them moved below them (earlier we made sure none of them had pointers to it)
                     let new_args: Vec<Id> = b_applam.args.iter().map(|arg| shift(*arg, -1, egraph, &mut HashMap::new()).unwrap()).collect();
@@ -844,6 +879,7 @@ fn run_inversions(
             },
         }
 
+        // Processing downshifted_applam_args:
         // downshifting args just is sortof a big deal because other than this moment we have had the invariant that args
         // are always subtrees of the original program (and are smaller than their parent and thus have already been
         // processed in the child-first traversal). Now we have just created some args that weren't in the original program
@@ -856,6 +892,7 @@ fn run_inversions(
         // However note the applams can be cloned too but you do need to downshift all their args since their args are all part of a toplevel
         // applam. Then you need to repeat the shifting for them too if need be...luckily arguments must get strictly
         // smaller so it will converge and probably very fast. This is all handled here.
+        // todo note that if this were a slowdown you could deal with it differently thru pointers for sure but I think it will be fine
         loop {
             match downshifted_applam_args.pop() {
                 Some((new_arg,old_arg)) => {
