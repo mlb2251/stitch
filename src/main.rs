@@ -682,10 +682,7 @@ fn run_inversions(
                     let shifted_x = shift(x, arity_i32, egraph, &mut cache_shift[arity-1]).unwrap();
                     let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x]));
                     applams.push(AppLam::new(new_applam_body, f_applam.args.clone()));
-                    debug_assert_eq!(applams.last().unwrap().upward_refs(egraph),
-                        egraph[*treenode].data.upward_refs,
-                        "{}", applams.last().unwrap().to_string(egraph)
-                    );
+                    debug_assert_eq!(applams.last().unwrap().upward_refs(egraph),egraph[*treenode].data.upward_refs);                        
                 }
 
                 // bubbling from the right:
@@ -776,16 +773,7 @@ fn run_inversions(
                             let mut new_applam_args = f_applam.args.clone();
                             new_applam_args.extend(new_x_applam_args);
                             applams.push(AppLam::new(new_applam_body, new_applam_args));
-                            debug_assert_eq!(
-                                applams.last().unwrap().upward_refs(egraph),
-                                egraph[*treenode].data.upward_refs,
-                                "\nleft:{}\nright:{}\nfapplam:{}\nxapplam:{}\n{:?}\n",
-                                applams.last().unwrap().to_string(egraph),
-                                extract(*treenode,egraph),
-                                f_applam.to_string(egraph),
-                                x_applam.to_string(egraph),
-                                x_shift_table,
-                                );
+                            debug_assert_eq!(applams.last().unwrap().upward_refs(egraph),egraph[*treenode].data.upward_refs);                        
                         } else {
                             // no overlap so no merging
                             let shifted_x_applam_body = shift(x_applam.inv.body, f_applam.inv.arity as i32, egraph, &mut cache_shift[f_applam.inv.arity-1]).unwrap();
@@ -805,15 +793,8 @@ fn run_inversions(
                             let mut new_applam_args = f_applam.args.clone();
                             new_applam_args.extend(x_applam.args.clone());
                             applams.push(AppLam::new(new_applam_body, new_applam_args));
-                            debug_assert_eq!(
-                                applams.last().unwrap().upward_refs(egraph),
-                                egraph[*treenode].data.upward_refs,
-                                "\nleft:{}\nright:{}\nfapplam:{}\nxapplam:{}\n",
-                                applams.last().unwrap().to_string(egraph),
-                                extract(*treenode,egraph),
-                                f_applam.to_string(egraph),
-                                x_applam.to_string(egraph),
-                                );                        };
+                            debug_assert_eq!(applams.last().unwrap().upward_refs(egraph),egraph[*treenode].data.upward_refs);                        
+                            };
                     }
                     
                 }
@@ -858,15 +839,7 @@ fn run_inversions(
 
                     let new_applam_body = egraph.add(Lambda::Lam([shifted_b]));
                     applams.push(AppLam::new(new_applam_body, new_args));
-                    debug_assert_eq!(
-                        applams.last().unwrap().upward_refs(egraph),
-                        egraph[*treenode].data.upward_refs,
-                        "\nleft:{}\nright:{}\nbapplam:{}\n",
-                        applams.last().unwrap().to_string(egraph),
-                        extract(*treenode,egraph),
-                        b_applam.to_string(egraph),
-                        );   
-
+                    debug_assert_eq!(applams.last().unwrap().upward_refs(egraph),egraph[*treenode].data.upward_refs);                        
                 }
             },
         }
