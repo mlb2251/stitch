@@ -141,7 +141,8 @@ impl AppLam {
         self.args.iter().all(|arg| canonical(arg, egraph))
     }
     fn upward_refs(&self, egraph: &mut EGraph) -> HashSet<i32> {
-        let mut upward_refs: HashSet<i32> = egraph[self.inv.body].data.upward_refs.iter().map(|i| i - self.inv.arity as i32).collect();
+        let mut upward_refs: HashSet<i32> = egraph[self.inv.body].data.upward_refs.iter()
+            .filter_map(|i| if *i < (self.inv.arity as i32) {None} else {Some(*i - (self.inv.arity as i32))}).collect();
         for arg in self.args.iter() {
             upward_refs.extend(egraph[*arg].data.upward_refs.clone());
         }
@@ -156,10 +157,9 @@ impl AppLam {
 
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 struct BestInventions {
     inventionless_cost: i32,
-    // (applam_body_eclass,arity) -> cost
     inventionful_cost: HashMap<Invention, i32>,
 }
 
@@ -619,14 +619,18 @@ fn toplogical_ordering_rec(root: Id, egraph: &EGraph, vec: &mut Vec<Id>) {
     }
 }
 
+struct InversionResult {
+    applams_of_treenode: HashMap<Id,Vec<AppLam>>,
+    best_inventions_of_treenode: HashMap<Id,BestInventions>
+}
+
 /// Does all the work
 fn run_inversions(
     treenodes: &Vec<Id>,
     max_arity: usize,
     beam_size: usize,
     egraph: &mut EGraph
-)
-   -> (HashMap<Id,Vec<AppLam>>,HashMap<Id,BestInventions>) {
+) -> InversionResult {
     // one vector of applams per tree node
     let mut applams_of_treenode: HashMap<Id,Vec<AppLam>> = Default::default();
     let mut best_inventions_of_treenode: HashMap<Id,BestInventions> = Default::default();
@@ -660,6 +664,7 @@ fn run_inversions(
         //==================================//
         
         let mut applams: Vec<AppLam> = Vec::new();
+        let mut downshifted_applam_args: Vec<(Id,Id)> = Vec::new(); // minor impl detail
         // any node can become the identity applam
         applams.push(AppLam::new(var0, vec![*treenode]));
 
@@ -677,10 +682,10 @@ fn run_inversions(
                     let shifted_x = shift(x, arity_i32, egraph, &mut cache_shift[arity-1]).unwrap();
                     let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x]));
                     applams.push(AppLam::new(new_applam_body, f_applam.args.clone()));
-                    // debug_assert_eq!(applams.last().unwrap().upward_refs(egraph),
-                    //     egraph[*treenode].data.upward_refs,
-                    //     "{}", applams.last().unwrap().to_string(egraph)
-                    // );
+                    debug_assert_eq!(applams.last().unwrap().upward_refs(egraph),
+                        egraph[*treenode].data.upward_refs,
+                        "{}", applams.last().unwrap().to_string(egraph)
+                    );
                 }
 
                 // bubbling from the right:
@@ -691,7 +696,7 @@ fn run_inversions(
                     let shifted_f = shift(f, arity_i32, egraph, &mut cache_shift[arity-1]).unwrap();
                     let new_applam_body = egraph.add(Lambda::App([shifted_f, x_applam.inv.body]));
                     applams.push(AppLam::new(new_applam_body, x_applam.args.clone()));
-                    // debug_assert_eq!(applams.last().unwrap().upward_refs(egraph), egraph[*treenode].data.upward_refs);
+                    debug_assert_eq!(applams.last().unwrap().upward_refs(egraph), egraph[*treenode].data.upward_refs);
                 }
 
                 // println!("f_applam x_applam pairwise product size: {} x {} -> {}",f_applams.len(), x_applams.len(), f_applams.len() * x_applams.len());
@@ -745,26 +750,70 @@ fn run_inversions(
                             let shifted_x_applam_body = recursive_var_mod(
                                 |actual_idx, _depth, which_upward_ref, egraph| {
                                     if which_upward_ref < x_applam.inv.arity as i32 {
+                                        // shift variable up or down whatever the shift table says it should be
                                         Some(egraph.add(Lambda::Var(actual_idx + x_shift_table[which_upward_ref as usize])))
                                     } else {
-                                        Some(egraph.add(Lambda::Var(actual_idx)))
+                                        // references that go even higher should be incremented by the f arity
+                                        // minus the overlap. Which is shift_rest_by at this point.
+                                        Some(egraph.add(Lambda::Var(actual_idx + shift_rest_by)))
                                     }
                                 }, x_applam.inv.body, egraph, &mut HashMap::new()).unwrap();
+                                
+                                let shifted_f_applam_body = recursive_var_mod(
+                                    |actual_idx, _depth, which_upward_ref, egraph| {
+                                        if which_upward_ref < f_applam.inv.arity as i32 {
+                                            // f vars dont usually need changing
+                                            Some(egraph.add(Lambda::Var(actual_idx)))
+                                        } else {
+                                            // ... except when they point outside of f, in which case they
+                                            // now need to point above the x lambdas as well.
+                                            Some(egraph.add(Lambda::Var(actual_idx + (x_applam.inv.arity - overlap) as i32)))
+                                        }
+                                    }, f_applam.inv.body, egraph, &mut HashMap::new()).unwrap();
+    
 
-                            let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x_applam_body]));
+                            let new_applam_body = egraph.add(Lambda::App([shifted_f_applam_body,shifted_x_applam_body]));
                             let mut new_applam_args = f_applam.args.clone();
                             new_applam_args.extend(new_x_applam_args);
                             applams.push(AppLam::new(new_applam_body, new_applam_args));
-                            // debug_assert_eq!(applams.last().unwrap().upward_refs(egraph), egraph[*treenode].data.upward_refs);
+                            debug_assert_eq!(
+                                applams.last().unwrap().upward_refs(egraph),
+                                egraph[*treenode].data.upward_refs,
+                                "\nleft:{}\nright:{}\nfapplam:{}\nxapplam:{}\n{:?}\n",
+                                applams.last().unwrap().to_string(egraph),
+                                extract(*treenode,egraph),
+                                f_applam.to_string(egraph),
+                                x_applam.to_string(egraph),
+                                x_shift_table,
+                                );
                         } else {
                             // no overlap so no merging
                             let shifted_x_applam_body = shift(x_applam.inv.body, f_applam.inv.arity as i32, egraph, &mut cache_shift[f_applam.inv.arity-1]).unwrap();
-                            let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x_applam_body]));
+                            let shifted_f_applam_body = recursive_var_mod(
+                                |actual_idx, _depth, which_upward_ref, egraph| {
+                                    if which_upward_ref < f_applam.inv.arity as i32 {
+                                        // f vars dont usually need changing
+                                        Some(egraph.add(Lambda::Var(actual_idx)))
+                                    } else {
+                                        // ... except when they point outside of f, in which case they
+                                        // now need to point above the x lambdas as well.
+                                        Some(egraph.add(Lambda::Var(actual_idx + x_applam.inv.arity as i32)))
+                                    }
+                                }, f_applam.inv.body, egraph, &mut HashMap::new()).unwrap();
+
+                            let new_applam_body = egraph.add(Lambda::App([shifted_f_applam_body,shifted_x_applam_body]));
                             let mut new_applam_args = f_applam.args.clone();
                             new_applam_args.extend(x_applam.args.clone());
                             applams.push(AppLam::new(new_applam_body, new_applam_args));
-                            // debug_assert_eq!(applams.last().unwrap().upward_refs(egraph), egraph[*treenode].data.upward_refs);
-                        };
+                            debug_assert_eq!(
+                                applams.last().unwrap().upward_refs(egraph),
+                                egraph[*treenode].data.upward_refs,
+                                "\nleft:{}\nright:{}\nfapplam:{}\nxapplam:{}\n",
+                                applams.last().unwrap().to_string(egraph),
+                                extract(*treenode,egraph),
+                                f_applam.to_string(egraph),
+                                x_applam.to_string(egraph),
+                                );                        };
                     }
                     
                 }
@@ -791,19 +840,71 @@ fn run_inversions(
                     let shifted_b = recursive_var_mod(
                         |actual_idx, _depth, which_upward_ref, egraph| {
                             if which_upward_ref == arity_i32 {
+                                // these were pointers to the lambda thats being moved down, so they can all decrement by the arity
                                 Some(egraph.add(Lambda::Var(actual_idx - arity_i32)))
                             } else if which_upward_ref < arity_i32 {
+                                // the new lambda is now in the way
                                 Some(egraph.add(Lambda::Var(actual_idx + 1)))
                             } else {
+                                // refs to way up high dont get changed by this swap
                                 Some(egraph.add(Lambda::Var(actual_idx)))
                             }
                         }, b_applam.inv.body, egraph, &mut cache_bubble_lam[arity-1]).unwrap();
+                    
+                    // downshift the args since the lambda above them moved below them (earlier we made sure none of them had pointers to it)
+                    let new_args: Vec<Id> = b_applam.args.iter().map(|arg| shift(*arg, -1, egraph, &mut HashMap::new()).unwrap()).collect();
+
+                    downshifted_applam_args.extend(new_args.iter().cloned().zip(b_applam.args.iter().cloned())); // (new,old)
 
                     let new_applam_body = egraph.add(Lambda::Lam([shifted_b]));
-                    applams.push(AppLam::new(new_applam_body, b_applam.args.clone()));
-                    // debug_assert_eq!(applams.last().unwrap().upward_refs(egraph), egraph[*treenode].data.upward_refs);
+                    applams.push(AppLam::new(new_applam_body, new_args));
+                    debug_assert_eq!(
+                        applams.last().unwrap().upward_refs(egraph),
+                        egraph[*treenode].data.upward_refs,
+                        "\nleft:{}\nright:{}\nbapplam:{}\n",
+                        applams.last().unwrap().to_string(egraph),
+                        extract(*treenode,egraph),
+                        b_applam.to_string(egraph),
+                        );   
+
                 }
             },
+        }
+
+        // downshifting args just is sortof a big deal because other than this moment we have had the invariant that args
+        // are always subtrees of the original program (and are smaller than their parent and thus have already been
+        // processed in the child-first traversal). Now we have just created some args that weren't in the original program
+        // and thus aren't in our best_inventions list. Luckily if you think a bit you can see that downshifting
+        // all free vars in an expression results in something that can be compressed in exactly the same ways as the original
+        // expression (assuming we're compressing using a valid invention that doesnt itself have free vars). Please correct
+        // me if I'm wrong. But basically TLDR we can just duplicate the list of best inventions and
+        // use it for the shifted one. Side note if the shifted guy is already in our best_inventions list then it must already
+        // have the right inventions for it and everything so we can skip that.
+        // However note the applams can be cloned too but you do need to downshift all their args since their args are all part of a toplevel
+        // applam. Then you need to repeat the shifting for them too if need be...luckily arguments must get strictly
+        // smaller so it will converge and probably very fast. This is all handled here.
+        loop {
+            match downshifted_applam_args.pop() {
+                Some((new_arg,old_arg)) => {
+                    if !best_inventions_of_treenode.contains_key(&new_arg) {
+                        let cloned = best_inventions_of_treenode[&old_arg].clone();
+                        best_inventions_of_treenode.insert(new_arg,cloned);
+                        let new_applams = applams_of_treenode[&old_arg].iter()
+                            .map(|applam|{
+                                let new_args = applam.args.iter()
+                                .map(|arg|{
+                                    let arg_mod = shift(*arg, -1, egraph, &mut HashMap::new()).unwrap();
+                                    downshifted_applam_args.push((arg_mod,*arg)); // recursively fix these children
+                                    arg_mod
+                                }).collect();
+                                AppLam::new(applam.inv.body,new_args)
+                            }
+                            ).collect();
+                        applams_of_treenode.insert(new_arg,new_applams);
+                    }
+                }
+                None => break,
+            }
         }
 
         //===================================//
@@ -818,7 +919,10 @@ fn run_inversions(
                 let cost: i32 =
                     COST_TERMINAL // the new primitive for this invention
                     + COST_NONTERMINAL * applam.inv.arity as i32 // the chain of app()s needed to apply the new primitive
-                    + applam.args.iter().map(|id| best_inventions_of_treenode[&id].cost_under_inv(&applam.inv)).sum::<i32>(); // costs of actual args
+                    + applam.args.iter()
+                        .map(|id| best_inventions_of_treenode[&id]
+                        .cost_under_inv(&applam.inv))
+                        .sum::<i32>(); // sum costs of actual args
                 best_inventions.new_cost_under_inv(applam.inv, cost);
             }
         }
@@ -875,13 +979,16 @@ fn run_inversions(
                 }
             }
         }
-        narrow_beam(&mut best_inventions.inventionful_cost, beam_size);
+        // narrow_beam(&mut best_inventions.inventionful_cost, beam_size);
 
         applams_of_treenode.insert(*treenode, applams);
         best_inventions_of_treenode.insert(*treenode, best_inventions);
 
     }
-    (applams_of_treenode,best_inventions_of_treenode)
+    InversionResult {
+        applams_of_treenode: applams_of_treenode,
+        best_inventions_of_treenode: best_inventions_of_treenode,
+    }
 }
 
 struct CompressionResult {
@@ -914,13 +1021,14 @@ fn run_compression_step(
     //     println!("id={}: {}", id, extract(id,&egraph));
     // });
 
-    let (applams_of_treenode,best_inventions_of_treenode)
+    let inversion_result
         = run_inversions(
             &treenodes,
             args.max_arity,
             args.beam_size,
             &mut egraph
         );
+    let (best_inventions_of_treenode,applams_of_treenode) = (inversion_result.best_inventions_of_treenode,inversion_result.applams_of_treenode);
 
     egraph.rebuild(); // hopefully doesnt matter at all anyways, not sure if we needed to do this thruout inversions
 
@@ -1040,6 +1148,7 @@ fn compression(
             invs.push(res.inv);
         } else {
             println!("***No inventions found at iteration {}",i);
+            break;
         }
         
     }
