@@ -372,8 +372,12 @@ fn var(s: &str) -> Var {
     s.parse().unwrap()
 }
 
-#[inline(never)] // for flamegraph debugging
-fn shift(e: Id, incr_by: i32, egraph: &mut EGraph, seen: &mut RecVarModCache) -> Option<Id> {
+fn shift(e: Id, incr_by: i32, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
+    let mut empty = HashMap::new();
+    let seen = match caches {
+        Some(caches) => caches.get(Shift::Shift(incr_by)),
+        None => &mut empty,
+    };
     recursive_var_mod(
         |actual_idx, depth, which_upward_ref, egraph| {
             // if actual_idx + incr_by >= ARGC {
@@ -385,13 +389,84 @@ fn shift(e: Id, incr_by: i32, egraph: &mut EGraph, seen: &mut RecVarModCache) ->
     )
 }
 
+fn table_shift(e: Id, x_shift_table: Vec<i32>, shift_rest_by: i32, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
+    let mut empty = HashMap::new();
+    let seen = match caches {
+        Some(caches) => caches.get(Shift::TableShift(x_shift_table.clone(), shift_rest_by)),
+        None => &mut empty,
+    };
+    let arity = x_shift_table.len() as i32;
+    recursive_var_mod(
+        |actual_idx, depth, which_upward_ref, egraph| {
+            if which_upward_ref < arity {
+                // shift variable up or down whatever the shift table says it should be
+                Some(egraph.add(Lambda::Var(actual_idx + x_shift_table[which_upward_ref as usize])))
+            } else {
+                // references that go even higher should be incremented by the f arity
+                // minus the overlap. Which is shift_rest_by at this point.
+                Some(egraph.add(Lambda::Var(actual_idx + shift_rest_by)))
+            }
+        },
+        e,egraph,seen
+    )
+}
+
+fn offset_shift(e: Id, offset: usize, shift: i32, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
+    let mut empty = HashMap::new();
+    let seen = match caches {
+        Some(caches) => caches.get(Shift::OffsetShift(offset, shift)),
+        None => &mut empty,
+    };
+    recursive_var_mod(
+        |actual_idx, _depth, which_upward_ref, egraph| {
+            if which_upward_ref < offset as i32 {
+                // f vars dont usually need changing
+                Some(egraph.add(Lambda::Var(actual_idx)))
+            } else {
+                // ... except when they point outside of f, in which case they
+                // now need to point above the x lambdas as well.
+                Some(egraph.add(Lambda::Var(actual_idx + shift)))
+            }
+        },
+        e,egraph,seen
+    )
+}
+
+fn rotate_shift(e: Id, shift: i32, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
+    let mut empty = HashMap::new();
+    let seen = match caches {
+        Some(caches) => caches.get(Shift::RotateShift(shift)),
+        None => &mut empty,
+    };
+    recursive_var_mod(
+        |actual_idx, _depth, which_upward_ref, egraph| {
+            if which_upward_ref == shift {
+                // these were pointers to the lambda thats being moved down, so they can all decrement by the arity
+                Some(egraph.add(Lambda::Var(actual_idx - shift)))
+            } else if which_upward_ref < shift {
+                // the new lambda is now in the way
+                Some(egraph.add(Lambda::Var(actual_idx + 1)))
+            } else {
+                // refs to way up high dont get changed by this swap
+                Some(egraph.add(Lambda::Var(actual_idx)))
+            }
+        },
+        e,egraph,seen
+    )
+}
+
+
+
+
+
+
 // not used in the new verison but should be compatible with everything we've got!
 fn inline(e: Id, replace_with: Id, egraph: &mut EGraph, seen: &mut RecVarModCache) -> Option<Id> {
     recursive_var_mod(
         |actual_idx, depth, which_upward_ref, egraph| {
             if which_upward_ref == 0 {
                 // ShifterVM { incr_by: depth }.recursive_var_mod(replace_with, egraph)
-                shift(replace_with, depth, egraph, &mut HashMap::new()) // note i have it just make a new hashmap on the spot for this, caching would be better
+                shift(replace_with, depth, egraph, None) // note i have it just make a new hashmap on the spot for this, caching would be better
             } else {
                 // we need to decrement this by 1 since its a pointer above the lambda we removed
                 Some(egraph.add(Lambda::Var(actual_idx - 1)))
@@ -627,28 +702,28 @@ fn toplogical_ordering_rec(root: Id, egraph: &EGraph, vec: &mut Vec<Id>) {
 
 type RecVarModCache = HashMap<(Id,i32),Option<Id>>;
 #[derive(Debug,Clone,Eq,PartialEq,Hash)]
-enum CacheContext {
+enum Shift {
     Shift(i32), // shift everything by some amount
     TableShift(Vec<i32>,i32), // shift any ref < table.len() based on table, with a default shift for refs that point even higher
     OffsetShift(usize,i32), // this skips the upward refs less than usize, and shifts the higher ones
     RotateShift(i32), // this is like a "rotation" of indices where most shift by 1 and one wraps around: downshift refs to i32 by i32, increment refs less than i32, leave higher refs unchanged
 }
 struct CacheGenerator {
-    caches: HashMap<CacheContext,RecVarModCache>,
+    caches: HashMap<Shift,RecVarModCache>,
     enabled: bool,
 }
 impl CacheGenerator {
     fn new(enabled: bool) -> CacheGenerator {
         CacheGenerator { caches: Default::default(), enabled: enabled }
     }
-    fn get_cache(&mut self, context: CacheContext) -> &mut RecVarModCache {
+    fn get(&mut self, context: Shift) -> &mut RecVarModCache {
         if !self.enabled {
             // wipe the cache before returning it
             self.caches.insert(context.clone(),Default::default());
          }
         if !self.caches.contains_key(&context) {
             self.caches.insert(context.clone(),Default::default());
-        }
+        } 
         self.caches.get_mut(&context).unwrap()
     }
 }
@@ -664,6 +739,7 @@ fn run_inversions(
     treenodes: &Vec<Id>,
     max_arity: usize,
     beam_size: usize,
+    no_cache: bool,
     egraph: &mut EGraph
 ) -> InversionResult {
     // one vector of applams per tree node
@@ -672,14 +748,8 @@ fn run_inversions(
     
     let var0: Id = egraph.add(Lambda::Var(0));
 
-    // init caches. These give us considerable speedup (26s -> 18s)
-    // be SUPER careful to index with arity-1 not plain arity
-    let mut cache_bubble_lam: Vec<RecVarModCache> = Default::default();
-    let mut cache_shift: Vec<RecVarModCache> = Default::default();
-    for _ in 0..max_arity {
-        cache_bubble_lam.push(Default::default());
-        cache_shift.push(Default::default());
-    }
+    // Caches - these give us considerable speedup (26s -> 18s)
+    let caches = &mut CacheGenerator::new(!no_cache);
 
     for treenode in treenodes.iter() {
         // println!("processing id={}: {}", treenode, extract(*treenode, egraph) );
@@ -714,7 +784,7 @@ fn run_inversions(
                 for f_applam in f_applams.iter() {
                     let arity = f_applam.inv.arity;
                     let arity_i32 = arity as i32;
-                    let shifted_x = shift(x, arity_i32, egraph, &mut Default::default()).unwrap();
+                    let shifted_x = shift(x, arity_i32, egraph, Some(caches)).unwrap();
                     let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x]));
                     applams.push(AppLam::new(new_applam_body, f_applam.args.clone()));
                     debug_assert_eq!(applams.last().unwrap().upward_refs(egraph),egraph[*treenode].data.upward_refs);                        
@@ -725,7 +795,7 @@ fn run_inversions(
                 for x_applam in x_applams.iter() {
                     let arity = x_applam.inv.arity;
                     let arity_i32 = arity as i32;
-                    let shifted_f = shift(f, arity_i32, egraph, &mut Default::default()).unwrap();
+                    let shifted_f = shift(f, arity_i32, egraph, Some(caches)).unwrap();
                     let new_applam_body = egraph.add(Lambda::App([shifted_f, x_applam.inv.body]));
                     applams.push(AppLam::new(new_applam_body, x_applam.args.clone()));
                     debug_assert_eq!(applams.last().unwrap().upward_refs(egraph), egraph[*treenode].data.upward_refs);
@@ -779,30 +849,8 @@ fn run_inversions(
                                 .map(|(xarg,_)| xarg)
                                 .cloned().collect();
 
-                            let shifted_x_applam_body = recursive_var_mod(
-                                |actual_idx, _depth, which_upward_ref, egraph| {
-                                    if which_upward_ref < x_applam.inv.arity as i32 {
-                                        // shift variable up or down whatever the shift table says it should be
-                                        Some(egraph.add(Lambda::Var(actual_idx + x_shift_table[which_upward_ref as usize])))
-                                    } else {
-                                        // references that go even higher should be incremented by the f arity
-                                        // minus the overlap. Which is shift_rest_by at this point.
-                                        Some(egraph.add(Lambda::Var(actual_idx + shift_rest_by)))
-                                    }
-                                }, x_applam.inv.body, egraph, &mut HashMap::new()).unwrap();
-                                
-                                let shifted_f_applam_body = recursive_var_mod(
-                                    |actual_idx, _depth, which_upward_ref, egraph| {
-                                        if which_upward_ref < f_applam.inv.arity as i32 {
-                                            // f vars dont usually need changing
-                                            Some(egraph.add(Lambda::Var(actual_idx)))
-                                        } else {
-                                            // ... except when they point outside of f, in which case they
-                                            // now need to point above the x lambdas as well.
-                                            Some(egraph.add(Lambda::Var(actual_idx + (x_applam.inv.arity - overlap) as i32)))
-                                        }
-                                    }, f_applam.inv.body, egraph, &mut HashMap::new()).unwrap();
-    
+                            let shifted_x_applam_body = table_shift(x_applam.inv.body, x_shift_table, shift_rest_by, egraph, Some(caches)).unwrap();
+                            let shifted_f_applam_body = offset_shift(f_applam.inv.body, f_applam.inv.arity, (x_applam.inv.arity - overlap) as i32, egraph, Some(caches)).unwrap();    
 
                             let new_applam_body = egraph.add(Lambda::App([shifted_f_applam_body,shifted_x_applam_body]));
                             let mut new_applam_args = f_applam.args.clone();
@@ -811,18 +859,8 @@ fn run_inversions(
                             debug_assert_eq!(applams.last().unwrap().upward_refs(egraph),egraph[*treenode].data.upward_refs);                        
                         } else {
                             // no overlap so no merging
-                            let shifted_x_applam_body = shift(x_applam.inv.body, f_applam.inv.arity as i32, egraph, &mut cache_shift[f_applam.inv.arity-1]).unwrap();
-                            let shifted_f_applam_body = recursive_var_mod(
-                                |actual_idx, _depth, which_upward_ref, egraph| {
-                                    if which_upward_ref < f_applam.inv.arity as i32 {
-                                        // f vars dont usually need changing
-                                        Some(egraph.add(Lambda::Var(actual_idx)))
-                                    } else {
-                                        // ... except when they point outside of f, in which case they
-                                        // now need to point above the x lambdas as well.
-                                        Some(egraph.add(Lambda::Var(actual_idx + x_applam.inv.arity as i32)))
-                                    }
-                                }, f_applam.inv.body, egraph, &mut HashMap::new()).unwrap();
+                            let shifted_x_applam_body = shift(x_applam.inv.body, f_applam.inv.arity as i32, egraph, Some(caches)).unwrap();
+                            let shifted_f_applam_body = offset_shift(f_applam.inv.body, f_applam.inv.arity, x_applam.inv.arity as i32, egraph, Some(caches)).unwrap();    
 
                             let new_applam_body = egraph.add(Lambda::App([shifted_f_applam_body,shifted_x_applam_body]));
                             let mut new_applam_args = f_applam.args.clone();
@@ -853,22 +891,12 @@ fn run_inversions(
                     }
                     let arity = b_applam.inv.arity;
                     let arity_i32 = arity as i32;
-                    let shifted_b = recursive_var_mod(
-                        |actual_idx, _depth, which_upward_ref, egraph| {
-                            if which_upward_ref == arity_i32 {
-                                // these were pointers to the lambda thats being moved down, so they can all decrement by the arity
-                                Some(egraph.add(Lambda::Var(actual_idx - arity_i32)))
-                            } else if which_upward_ref < arity_i32 {
-                                // the new lambda is now in the way
-                                Some(egraph.add(Lambda::Var(actual_idx + 1)))
-                            } else {
-                                // refs to way up high dont get changed by this swap
-                                Some(egraph.add(Lambda::Var(actual_idx)))
-                            }
-                        }, b_applam.inv.body, egraph, &mut Default::default()).unwrap();
+                    // fyi, rotate_shift is 40% of the run_inversions runtime bc it creates new unique subtrees (sorta necessary when a set of inventions
+                    // hoists over a lambda and thus need larger indices to refer to their arguments) which means egraph.add() inside rotate does a lot of work.
+                    let shifted_b = rotate_shift(b_applam.inv.body, arity_i32, egraph, Some(caches)).unwrap();
                     
                     // downshift the args since the lambda above them moved below them (earlier we made sure none of them had pointers to it)
-                    let new_args: Vec<Id> = b_applam.args.iter().map(|arg| shift(*arg, -1, egraph, &mut HashMap::new()).unwrap()).collect();
+                    let new_args: Vec<Id> = b_applam.args.iter().map(|arg| shift(*arg, -1, egraph, Some(caches)).unwrap()).collect();
 
                     downshifted_applam_args.extend(new_args.iter().cloned().zip(b_applam.args.iter().cloned())); // (new,old)
 
@@ -878,6 +906,12 @@ fn run_inversions(
                 }
             },
         }
+
+        // let child_applams: Vec<usize> = node.children().iter()
+        //     .map(|id| applams_of_treenode[id].len())
+        //     .collect();
+
+        // println!("{:?}:\n\t{:?} -> {}\n\t{}",node,child_applams, applams.len(), egraph.total_size());
 
         // Processing downshifted_applam_args:
         // downshifting args just is sortof a big deal because other than this moment we have had the invariant that args
@@ -903,7 +937,7 @@ fn run_inversions(
                             .map(|applam|{
                                 let new_args = applam.args.iter()
                                 .map(|arg|{
-                                    let arg_mod = shift(*arg, -1, egraph, &mut HashMap::new()).unwrap();
+                                    let arg_mod = shift(*arg, -1, egraph, Some(caches)).unwrap();
                                     downshifted_applam_args.push((arg_mod,*arg)); // recursively fix these children
                                     arg_mod
                                 }).collect();
@@ -1036,6 +1070,7 @@ fn run_compression_step(
             &treenodes,
             args.max_arity,
             args.beam_size,
+            args.no_cache,
             &mut egraph
         );
     let (best_inventions_of_treenode,applams_of_treenode) = (inversion_result.best_inventions_of_treenode,inversion_result.applams_of_treenode);
