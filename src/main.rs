@@ -7,6 +7,7 @@ extern crate log;
 use clap::Parser;
 use serde_json::de::from_reader;
 use std::fs::File;
+use std::fmt::{self, Formatter, Display};
 
 
 /// egg dream
@@ -29,10 +30,6 @@ struct Args {
     #[clap(short, long, default_value = "10000000")]
     beam_size: usize,
 
-    /// whether to print out the found inventions
-    #[clap(long)]
-    no_print_inventions: bool,
-
     /// whether to render the inventions
     #[clap(long)]
     render_inventions: bool,
@@ -45,9 +42,9 @@ struct Args {
     #[clap(long)]
     render_initial: bool,
 
-    /// number of inventions to extract
-    #[clap(long, default_value="5")]
-    num_inventions: usize,
+    /// number of inventions to print - set to 0 if you dont want to print inventions at all
+    #[clap(long, default_value="0")]
+    print_inventions: usize,
 }
 
 const COST_NONTERMINAL: i32 = 1;
@@ -65,6 +62,7 @@ define_language! {
 }
 
 type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
+type RecExpr = egg::RecExpr<Lambda>;
 
 #[derive(Default)]
 struct LambdaAnalysis;
@@ -79,6 +77,18 @@ struct Data {
 struct Invention {
     body:Id,
     arity: usize
+}
+
+#[derive(Debug, Clone)]
+struct InventionExpr {
+    lam_expr: RecExpr,
+    arity: usize
+}
+
+impl Display for InventionExpr {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "[arity {}]: {} ", self.arity, self.lam_expr)
+    }
 }
 
 impl Invention {
@@ -96,12 +106,12 @@ impl Invention {
         //  This checks that there aren't any upward refs that go beyond the args of the AppLam itself
         egraph[self.body].data.upward_refs.iter().all(|i| *i < (self.arity as i32))
     }
-    fn to_expr(&self, egraph: &EGraph) -> RecExpr<Lambda> {
+    fn to_expr(&self, egraph: &EGraph) -> InventionExpr {
         let mut expr = extract(self.body, &egraph).to_string();
         for _ in 0..self.arity {
             expr = format!("(lam {})", expr);
         }
-        expr.parse().unwrap()
+        InventionExpr {lam_expr: expr.parse().unwrap(), arity:self.arity}
     }
 }
 
@@ -130,6 +140,20 @@ impl AppLam {
         self.inv.is_canonical(egraph) &&
         self.args.iter().all(|arg| canonical(arg, egraph))
     }
+    fn upward_refs(&self, egraph: &mut EGraph) -> HashSet<i32> {
+        let mut upward_refs: HashSet<i32> = egraph[self.inv.body].data.upward_refs.iter().map(|i| i - self.inv.arity as i32).collect();
+        for arg in self.args.iter() {
+            upward_refs.extend(egraph[*arg].data.upward_refs.clone());
+        }
+        upward_refs
+    }
+    fn to_string(&self, egraph: &EGraph) -> String {
+        format!("inv:{}\narg:{}",
+            self.inv.to_expr(egraph),
+            self.args.iter().map(|arg| extract(*arg, egraph).to_string()).collect::<Vec<_>>().join("\narg:")
+        )
+    }
+
 }
 
 #[derive(Debug)]
@@ -173,13 +197,13 @@ impl BestInventions {
 }
 
 
-fn extract(eclass: Id, egraph: &EGraph) -> RecExpr<Lambda> {
+fn extract(eclass: Id, egraph: &EGraph) -> RecExpr {
     let mut extractor = Extractor::new(&egraph, ProgramCost{});
     let (_,p) = extractor.find_best(eclass);
     p
 }
 
-fn extract_enode(enode: &Lambda, egraph: &EGraph) -> RecExpr<Lambda> {
+fn extract_enode(enode: &Lambda, egraph: &EGraph) -> RecExpr {
     match enode {
         Lambda::Prim(p) => {format!("{}",p)},
         Lambda::Var(i) => {format!("{}",i)},
@@ -192,22 +216,24 @@ fn extract_enode(enode: &Lambda, egraph: &EGraph) -> RecExpr<Lambda> {
 fn extract_under_inv(
     eclass: Id,
     inv: Invention,
+    replace_inv_with: &str,
     applams_of_treenode: &HashMap<Id,Vec<AppLam>>,
     best_inventions_of_treenode: &HashMap<Id,BestInventions>,
     egraph: &EGraph
-) -> RecExpr<Lambda> {
-    let mut expr: RecExpr<Lambda> = Default::default();
-    extract_under_inv_rec(eclass, inv, applams_of_treenode, best_inventions_of_treenode, egraph, &mut expr);
+) -> RecExpr {
+    let mut expr: RecExpr = Default::default();
+    extract_under_inv_rec(eclass, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph, &mut expr);
     expr
 }
 
 fn extract_under_inv_rec(
     root: Id,
     inv: Invention,
+    replace_inv_with: &str,
     applams_of_treenode: &HashMap<Id,Vec<AppLam>>,
     best_inventions_of_treenode: &HashMap<Id,BestInventions>,
     egraph: &EGraph,
-    into_expr: &mut RecExpr<Lambda>,
+    into_expr: &mut RecExpr,
 ) -> Id {
     let root = egraph.find(root);
     let target_cost:i32 = best_inventions_of_treenode[&root].cost_under_inv(&inv);
@@ -217,10 +243,10 @@ fn extract_under_inv_rec(
         let applam: Vec<AppLam> = applams_of_treenode[&root].iter().filter(|applam| applam.inv == inv).cloned().collect();
         assert!(applam.len() == 1);
         let applam = &applam[0];
-        let mut id: Id = into_expr.add(Lambda::Prim("inv".into()));
+        let mut id: Id = into_expr.add(Lambda::Prim(replace_inv_with.into()));
         // wrap the new primitive in app() calls. Note that you pass in the $0 args LAST given how appapplamlam works
         for arg in applam.args.iter().rev() {
-            let arg_id = extract_under_inv_rec(*arg, inv, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr);
+            let arg_id = extract_under_inv_rec(*arg, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr);
             id = into_expr.add(Lambda::App([id,arg_id]));
         }
         assert_eq!(target_cost,cost_rec(&into_expr));
@@ -236,17 +262,17 @@ fn extract_under_inv_rec(
             into_expr.add(Lambda::Var(*i))
         },
         Lambda::App([f,x]) => {
-            let f_id = extract_under_inv_rec(*f, inv, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr);
-            let x_id = extract_under_inv_rec(*x, inv, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr);
+            let f_id = extract_under_inv_rec(*f, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr);
+            let x_id = extract_under_inv_rec(*x, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr);
             into_expr.add(Lambda::App([f_id,x_id]))
         },
         Lambda::Lam([b]) => {
-            let b_id = extract_under_inv_rec(*b, inv, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr);
+            let b_id = extract_under_inv_rec(*b, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr);
             into_expr.add(Lambda::Lam([b_id]))
         }
         Lambda::Programs(roots) => {
             let root_ids: Vec<Id> = roots.iter()
-                .map(|r| extract_under_inv_rec(*r, inv, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr))
+                .map(|r| extract_under_inv_rec(*r, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr))
                 .collect();
             into_expr.add(Lambda::Programs(root_ids))
         }
@@ -479,7 +505,7 @@ impl CostFunction<Lambda> for ProgramCost {
     }
 }
 
-fn cost_rec(expr: &RecExpr<Lambda>) -> i32 {
+fn cost_rec(expr: &RecExpr) -> i32 {
     ProgramCost{}.cost_rec(expr)
 }
 
@@ -547,7 +573,7 @@ fn save(egraph: &EGraph, name: &str, outdir: &str) {
     egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
 }
 
-fn save_expr(expr: &RecExpr<Lambda>, name: &str, outdir: &str) {
+fn save_expr(expr: &RecExpr, name: &str, outdir: &str) {
     let mut egraph: EGraph = Default::default();
     egraph.add_expr(expr);
     egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
@@ -651,6 +677,10 @@ fn run_inversions(
                     let shifted_x = shift(x, arity_i32, egraph, &mut cache_shift[arity-1]).unwrap();
                     let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x]));
                     applams.push(AppLam::new(new_applam_body, f_applam.args.clone()));
+                    // debug_assert_eq!(applams.last().unwrap().upward_refs(egraph),
+                    //     egraph[*treenode].data.upward_refs,
+                    //     "{}", applams.last().unwrap().to_string(egraph)
+                    // );
                 }
 
                 // bubbling from the right:
@@ -661,6 +691,7 @@ fn run_inversions(
                     let shifted_f = shift(f, arity_i32, egraph, &mut cache_shift[arity-1]).unwrap();
                     let new_applam_body = egraph.add(Lambda::App([shifted_f, x_applam.inv.body]));
                     applams.push(AppLam::new(new_applam_body, x_applam.args.clone()));
+                    // debug_assert_eq!(applams.last().unwrap().upward_refs(egraph), egraph[*treenode].data.upward_refs);
                 }
 
                 // println!("f_applam x_applam pairwise product size: {} x {} -> {}",f_applams.len(), x_applams.len(), f_applams.len() * x_applams.len());
@@ -724,6 +755,7 @@ fn run_inversions(
                             let mut new_applam_args = f_applam.args.clone();
                             new_applam_args.extend(new_x_applam_args);
                             applams.push(AppLam::new(new_applam_body, new_applam_args));
+                            // debug_assert_eq!(applams.last().unwrap().upward_refs(egraph), egraph[*treenode].data.upward_refs);
                         } else {
                             // no overlap so no merging
                             let shifted_x_applam_body = shift(x_applam.inv.body, f_applam.inv.arity as i32, egraph, &mut cache_shift[f_applam.inv.arity-1]).unwrap();
@@ -731,6 +763,7 @@ fn run_inversions(
                             let mut new_applam_args = f_applam.args.clone();
                             new_applam_args.extend(x_applam.args.clone());
                             applams.push(AppLam::new(new_applam_body, new_applam_args));
+                            // debug_assert_eq!(applams.last().unwrap().upward_refs(egraph), egraph[*treenode].data.upward_refs);
                         };
                     }
                     
@@ -768,6 +801,7 @@ fn run_inversions(
 
                     let new_applam_body = egraph.add(Lambda::Lam([shifted_b]));
                     applams.push(AppLam::new(new_applam_body, b_applam.args.clone()));
+                    // debug_assert_eq!(applams.last().unwrap().upward_refs(egraph), egraph[*treenode].data.upward_refs);
                 }
             },
         }
@@ -850,39 +884,23 @@ fn run_inversions(
     (applams_of_treenode,best_inventions_of_treenode)
 }
 
+struct CompressionResult {
+    inv: InventionExpr,
+    rewritten: RecExpr,
+}
 
+/// takes a (programs ...) expr, returns the best Invention and the RecExpr rewritten under that invention
+fn run_compression_step(
+    programs_expr: &RecExpr,
+    args: &Args,
+    out_dir: &str,
+    new_inv_name: &str,
+) -> Option<CompressionResult> {
 
-
-
-fn main() {
-    env_logger::init();
-
-    let args: Args = Args::parse();
-
-    // create a new directory for logging outputs
-    let out_dir: String = format!("target/{}",timestamp());
-    let out_dir_p = std::path::Path::new(out_dir.as_str());
-    assert!(!out_dir_p.exists());
-    std::fs::create_dir(out_dir_p).unwrap();
-
-    // first dreamcoder program
-    let programs: Vec<String> = from_reader(File::open(args.file).expect("file not found")).expect("json deserializing error");
-
-    println!("Programs: {}", programs.len());
-        
-    // my way of combining the programs since RecExprs arent easily combinable
-    let programs_expr: RecExpr<Lambda> = format!("(programs {})",programs.join(" ")).parse().unwrap();
-
+    // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
     let mut egraph: EGraph = Default::default();
     let programs_id = egraph.add_expr(&programs_expr);
     egraph.rebuild(); // this is VERY important to run before you try applying any searches or rewrites
-
-    let applam:Pattern<Lambda> = "(app (lam ?body) ?arg)".parse().unwrap();
-    assert!(applam.search(&egraph).is_empty(),
-        "Normal dreamcoder programs never have unapplied lambdas in them! 
-         Who knows what might happen if you run this. Side note you can probably
-         inline them and it'd be fine (we've got a function for that!) and also
-         who knows maybe it wouldnt be an issue in the first place");
 
     println!("Initial egraph:\n\t{}\n", egraph_info(&egraph));
     if args.render_initial {
@@ -915,24 +933,22 @@ fn main() {
 
     let top_invs: Vec<Invention> = best_inventions_of_treenode[&programs_id].top_inventions();
     println!("Found {} Inventions that helped at the top level", top_invs.len());
-
     println!("\n*** Core stuff took: {}ms ***\n", elapsed);
 
-    if !args.no_print_inventions {
-        for (i,inv) in top_invs.iter().take(args.num_inventions).enumerate() {
-            let inv_expr = inv.to_expr(&egraph);
-            let rewritten = extract_under_inv(programs_id, *inv, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
-            println!("\nInvention {} {:?} (inv_cost={:?}; rewritten_cost={:?}):\n{}\n Rewritten:\n{}",
-                i,
-                inv,
-                cost_rec(&inv_expr),
-                cost_rec(&rewritten),
-                inv_expr,
-                rewritten,
-            );
-            if args.render_inventions {
-                save_expr(&inv_expr, &format!("inv{}",i), &out_dir);
-            }
+    for (i,inv) in top_invs.iter().take(args.print_inventions).enumerate() {
+        let inv_expr = inv.to_expr(&egraph).lam_expr;
+        let inv_str = &format!("inv{}_{}",inv.body,inv.arity);
+        let rewritten = extract_under_inv(programs_id, *inv, inv_str, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
+        println!("\nInvention {} {:?} (inv_cost={:?}; rewritten_cost={:?}):\n{}\n Rewritten:\n{}",
+            i,
+            inv,
+            cost_rec(&inv_expr),
+            cost_rec(&rewritten),
+            inv_expr,
+            rewritten,
+        );
+        if args.render_inventions {
+            save_expr(&inv_expr, &format!("inv{}",i), &out_dir);
         }
     }
 
@@ -956,14 +972,77 @@ fn main() {
     //     }
     // }
 
-    println!("\nPrograms: {}", programs.len());
     println!("Cands useful at top level: {}",top_invs.len());
-    println!("*** Core stuff took: {}ms ***\n", elapsed);
+    println!("Core stuff took: {}ms ***\n", elapsed);
 
     if args.render_final {
         println!("Rendering final egraph");
         save(&egraph, "final", &out_dir);
     }
 
-    
+    if top_invs.is_empty() {
+        return None
+    }
+
+    let top_inv = top_invs[0].clone();
+    let top_inv_expr = top_inv.to_expr(&egraph);
+    let top_inv_rewritten = extract_under_inv(programs_id, top_inv.clone(), new_inv_name, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
+
+    Some(CompressionResult {
+        inv: top_inv_expr,
+        rewritten: top_inv_rewritten,
+    })
 }
+
+
+fn main() {
+    env_logger::init();
+
+    let args: Args = Args::parse();
+
+    // create a new directory for logging outputs
+    let out_dir: String = format!("target/{}",timestamp());
+    let out_dir_p = std::path::Path::new(out_dir.as_str());
+    assert!(!out_dir_p.exists());
+    std::fs::create_dir(out_dir_p).unwrap();
+
+    // first dreamcoder program
+    let programs: Vec<String> = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
+    println!("Programs: {}", programs.len());
+    let programs: String = format!("(programs {})",programs.join(" "));
+
+    assert!(!programs.to_string().contains("(app (lam"),
+        "Normal dreamcoder programs never have unapplied lambdas in them! 
+         Who knows what might happen if you run this. Side note you can probably
+         inline them and it'd be fine (we've got a function for that!) and also
+         who knows maybe it wouldnt be an issue in the first place");
+
+    let programs_expr: RecExpr = programs.parse().unwrap();
+
+    compression(&programs_expr, &args, &out_dir);
+
+}
+
+fn compression(
+    programs_expr: &RecExpr,
+    args: &Args,
+    out_dir: &str,
+) -> (Vec<InventionExpr>,RecExpr) {
+    let mut rewritten: RecExpr = programs_expr.clone();
+    let mut invs: Vec<InventionExpr> = Default::default();
+    
+    for i in 0..args.iterations {
+        println!("***Iteration {}",i);
+        let inv_name = &format!("inv{}",invs.len());
+        if let Some(res) = run_compression_step(&rewritten, args, out_dir, inv_name) {
+            rewritten = res.rewritten.clone();
+            println!("***Found Invention {}: {}\n***Rewritten:{}", inv_name, res.inv, res.rewritten);
+            invs.push(res.inv);
+        } else {
+            println!("***No inventions found at iteration {}",i);
+        }
+        
+    }
+    (invs,rewritten)
+}
+
