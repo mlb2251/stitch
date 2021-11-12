@@ -589,6 +589,39 @@ fn cost_rec(expr: &RecExpr) -> i32 {
     ProgramCost{}.cost_rec(expr)
 }
 
+struct ProgramDepth {}
+
+impl CostFunction<Lambda> for ProgramDepth {
+    type Cost = i32;
+    fn cost<C>(&mut self, enode: &Lambda, mut costs: C) -> Self::Cost
+    where
+        C: FnMut(Id) -> Self::Cost
+    {
+        match enode {
+            Lambda::Var(_) | Lambda::Prim(_) => 1,
+            Lambda::App([f, x]) => {
+                1 + std::cmp::max(costs(*f), costs(*x))
+            }
+            Lambda::Lam([b]) => {
+                1 + costs(*b)
+            }
+            Lambda::Programs(ps) => {
+                ps.iter()
+                .map(|p|costs(*p))
+                .min().unwrap()
+            }
+        }
+    }
+}
+
+fn depth_rec(expr: &RecExpr) -> i32 {
+    ProgramDepth{}.cost_rec(expr)
+}
+
+
+
+
+
 fn timestamp() -> String {
     format!("{}", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"))
 }
@@ -1147,35 +1180,6 @@ fn run_compression_step(
     })
 }
 
-
-fn main() {
-    env_logger::init();
-
-    let args: Args = Args::parse();
-
-    // create a new directory for logging outputs
-    let out_dir: String = format!("target/{}",timestamp());
-    let out_dir_p = std::path::Path::new(out_dir.as_str());
-    assert!(!out_dir_p.exists());
-    std::fs::create_dir(out_dir_p).unwrap();
-
-    // first dreamcoder program
-    let programs: Vec<String> = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
-    println!("Programs: {}", programs.len());
-    let programs: String = format!("(programs {})",programs.join(" "));
-
-    assert!(!programs.to_string().contains("(app (lam"),
-        "Normal dreamcoder programs never have unapplied lambdas in them! 
-         Who knows what might happen if you run this. Side note you can probably
-         inline them and it'd be fine (we've got a function for that!) and also
-         who knows maybe it wouldnt be an issue in the first place");
-
-    let programs_expr: RecExpr = programs.parse().unwrap();
-
-    compression(&programs_expr, &args, &out_dir);
-
-}
-
 fn compression(
     programs_expr: &RecExpr,
     args: &Args,
@@ -1198,5 +1202,42 @@ fn compression(
         
     }
     (invs,rewritten)
+}
+
+fn programs_info(programs: &Vec<String>) {
+    let ps: Vec<RecExpr> = programs.iter().map(|p| p.parse::<RecExpr>().unwrap()).collect();
+    let max_cost = ps.iter().map(|p| cost_rec(p)).max().unwrap();
+    let max_depth = ps.iter().map(|p| depth_rec(p)).max().unwrap();
+    println!("Programs:");
+    println!("\t num: {}",ps.len());
+    println!("\t max cost: {}",max_cost);
+    println!("\t max depth: {}",max_depth);
+}
+
+fn main() {
+    env_logger::init();
+
+    let args: Args = Args::parse();
+
+    // create a new directory for logging outputs
+    let out_dir: String = format!("target/{}",timestamp());
+    let out_dir_p = std::path::Path::new(out_dir.as_str());
+    assert!(!out_dir_p.exists());
+    std::fs::create_dir(out_dir_p).unwrap();
+
+    let programs: Vec<String> = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
+    programs_info(&programs);
+    let programs: String = format!("(programs {})",programs.join(" "));
+
+    assert!(!programs.to_string().contains("(app (lam"),
+        "Normal dreamcoder programs never have unapplied lambdas in them! 
+         Who knows what might happen if you run this. Side note you can probably
+         inline them and it'd be fine (we've got a function for that!) and also
+         who knows maybe it wouldnt be an issue in the first place");
+
+    let programs_expr: RecExpr = programs.parse().unwrap();
+
+    compression(&programs_expr, &args, &out_dir);
+
 }
 
