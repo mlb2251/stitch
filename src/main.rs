@@ -230,6 +230,7 @@ fn extract_under_inv(
     expr
 }
 
+// todo definitely possible to rewrite much simpler and such that we dont need applams_of_treenode and best_inventions_of_treenode and it works generically for rewriting on things we havent seen before. See my own notes.
 fn extract_under_inv_rec(
     root: Id,
     inv: Invention,
@@ -806,6 +807,8 @@ fn run_inversions(
         // any node can become the identity applam
         applams.push(AppLam::new(var0, vec![*treenode]));
 
+
+
         match node {
             Lambda::Var(_) | Lambda::Prim(_) | Lambda::Programs(_) => {},
             Lambda::App([f,x]) => {
@@ -1140,7 +1143,7 @@ fn run_compression_step(
 
     println!("Final egraph: {}",egraph_info(&egraph));
     println!("Variables used:");
-    for i in 0..10 {
+    for i in -2..10 {
         println!("{}: {}", i, search(format!("({})",i).as_str(),&egraph).len());
     }
 
