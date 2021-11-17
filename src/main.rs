@@ -8,6 +8,7 @@ use clap::Parser;
 use serde_json::de::from_reader;
 use std::fs::File;
 use std::fmt::{self, Formatter, Display};
+use symbolic_expressions::Sexp;
 
 
 /// egg dream
@@ -54,19 +55,139 @@ struct Args {
 const COST_NONTERMINAL: i32 = 1;
 const COST_TERMINAL: i32 = 100;
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+enum Lambda {
+    Var(i32), // db index
+    // "#" = IVar(i32), // db index used by inventions
+    App([Id; 2]), // f, x
+    Lam([Id; 1]), // body
+    Prim(egg::Symbol), // fallback, parses prims
+    Programs(Vec<Id>),
+}
 
-define_language! {
-    enum Lambda {
-        Var(i32), // db index
-        "app" = App([Id; 2]), // f, x
-        "lam" = Lam([Id; 1]), // body
-        Prim(egg::Symbol), // fallback, parses prims
-        "programs" = Programs(Vec<Id>),
+
+impl Display for Lambda {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Var(i) => write!(f, "${}", i),
+            Self::App(_) => write!(f,"app"),
+            Self::Lam(_) => write!(f,"lam"),
+            Self::Prim(p) => write!(f,"{}",p),
+            Self::Programs(_) => write!(f,"programs"),
+        }
     }
 }
 
+impl Language for Lambda {
+    fn matches(&self, other: &Self) -> bool {
+        // consider only operator, not children. I believe (?) we do want to consider number of children based on the macro code.
+        match (self,other) {
+            (Self::Var(i), Self::Var(j)) => i == j,
+            (Self::App(_), Self::App(_)) => true,
+            (Self::Lam(_), Self::Lam(_)) => true,
+            (Self::Prim(p1), Self::Prim(p2)) => p1 == p2,
+            (Self::Programs(p1), Self::Programs(p2)) => p1.len() == p2.len(),
+            (_,_) => false,
+        }
+    }
+
+    fn children(&self) -> &[Id] {
+        match self {
+            Self::Lam(ids) => ids,
+            Self::App(ids) => ids,
+            Self::Programs(ids) => ids,
+            _ => &[],
+        }
+    }
+
+    fn children_mut(&mut self) -> &mut [Id] {
+        match self {
+            Self::Lam(ids) => ids,
+            Self::App(ids) => ids,
+            Self::Programs(ids) => ids,
+            _ => &mut [],
+        }
+    }
+
+    fn display_op(&self) -> &dyn Display {
+        unimplemented!("Use show(recexpr) to display a recexpr. This is because egg 0.6.0 hasnt fixed issue #83 so displaying things like $5 is not valid")
+    }
+
+    fn from_op_str(op_str: &str, children: Vec<Id>) -> Result<Self, String> {
+        match op_str {
+            "app" => {
+                if children.len() != 2 {
+                    return Err(format!("app needs 2 children, got {}", children.len()));
+                }
+                Ok(Self::App([children[0], children[1]]))
+            },
+            "lam" => {
+                if children.len() != 1 {
+                    return Err(format!("lam needs 1 child, got {}", children.len()));
+                }
+                Ok(Self::Lam([children[0]]))
+            }
+            "programs" => Ok(Self::Programs(children)),
+            _ => {
+                if children.len() != 0 {
+                    return Err(format!("{} needs 0 children, got {}", op_str, children.len()))
+                }
+                // if op_str.chars().next().unwrap().is_digit(10) {
+                if op_str.starts_with("$") {
+                    let i = op_str.chars().skip(1).collect::<String>().parse::<i32>().unwrap();
+                    // let i = op_str.parse::<i32>().unwrap();
+                    Ok(Self::Var(i))
+                } else {
+                    Ok(Self::Prim(egg::Symbol::from(op_str)))
+                }
+            },
+        }
+    }
+}
+
+
+
+
+
 type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
 type RecExpr = egg::RecExpr<Lambda>;
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct DispRecExpr {
+    nodes: Vec<Lambda>,
+}
+
+impl Display for DispRecExpr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.nodes.is_empty() {
+            write!(f, "()")
+        } else {
+            let s = self.to_sexp(self.nodes.len() - 1).to_string();
+            write!(f, "{}", s)
+        }
+    }
+}
+impl DispRecExpr {
+    fn new(e: RecExpr) -> Self {
+        unsafe{std::mem::transmute(e)}
+    }
+    fn to_sexp(&self, i: usize) -> Sexp {
+        let node = &self.nodes[i];
+        // let op = Sexp::String(node.display_op().to_string());
+        let op = Sexp::String(format!("{}",node));
+        if node.is_leaf() {
+            op
+        } else {
+            let mut vec = vec![op];
+            node.for_each(|id| vec.push(self.to_sexp(id.into())));
+            Sexp::List(vec)
+        }
+    }
+}
+
+fn show(e: &RecExpr) -> String {
+    DispRecExpr::new(e.clone()).to_string()
+}
 
 #[derive(Default)]
 struct LambdaAnalysis;
@@ -91,7 +212,7 @@ struct InventionExpr {
 
 impl Display for InventionExpr {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "[arity {}]: {} ", self.arity, self.lam_expr)
+        write!(f, "[arity {}]: {} ", self.arity, show(&self.lam_expr))
     }
 }
 
@@ -111,7 +232,7 @@ impl Invention {
         egraph[self.body].data.upward_refs.iter().all(|i| *i < (self.arity as i32))
     }
     fn to_expr(&self, egraph: &EGraph) -> InventionExpr {
-        let mut expr = extract(self.body, &egraph).to_string();
+        let mut expr = extract(self.body, &egraph);
         for _ in 0..self.arity {
             expr = format!("(lam {})", expr);
         }
@@ -155,7 +276,7 @@ impl AppLam {
     fn to_string(&self, egraph: &EGraph) -> String {
         format!("inv:{}\narg:{}",
             self.inv.to_expr(egraph),
-            self.args.iter().map(|arg| extract(*arg, egraph).to_string()).collect::<Vec<_>>().join("\narg:")
+            self.args.iter().map(|arg| extract(*arg, egraph)).collect::<Vec<_>>().join("\narg:")
         )
     }
 
@@ -201,20 +322,21 @@ impl BestInventions {
 }
 
 
-fn extract(eclass: Id, egraph: &EGraph) -> RecExpr {
+fn extract(eclass: Id, egraph: &EGraph) -> String {
     let mut extractor = Extractor::new(&egraph, ProgramCost{});
     let (_,p) = extractor.find_best(eclass);
-    p
+    show(&p)
 }
 
-fn extract_enode(enode: &Lambda, egraph: &EGraph) -> RecExpr {
-    match enode {
+fn extract_enode(enode: &Lambda, egraph: &EGraph) -> String {
+    let expr: RecExpr = match enode {
         Lambda::Prim(p) => {format!("{}",p)},
         Lambda::Var(i) => {format!("{}",i)},
         Lambda::App([f,x]) => {format!("(app {} {})",extract(*f,egraph),extract(*x,egraph))},
         Lambda::Lam([b]) => {format!("(lam {})",extract(*b,egraph))},
         _ => {format!("not rendered")},
-    }.parse().unwrap()
+    }.parse().unwrap();
+    show(&expr)
 }
 
 fn extract_under_inv(
@@ -1144,7 +1266,7 @@ fn run_compression_step(
     println!("Final egraph: {}",egraph_info(&egraph));
     println!("Variables used:");
     for i in -2..10 {
-        println!("{}: {}", i, search(format!("({})",i).as_str(),&egraph).len());
+        println!("{}: {}", i, search(format!("(${})",i).as_str(),&egraph).len());
     }
 
     // for (i,inv) in top_invs.iter().enumerate() {
@@ -1196,7 +1318,7 @@ fn compression(
         let inv_name = &format!("inv{}",invs.len());
         if let Some(res) = run_compression_step(&rewritten, args, out_dir, inv_name) {
             rewritten = res.rewritten.clone();
-            println!("***Found Invention {}: {}\n***Rewritten:{}", inv_name, res.inv, res.rewritten);
+            println!("***Found Invention {}: {}\n***Rewritten:{}", inv_name, res.inv, show(&res.rewritten));
             invs.push(res.inv);
         } else {
             println!("***No inventions found at iteration {}",i);
