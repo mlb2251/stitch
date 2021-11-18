@@ -8,7 +8,8 @@ use clap::Parser;
 use serde_json::de::from_reader;
 use std::fs::File;
 use std::fmt::{self, Formatter, Display};
-use symbolic_expressions::Sexp;
+pub mod expr;
+use expr::*;
 
 
 /// egg dream
@@ -55,142 +56,8 @@ struct Args {
 const COST_NONTERMINAL: i32 = 1;
 const COST_TERMINAL: i32 = 100;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-enum Lambda {
-    Var(i32), // db index
-    IVar(i32), // db index used by inventions
-    App([Id; 2]), // f, x
-    Lam([Id; 1]), // body
-    Prim(egg::Symbol), // fallback, parses prims
-    Programs(Vec<Id>),
-}
-
-
-impl Display for Lambda {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Var(i) => write!(f, "${}", i),
-            Self::IVar(i) => write!(f, "#{}", i),
-            Self::App(_) => write!(f,"app"),
-            Self::Lam(_) => write!(f,"lam"),
-            Self::Prim(p) => write!(f,"{}",p),
-            Self::Programs(_) => write!(f,"programs"),
-        }
-    }
-}
-
-impl Language for Lambda {
-    fn matches(&self, other: &Self) -> bool {
-        // consider only operator, not children. I believe (?) we do want to consider number of children based on the macro code.
-        match (self,other) {
-            (Self::Var(i), Self::Var(j)) => i == j,
-            (Self::IVar(i), Self::IVar(j)) => i == j,
-            (Self::App(_), Self::App(_)) => true,
-            (Self::Lam(_), Self::Lam(_)) => true,
-            (Self::Prim(p1), Self::Prim(p2)) => p1 == p2,
-            (Self::Programs(p1), Self::Programs(p2)) => p1.len() == p2.len(),
-            (_,_) => false,
-        }
-    }
-
-    fn children(&self) -> &[Id] {
-        match self {
-            Self::Lam(ids) => ids,
-            Self::App(ids) => ids,
-            Self::Programs(ids) => ids,
-            _ => &[],
-        }
-    }
-
-    fn children_mut(&mut self) -> &mut [Id] {
-        match self {
-            Self::Lam(ids) => ids,
-            Self::App(ids) => ids,
-            Self::Programs(ids) => ids,
-            _ => &mut [],
-        }
-    }
-
-    fn display_op(&self) -> &dyn Display {
-        unimplemented!("Use show(recexpr) to display a recexpr. This is because egg 0.6.0 hasnt fixed issue #83 so displaying things like $5 is not valid")
-    }
-
-    fn from_op_str(op_str: &str, children: Vec<Id>) -> Result<Self, String> {
-        match op_str {
-            "app" => {
-                if children.len() != 2 {
-                    return Err(format!("app needs 2 children, got {}", children.len()));
-                }
-                Ok(Self::App([children[0], children[1]]))
-            },
-            "lam" => {
-                if children.len() != 1 {
-                    return Err(format!("lam needs 1 child, got {}", children.len()));
-                }
-                Ok(Self::Lam([children[0]]))
-            }
-            "programs" => Ok(Self::Programs(children)),
-            _ => {
-                if children.len() != 0 {
-                    return Err(format!("{} needs 0 children, got {}", op_str, children.len()))
-                }
-                if op_str.starts_with("$") {
-                    let i = op_str.chars().skip(1).collect::<String>().parse::<i32>().unwrap();
-                    Ok(Self::Var(i))
-                } else if op_str.starts_with("#") {
-                    let i = op_str.chars().skip(1).collect::<String>().parse::<i32>().unwrap();
-                    Ok(Self::IVar(i))
-                } else {
-                    Ok(Self::Prim(egg::Symbol::from(op_str)))
-                }
-            },
-        }
-    }
-}
-
-
-
-
-
-type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
 type RecExpr = egg::RecExpr<Lambda>;
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct DispRecExpr {
-    nodes: Vec<Lambda>,
-}
-
-impl Display for DispRecExpr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.nodes.is_empty() {
-            write!(f, "()")
-        } else {
-            let s = self.to_sexp(self.nodes.len() - 1).to_string();
-            write!(f, "{}", s)
-        }
-    }
-}
-impl DispRecExpr {
-    fn new(e: RecExpr) -> Self {
-        unsafe{std::mem::transmute(e)}
-    }
-    fn to_sexp(&self, i: usize) -> Sexp {
-        let node = &self.nodes[i];
-        // let op = Sexp::String(node.display_op().to_string());
-        let op = Sexp::String(format!("{}",node));
-        if node.is_leaf() {
-            op
-        } else {
-            let mut vec = vec![op];
-            node.for_each(|id| vec.push(self.to_sexp(id.into())));
-            Sexp::List(vec)
-        }
-    }
-}
-
-fn show(e: &RecExpr) -> String {
-    DispRecExpr::new(e.clone()).to_string()
-}
+type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
 
 #[derive(Default)]
 struct LambdaAnalysis;
@@ -516,7 +383,7 @@ fn var(s: &str) -> Var {
     s.parse().unwrap()
 }
 
-#[inline] // useful to inline
+#[inline] // useful to inline since callsite can usually tell which Shift type is happening allowing further optimization
 fn shift(e: Id, shift: Shift, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
     let mut empty = HashMap::new();
     let seen = match caches {
