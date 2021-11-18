@@ -516,129 +516,40 @@ fn var(s: &str) -> Var {
     s.parse().unwrap()
 }
 
-fn shift(e: Id, incr_by: i32, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
+#[inline] // useful to inline
+fn shift(e: Id, shift: Shift, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
     let mut empty = HashMap::new();
     let seen = match caches {
-        Some(caches) => caches.get(Shift::Shift(incr_by)),
+        Some(caches) => caches.get(&shift),
         None => &mut empty,
     };
-    recursive_var_mod(
-        |actual_idx, depth, which_upward_ref, egraph| {
-            // if actual_idx + incr_by >= ARGC {
-            //     return None // $3+ get pruned
-            // } 
-            Some(egraph.add(Lambda::Var(actual_idx + incr_by)))
-        },
-        false, // operate on Vars
-        e,egraph,seen
-    )
-}
-
-fn shift_ivar(e: Id, incr_by: i32, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
-    let mut empty = HashMap::new();
-    let seen = match caches {
-        Some(caches) => caches.get(Shift::ShiftIVar(incr_by)),
-        None => &mut empty,
-    };
-    recursive_var_mod(
-        |actual_idx, depth, which_upward_ref, egraph| {
-            // note this is IVars so depth and which_upward_ref are meaningless to us
-            Some(egraph.add(Lambda::IVar(actual_idx + incr_by)))
-        },
-        true, // operate on IVars
-        e,egraph,seen
-    )
-}
-
-fn table_shift(e: Id, x_shift_table: Vec<i32>, shift_rest_by: i32, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
-    let mut empty = HashMap::new();
-    let seen = match caches {
-        Some(caches) => caches.get(Shift::TableShift(x_shift_table.clone(), shift_rest_by)),
-        None => &mut empty,
-    };
-    let arity = x_shift_table.len() as i32;
-    recursive_var_mod(
-        |actual_idx, depth, which_upward_ref, egraph| {
-            if which_upward_ref < arity {
+    match shift {
+        Shift::ShiftVar(incr_by) => recursive_var_mod(
+            |actual_idx, _depth, _which_upward_ref, egraph| {
+                Some(egraph.add(Lambda::Var(actual_idx + incr_by)))
+            },
+            false, // operate on Vars
+            e,egraph,seen
+        ),
+        Shift::ShiftIVar(incr_by) => recursive_var_mod(
+            |actual_idx, _depth, _which_upward_ref, egraph| {
+                // note this is IVars so depth and which_upward_ref are meaningless to us
+                Some(egraph.add(Lambda::IVar(actual_idx + incr_by)))
+            },
+            true, // operate on IVars
+            e,egraph,seen
+        ),
+        Shift::TableShiftIVar(shift_table) => recursive_var_mod(
+            |actual_idx, _depth, _which_upward_ref, egraph| {
                 // shift variable up or down whatever the shift table says it should be
-                Some(egraph.add(Lambda::Var(actual_idx + x_shift_table[which_upward_ref as usize])))
-            } else {
-                // references that go even higher should be incremented by the f arity
-                // minus the overlap. Which is shift_rest_by at this point.
-                Some(egraph.add(Lambda::Var(actual_idx + shift_rest_by)))
-            }
-        },
-        false, // operate on Vars
-        e,egraph,seen
-    )
+                // note this is IVars so depth and which_upward_ref are meaningless to us
+                Some(egraph.add(Lambda::IVar(actual_idx + shift_table[actual_idx as usize])))
+            },
+            true, // operate on IVars
+            e,egraph,seen
+        )
+    }
 }
-
-fn table_shift_ivar(e: Id, x_shift_table: Vec<i32>, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
-    let mut empty = HashMap::new();
-    let seen = match caches {
-        Some(caches) => caches.get(Shift::TableShiftIVar(x_shift_table.clone())),
-        None => &mut empty,
-    };
-    recursive_var_mod(
-        |actual_idx, _depth, _which_upward_ref, egraph| {
-            // shift variable up or down whatever the shift table says it should be
-            // note this is IVars so depth and which_upward_ref are meaningless to us
-            Some(egraph.add(Lambda::IVar(actual_idx + x_shift_table[actual_idx as usize])))
-        },
-        true, // operate on IVars
-        e,egraph,seen
-    )
-}
-
-
-fn offset_shift(e: Id, offset: usize, shift: i32, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
-    let mut empty = HashMap::new();
-    let seen = match caches {
-        Some(caches) => caches.get(Shift::OffsetShift(offset, shift)),
-        None => &mut empty,
-    };
-    recursive_var_mod(
-        |actual_idx, _depth, which_upward_ref, egraph| {
-            if which_upward_ref < offset as i32 {
-                // f vars dont usually need changing
-                Some(egraph.add(Lambda::Var(actual_idx)))
-            } else {
-                // ... except when they point outside of f, in which case they
-                // now need to point above the x lambdas as well.
-                Some(egraph.add(Lambda::Var(actual_idx + shift)))
-            }
-        },
-        false, // operate on Vars
-        e,egraph,seen
-    )
-}
-
-fn rotate_shift(e: Id, shift: i32, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
-    let mut empty = HashMap::new();
-    let seen = match caches {
-        Some(caches) => caches.get(Shift::RotateShift(shift)),
-        None => &mut empty,
-    };
-    recursive_var_mod(
-        |actual_idx, _depth, which_upward_ref, egraph| {
-            if which_upward_ref == shift {
-                // these were pointers to the lambda thats being moved down, so they can all decrement by the arity
-                Some(egraph.add(Lambda::Var(actual_idx - shift)))
-            } else if which_upward_ref < shift {
-                // the new lambda is now in the way
-                Some(egraph.add(Lambda::Var(actual_idx + 1)))
-            } else {
-                // refs to way up high dont get changed by this swap
-                Some(egraph.add(Lambda::Var(actual_idx)))
-            }
-        },
-        false, // operate on Vars
-        e,egraph,seen
-    )
-}
-
-
-
 
 
 
@@ -685,7 +596,7 @@ fn recursive_var_mod_helper(
     seen : &mut RecVarModCache,
     ) -> Option<Id>
     {
-        // important invariant: a $i with i==depth would be a $0 pointer at the top level
+        // important invariant for ivars=false case: a $i with i==depth would be a $0 pointer at the top level
         // meaning i<depth is an internal pointer that doesnt break the top level
         let eclass = egraph.find(eclass);
         let key = (eclass,depth);
@@ -694,20 +605,12 @@ fn recursive_var_mod_helper(
             return seen[&key];
         }
 
-        if ivars {
-            // if we're trying to modify ivars
-            if egraph[eclass].data.upward_refs_ivar.is_empty() {
-                // no more ivars in this branch so we can return early
-                seen.insert(key, Some(eclass));
-                return Some(eclass)
-            }    
-        } else {
-            // if we're trying to modify vars
-            if egraph[eclass].data.upward_refs.iter().all(|i| *i < depth) {
-                // from our invariant (above) we know i<depth is an internal pointer that doesnt point out of the top level
-                seen.insert(key, Some(eclass));
-                return Some(eclass)
-            }
+        if  (ivars && egraph[eclass].data.upward_refs_ivar.is_empty())
+        || (!ivars && egraph[eclass].data.upward_refs.iter().all(|i| *i < depth)) {
+            // if we're replacing ivars and theres no ivars in this subtree, we can return early
+            // if we're replacing vars, from our invariant (above) we know i<depth is an internal pointer that doesnt point out of the top level so again we can return early
+            seen.insert(key, Some(eclass));
+            return Some(eclass)
         }
 
         // this is for loop breaking (though there shouldnt be loops in my new DAG setup anyways)
@@ -941,12 +844,9 @@ fn toplogical_ordering_rec(root: Id, egraph: &EGraph, vec: &mut Vec<Id>) {
 type RecVarModCache = HashMap<(Id,i32),Option<Id>>;
 #[derive(Debug,Clone,Eq,PartialEq,Hash)]
 enum Shift {
-    Shift(i32), // shift everything by some amount
-    ShiftIVar(i32), // same but for IVars
-    TableShift(Vec<i32>,i32), // shift any ref < table.len() based on table, with a default shift for refs that point even higher
-    TableShiftIVar(Vec<i32>), // same but for IVars, and no need for the default shift
-    OffsetShift(usize,i32), // this skips the upward refs less than usize, and shifts the higher ones
-    RotateShift(i32), // this is like a "rotation" of indices where most shift by 1 and one wraps around: downshift refs to i32 by i32, increment refs less than i32, leave higher refs unchanged
+    ShiftVar(i32), // shift $i to be $(i+incr_by)
+    ShiftIVar(i32), // shift #i to be #(i+incr_by)
+    TableShiftIVar(Vec<i32>), // shift #i to be #(i+table[#i]) ie look up the shift amount in the table
 }
 struct CacheGenerator {
     caches: HashMap<Shift,RecVarModCache>,
@@ -956,7 +856,7 @@ impl CacheGenerator {
     fn new(enabled: bool) -> CacheGenerator {
         CacheGenerator { caches: Default::default(), enabled: enabled }
     }
-    fn get(&mut self, context: Shift) -> &mut RecVarModCache {
+    fn get(&mut self, context: &Shift) -> &mut RecVarModCache {
         if !self.enabled {
             // wipe the cache before returning it
             self.caches.insert(context.clone(),Default::default());
@@ -1087,7 +987,7 @@ fn run_inversions(
                                 .map(|(xarg,_)| xarg)
                                 .cloned().collect();
 
-                            let shifted_x_applam_body = table_shift_ivar(x_applam.inv.body, x_shift_table, egraph, Some(caches)).unwrap();
+                            let shifted_x_applam_body = shift(x_applam.inv.body, Shift::TableShiftIVar(x_shift_table), egraph, Some(caches)).unwrap();
 
                             let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x_applam_body]));
                             let mut new_applam_args = f_applam.args.clone();
@@ -1097,7 +997,7 @@ fn run_inversions(
                         } else {
                             // no overlap so no merging
                             // We will use the lower indices from f_applam and will upshift x_applam
-                            let shifted_x_applam_body = shift_ivar(x_applam.inv.body, f_applam.inv.arity as i32, egraph, Some(caches)).unwrap();
+                            let shifted_x_applam_body = shift(x_applam.inv.body, Shift::ShiftIVar(f_applam.inv.arity as i32), egraph, Some(caches)).unwrap();
 
                             let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x_applam_body]));
                             let mut new_applam_args = f_applam.args.clone();
@@ -1129,7 +1029,7 @@ fn run_inversions(
                     }
                     
                     // downshift the args since the lambda above them moved below them (earlier we made sure none of them had pointers to it)
-                    let new_args: Vec<Id> = b_applam.args.iter().map(|arg| shift(*arg, -1, egraph, Some(caches)).unwrap()).collect();
+                    let new_args: Vec<Id> = b_applam.args.iter().map(|arg| shift(*arg, Shift::ShiftVar(-1), egraph, Some(caches)).unwrap()).collect();
 
                     // add the downshifted args to a worklist discussed below. Worklist needed bc of borrow checker.
                     downshifted_applam_args.extend(new_args.iter().cloned().zip(b_applam.args.iter().cloned())); // (new,old)
@@ -1171,7 +1071,7 @@ fn run_inversions(
                             .map(|applam|{
                                 let new_args = applam.args.iter()
                                 .map(|arg|{
-                                    let arg_mod = shift(*arg, -1, egraph, Some(caches)).unwrap();
+                                    let arg_mod = shift(*arg, Shift::ShiftVar(-1), egraph, Some(caches)).unwrap();
                                     downshifted_applam_args.push((arg_mod,*arg)); // recursively fix these children
                                     arg_mod
                                 }).collect();
