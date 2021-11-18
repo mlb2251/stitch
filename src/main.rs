@@ -58,7 +58,7 @@ const COST_TERMINAL: i32 = 100;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum Lambda {
     Var(i32), // db index
-    // "#" = IVar(i32), // db index used by inventions
+    IVar(i32), // db index used by inventions
     App([Id; 2]), // f, x
     Lam([Id; 1]), // body
     Prim(egg::Symbol), // fallback, parses prims
@@ -70,6 +70,7 @@ impl Display for Lambda {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Var(i) => write!(f, "${}", i),
+            Self::IVar(i) => write!(f, "#{}", i),
             Self::App(_) => write!(f,"app"),
             Self::Lam(_) => write!(f,"lam"),
             Self::Prim(p) => write!(f,"{}",p),
@@ -83,6 +84,7 @@ impl Language for Lambda {
         // consider only operator, not children. I believe (?) we do want to consider number of children based on the macro code.
         match (self,other) {
             (Self::Var(i), Self::Var(j)) => i == j,
+            (Self::IVar(i), Self::IVar(j)) => i == j,
             (Self::App(_), Self::App(_)) => true,
             (Self::Lam(_), Self::Lam(_)) => true,
             (Self::Prim(p1), Self::Prim(p2)) => p1 == p2,
@@ -132,11 +134,12 @@ impl Language for Lambda {
                 if children.len() != 0 {
                     return Err(format!("{} needs 0 children, got {}", op_str, children.len()))
                 }
-                // if op_str.chars().next().unwrap().is_digit(10) {
                 if op_str.starts_with("$") {
                     let i = op_str.chars().skip(1).collect::<String>().parse::<i32>().unwrap();
-                    // let i = op_str.parse::<i32>().unwrap();
                     Ok(Self::Var(i))
+                } else if op_str.starts_with("#") {
+                    let i = op_str.chars().skip(1).collect::<String>().parse::<i32>().unwrap();
+                    Ok(Self::IVar(i))
                 } else {
                     Ok(Self::Prim(egg::Symbol::from(op_str)))
                 }
@@ -194,19 +197,20 @@ struct LambdaAnalysis;
 
 #[derive(Debug)]
 struct Data {
-    upward_refs: HashSet<i32>, // "how much higher"
+    upward_refs: HashSet<i32>, // $i vars. "how much higher"
+    upward_refs_ivar: HashSet<i32>, // for #i ivars
     inventionless_cost: i32,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 struct Invention {
-    body:Id,
-    arity: usize
+    body:Id, // this will be a subtree which can have IVars
+    arity: usize // also equivalent to max ivar in subtree + 1
 }
 
 #[derive(Debug, Clone)]
 struct InventionExpr {
-    lam_expr: RecExpr,
+    lam_expr: RecExpr, // invention body but wrapped in lambdas
     arity: usize
 }
 
@@ -228,10 +232,12 @@ impl Invention {
     }
     fn valid_invention(&self, egraph: &EGraph) -> bool {
         // even invalid Inventions are important as parts of AppLams that will propagate recursively upward,
-        //  This checks that there aren't any upward refs that go beyond the args of the AppLam itself
-        egraph[self.body].data.upward_refs.iter().all(|i| *i < (self.arity as i32))
+        // This checks that there aren't any upward refs that go beyond the args of the AppLam itself
+        // egraph[self.body].data.upward_refs.iter().all(|i| *i < (self.arity as i32))
+        egraph[self.body].data.upward_refs.is_empty()
     }
     fn to_expr(&self, egraph: &EGraph) -> InventionExpr {
+        // wrap body in lambdas
         let mut expr = extract(self.body, &egraph);
         for _ in 0..self.arity {
             expr = format!("(lam {})", expr);
@@ -243,7 +249,7 @@ impl Invention {
 #[derive(Debug, Clone)]
 struct AppLam {
     inv: Invention,
-    args: Vec<Id>,
+    args: Vec<Id>, // these should be (possibly shifted) subtrees of the original tree. No IVars.
 }
 
 impl AppLam {
@@ -266,8 +272,8 @@ impl AppLam {
         self.args.iter().all(|arg| canonical(arg, egraph))
     }
     fn upward_refs(&self, egraph: &mut EGraph) -> HashSet<i32> {
-        let mut upward_refs: HashSet<i32> = egraph[self.inv.body].data.upward_refs.iter()
-            .filter_map(|i| if *i < (self.inv.arity as i32) {None} else {Some(*i - (self.inv.arity as i32))}).collect();
+        // union together all the upward refs of body + args
+        let mut upward_refs: HashSet<i32> = egraph[self.inv.body].data.upward_refs.clone();
         for arg in self.args.iter() {
             upward_refs.extend(egraph[*arg].data.upward_refs.clone());
         }
@@ -331,7 +337,8 @@ fn extract(eclass: Id, egraph: &EGraph) -> String {
 fn extract_enode(enode: &Lambda, egraph: &EGraph) -> String {
     let expr: RecExpr = match enode {
         Lambda::Prim(p) => {format!("{}",p)},
-        Lambda::Var(i) => {format!("{}",i)},
+        Lambda::Var(i) => {format!("${}",i)},
+        Lambda::IVar(i) => {format!("#{}",i)},
         Lambda::App([f,x]) => {format!("(app {} {})",extract(*f,egraph),extract(*x,egraph))},
         Lambda::Lam([b]) => {format!("(lam {})",extract(*b,egraph))},
         _ => {format!("not rendered")},
@@ -388,6 +395,10 @@ fn extract_under_inv_rec(
         Lambda::Var(i) => {
             into_expr.add(Lambda::Var(*i))
         },
+        Lambda::IVar(i) => {
+            panic!("Shouldn't be extracting an IVar under an invention")
+            //into_expr.add(Lambda::IVar(*i))
+        },
         Lambda::App([f,x]) => {
             let f_id = extract_under_inv_rec(*f, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr);
             let x_id = extract_under_inv_rec(*x, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr);
@@ -434,6 +445,7 @@ impl Analysis<Lambda> for LambdaAnalysis {
     fn merge(&self, to: &mut Data, from: Data) -> bool {
 
         assert_eq!(to.upward_refs,from.upward_refs);
+        assert_eq!(to.upward_refs_ivar,from.upward_refs_ivar);
         // we really shouldnt be merging anyone ever rn, but later we'll want to do this
         assert_eq!(to.inventionless_cost,from.inventionless_cost);
 
@@ -445,9 +457,13 @@ impl Analysis<Lambda> for LambdaAnalysis {
 
     fn make(egraph: &EGraph, enode: &Lambda) -> Data {
         let mut upward_refs: HashSet<i32> = HashSet::new();
+        let mut upward_refs_ivar: HashSet<i32> = HashSet::new();
         match enode {
             Lambda::Var(i) => {
                 upward_refs.insert(*i);
+            }
+            Lambda::IVar(i) => {
+                upward_refs_ivar.insert(*i);
             }
             Lambda::Prim(_) => {
             }
@@ -455,20 +471,24 @@ impl Analysis<Lambda> for LambdaAnalysis {
                 // union of f and x
                 upward_refs.extend(egraph[*f].data.upward_refs.iter());
                 upward_refs.extend(egraph[*x].data.upward_refs.iter());
+                upward_refs_ivar.extend(egraph[*f].data.upward_refs_ivar.iter());
+                upward_refs_ivar.extend(egraph[*x].data.upward_refs_ivar.iter());
             }
             Lambda::Lam([b]) => {
                 // body, subtract 1 from all values, remove the -1 if its in there
                 upward_refs.extend(egraph[*b].data.upward_refs.iter()
                     .map(|x| x-1)
                     .filter(|x| *x >= 0));
+                upward_refs_ivar.extend(egraph[*b].data.upward_refs_ivar.iter());
             }
             Lambda::Programs(programs) => {
                 // assert no free variables in programs
                 assert!(programs.iter().all(|p| egraph[*p].data.upward_refs.is_empty()));
+                assert!(programs.iter().all(|p| egraph[*p].data.upward_refs_ivar.is_empty()));
             }
         }
         let inventionless_cost = match enode {
-            Lambda::Var(_) | Lambda::Prim(_) => COST_TERMINAL,
+            Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => COST_TERMINAL,
             Lambda::App([f,x]) => {
                     COST_NONTERMINAL
                     + egraph[*f].data.inventionless_cost
@@ -483,6 +503,7 @@ impl Analysis<Lambda> for LambdaAnalysis {
         };
         Data {
                upward_refs: upward_refs,
+               upward_refs_ivar: upward_refs_ivar,
                inventionless_cost: inventionless_cost
             }
     }
@@ -508,6 +529,23 @@ fn shift(e: Id, incr_by: i32, egraph: &mut EGraph, caches: Option<&mut CacheGene
             // } 
             Some(egraph.add(Lambda::Var(actual_idx + incr_by)))
         },
+        false, // operate on Vars
+        e,egraph,seen
+    )
+}
+
+fn shift_ivar(e: Id, incr_by: i32, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
+    let mut empty = HashMap::new();
+    let seen = match caches {
+        Some(caches) => caches.get(Shift::ShiftIVar(incr_by)),
+        None => &mut empty,
+    };
+    recursive_var_mod(
+        |actual_idx, depth, which_upward_ref, egraph| {
+            // note this is IVars so depth and which_upward_ref are meaningless to us
+            Some(egraph.add(Lambda::IVar(actual_idx + incr_by)))
+        },
+        true, // operate on IVars
         e,egraph,seen
     )
 }
@@ -530,9 +568,28 @@ fn table_shift(e: Id, x_shift_table: Vec<i32>, shift_rest_by: i32, egraph: &mut 
                 Some(egraph.add(Lambda::Var(actual_idx + shift_rest_by)))
             }
         },
+        false, // operate on Vars
         e,egraph,seen
     )
 }
+
+fn table_shift_ivar(e: Id, x_shift_table: Vec<i32>, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
+    let mut empty = HashMap::new();
+    let seen = match caches {
+        Some(caches) => caches.get(Shift::TableShiftIVar(x_shift_table.clone())),
+        None => &mut empty,
+    };
+    recursive_var_mod(
+        |actual_idx, _depth, _which_upward_ref, egraph| {
+            // shift variable up or down whatever the shift table says it should be
+            // note this is IVars so depth and which_upward_ref are meaningless to us
+            Some(egraph.add(Lambda::IVar(actual_idx + x_shift_table[actual_idx as usize])))
+        },
+        true, // operate on IVars
+        e,egraph,seen
+    )
+}
+
 
 fn offset_shift(e: Id, offset: usize, shift: i32, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
     let mut empty = HashMap::new();
@@ -551,6 +608,7 @@ fn offset_shift(e: Id, offset: usize, shift: i32, egraph: &mut EGraph, caches: O
                 Some(egraph.add(Lambda::Var(actual_idx + shift)))
             }
         },
+        false, // operate on Vars
         e,egraph,seen
     )
 }
@@ -574,6 +632,7 @@ fn rotate_shift(e: Id, shift: i32, egraph: &mut EGraph, caches: Option<&mut Cach
                 Some(egraph.add(Lambda::Var(actual_idx)))
             }
         },
+        false, // operate on Vars
         e,egraph,seen
     )
 }
@@ -584,23 +643,24 @@ fn rotate_shift(e: Id, shift: i32, egraph: &mut EGraph, caches: Option<&mut Cach
 
 
 // not used in the new verison but should be compatible with everything we've got!
-fn inline(e: Id, replace_with: Id, egraph: &mut EGraph, seen: &mut RecVarModCache) -> Option<Id> {
-    recursive_var_mod(
-        |actual_idx, depth, which_upward_ref, egraph| {
-            if which_upward_ref == 0 {
-                // ShifterVM { incr_by: depth }.recursive_var_mod(replace_with, egraph)
-                shift(replace_with, depth, egraph, None) // note i have it just make a new hashmap on the spot for this, caching would be better
-            } else {
-                // we need to decrement this by 1 since its a pointer above the lambda we removed
-                Some(egraph.add(Lambda::Var(actual_idx - 1)))
-            }
-        },
-        e,egraph, seen
-    )
-}
+// fn inline(e: Id, replace_with: Id, egraph: &mut EGraph, seen: &mut RecVarModCache) -> Option<Id> {
+//     recursive_var_mod(
+//         |actual_idx, depth, which_upward_ref, egraph| {
+//             if which_upward_ref == 0 {
+//                 // ShifterVM { incr_by: depth }.recursive_var_mod(replace_with, egraph)
+//                 shift(replace_with, depth, egraph, None) // note i have it just make a new hashmap on the spot for this, caching would be better
+//             } else {
+//                 // we need to decrement this by 1 since its a pointer above the lambda we removed
+//                 Some(egraph.add(Lambda::Var(actual_idx - 1)))
+//             }
+//         },
+//         e,egraph, seen
+//     )
+// }
 
 fn recursive_var_mod(
     var_mod: impl Fn(i32, i32, i32, &mut EGraph) -> Option<Id>,
+    ivars: bool, // whether to run this on vars or ivars
     eclass:Id,
     egraph: &mut EGraph,
     seen: &mut RecVarModCache
@@ -608,6 +668,7 @@ fn recursive_var_mod(
     {
         recursive_var_mod_helper(
             &var_mod,
+            ivars,
             eclass,
             0,
             egraph,
@@ -617,6 +678,7 @@ fn recursive_var_mod(
 
 fn recursive_var_mod_helper(
     var_mod: &impl Fn(i32, i32, i32, &mut EGraph) -> Option<Id>,
+    ivars: bool, // whether to run this on vars or ivars
     eclass:Id,
     depth: i32,
     egraph: &mut EGraph,
@@ -631,11 +693,21 @@ fn recursive_var_mod_helper(
         if seen.contains_key(&key) {
             return seen[&key];
         }
-        
-        if egraph[eclass].data.upward_refs.iter().all(|i| *i < depth) {
-            // from our invariant (above) we know i<depth is an internal pointer that doesnt point out of the top level
-            seen.insert(key, Some(eclass));
-            return Some(eclass)
+
+        if ivars {
+            // if we're trying to modify ivars
+            if egraph[eclass].data.upward_refs_ivar.is_empty() {
+                // no more ivars in this branch so we can return early
+                seen.insert(key, Some(eclass));
+                return Some(eclass)
+            }    
+        } else {
+            // if we're trying to modify vars
+            if egraph[eclass].data.upward_refs.iter().all(|i| *i < depth) {
+                // from our invariant (above) we know i<depth is an internal pointer that doesnt point out of the top level
+                seen.insert(key, Some(eclass));
+                return Some(eclass)
+            }
         }
 
         // this is for loop breaking (though there shouldnt be loops in my new DAG setup anyways)
@@ -645,19 +717,29 @@ fn recursive_var_mod_helper(
         assert!(egraph[eclass].nodes.len() == 1);
         // clone to appease the borrow checker
         let enode = egraph[eclass].nodes[0].clone();
+
         let new_eclass = match enode {
             Lambda::Var(i) => {
+                if ivars {
+                    panic!("unreachable, Var doesnt have free IVars")
+                }
                 assert!(i >= depth); // otherwise we should have returned earlier
                 // by our invariant be have i-depth as the toplevel version of this index
                 var_mod(i, depth, i-depth, egraph)
             }
+            Lambda::IVar(i) => {
+                if !ivars {
+                    panic!("unreachable, IVar doesnt have free Vars")
+                }
+                var_mod(i, depth, i-depth, egraph)
+            }
             Lambda::Prim(_) => {
-                panic!("unreachable, Prim never has free vars")
+                panic!("unreachable, Prim never has free vars/ivars")
             }
             Lambda::App([f, x]) => {
                 // recurse in each (class shift will return early if no shifting is needed) and build a new App
-                let fnew_opt = recursive_var_mod_helper(var_mod, f, depth, egraph, seen);
-                let xnew_opt = recursive_var_mod_helper(var_mod, x, depth, egraph, seen);
+                let fnew_opt = recursive_var_mod_helper(var_mod, ivars, f, depth, egraph, seen);
+                let xnew_opt = recursive_var_mod_helper(var_mod, ivars, x, depth, egraph, seen);
                 match (fnew_opt,xnew_opt) {
                     (Some(fnew),Some(xnew)) => Some(egraph.add(Lambda::App([fnew, xnew]))),
                     _ => None,
@@ -665,7 +747,7 @@ fn recursive_var_mod_helper(
             }
             Lambda::Lam([b]) => {
                 // increment depth
-                recursive_var_mod_helper(var_mod, b, depth+1, egraph, seen)
+                recursive_var_mod_helper(var_mod, ivars, b, depth+1, egraph, seen)
                 .map(|bnew| egraph.add(Lambda::Lam([bnew])))
             }
             Lambda::Programs(_) => {
@@ -692,7 +774,7 @@ impl CostFunction<Lambda> for ProgramCost {
         C: FnMut(Id) -> Self::Cost
     {
         match enode {
-            Lambda::Var(_) | Lambda::Prim(_) => COST_TERMINAL,
+            Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => COST_TERMINAL,
             Lambda::App([f, x]) => {
                 COST_NONTERMINAL + costs(*f) + costs(*x)
             }
@@ -721,7 +803,7 @@ impl CostFunction<Lambda> for ProgramDepth {
         C: FnMut(Id) -> Self::Cost
     {
         match enode {
-            Lambda::Var(_) | Lambda::Prim(_) => 1,
+            Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => 1,
             Lambda::App([f, x]) => {
                 1 + std::cmp::max(costs(*f), costs(*x))
             }
@@ -860,7 +942,9 @@ type RecVarModCache = HashMap<(Id,i32),Option<Id>>;
 #[derive(Debug,Clone,Eq,PartialEq,Hash)]
 enum Shift {
     Shift(i32), // shift everything by some amount
+    ShiftIVar(i32), // same but for IVars
     TableShift(Vec<i32>,i32), // shift any ref < table.len() based on table, with a default shift for refs that point even higher
+    TableShiftIVar(Vec<i32>), // same but for IVars, and no need for the default shift
     OffsetShift(usize,i32), // this skips the upward refs less than usize, and shifts the higher ones
     RotateShift(i32), // this is like a "rotation" of indices where most shift by 1 and one wraps around: downshift refs to i32 by i32, increment refs less than i32, leave higher refs unchanged
 }
@@ -902,7 +986,7 @@ fn run_inversions(
     let mut applams_of_treenode: HashMap<Id,Vec<AppLam>> = Default::default();
     let mut best_inventions_of_treenode: HashMap<Id,BestInventions> = Default::default();
     
-    let var0: Id = egraph.add(Lambda::Var(0));
+    let ivar0: Id = egraph.add(Lambda::IVar(0));
 
     // Caches - these give us considerable speedup (26s -> 18s)
     let caches = &mut CacheGenerator::new(!no_cache);
@@ -926,12 +1010,14 @@ fn run_inversions(
         
         let mut applams: Vec<AppLam> = Vec::new();
         let mut downshifted_applam_args: Vec<(Id,Id)> = Vec::new(); // minor impl detail
+        
         // any node can become the identity applam
-        applams.push(AppLam::new(var0, vec![*treenode]));
-
-
+        applams.push(AppLam::new(ivar0, vec![*treenode]));
 
         match node {
+            Lambda::IVar(_) => {
+                panic!("attempted to abstract an IVar"); // could adapt to handle this sort of situation, just not what I'm aiming for right now
+            }
             Lambda::Var(_) | Lambda::Prim(_) | Lambda::Programs(_) => {},
             Lambda::App([f,x]) => {
                 let ref f_applams = applams_of_treenode[&f];
@@ -940,10 +1026,7 @@ fn run_inversions(
                 // bubbling from the left:
                 // (app f x) == (app (applam body arg) x) => (applam (app body upshift(x)) arg)
                 for f_applam in f_applams.iter() {
-                    let arity = f_applam.inv.arity;
-                    let arity_i32 = arity as i32;
-                    let shifted_x = shift(x, arity_i32, egraph, Some(caches)).unwrap();
-                    let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x]));
+                    let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,x]));
                     applams.push(AppLam::new(new_applam_body, f_applam.args.clone()));
                     debug_assert_eq!(applams.last().unwrap().upward_refs(egraph),egraph[*treenode].data.upward_refs);                        
                 }
@@ -951,10 +1034,7 @@ fn run_inversions(
                 // bubbling from the right:
                 // (app f x) == (app f (applam body arg)) => (applam (app upshift(f) body) arg)
                 for x_applam in x_applams.iter() {
-                    let arity = x_applam.inv.arity;
-                    let arity_i32 = arity as i32;
-                    let shifted_f = shift(f, arity_i32, egraph, Some(caches)).unwrap();
-                    let new_applam_body = egraph.add(Lambda::App([shifted_f, x_applam.inv.body]));
+                    let new_applam_body = egraph.add(Lambda::App([f, x_applam.inv.body]));
                     applams.push(AppLam::new(new_applam_body, x_applam.args.clone()));
                     debug_assert_eq!(applams.last().unwrap().upward_refs(egraph), egraph[*treenode].data.upward_refs);
                 }
@@ -1003,29 +1083,28 @@ fn run_inversions(
                             // remove the args from xargs that we can merge into fargs
                             let new_x_applam_args: Vec<Id> = x_applam.args.iter()
                                 .zip(to_remove)
-                                .filter(|(_,b)| !*b)
+                                .filter(|(_,remove)| !*remove)
                                 .map(|(xarg,_)| xarg)
                                 .cloned().collect();
 
-                            let shifted_x_applam_body = table_shift(x_applam.inv.body, x_shift_table, shift_rest_by, egraph, Some(caches)).unwrap();
-                            let shifted_f_applam_body = offset_shift(f_applam.inv.body, f_applam.inv.arity, (x_applam.inv.arity - overlap) as i32, egraph, Some(caches)).unwrap();    
+                            let shifted_x_applam_body = table_shift_ivar(x_applam.inv.body, x_shift_table, egraph, Some(caches)).unwrap();
 
-                            let new_applam_body = egraph.add(Lambda::App([shifted_f_applam_body,shifted_x_applam_body]));
+                            let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x_applam_body]));
                             let mut new_applam_args = f_applam.args.clone();
                             new_applam_args.extend(new_x_applam_args);
                             applams.push(AppLam::new(new_applam_body, new_applam_args));
                             debug_assert_eq!(applams.last().unwrap().upward_refs(egraph),egraph[*treenode].data.upward_refs);                        
                         } else {
                             // no overlap so no merging
-                            let shifted_x_applam_body = shift(x_applam.inv.body, f_applam.inv.arity as i32, egraph, Some(caches)).unwrap();
-                            let shifted_f_applam_body = offset_shift(f_applam.inv.body, f_applam.inv.arity, x_applam.inv.arity as i32, egraph, Some(caches)).unwrap();    
+                            // We will use the lower indices from f_applam and will upshift x_applam
+                            let shifted_x_applam_body = shift_ivar(x_applam.inv.body, f_applam.inv.arity as i32, egraph, Some(caches)).unwrap();
 
-                            let new_applam_body = egraph.add(Lambda::App([shifted_f_applam_body,shifted_x_applam_body]));
+                            let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x_applam_body]));
                             let mut new_applam_args = f_applam.args.clone();
                             new_applam_args.extend(x_applam.args.clone());
                             applams.push(AppLam::new(new_applam_body, new_applam_args));
                             debug_assert_eq!(applams.last().unwrap().upward_refs(egraph),egraph[*treenode].data.upward_refs);                        
-                            };
+                        };
                     }
                     
                 }
@@ -1044,21 +1123,18 @@ fn run_inversions(
                 //    level should now point to $0. Meanwhile pointers to $0 $1 $2 should be incremented by 1 since
                 //    theres one more lambda in the way now.
                 for b_applam in b_applams.iter() {
+                    // can't bubble an applam over a lambda if its arg refers to the lambda!
                     if b_applam.args.iter().any(|arg| egraph[*arg].data.upward_refs.contains(&0)) {
                         continue;
                     }
-                    let arity = b_applam.inv.arity;
-                    let arity_i32 = arity as i32;
-                    // fyi, rotate_shift is 40% of the run_inversions runtime bc it creates new unique subtrees (sorta necessary when a set of inventions
-                    // hoists over a lambda and thus need larger indices to refer to their arguments) which means egraph.add() inside rotate does a lot of work.
-                    let shifted_b = rotate_shift(b_applam.inv.body, arity_i32, egraph, Some(caches)).unwrap();
                     
                     // downshift the args since the lambda above them moved below them (earlier we made sure none of them had pointers to it)
                     let new_args: Vec<Id> = b_applam.args.iter().map(|arg| shift(*arg, -1, egraph, Some(caches)).unwrap()).collect();
 
+                    // add the downshifted args to a worklist discussed below. Worklist needed bc of borrow checker.
                     downshifted_applam_args.extend(new_args.iter().cloned().zip(b_applam.args.iter().cloned())); // (new,old)
 
-                    let new_applam_body = egraph.add(Lambda::Lam([shifted_b]));
+                    let new_applam_body = egraph.add(Lambda::Lam([b_applam.inv.body]));
                     applams.push(AppLam::new(new_applam_body, new_args));
                     debug_assert_eq!(applams.last().unwrap().upward_refs(egraph),egraph[*treenode].data.upward_refs);                        
                 }
@@ -1117,7 +1193,7 @@ fn run_inversions(
 
         // replacing this node with a call to an invention
         for applam in applams.iter() {
-            if applam.inv.valid_invention(egraph) && applam.inv.body != var0 {
+            if applam.inv.valid_invention(egraph) && applam.inv.body != ivar0 {
                 let cost: i32 =
                     COST_TERMINAL // the new primitive for this invention
                     + COST_NONTERMINAL * applam.inv.arity as i32 // the chain of app()s needed to apply the new primitive
@@ -1138,6 +1214,9 @@ fn run_inversions(
             
         // inventions based on specific node type
         match node {
+            Lambda::IVar(_) => {
+                panic!("unreachable, should have crashed in previous match statement");
+            }
             Lambda::Var(_) | Lambda::Prim(_) => {},
             Lambda::App([f,x]) => {
                 let ref f_best_inventions = best_inventions_of_treenode[&f];
