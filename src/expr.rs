@@ -100,6 +100,7 @@ pub fn show(e: &RecExpr) -> String {
     Expr::from(e.clone()).to_string()
 }
 
+#[derive(Debug, Clone)]
 pub struct Expr {
     pub nodes: Vec<Lambda>, // just like in a RecExpr but public
 }
@@ -108,6 +109,26 @@ impl From<RecExpr> for Expr {
     fn from(e: RecExpr) -> Self {
         // todo you could (and should) actually grab it recursively, this is just some unsafe cheating during experimenting
         unsafe{ std::mem::transmute(e) }
+    }
+}
+impl From<Expr> for RecExpr {
+    fn from(e: Expr) -> Self {
+        // todo you could (and should) actually grab it recursively, this is just some unsafe cheating during experimenting
+        unsafe{ std::mem::transmute(e) }
+    }
+}
+impl From<&Expr> for &RecExpr {
+    fn from(e: &Expr) -> Self {
+        // todo you could (and should) actually grab it recursively, this is just some unsafe cheating during experimenting
+        unsafe{ std::mem::transmute(e) }
+    }
+}
+
+impl std::str::FromStr for Expr {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let e: RecExpr = s.parse()?;
+        Ok(e.into())
     }
 }
 
@@ -124,35 +145,37 @@ impl Expr {
     pub fn prim(p: egg::Symbol) -> Self {
         Self { nodes: vec![Lambda::Prim(p)] }
     }
-    pub fn app(f: &Expr, x: &Expr) -> Self {
-        let mut nodes = f.nodes.clone();
-        nodes.extend(x.shifted_nodes(f.nodes.len()));
-        let f_id = Id::from(f.nodes.len()-1);
-        let x_id = Id::from(f.nodes.len() + x.nodes.len() - 1);
+    pub fn app(f: Expr, mut x: Expr) -> Self {
+        let mut nodes = f.nodes;
+        let f_id = Id::from(nodes.len()-1);
+        x.shift_nodes(nodes.len());
+        nodes.extend(x.nodes);
+        let x_id = Id::from(nodes.len()-1);
         nodes.push(Lambda::App([f_id, x_id]));
         Self::new(nodes)
     }
-    pub fn lam(b: &Expr) -> Self{
+    pub fn lam(b: Expr) -> Self{
         let mut nodes = b.nodes.clone();
         let b_id = Id::from(b.nodes.len()-1);
         nodes.push(Lambda::Lam([b_id]));
         Self::new(nodes)
     }
-    pub fn programs(programs: &[Expr]) -> Self {
+    pub fn programs(mut programs: Vec<Expr>) -> Self {
         let mut nodes = vec![];
         let mut root_ids = vec![];
-        for p in programs {
-            nodes.extend(p.shifted_nodes(nodes.len()));
+        for mut p in programs.into_iter() {
+            p.shift_nodes(nodes.len());
+            nodes.extend(p.nodes);
             root_ids.push(Id::from(nodes.len() - 1));
         }
         nodes.push(Lambda::Programs(root_ids));
         Self::new(nodes)
     }
 
-    fn shifted_nodes(&self, shift: usize) -> Vec<Lambda> {
-        self.nodes.iter().cloned().map(|node|
-            node.map_children(|id| Id::from(usize::from(id) + shift))
-        ).collect()
+    fn shift_nodes(&mut self, shift: usize) {
+        for node in &mut self.nodes {
+            node.update_children(|id| Id::from(usize::from(id) + shift))
+        }
     }
 
     fn write_child(&self, child:Id, f: &mut fmt::Formatter<'_>) -> fmt::Result {

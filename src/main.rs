@@ -56,7 +56,6 @@ struct Args {
 const COST_NONTERMINAL: i32 = 1;
 const COST_TERMINAL: i32 = 100;
 
-type RecExpr = egg::RecExpr<Lambda>;
 type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
 
 #[derive(Default)]
@@ -77,13 +76,13 @@ struct Invention {
 
 #[derive(Debug, Clone)]
 struct InventionExpr {
-    lam_expr: RecExpr, // invention body but wrapped in lambdas
+    lam_expr: Expr, // invention body but wrapped in lambdas
     arity: usize
 }
 
 impl Display for InventionExpr {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "[arity {}]: {} ", self.arity, show(&self.lam_expr))
+        write!(f, "[arity {}]: {} ", self.arity, self.lam_expr)
     }
 }
 
@@ -107,9 +106,9 @@ impl Invention {
         // wrap body in lambdas
         let mut expr = extract(self.body, &egraph);
         for _ in 0..self.arity {
-            expr = format!("(lam {})", expr);
+            expr = Expr::lam(expr);
         }
-        InventionExpr {lam_expr: expr.parse().unwrap(), arity:self.arity}
+        InventionExpr {lam_expr: expr, arity:self.arity}
     }
 }
 
@@ -149,7 +148,7 @@ impl AppLam {
     fn to_string(&self, egraph: &EGraph) -> String {
         format!("inv:{}\narg:{}",
             self.inv.to_expr(egraph),
-            self.args.iter().map(|arg| extract(*arg, egraph)).collect::<Vec<_>>().join("\narg:")
+            self.args.iter().map(|arg| extract(*arg, egraph).to_string()).collect::<Vec<_>>().join("\narg:")
         )
     }
 
@@ -195,47 +194,32 @@ impl BestInventions {
 }
 
 
-fn extract(eclass: Id, egraph: &EGraph) -> String {
+fn extract(eclass: Id, egraph: &EGraph) -> Expr {
     let mut extractor = Extractor::new(&egraph, ProgramCost{});
     let (_,p) = extractor.find_best(eclass);
-    show(&p)
+    p.into()
 }
 
-fn extract_enode(enode: &Lambda, egraph: &EGraph) -> String {
-    let expr: RecExpr = match enode {
-        Lambda::Prim(p) => {format!("{}",p)},
-        Lambda::Var(i) => {format!("${}",i)},
-        Lambda::IVar(i) => {format!("#{}",i)},
-        Lambda::App([f,x]) => {format!("(app {} {})",extract(*f,egraph),extract(*x,egraph))},
-        Lambda::Lam([b]) => {format!("(lam {})",extract(*b,egraph))},
-        _ => {format!("not rendered")},
-    }.parse().unwrap();
-    show(&expr)
-}
-
-fn extract_under_inv(
-    eclass: Id,
-    inv: Invention,
-    replace_inv_with: &str,
-    applams_of_treenode: &HashMap<Id,Vec<AppLam>>,
-    best_inventions_of_treenode: &HashMap<Id,BestInventions>,
-    egraph: &EGraph
-) -> RecExpr {
-    let mut expr: RecExpr = Default::default();
-    extract_under_inv_rec(eclass, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph, &mut expr);
-    expr
+fn extract_enode(enode: &Lambda, egraph: &EGraph) -> Expr {
+    match enode {
+        Lambda::Prim(p) => Expr::prim(*p),
+        Lambda::Var(i) => Expr::var(*i),
+        Lambda::IVar(i) => Expr::ivar(*i),
+        Lambda::App([f,x]) => Expr::app(extract(*f,egraph),extract(*x,egraph)),
+        Lambda::Lam([b]) => Expr::lam(extract(*b,egraph)),
+        _ => {panic!("not rendered")},
+    }
 }
 
 // todo definitely possible to rewrite much simpler and such that we dont need applams_of_treenode and best_inventions_of_treenode and it works generically for rewriting on things we havent seen before. See my own notes.
-fn extract_under_inv_rec(
+fn extract_under_inv(
     root: Id,
     inv: Invention,
     replace_inv_with: &str,
     applams_of_treenode: &HashMap<Id,Vec<AppLam>>,
     best_inventions_of_treenode: &HashMap<Id,BestInventions>,
     egraph: &EGraph,
-    into_expr: &mut RecExpr,
-) -> Id {
+) -> Expr {
     let root = egraph.find(root);
     let target_cost:i32 = best_inventions_of_treenode[&root].cost_under_inv(&inv);
 
@@ -244,47 +228,47 @@ fn extract_under_inv_rec(
         let applam: Vec<AppLam> = applams_of_treenode[&root].iter().filter(|applam| applam.inv == inv).cloned().collect();
         assert!(applam.len() == 1);
         let applam = &applam[0];
-        let mut id: Id = into_expr.add(Lambda::Prim(replace_inv_with.into()));
+        let mut expr = Expr::prim(replace_inv_with.into());
         // wrap the new primitive in app() calls. Note that you pass in the $0 args LAST given how appapplamlam works
         for arg in applam.args.iter().rev() {
-            let arg_id = extract_under_inv_rec(*arg, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr);
-            id = into_expr.add(Lambda::App([id,arg_id]));
+            let arg_expr = extract_under_inv(*arg, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph);
+            expr = Expr::app(expr,arg_expr);
         }
-        assert_eq!(target_cost,cost_rec(&into_expr));
-        return id
+        assert_eq!(target_cost,cost_rec(&expr));
+        return expr
     }
     
     assert!(egraph[root].nodes.len() == 1);
-    let id: Id = match &egraph[root].nodes[0] {
+    let expr: Expr = match &egraph[root].nodes[0] {
         Lambda::Prim(p) => {
-            into_expr.add(Lambda::Prim(*p))
+            Expr::prim(*p)
         },
         Lambda::Var(i) => {
-            into_expr.add(Lambda::Var(*i))
+            Expr::var(*i)
         },
         Lambda::IVar(i) => {
             panic!("Shouldn't be extracting an IVar under an invention")
             //into_expr.add(Lambda::IVar(*i))
         },
         Lambda::App([f,x]) => {
-            let f_id = extract_under_inv_rec(*f, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr);
-            let x_id = extract_under_inv_rec(*x, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr);
-            into_expr.add(Lambda::App([f_id,x_id]))
+            let f_expr = extract_under_inv(*f, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph);
+            let x_expr = extract_under_inv(*x, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph);
+            Expr::app(f_expr,x_expr)
         },
         Lambda::Lam([b]) => {
-            let b_id = extract_under_inv_rec(*b, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr);
-            into_expr.add(Lambda::Lam([b_id]))
+            let b_expr = extract_under_inv(*b, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph);
+            Expr::lam(b_expr)
         }
         Lambda::Programs(roots) => {
-            let root_ids: Vec<Id> = roots.iter()
-                .map(|r| extract_under_inv_rec(*r, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph, into_expr))
+            let root_exprs: Vec<Expr> = roots.iter()
+                .map(|r| extract_under_inv(*r, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph))
                 .collect();
-            into_expr.add(Lambda::Programs(root_ids))
+            Expr::programs(root_exprs)
         }
     };
 
-    assert_eq!(target_cost,cost_rec(&into_expr));
-    return id
+    assert_eq!(target_cost,cost_rec(&expr));
+    expr
 }
 
 
@@ -560,8 +544,8 @@ impl CostFunction<Lambda> for ProgramCost {
     }
 }
 
-fn cost_rec(expr: &RecExpr) -> i32 {
-    ProgramCost{}.cost_rec(expr)
+fn cost_rec(expr: &Expr) -> i32 {
+    ProgramCost{}.cost_rec(expr.into())
 }
 
 struct ProgramDepth {}
@@ -589,8 +573,8 @@ impl CostFunction<Lambda> for ProgramDepth {
     }
 }
 
-fn depth_rec(expr: &RecExpr) -> i32 {
-    ProgramDepth{}.cost_rec(expr)
+fn depth_rec(expr: &Expr) -> i32 {
+    ProgramDepth{}.cost_rec(expr.into())
 }
 
 
@@ -661,9 +645,9 @@ fn save(egraph: &EGraph, name: &str, outdir: &str) {
     egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
 }
 
-fn save_expr(expr: &RecExpr, name: &str, outdir: &str) {
+fn save_expr(expr: &Expr, name: &str, outdir: &str) {
     let mut egraph: EGraph = Default::default();
-    egraph.add_expr(expr);
+    egraph.add_expr(expr.into());
     egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
 }
 
@@ -978,7 +962,6 @@ fn run_inversions(
             .flatten()
             .collect();
 
-            
         // inventions based on specific node type
         match node {
             Lambda::IVar(_) => {
@@ -1041,12 +1024,12 @@ fn run_inversions(
 
 struct CompressionResult {
     inv: InventionExpr,
-    rewritten: RecExpr,
+    rewritten: Expr,
 }
 
-/// takes a (programs ...) expr, returns the best Invention and the RecExpr rewritten under that invention
+/// takes a (programs ...) expr, returns the best Invention and the Expr rewritten under that invention
 fn run_compression_step(
-    programs_expr: &RecExpr,
+    programs_expr: &Expr,
     args: &Args,
     out_dir: &str,
     new_inv_name: &str,
@@ -1054,7 +1037,7 @@ fn run_compression_step(
 
     // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
     let mut egraph: EGraph = Default::default();
-    let programs_id = egraph.add_expr(&programs_expr);
+    let programs_id = egraph.add_expr(programs_expr.into());
     egraph.rebuild(); // this is VERY important to run before you try applying any searches or rewrites
 
     println!("Initial egraph:\n\t{}\n", egraph_info(&egraph));
@@ -1152,11 +1135,11 @@ fn run_compression_step(
 }
 
 fn compression(
-    programs_expr: &RecExpr,
+    programs_expr: &Expr,
     args: &Args,
     out_dir: &str,
-) -> (Vec<InventionExpr>,RecExpr) {
-    let mut rewritten: RecExpr = programs_expr.clone();
+) -> (Vec<InventionExpr>,Expr) {
+    let mut rewritten: Expr = programs_expr.clone();
     let mut invs: Vec<InventionExpr> = Default::default();
     
     for i in 0..args.iterations {
@@ -1164,7 +1147,7 @@ fn compression(
         let inv_name = &format!("inv{}",invs.len());
         if let Some(res) = run_compression_step(&rewritten, args, out_dir, inv_name) {
             rewritten = res.rewritten.clone();
-            println!("***Found Invention {}: {}\n***Rewritten:{}", inv_name, res.inv, show(&res.rewritten));
+            println!("***Found Invention {}: {}\n***Rewritten:{}", inv_name, res.inv, res.rewritten);
             invs.push(res.inv);
         } else {
             println!("***No inventions found at iteration {}",i);
@@ -1176,7 +1159,7 @@ fn compression(
 }
 
 fn programs_info(programs: &Vec<String>) {
-    let ps: Vec<RecExpr> = programs.iter().map(|p| p.parse::<RecExpr>().unwrap()).collect();
+    let ps: Vec<Expr> = programs.iter().map(|p| p.parse::<Expr>().unwrap()).collect();
     let max_cost = ps.iter().map(|p| cost_rec(p)).max().unwrap();
     let max_depth = ps.iter().map(|p| depth_rec(p)).max().unwrap();
     println!("Programs:");
@@ -1206,7 +1189,7 @@ fn main() {
          inline them and it'd be fine (we've got a function for that!) and also
          who knows maybe it wouldnt be an issue in the first place");
 
-    let programs_expr: RecExpr = programs.parse().unwrap();
+    let programs_expr: Expr = programs.parse().unwrap();
 
     compression(&programs_expr, &args, &out_dir);
 
