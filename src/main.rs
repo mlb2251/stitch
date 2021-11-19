@@ -10,7 +10,7 @@ use std::fs::File;
 use std::fmt::{self, Formatter, Display};
 pub mod expr;
 use expr::*;
-
+pub mod eval;
 
 /// egg dream
 #[derive(Parser, Debug)]
@@ -1098,20 +1098,6 @@ fn run_compression_step(
         println!("{}: {}", i, search(format!("(${})",i).as_str(),&egraph).len());
     }
 
-    // for (i,inv) in top_invs.iter().enumerate() {
-    //     let inv_expr = inv.to_expr(&egraph).to_string();
-    //     let targets =
-    //     ["(app logo_FWRT (app (app logo_MULL logo_UL) 0))",
-    //      "(app logo_FWRT (app (app logo_MULL logo_UL) 1))",
-    //      "(app logo_FWRT (app (app logo_MULL logo_UL) 2))",
-    //      "(app logo_FWRT (app (app logo_MULL logo_UL) 3))",
-    //      "(app logo_FWRT (app (app logo_MULL logo_UL) 4))"];
-    //     if targets.iter().any(|target|inv_expr.contains(target)) {
-    //         println!("Found target: {}", inv_expr);
-    //         save_expr(&inv.to_expr(&egraph), &format!("inv{}",i), &out_dir);
-    //     }
-    // }
-
     println!("Cands useful at top level: {}",top_invs.len());
     println!("Core stuff took: {}ms ***\n", elapsed);
 
@@ -1170,6 +1156,8 @@ fn programs_info(programs: &Vec<String>) {
 
 fn main() {
     env_logger::init();
+
+    eval::test_run();
 
     let args: Args = Args::parse();
 

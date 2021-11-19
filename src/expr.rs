@@ -12,6 +12,53 @@ pub enum Lambda {
     Programs(Vec<Id>),
 }
 
+#[derive(Debug, Clone)]
+pub struct Expr {
+    pub nodes: Vec<Lambda>, // just like in a RecExpr but public
+}
+
+///
+/// Simple example language
+/// 
+/// + :: int -> int -> int
+/// * :: int -> int -> int
+/// 0 :: int
+/// 1 :: int
+/// 2 :: int
+/// 3 :: int
+/// nil :: [T]
+/// cons :: T -> [T] -> [T]
+/// map :: (T -> U) -> [T] -> [U]
+/// 
+/// 
+
+enum Type {
+    TBase,// base type like int or bool
+    TCon, // type constructor like List
+    TFun
+}
+
+enum ExampleUserVal {
+    Int(i32),
+    Bool(bool),
+    List(Vec<ExampleUserVal>),
+}
+
+fn plus(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+fn times(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+
+
+
+
+
+
+
 type RecExpr = egg::RecExpr<Lambda>;
 
 impl Display for Lambda {
@@ -60,7 +107,7 @@ impl Language for Lambda {
     }
 
     fn display_op(&self) -> &dyn Display {
-        unimplemented!("Use show(recexpr) to display a recexpr. This is because egg 0.6.0 hasnt fixed issue #83 so displaying things like $5 is not valid")
+        unimplemented!("use Expr() not RecExpr for printing. from::() is implemented. This is because egg 0.6.0 hasnt fixed issue #83 so displaying things like $5 is not valid")
     }
 
     fn from_op_str(op_str: &str, children: Vec<Id>) -> Result<Self, String> {
@@ -94,15 +141,6 @@ impl Language for Lambda {
             },
         }
     }
-}
-
-pub fn show(e: &RecExpr) -> String {
-    Expr::from(e.clone()).to_string()
-}
-
-#[derive(Debug, Clone)]
-pub struct Expr {
-    pub nodes: Vec<Lambda>, // just like in a RecExpr but public
 }
 
 impl From<RecExpr> for Expr {
