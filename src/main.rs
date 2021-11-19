@@ -10,7 +10,7 @@ use std::fs::File;
 use std::fmt::{self, Formatter, Display};
 pub mod expr;
 use expr::*;
-// pub mod eval;
+pub mod eval;
 
 /// egg dream
 #[derive(Parser, Debug)]
@@ -1160,9 +1160,10 @@ fn programs_info(programs: &Vec<String>) {
 }
 
 fn main() {
-    env_logger::init();
-
+    procspawn::init();
     // eval::test_run();
+
+    env_logger::init();
 
     let args: Args = Args::parse();
 

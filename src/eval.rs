@@ -1,196 +1,64 @@
-// use nix::unistd::Pid;
-// use nix::sys::signal::{self, Signal};
-// use std::thread;
-// use nix::unistd::{fork,ForkResult};
-// use std::time::Duration;
-// use nix::unistd::alarm;
+use nix::unistd::Pid;
+use nix::sys::signal;
+use std::time::Duration;
+use std::process;
+use serde::{Serialize, Deserialize};
+use serde::de::DeserializeOwned;
 
-// // use std::sync::mpsc::channel;
-// use std::process;
+const TIMEOUT: u64 = 1000; // ms timeout
 
-// use std::sync::Arc;
-// use std::sync::atomic::{AtomicBool};
-// use serde::{Serialize, Deserialize};
+pub fn run_with_timeout<T,A>(f: fn(A) -> T, args:A) -> Option<T>
+where
+    T: Serialize + DeserializeOwned + std::fmt::Debug,
+    A: Serialize + DeserializeOwned + std::fmt::Debug,
+{
 
-// use signal_hook::{consts::{SIGINT,SIGALRM}, iterator::Signals};
-// use std::{error::Error};
+    let handle = procspawn::spawn(args, f);
+    let pid = Pid::from_raw(handle.pid().unwrap() as i32);
+    let result = handle.join_timeout(Duration::from_millis(TIMEOUT));
+    // handle.kill would be nice except that .join_timeout takes ownership so we cant do that
 
-// use nix::sys::signal::Signal::SIGKILL;
-// use ipc_channel::ipc;
+    match result {
+        Ok(r) => Some(r),
+        Err(e) => if e.is_timeout() {
+                match signal::kill(pid,signal::Signal::SIGKILL) {
+                    Ok(_) => {},
+                    Err(e) => println!("Possible leak: Could not kill pid={:?}: {:?}",pid,e),
+                }
+                None
+            } else {
+                None
+            }
+    }
+}
 
-// const TIMEOUT: u128 = 3000;
-
-// pub fn run_with_timeout<F, T>(f: F)
-// where
-//     // F: FnOnce() -> T,
-//     // F: Send + 'static,
-//     // T: Send + 'static + Serialize,
-//     F: FnOnce() -> T,
-//     T: Serialize + for<'de> serde::Deserialize<'de> + std::fmt::Debug,
-// {
 
 
-//     let (server, server_name) = ipc::IpcOneShotServer::<ipc::IpcReceiver<T>>::new().unwrap();
+pub fn test_run() {
 
-//     // sender.send(f()).unwrap();
-//     // receiver.try_recv().unwrap();
+    println!("***Panic example***");
+    let args = vec![1, 2, 3, 4];
+    let res = run_with_timeout(|args| {
+        std::panic::set_hook(Box::new(|_| ())); // disable printing of panic messages
+        panic!("aaaaa");
+    },args);
+    println!("Example Returned: {:?}", res);
 
-//     let res = match unsafe{ fork() } {
-//         Ok(ForkResult::Child) => {
-//             println!("child start");
-//             let (sender, receiver) = ipc::channel::<T>().unwrap();
-//             let tx0 = ipc::IpcSender::connect(server_name).unwrap(); 
-//             tx0.send(receiver).unwrap();
-//             println!("child sends receiver");
+    println!("***Infinite loop example***");
+    let args = vec![1, 2, 3, 4];
+    let res = run_with_timeout(|args| {
+        println!("starting loop...");
+        loop{};
+    },args);
+    println!("Example Returned: {:?}", res);
 
-//             let res = f();
-//             println!("child send");
-//             sender.send(res).unwrap();
-//             // sender.send(res).unwrap();
-//             println!("child exit");
-//             thread::sleep(Duration::from_millis(4000));
-//             process::exit(0);
-//         },
-//         Ok(ForkResult::Parent{child}) => {
-//             let tstart = std::time::Instant::now();
-//             println!("parent waits");
-//             let (receiver, _) = server.accept().unwrap();
-//             println!("parent gets receiver");
-//             loop {
-//                 match receiver.try_recv() {
-//                     Ok(res) => {
-//                         println!("parent got result");
-//                         break Some(res);
-//                     },
-//                     Err(e) => match e {
-//                         ipc::TryRecvError::Empty => {
-//                             if std::time::Instant::now().duration_since(tstart).as_millis() > TIMEOUT {
-//                                 println!("timeout!!!");
-//                                 signal::kill(child,SIGKILL).unwrap();
-//                                 break None;
-//                             }
-//                             // println!("retry...");
-//                         }
-//                         _ => {
-//                             panic!("Error during recv(): {:?}", e);
-//                         }
-//                     }
-//                 }
-//             }
-//         },
-//         Err(e) => {
-//             panic!("fork error: {}", e);
-//         }
-//     };
 
-//     println!("parent got result: {:?}",res);
-
-//     // signal::kill(Pid::from_raw(process::id() as i32), SIGABRT);
+    println!("***Normal example***");
+    let args = vec![1, 2, 3, 4];
+    let res = run_with_timeout(|args| {
+        println!("Received data {:?}", &args);
+        args.into_iter().sum::<i64>()
+    },args);
+    println!("Example Returned: {:?}", res);
+}
     
-//     // as soon as this line executes, ctrl-c will start doing nothing
-//     // let mut signals = Signals::new(&[SIGINT]).unwrap();
-
-//     // let flag = Arc::new(AtomicBool::new(false));
-//     // let _ = signal_hook::flag::register(SIGALRM, Arc::clone(&flag));
-
-
-
-//     // let handle = thread::spawn(move || {
-//         //  let signal = unsafe {
-//         //     signal_hook::low_level::register(signal_hook::consts::SIGINT, || {
-//         //         vec![1][1];
-//         //     })
-//         //  };
-//     //     loop {println!("aaaaa")}
-//     // });
-
-
-//     // let handle = thread::spawn(move || {
-//     //     for sig in signals.forever() {
-//     //         match sig {
-//     //             SIGINT => {
-//     //                 println!("SIGINT received");
-//     //                 panic!("aaaa")
-//     //             },
-//     //             _ => {
-//     //                 println!("other signal received");
-//     //             }
-//     //         }
-//     //     }
-//     // });
-
-//     // Following code does the actual work, and can be interrupted by pressing
-//     // Ctrl-C. As an example: Let's wait a few seconds.
-//     // println!("interrupt me");
-//     // while !flag.load(std::sync::atomic::Ordering::Relaxed) {
-//         // Do some time-limited stuff here
-//         // (if this could block forever, then there's no guarantee the signal will have any
-//         // effect).
-//         // println!("doin stufffff");
-//     // }
-//     // thread::sleep(Duration::from_millis(4000));
-
-//     // println!("aaaaayyy!!");
-
-
-//     // Create a simple streaming channel
-//     // let (tx, rx) = channel();
-//     // let handle = thread::spawn(move|| {
-//     //     println!("Spawned thread");
-//     //     thread::spawn(move|| {
-//     //         thread::sleep(Duration::from_millis(2000));
-//     //         panic!("aaaaa")
-//     //     });
-
-
-//     //     println!("Child: My pid is {}", process::id());
-//     //     tx.send(10).unwrap();
-//     //     panic!("aaaa!")
-//     // });
-//     // println!("Parent: My pid is {}", process::id());
-
-//     // assert_eq!(rx.recv().unwrap(), 10);
-
-//     // let handle = thread::spawn(f);
-
-//     // return handle.join()
-// }
-
-
-// pub fn test_run() {
-//     run_with_timeout(|| {
-//         println!("Hello from child");
-//         45
-//     });
-
-//     println!("done!");
-//     process::exit(0);
-
-//     // Send SIGTERM to child process.
-//     // signal::kill(Pid::from_raw(child.id()), Signal::SIGTERM).unwrap();
-// }
-
-
-// // use signal_hook::{iterator, consts::{SIGINT};
-// // use std::{process, thread, error::Error};
-// // use nix::sys::signal::{self, Signal};
-
-// // Registers UNIX system signals
-// // fn register_signal_handlers() -> Result<(), Box<dyn Error>>  {
-// //     let mut signals = iterator::Signals::new(&[SIGINT])?;
-
-// //     // signal execution is forwarded to the child process
-// //     thread::spawn(move || {
-// //         for sig in signals.forever() {
-// //             match sig {
-// //                 SIGINT => assert_ne!(0, sig), // assert that the signal is sent
-// //                 _ => continue,
-// //             }
-// //         }
-// //     });
-
-// //     Ok(())
-// // }
-
-
-
