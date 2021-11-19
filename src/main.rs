@@ -10,7 +10,7 @@ use std::fs::File;
 use std::fmt::{self, Formatter, Display};
 pub mod expr;
 use expr::*;
-pub mod eval;
+// pub mod eval;
 
 /// egg dream
 #[derive(Parser, Debug)]
@@ -776,6 +776,7 @@ fn run_inversions(
 
                 // bubbling from the left:
                 // (app f x) == (app (applam body arg) x) => (applam (app body upshift(x)) arg)
+                // note no shifting is needed thanks to IVars
                 for f_applam in f_applams.iter() {
                     let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,x]));
                     applams.push(AppLam::new(new_applam_body, f_applam.args.clone()));
@@ -784,6 +785,7 @@ fn run_inversions(
 
                 // bubbling from the right:
                 // (app f x) == (app f (applam body arg)) => (applam (app upshift(f) body) arg)
+                // note no shifting is needed thanks to IVars
                 for x_applam in x_applams.iter() {
                     let new_applam_body = egraph.add(Lambda::App([f, x_applam.inv.body]));
                     applams.push(AppLam::new(new_applam_body, x_applam.args.clone()));
@@ -873,6 +875,8 @@ fn run_inversions(
                 //    we're about to jump over. Now the lam is 3 levels deeper so pointers to $3 at the top
                 //    level should now point to $0. Meanwhile pointers to $0 $1 $2 should be incremented by 1 since
                 //    theres one more lambda in the way now.
+                // *** note: all that painful shifting above is no longer needed thanks to IVars! Just a little downshift remains.
+
                 for b_applam in b_applams.iter() {
                     // can't bubble an applam over a lambda if its arg refers to the lambda!
                     if b_applam.args.iter().any(|arg| egraph[*arg].data.upward_refs.contains(&0)) {
@@ -1093,6 +1097,7 @@ fn run_compression_step(
     }
 
     println!("Final egraph: {}",egraph_info(&egraph));
+    // a terrible way of printing the max/min that i should change i just havent gotten around to it
     println!("Variables used:");
     for i in -2..10 {
         println!("{}: {}", i, search(format!("(${})",i).as_str(),&egraph).len());
@@ -1157,7 +1162,7 @@ fn programs_info(programs: &Vec<String>) {
 fn main() {
     env_logger::init();
 
-    eval::test_run();
+    // eval::test_run();
 
     let args: Args = Args::parse();
 

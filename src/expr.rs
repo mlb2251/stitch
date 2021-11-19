@@ -32,31 +32,25 @@ pub struct Expr {
 /// 
 /// 
 
-enum Type {
-    TBase,// base type like int or bool
-    TCon, // type constructor like List
-    TFun
-}
+// enum Type {
+//     TBase,// base type like int or bool
+//     TCon, // type constructor like List
+//     TFun
+// }
 
-enum ExampleUserVal {
-    Int(i32),
-    Bool(bool),
-    List(Vec<ExampleUserVal>),
-}
+// enum ExampleUserVal {
+//     Int(i32),
+//     Bool(bool),
+//     List(Vec<ExampleUserVal>),
+// }
 
-fn plus(a: i32, b: i32) -> i32 {
-    a + b
-}
+// fn plus(a: i32, b: i32) -> i32 {
+//     a + b
+// }
 
-fn times(a: i32, b: i32) -> i32 {
-    a + b
-}
-
-
-
-
-
-
+// fn times(a: i32, b: i32) -> i32 {
+//     a + b
+// }
 
 
 type RecExpr = egg::RecExpr<Lambda>;

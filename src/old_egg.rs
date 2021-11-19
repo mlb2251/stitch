@@ -1,3 +1,5 @@
+/// This is an old egg based implementation of compression!
+
 use egg::{rewrite as rw, *};
 use std::collections::{HashSet,HashMap};
 use chrono;
@@ -16,33 +18,6 @@ const COST_TERMINAL: i32 = 100;
 struct AppLam {
     
 }
-
-fn foo() {
-
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

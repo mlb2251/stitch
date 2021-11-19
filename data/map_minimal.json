@@ -1,0 +1,4 @@
+[
+    "(lam (app (app cons (app (app + (app car $0)) (app car $0))) (app rec (app cdr $0))))",
+    "(lam (app (app cons (app (app - (app car $0)) t1)) (app rec (app cdr $0))))"
+]
