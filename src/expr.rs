@@ -31,12 +31,25 @@ pub struct Expr {
 /// map :: (int -> int) -> [int] -> [int]
 /// 
 
+// #[derive(Clone)]
+// pub enum Val<D: DomainVal> {
+//     Domain(D), // todo could make DomainVal a trait instead
+//     Fun(fn(&Val<D>) -> Val<D>),
+//     // Fun(fn(&Val<D>) -> Val<D>),
+// }
+
 #[derive(Clone)]
-pub enum Val<D: DomainVal> {
+
+pub enum Val<D>
+where
+    D: DomainVal,
+    // F: Clone + Fn(&Val<D,F>) -> Val<D,F>,
+{
     Domain(D), // todo could make DomainVal a trait instead
-    // Fun(fn(&Val<D>) -> Val<D>),
-    Fun(fn(&Val<D>) -> Val<D>),
+    PrimFun(fn(&Val<D>) -> Val<D>),
+    Closure(Id, Vec<Val<D>>)
 }
+
 
 pub trait DomainVal: Clone {
 
@@ -52,18 +65,44 @@ pub enum DeepcoderVal {
 impl DomainVal for DeepcoderVal {
 }
 
-impl<D: DomainVal> Val<D> {
-    pub fn is_fun(&self) -> bool {
-        matches!(self, Val::Fun(_))
-    }
-    pub fn is_domain(&self) -> bool {
-        matches!(self, Val::Domain(_))
-    }
+impl<D> Val<D>
+where
+    D: DomainVal,
+{
+
+}
+
+use std::collections::HashMap;
+pub struct DSL<D: DomainVal> {
+    pub prims: HashMap<egg::Symbol, Val<D>>,
 }
 
 impl Expr {
 
-    pub fn eval_child<D: DomainVal>(&self, env: &[Val<D>], child: Id) -> Val<D> {
+    pub fn apply<D>(&self, f: &Val<D>, x: &Val<D>, dsl: &DSL<D>) -> Val<D>
+    where
+        D: DomainVal,
+    {
+        match f {
+            Val::PrimFun(f) => f(x),
+            Val::Closure(f, env) => {
+                let mut env = env.clone();
+                env.push(x.clone());
+                self.eval_child(*f, &env, dsl)
+            }
+            _ => panic!("Expected function or closure"),
+        }
+    }
+
+    pub fn eval_child<D>(
+        &self,
+        child: Id,
+        env: &[Val<D>],
+        dsl: &DSL<D>,
+    ) -> Val<D>
+    where
+        D: DomainVal,
+    {
         match &self.nodes[usize::from(child)] {
             Lambda::Var(i) => {
                 env[*i as usize].clone()
@@ -72,22 +111,18 @@ impl Expr {
                 panic!("attempting to execute a #i ivar")
             }
             Lambda::App([f,x]) => {
-                let f_val = self.eval_child(env, *f);
-                let x_val = self.eval_child(env, *x);
-                match f_val {
-                    Val::Fun(f) => f(&x_val),
-                    _ => panic!("attempting to apply a non-function"),
-                }
+                let f_val = self.eval_child(*f, env, dsl);
+                let x_val = self.eval_child(*x, env, dsl);
+                self.apply(&f_val, &x_val, dsl)
             }
             Lambda::Prim(p) => {
-                panic!("attempting to execute a primitive")
+                match dsl.prims.get(p) {
+                    Some(v) => v.clone(),
+                    None => panic!("Prim {} not found",p),
+                }
             }
             Lambda::Lam([b]) => {
-                Val::Fun(move |x| {
-                    let mut env = env.to_vec();
-                    env.push(x.clone());
-                    self.eval_child(&env, *b)
-                })
+                Val::Closure(*b, env.to_vec())
             }
             Lambda::Programs(_) => {
                 panic!("not implemented")
