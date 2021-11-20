@@ -1,20 +1,33 @@
-use super::expr::{*, Val as SuperVal, Val::Domain, Val::PrimFun};
+use super::expr::{*, Val::Dom, Val::PrimFun};
 use std::collections::HashMap;
 
 
-#[derive(Clone,Debug)]
-pub enum SimpleVal {
+#[derive(Clone,Debug, PartialEq, Eq, Hash)]
+pub enum Simple {
     Int(i32),
-    List(Vec<SimpleVal>),
+    List(Vec<Simple>),
 }
-use SimpleVal::*;
-type Val = SuperVal<SimpleVal>;
+use Simple::*;
+type Val = super::expr::Val<Simple>;
+type DomExpr = super::expr::DomExpr<Simple>;
 
 
-impl DomainVal for SimpleVal {
-    fn val_of_prim(sym: &egg::Symbol) -> Option<Val> {
-        PRIMS.get(sym).cloned().or_else(||
-            sym.as_str().parse::<i32>().ok().map(|i| Domain(Int(i)))
+impl Domain for Simple {
+    fn val_of_prim(p: egg::Symbol) -> Option<Val> {
+        PRIMS.get(&p).cloned().or_else(||
+            // starts with digit -> Int
+            if p.as_str().chars().next().unwrap().is_digit(10) {
+                let i: i32 = p.as_str().parse().ok()?;
+                Some(Int(i).into())
+            }
+            // starts with `[` -> List (must be all ints)
+            else if p.as_str().chars().next().unwrap() == '[' {
+                let intvec: Vec<i32> = serde_json::from_str(p.as_str()).ok()?;
+                let valvec: Vec<Simple> = intvec.into_iter().map(Int).collect();
+                Some(List(valvec).into())
+            } else {
+                None
+            }
         )
     }
 }
@@ -22,24 +35,40 @@ impl DomainVal for SimpleVal {
 lazy_static::lazy_static! {
     static ref PRIMS: HashMap<egg::Symbol, Val> = vec![
             ("+".into(), PrimFun(CurriedFn::new("+".into(), add, 2))),
-            ("*".into(), PrimFun(CurriedFn::new("*".into(), add, 2)))
+            ("*".into(), PrimFun(CurriedFn::new("*".into(), mul, 2))),
+            ("map".into(), PrimFun(CurriedFn::new("map".into(), map, 2))),
         ].into_iter().collect();
 }
 
 
 
 
-fn add(args: &[Val]) -> Val {
-    if let [Domain(Int(x)), Domain(Int(y))] = args {
-        Domain(Int(x+y))
-    } else { panic!("type error") }
+fn add(args: &[Val], handle_: &mut DomExpr) -> Val {
+    if let [Dom(Int(x)), Dom(Int(y))] = args {
+        Int(x+y).into()
+    } else { panic!("type error: {:?}",args) }
 }
 
-fn mul(args: &[Val]) -> Val {
-    if let [Domain(Int(x)), Domain(Int(y))] = args {
-        Domain(Int(x*y))
-    } else { panic!("type error") }
+fn mul(args: &[Val], handle_: &mut DomExpr) -> Val {
+    if let [Dom(Int(x)), Dom(Int(y))] = args {
+        Int(x*y).into()
+    } else { panic!("type error: {:?}",args) }
 }
+
+fn map(args: &[Val], handle: &mut DomExpr) -> Val {
+    if let [fn_val, Dom(List(xs))] = args {
+        List(
+            xs.iter()
+                .map(|x| handle.apply(fn_val, &Dom(x.clone())))
+                .map(|val| val.unwrap_dom())
+                .collect()
+        ).into()
+    } else { panic!("type error: {:?}",args) }
+}
+
+
+
+
 
 
 // Simple example language

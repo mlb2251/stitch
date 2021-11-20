@@ -12,6 +12,7 @@ pub mod expr;
 use expr::*;
 pub mod eval;
 mod simple_domain;
+use simple_domain::Simple;
 
 /// egg dream
 #[derive(Parser, Debug)]
@@ -1163,9 +1164,19 @@ fn programs_info(programs: &Vec<String>) {
 
 fn simple_test() {
     let e: Expr = "(app (app + 1) 2)".parse().unwrap();
+    let mut e: DomExpr<Simple> = e.into();
     println!("{}",e);
-    let res = e.eval::<simple_domain::SimpleVal>(&[]);
+    let res = e.eval(&[]);
     println!("{:?}",res);
+
+    let e: Expr = "(app (app map (lam (app (app + 1) $0))) $0)".parse().unwrap();
+    let mut e: DomExpr<Simple> = e.into();
+    println!("{}",e);
+    let res = e.eval(&[Simple::val_of_prim("[1,2,3]".into()).unwrap()]);
+    println!("{:?}",res);
+    println!("{}",e.pretty_evals());
+
+
     // let res = eval::run_with_timeout(
     //     |(e,env)|  e.eval::<simple_domain::SimpleVal>(env),
     //     (e,&[]),
