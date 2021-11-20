@@ -1,4 +1,4 @@
-use egg::{rewrite as rw, *};
+use egg::*;
 use std::collections::{HashSet,HashMap};
 use std::path::PathBuf;
 use chrono;
@@ -9,7 +9,9 @@ use serde_json::de::from_reader;
 use std::fs::File;
 use std::fmt::{self, Formatter, Display};
 pub mod expr;
+pub mod dom_expr;
 use expr::*;
+use dom_expr::*;
 pub mod eval;
 mod simple_domain;
 use simple_domain::Simple;

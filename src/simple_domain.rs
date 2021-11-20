@@ -1,4 +1,4 @@
-use super::expr::{*, Val::Dom, Val::PrimFun};
+use super::dom_expr::{*, Val::*};
 use std::collections::HashMap;
 
 
@@ -8,8 +8,16 @@ pub enum Simple {
     List(Vec<Simple>),
 }
 use Simple::*;
-type Val = super::expr::Val<Simple>;
-type DomExpr = super::expr::DomExpr<Simple>;
+type Val = super::dom_expr::Val<Simple>;
+type DomExpr = super::dom_expr::DomExpr<Simple>;
+
+lazy_static::lazy_static! {
+    static ref PRIMS: HashMap<egg::Symbol, Val> = vec![
+            ("+".into(), PrimFun(CurriedFn::new("+".into(), 2))),
+            ("*".into(), PrimFun(CurriedFn::new("*".into(), 2))),
+            ("map".into(), PrimFun(CurriedFn::new("map".into(), 2))),
+        ].into_iter().collect();
+}
 
 
 impl Domain for Simple {
@@ -40,24 +48,16 @@ impl Domain for Simple {
     }
 }
 
-lazy_static::lazy_static! {
-    static ref PRIMS: HashMap<egg::Symbol, Val> = vec![
-            ("+".into(), PrimFun(CurriedFn::new("+".into(), 2))),
-            ("*".into(), PrimFun(CurriedFn::new("*".into(), 2))),
-            ("map".into(), PrimFun(CurriedFn::new("map".into(), 2))),
-        ].into_iter().collect();
-}
 
 
 
-
-fn add(args: &[Val], handle_: &mut DomExpr) -> Val {
+fn add(args: &[Val], _handle: &mut DomExpr) -> Val {
     if let [Dom(Int(x)), Dom(Int(y))] = args {
         Int(x+y).into()
     } else { panic!("type error: {:?}",args) }
 }
 
-fn mul(args: &[Val], handle_: &mut DomExpr) -> Val {
+fn mul(args: &[Val], _handle: &mut DomExpr) -> Val {
     if let [Dom(Int(x)), Dom(Int(y))] = args {
         Int(x*y).into()
     } else { panic!("type error: {:?}",args) }
@@ -73,42 +73,3 @@ fn map(args: &[Val], handle: &mut DomExpr) -> Val {
         ).into()
     } else { panic!("type error: {:?}",args) }
 }
-
-
-
-
-
-
-// Simple example language
-// 
-// + :: int -> int -> int
-// * :: int -> int -> int
-// 0 :: int
-// 1 :: int
-// 2 :: int
-// 3 :: int
-// nil :: [int]
-// cons :: int -> [int] -> [int]
-// map :: (int -> int) -> [int] -> [int]
-
-
-
-// enum Type {
-//     TBase,// base type like int or bool
-//     TCon, // type constructor like List
-//     TFun
-// }
-
-// enum ExampleUserVal {
-//     Int(i32),
-//     Bool(bool),
-//     List(Vec<ExampleUserVal>),
-// }
-
-// fn plus(a: i32, b: i32) -> i32 {
-//     a + b
-// }
-
-// fn times(a: i32, b: i32) -> i32 {
-//     a + b
-// }
