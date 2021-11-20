@@ -108,9 +108,13 @@ impl<D: Domain> From<D> for Val<D> {
 /// just do a .into() on it. So they can use f64s within their logic and just need to
 /// wrap them when passing things back out to our system.
 pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
+    /// given a primitive's symbol return a runtime Val object. For function primitives
+    /// this should return a PrimFun(CurriedFn) object.
     fn val_of_prim(_p: egg::Symbol) -> Option<Val<Self>> {
         unimplemented!()
     }
+    /// given a function primitive's symbol return the function pointer
+    /// you can use to call the function.
     fn fn_of_prim(_p: egg::Symbol) -> fn(&[Val<Self>], &mut DomExpr<Self>) -> Val<Self> {
         unimplemented!()
     }
@@ -150,6 +154,7 @@ impl<D: Domain> DomExpr<D> {
             _ => panic!("Expected function or closure"),
         }
     }
+    /// eval the Expr in an environment
     pub fn eval(
         &mut self,
         env: &[Val<D>],
@@ -157,6 +162,7 @@ impl<D: Domain> DomExpr<D> {
         self.eval_child(self.expr.root(), env)
     }
 
+    /// eval a subexpression in an environment
     pub fn eval_child(
         &mut self,
         child: Id,
@@ -194,10 +200,6 @@ impl<D: Domain> DomExpr<D> {
         self.evals.insert(key, val.clone());
         val
     }
-
-    // pub fn get_evals(&self) -> &HashMap<(Id,Vec<Val<D>>), Val<D>> {
-    //     &self.evals
-    // }
 }
 
 type RecExpr = egg::RecExpr<Lambda>;
@@ -379,7 +381,6 @@ impl Expr {
     }
     fn to_string_child(&self, child:Id) -> String {
         let mut s = String::new();
-        // write!(&mut s, "hello");
         self.write_child(child, &mut s).unwrap();
         s
     }
@@ -395,20 +396,3 @@ impl Display for Expr {
         }
     }
 }
-// impl std::ops::Index<Id> for Expr {
-//     type Output = Lambda;
-//     fn index(&self, id: Id) -> &Self::Output {
-//         self.nodes[usize::from(id)]
-//             .as_ref()
-//             .unwrap_or_else(|| panic!("Invalid id {}", id))
-//     }
-// }
-
-// impl std::ops::IndexMut<Id> for Expr {
-//     fn index_mut(&mut self, id: Id) -> &mut Self::Output {
-//         let id = self.find(id);
-//         self.nodes[usize::from(id)]
-//             .as_mut()
-//             .unwrap_or_else(|| panic!("Invalid id {}", id))
-//     }
-// }
