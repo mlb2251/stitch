@@ -1182,7 +1182,7 @@ fn simple_test() {
     //     (e,&[]),
     //     std::time::Duration::from_millis(100)
     // );
-    // println!("{:?}",res);
+    println!("{:?}",res);
     panic!("done")
 }
 

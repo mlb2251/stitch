@@ -30,13 +30,21 @@ impl Domain for Simple {
             }
         )
     }
+    fn fn_of_prim(p: egg::Symbol) -> fn(&[Val], &mut DomExpr) -> Val {
+        match p.as_str() {
+            "+" => add,
+            "*" => mul,
+            "map" => map,
+            _ => panic!("unknown function primitive: {}", p),
+        }
+    }
 }
 
 lazy_static::lazy_static! {
     static ref PRIMS: HashMap<egg::Symbol, Val> = vec![
-            ("+".into(), PrimFun(CurriedFn::new("+".into(), add, 2))),
-            ("*".into(), PrimFun(CurriedFn::new("*".into(), mul, 2))),
-            ("map".into(), PrimFun(CurriedFn::new("map".into(), map, 2))),
+            ("+".into(), PrimFun(CurriedFn::new("+".into(), 2))),
+            ("*".into(), PrimFun(CurriedFn::new("*".into(), 2))),
+            ("map".into(), PrimFun(CurriedFn::new("map".into(), 2))),
         ].into_iter().collect();
 }
 

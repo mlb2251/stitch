@@ -46,41 +46,17 @@ impl<D: Domain> Display for DomExpr<D> {
 /// (app + 3) evals to a CurriedFn with vec![3] as the partial_args. The expression
 /// (app (app + 3) 4) will evaluate to 7 (since .apply() will fill the last argument,
 /// notice that all arguments are filled, and return the result).
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct CurriedFn<D: Domain> {
     name: egg::Symbol,
-    func: fn(&[Val<D>], &mut DomExpr<D>) -> Val<D>,
     arity: usize,
     partial_args: Vec<Val<D>>,
 }
 
-impl<D: Domain> Debug for CurriedFn<D> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "CurriedFn(name={:?}, arity={:?}, partial_args={:?})", self.name, self.arity, self.partial_args)
-    }
-}
-impl<D: Domain> PartialEq for CurriedFn<D> {
-    fn eq(&self, other: &CurriedFn<D>) -> bool {
-        // no need to check fn ptr bc it's deterministic off of `name`. Though it wouldn't be hard to.
-        self.name == other.name && self.arity == other.arity && self.partial_args == other.partial_args
-    }
-}
-impl<D: Domain> Eq for CurriedFn<D> { }
-impl<D: Domain> Hash for CurriedFn<D> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // again no need to hash fn ptr since it's deterministic off of `name`, though this wouldnt be hard to do if you wanted to.
-        self.name.hash(state);
-        self.arity.hash(state);
-        self.partial_args.hash(state);
-    }
-}
-
-
 impl<D: Domain> CurriedFn<D> {
-    pub fn new(name: egg::Symbol, func: fn(&[Val<D>], &mut DomExpr<D>) -> Val<D>, arity: usize) -> Self {
+    pub fn new(name: egg::Symbol, arity: usize) -> Self {
         Self {
             name,
-            func,
             arity,
             partial_args: Vec::new(),
         }
@@ -92,7 +68,7 @@ impl<D: Domain> CurriedFn<D> {
         let mut new_dslfn = self.clone();
         new_dslfn.partial_args.push(arg.clone());
         if new_dslfn.partial_args.len() == new_dslfn.arity {
-            (new_dslfn.func)(&new_dslfn.partial_args, handle)
+            D::fn_of_prim(new_dslfn.name) (&new_dslfn.partial_args, handle)
         } else {
             Val::PrimFun(new_dslfn)
         }
@@ -132,7 +108,10 @@ impl<D: Domain> From<D> for Val<D> {
 /// just do a .into() on it. So they can use f64s within their logic and just need to
 /// wrap them when passing things back out to our system.
 pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
-    fn val_of_prim(sym: egg::Symbol) -> Option<Val<Self>> {
+    fn val_of_prim(_p: egg::Symbol) -> Option<Val<Self>> {
+        unimplemented!()
+    }
+    fn fn_of_prim(_p: egg::Symbol) -> fn(&[Val<Self>], &mut DomExpr<Self>) -> Val<Self> {
         unimplemented!()
     }
 }
