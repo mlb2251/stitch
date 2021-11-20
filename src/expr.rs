@@ -26,11 +26,77 @@ pub struct Expr {
 /// 1 :: int
 /// 2 :: int
 /// 3 :: int
-/// nil :: [T]
-/// cons :: T -> [T] -> [T]
-/// map :: (T -> U) -> [T] -> [U]
+/// nil :: [int]
+/// cons :: int -> [int] -> [int]
+/// map :: (int -> int) -> [int] -> [int]
 /// 
-/// 
+
+#[derive(Clone)]
+pub enum Val<D: DomainVal> {
+    Domain(D), // todo could make DomainVal a trait instead
+    // Fun(fn(&Val<D>) -> Val<D>),
+    Fun(fn(&Val<D>) -> Val<D>),
+}
+
+pub trait DomainVal: Clone {
+
+}
+
+
+#[derive(Clone)]
+pub enum DeepcoderVal {
+    Int(i32),
+    List(Vec<DeepcoderVal>),
+}
+
+impl DomainVal for DeepcoderVal {
+}
+
+impl<D: DomainVal> Val<D> {
+    pub fn is_fun(&self) -> bool {
+        matches!(self, Val::Fun(_))
+    }
+    pub fn is_domain(&self) -> bool {
+        matches!(self, Val::Domain(_))
+    }
+}
+
+impl Expr {
+
+    pub fn eval_child<D: DomainVal>(&self, env: &[Val<D>], child: Id) -> Val<D> {
+        match &self.nodes[usize::from(child)] {
+            Lambda::Var(i) => {
+                env[*i as usize].clone()
+            }
+            Lambda::IVar(i) => {
+                panic!("attempting to execute a #i ivar")
+            }
+            Lambda::App([f,x]) => {
+                let f_val = self.eval_child(env, *f);
+                let x_val = self.eval_child(env, *x);
+                match f_val {
+                    Val::Fun(f) => f(&x_val),
+                    _ => panic!("attempting to apply a non-function"),
+                }
+            }
+            Lambda::Prim(p) => {
+                panic!("attempting to execute a primitive")
+            }
+            Lambda::Lam([b]) => {
+                Val::Fun(move |x| {
+                    let mut env = env.to_vec();
+                    env.push(x.clone());
+                    self.eval_child(&env, *b)
+                })
+            }
+            Lambda::Programs(_) => {
+                panic!("not implemented")
+            }
+        }
+
+    }
+}
+
 
 // enum Type {
 //     TBase,// base type like int or bool
