@@ -9,13 +9,40 @@ use std::hash::Hash;
 pub struct DomExpr<D: Domain> {
     pub expr: Expr,
     pub evals: HashMap<(Id,Vec<Val<D>>), Val<D>>, // from (node,env) to result
+    pub data: D::Data,
 }
+
+/// DomainData is attached to the DomExpr so all DSL functions will have a
+/// mut ref to it (through the handle argument).
+/// Motivation: Domain vals get cloned a lot and are required to implement a lot
+/// of traits. This might get annoying if the domain involves particularly expensive/large
+/// amounts of data / very strange data that cant just be passed around normally. Therefore one can instead just put
+/// `Id`s in all the places where a domain value is needed and have a big Vec<obj> as DomainData
+/// that holds the actual objects each Id points to. Then during DSL functions the handle lets you
+/// look up the actual object for a given Id, and also instantiate a new object and return its Id.
+/// Importantly you need to guarantee that Id equality <-> object equality, meaning you need to write
+/// a structural hasher for your domain.
+/// todo Would be great to flesh this idea out and actually write helpers that do most of it for you.
+/// todo Also it'd be interesting to think whether *all* domains should be implemented this way so
+/// all our code would effectively just be passing Ids in places where we currently have Val<D>. That
+/// could be really great as long as we could make a good structural hasher. Note that youd effectively
+/// be creating a massive hash table of every object ever seen and then scanning it whenever you have
+/// a new object to make sure it isnt in there. That might not be crazy though? Idk it does seem like
+/// it could be pretty slow and we might want to allow the direct Val method.
+/// Maybe we should just have a PtrDomain<T> that people can easily implement if they implement T: Hash + PartialEq + Eq
+pub trait DomainData: Debug + Default {}
+
+// some common data types
+impl DomainData for () {}
+impl<K: Debug, V: Debug> DomainData for HashMap<K,V> {}
+impl<T: Debug> DomainData for Vec<T> {}
 
 impl<D: Domain> From<Expr> for DomExpr<D> {
     fn from(expr: Expr) -> Self {
         DomExpr {
             expr,
             evals: HashMap::new(),
+            data: Default::default(),
         }
     }
 }
@@ -94,6 +121,7 @@ impl<D: Domain> From<D> for Val<D> {
 /// just do a .into() on it. So they can use f64s within their logic and just need to
 /// wrap them when passing things back out to our system.
 pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
+    type Data: DomainData;
     /// given a primitive's symbol return a runtime Val object. For function primitives
     /// this should return a PrimFun(CurriedFn) object.
     fn val_of_prim(_p: egg::Symbol) -> Option<Val<Self>> {

@@ -29,6 +29,7 @@ lazy_static::lazy_static! {
 
 
 impl Domain for Simple {
+    type Data = ();
     fn val_of_prim(p: egg::Symbol) -> Option<Val> {
         PRIMS.get(&p).cloned().or_else(||
             // starts with digit -> Int
@@ -76,3 +77,5 @@ fn map(args: &[Val], handle: &mut DomExpr) -> Val {
         ).into()
     } else { panic!("type error: {:?}",args) }
 }
+
+
