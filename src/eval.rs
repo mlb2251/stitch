@@ -41,7 +41,7 @@ pub fn test_run() {
 
     println!("***Panic example***");
     let args = vec![1, 2, 3, 4];
-    let res = run_with_timeout(|args| {
+    let res = run_with_timeout(|_args| {
         std::panic::set_hook(Box::new(|_| ())); // disable printing of panic messages
         panic!("aaaaa");
     },args,timeout);
@@ -49,7 +49,7 @@ pub fn test_run() {
 
     println!("***Infinite loop example***");
     let args = vec![1, 2, 3, 4];
-    let res = run_with_timeout(|args| {
+    let res = run_with_timeout(|_args| {
         println!("starting loop...");
         loop{};
     },args,timeout);

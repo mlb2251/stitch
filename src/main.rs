@@ -15,6 +15,8 @@ use dom_expr::*;
 pub mod eval;
 mod simple_domain;
 use simple_domain::Simple;
+mod egg_utils;
+use egg_utils::*;
 
 /// egg dream
 #[derive(Parser, Debug)]
@@ -33,8 +35,8 @@ struct Args {
     max_arity: usize,
 
     /// beam size
-    #[clap(short, long, default_value = "10000000")]
-    beam_size: usize,
+    // #[clap(short, long, default_value = "10000000")]
+    // beam_size: usize,
 
     /// disable caching
     #[clap(long)]
@@ -250,7 +252,7 @@ fn extract_under_inv(
         Lambda::Var(i) => {
             Expr::var(*i)
         },
-        Lambda::IVar(i) => {
+        Lambda::IVar(_) => {
             panic!("Shouldn't be extracting an IVar under an invention")
             //into_expr.add(Lambda::IVar(*i))
         },
@@ -363,13 +365,11 @@ impl Analysis<Lambda> for LambdaAnalysis {
             }
     }
 
-    fn modify(egraph: &mut EGraph, id: Id) {
+    fn modify(_egraph: &mut EGraph, _id: Id) {
     }
 }
 
-fn var(s: &str) -> Var {
-    s.parse().unwrap()
-}
+
 
 #[inline] // useful to inline since callsite can usually tell which Shift type is happening allowing further optimization
 fn shift(e: Id, shift: Shift, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
@@ -581,96 +581,8 @@ fn depth_rec(expr: &Expr) -> i32 {
     ProgramDepth{}.cost_rec(expr.into())
 }
 
-
-
-
-
 fn timestamp() -> String {
     format!("{}", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"))
-}
-
-/// finds everywhere the rewrite rules matches and applies it to each of them
-/// and rebuilds the egraph. Will only apply to matches that are visible before
-/// any rewriting occurs. This is the same as running a runner with an iter limit of 1.
-/// I guess I'm not using this in the code right now bc I like the runner's report.
-fn apply_everywhere_once(rules_: &[&str], egraph: &mut EGraph) {
-    let rules: Vec<Rewrite<Lambda,LambdaAnalysis>> = rules(rules_);
-    let matches: Vec<Vec<SearchMatches>> = rules.iter().map(|r| r.search(egraph)).collect();
-    for (r,m) in rules.iter().zip(matches) {
-        let hits = r.apply(egraph, &m).len();
-        println!("(applied {} {} times out of {} matches)",r.name(),hits, m.len());
-    }
-    egraph.rebuild();
-}
-
-fn saturate(rules_: &[&str], render: bool, out_dir: String, egraph: EGraph) -> EGraph {
-    let rules: Vec<Rewrite<Lambda,LambdaAnalysis>> = rules(rules_);
-    let mut runner = Runner::default()
-        .with_egraph(egraph)
-        .with_iter_limit(400)
-        .with_scheduler(SimpleScheduler)
-        .with_time_limit(core::time::Duration::from_secs(200))
-        .with_node_limit(3000000);
-    
-    if render {
-        runner = runner.with_hook(
-        {
-            let out_dir = out_dir.clone(); // silly thing to clone into the closure
-            move |runner|{
-                let iter = runner.iterations.len();
-                println!("Iter {}: {}", iter, egraph_info(&runner.egraph));
-                save(&runner.egraph, format!("3_propagate_{}",iter).as_str(), &out_dir);
-                Ok(())
-            }
-        });
-    }
-
-    let runner = runner.run(rules.iter());
-    runner.print_report();
-    runner.egraph
-}
-
-fn run_pretty(rule_: &str, name:&str, egraph: &mut EGraph) {
-    let rule: Rewrite<Lambda,LambdaAnalysis> = rule(rule_);
-    let matches = rule.search(egraph);
-    egraph.dot().to_png(format!("target/match_{}_0pre.png",name)).unwrap();
-    rule.apply(egraph, &matches).len();
-    egraph.dot().to_png(format!("target/match_{}_1post.png",name)).unwrap();
-    egraph.rebuild();
-    egraph.dot().to_png(format!("target/match_{}_2rebuild.png",name)).unwrap();
-}
-
-fn search(pat: &str, egraph: &EGraph) -> Vec<SearchMatches>{
-    let applam:Pattern<Lambda> = pat.parse().unwrap();
-    applam.search(&egraph)
-}
-
-fn save(egraph: &EGraph, name: &str, outdir: &str) {
-    egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
-}
-
-fn save_expr(expr: &Expr, name: &str, outdir: &str) {
-    let mut egraph: EGraph = Default::default();
-    egraph.add_expr(expr.into());
-    egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
-}
-
-fn rule_map() -> HashMap<String,Rewrite<Lambda, LambdaAnalysis>> {
-    vec![
-    ].into_iter().map(|r:Rewrite<Lambda, LambdaAnalysis>| (r.name().to_string(),r)).collect()
-}
-
-// ownership is a pain so this is a helper
-fn rule(name: &str) -> Rewrite<Lambda, LambdaAnalysis> {
-    rule_map().remove(name).expect(format!("rule {} not found",name).as_str())
-}
-
-fn rules(names: &[&str]) -> Vec<Rewrite<Lambda, LambdaAnalysis>> {
-    names.iter().map(|name|rule(name)).collect()
-}
-
-fn egraph_info(egraph: &EGraph) -> String {
-    format!("{} nodes, {} classes, {} memo", egraph.total_number_of_nodes(), egraph.number_of_classes(), egraph.total_size())
 }
 
 fn toplogical_ordering(root: Id, egraph: &EGraph) -> Vec<Id> {
@@ -733,7 +645,7 @@ struct InversionResult {
 fn run_inversions(
     treenodes: &Vec<Id>,
     max_arity: usize,
-    beam_size: usize,
+    // beam_size: usize,
     no_cache: bool,
     egraph: &mut EGraph
 ) -> InversionResult {
@@ -1064,7 +976,7 @@ fn run_compression_step(
         = run_inversions(
             &treenodes,
             args.max_arity,
-            args.beam_size,
+            // args.beam_size,
             args.no_cache,
             &mut egraph
         );
@@ -1096,7 +1008,7 @@ fn run_compression_step(
             rewritten,
         );
         if args.render_inventions {
-            save_expr(&inv_expr, &format!("inv{}",i), &out_dir);
+            inv_expr.save(&format!("inv{}",i), &out_dir);
         }
     }
 

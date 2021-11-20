@@ -168,7 +168,7 @@ impl<D: Domain> DomExpr<D> {
             Lambda::Var(i) => {
                 env[i as usize].clone()
             }
-            Lambda::IVar(i) => {
+            Lambda::IVar(_) => {
                 panic!("attempting to execute a #i ivar")
             }
             Lambda::App([f,x]) => {

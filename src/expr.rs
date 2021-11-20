@@ -202,6 +202,11 @@ impl Expr {
         self.write_child(child, &mut s).unwrap();
         s
     }
+    pub fn save(&self, name: &str, outdir: &str) {
+        let mut egraph: EGraph<Lambda,super::LambdaAnalysis> = Default::default();
+        egraph.add_expr(self.into());
+        egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
+    }
 }
 
 
