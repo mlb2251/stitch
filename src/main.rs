@@ -11,6 +11,7 @@ use std::fmt::{self, Formatter, Display};
 pub mod expr;
 use expr::*;
 pub mod eval;
+mod simple_domain;
 
 /// egg dream
 #[derive(Parser, Debug)]

@@ -1,5 +1,6 @@
 use egg::*;
 use std::fmt::{self, Formatter, Display};
+use std::collections::HashMap;
 
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -8,8 +9,8 @@ pub enum Lambda {
     IVar(i32), // db index used by inventions (#i)
     App([Id; 2]), // f, x
     Lam([Id; 1]), // body
-    Prim(egg::Symbol), // fallback, parses prims
-    Programs(Vec<Id>),
+    Prim(egg::Symbol), // primitive (eg functions, constants, all nonvariable leaf nodes)
+    Programs(Vec<Id>), // root node at the very top of the tree
 }
 
 #[derive(Debug, Clone)]
@@ -17,62 +18,46 @@ pub struct Expr {
     pub nodes: Vec<Lambda>, // just like in a RecExpr but public
 }
 
-///
-/// Simple example language
-/// 
-/// + :: int -> int -> int
-/// * :: int -> int -> int
-/// 0 :: int
-/// 1 :: int
-/// 2 :: int
-/// 3 :: int
-/// nil :: [int]
-/// cons :: int -> [int] -> [int]
-/// map :: (int -> int) -> [int] -> [int]
-/// 
-
-// #[derive(Clone)]
-// pub enum Val<D: DomainVal> {
-//     Domain(D), // todo could make DomainVal a trait instead
-//     Fun(fn(&Val<D>) -> Val<D>),
-//     // Fun(fn(&Val<D>) -> Val<D>),
-// }
-
 #[derive(Clone)]
-
-pub enum Val<D>
-where
-    D: DomainVal,
-    // F: Clone + Fn(&Val<D,F>) -> Val<D,F>,
-{
-    Domain(D), // todo could make DomainVal a trait instead
-    PrimFun(fn(&Val<D>) -> Val<D>),
-    Closure(Id, Vec<Val<D>>)
+pub struct CurriedFn<D: DomainVal> {
+    name: egg::Symbol,
+    func: fn(&[Val<D>]) -> Val<D>,
+    arity: usize,
+    partial_args: Vec<Val<D>>,
 }
 
+impl<D: DomainVal> CurriedFn<D> {
+    fn new(name: egg::Symbol, func: fn(&[Val<D>]) -> Val<D>, arity: usize) -> Self {
+        Self {
+            name,
+            func,
+            arity,
+            partial_args: Vec::new(),
+        }
+    }
+    fn apply(&self, arg: &Val<D>) -> Val<D> {
+        let mut new_dslfn = self.clone();
+        new_dslfn.partial_args.push(arg.clone());
+        if new_dslfn.partial_args.len() == new_dslfn.arity {
+            (new_dslfn.func)(&new_dslfn.partial_args)
+        } else {
+            Val::PrimFun(new_dslfn)
+        }
+    }
+}
 
+#[derive(Clone)]
+pub enum Val<D: DomainVal> {
+    Domain(D),
+    PrimFun(CurriedFn<D>), // function ptr, arity, any args that have been partially filled in
+    LamClosure(Id, Vec<Val<D>>) // body, captured env
+}
+
+/// I'm sure this will come in handy
 pub trait DomainVal: Clone {
 
 }
 
-
-#[derive(Clone)]
-pub enum DeepcoderVal {
-    Int(i32),
-    List(Vec<DeepcoderVal>),
-}
-
-impl DomainVal for DeepcoderVal {
-}
-
-impl<D> Val<D>
-where
-    D: DomainVal,
-{
-
-}
-
-use std::collections::HashMap;
 pub struct DSL<D: DomainVal> {
     pub prims: HashMap<egg::Symbol, Val<D>>,
 }
@@ -84,8 +69,8 @@ impl Expr {
         D: DomainVal,
     {
         match f {
-            Val::PrimFun(f) => f(x),
-            Val::Closure(f, env) => {
+            Val::PrimFun(f) => f.apply(x),
+            Val::LamClosure(f, env) => {
                 let mut env = env.clone();
                 env.push(x.clone());
                 self.eval_child(*f, &env, dsl)
@@ -122,7 +107,7 @@ impl Expr {
                 }
             }
             Lambda::Lam([b]) => {
-                Val::Closure(*b, env.to_vec())
+                Val::LamClosure(*b, env.to_vec())
             }
             Lambda::Programs(_) => {
                 panic!("not implemented")
@@ -132,26 +117,6 @@ impl Expr {
     }
 }
 
-
-// enum Type {
-//     TBase,// base type like int or bool
-//     TCon, // type constructor like List
-//     TFun
-// }
-
-// enum ExampleUserVal {
-//     Int(i32),
-//     Bool(bool),
-//     List(Vec<ExampleUserVal>),
-// }
-
-// fn plus(a: i32, b: i32) -> i32 {
-//     a + b
-// }
-
-// fn times(a: i32, b: i32) -> i32 {
-//     a + b
-// }
 
 
 type RecExpr = egg::RecExpr<Lambda>;
@@ -293,7 +258,7 @@ impl Expr {
         nodes.push(Lambda::Lam([b_id]));
         Self::new(nodes)
     }
-    pub fn programs(mut programs: Vec<Expr>) -> Self {
+    pub fn programs(programs: Vec<Expr>) -> Self {
         let mut nodes = vec![];
         let mut root_ids = vec![];
         for mut p in programs.into_iter() {
