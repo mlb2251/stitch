@@ -18,6 +18,12 @@ pub struct Expr {
     pub nodes: Vec<Lambda>, // just like in a RecExpr but public
 }
 
+/// Wraps a DSL function in a struct that manages currying of the arguments
+/// which are fed in one at a time through .apply(). Example: the "+" primitive
+/// evaluates to a CurriedFn with arity 2 and empty partial_args. The expression
+/// (app + 3) evals to a CurriedFn with vec![3] as the partial_args. The expression
+/// (app (app + 3) 4) will evaluate to 7 (since .apply() will fill the last argument,
+/// notice that all arguments are filled, and return the result).
 #[derive(Clone)]
 pub struct CurriedFn<D: DomainVal> {
     name: egg::Symbol, // name included really just for debugging/clarity
@@ -40,6 +46,9 @@ impl<D: DomainVal> CurriedFn<D> {
             partial_args: Vec::new(),
         }
     }
+    /// Feed one more argument into the function, returning a new CurriedFn if
+    /// still not all the arguments have been received. Evaluate the function
+    /// if all arguments have been received.
     pub fn apply(&self, arg: &Val<D>) -> Val<D> {
         let mut new_dslfn = self.clone();
         new_dslfn.partial_args.push(arg.clone());
@@ -58,38 +67,19 @@ pub enum Val<D: DomainVal> {
     LamClosure(Id, Vec<Val<D>>) // body, captured env
 }
 
-/// I'm sure this will come in handy
 pub trait DomainVal: Clone + fmt::Debug {
-
-}
-
-// todo theres def a better way to do this that doesnt have fallback as a functin pointer. Like
-// todo somehow it should be part of the DomainVal trait. Except how can that trait carry around a big
-// todo hashmap? Then again the fallback will be called almost never so optimizing for prims() makes
-// a fair bit of sense. Hmm I think lazy_static!{} would let you init a hashmap so that you can ref it
-// from fallback() and just not have prims at all.
-// hmm ya thatd be nice and then you could use D::get_val(sym) or something
-pub struct DSL<D: DomainVal> {
-    pub prims: HashMap<egg::Symbol, Val<D>>,
-    pub fallback: fn(&egg::Symbol) -> Option<Val<D>>,
-}
-
-impl<D: DomainVal> DSL<D> {
-    pub fn new(prims: HashMap<egg::Symbol, Val<D>>, fallback: fn(&egg::Symbol) -> Option<Val<D>>) -> Self {
-        Self { prims, fallback }
-    }
-    pub fn get(&self, sym: &egg::Symbol) -> Option<Val<D>> {
-        self.prims.get(&sym).cloned().or_else(|| (self.fallback)(sym))
+    fn val_of_prim(sym: &egg::Symbol) -> Option<Val<Self>> {
+        unimplemented!()
     }
 }
 
 impl Expr {
-
     pub fn root(&self) -> Id {
         Id::from(self.nodes.len()-1)
     }
 
-    pub fn apply<D>(&self, f: &Val<D>, x: &Val<D>, dsl: &DSL<D>) -> Val<D>
+    /// apply a function (Val) to an argument (Val)
+    pub fn apply<D>(&self, f: &Val<D>, x: &Val<D>) -> Val<D>
     where
         D: DomainVal,
     {
@@ -98,7 +88,7 @@ impl Expr {
             Val::LamClosure(f, env) => {
                 let mut env = env.clone();
                 env.push(x.clone());
-                self.eval_child(*f, &env, dsl)
+                self.eval_child(*f, &env)
             }
             _ => panic!("Expected function or closure"),
         }
@@ -106,17 +96,15 @@ impl Expr {
     pub fn eval<D: DomainVal>(
         &self,
         env: &[Val<D>],
-        dsl: &DSL<D>,
     ) -> Val<D>
     {
-        self.eval_child(self.root(), env, dsl)
+        self.eval_child(self.root(), env)
     }
 
     pub fn eval_child<D>(
         &self,
         child: Id,
         env: &[Val<D>],
-        dsl: &DSL<D>,
     ) -> Val<D>
     where
         D: DomainVal,
@@ -129,12 +117,12 @@ impl Expr {
                 panic!("attempting to execute a #i ivar")
             }
             Lambda::App([f,x]) => {
-                let f_val = self.eval_child(*f, env, dsl);
-                let x_val = self.eval_child(*x, env, dsl);
-                self.apply(&f_val, &x_val, dsl)
+                let f_val = self.eval_child(*f, env);
+                let x_val = self.eval_child(*x, env);
+                self.apply(&f_val, &x_val)
             }
             Lambda::Prim(p) => {
-                match dsl.get(p) {
+                match D::val_of_prim(p) {
                     Some(v) => v.clone(),
                     None => panic!("Prim {} not found",p),
                 }

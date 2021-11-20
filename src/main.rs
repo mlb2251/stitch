@@ -1164,8 +1164,14 @@ fn programs_info(programs: &Vec<String>) {
 fn simple_test() {
     let e: Expr = "(app (app + 1) 2)".parse().unwrap();
     println!("{}",e);
-    let res = e.eval(&[], &simple_domain::simple_dsl());
+    let res = e.eval::<simple_domain::SimpleVal>(&[]);
     println!("{:?}",res);
+    // let res = eval::run_with_timeout(
+    //     |(e,env)|  e.eval::<simple_domain::SimpleVal>(env),
+    //     (e,&[]),
+    //     std::time::Duration::from_millis(100)
+    // );
+    // println!("{:?}",res);
     panic!("done")
 }
 
