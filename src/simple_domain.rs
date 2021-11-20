@@ -11,12 +11,20 @@ use Simple::*;
 type Val = super::dom_expr::Val<Simple>;
 type DomExpr = super::dom_expr::DomExpr<Simple>;
 
+type DSLFn = fn(&[Val], &mut DomExpr) -> Val;
+
 lazy_static::lazy_static! {
     static ref PRIMS: HashMap<egg::Symbol, Val> = vec![
             ("+".into(), PrimFun(CurriedFn::new("+".into(), 2))),
             ("*".into(), PrimFun(CurriedFn::new("*".into(), 2))),
             ("map".into(), PrimFun(CurriedFn::new("map".into(), 2))),
         ].into_iter().collect();
+    
+    static ref FNS: HashMap<egg::Symbol, DSLFn> = vec![
+        ("+".into(), add as DSLFn),
+        ("*".into(), mul as DSLFn),
+        ("map".into(), map as DSLFn),
+    ].into_iter().collect();
 }
 
 
@@ -39,12 +47,7 @@ impl Domain for Simple {
         )
     }
     fn fn_of_prim(p: egg::Symbol) -> fn(&[Val], &mut DomExpr) -> Val {
-        match p.as_str() {
-            "+" => add,
-            "*" => mul,
-            "map" => map,
-            _ => panic!("unknown function primitive: {}", p),
-        }
+        FNS.get(&p).cloned().unwrap_or_else(|| panic!("unknown function primitive: {}", p))
     }
 }
 
