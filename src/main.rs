@@ -1160,11 +1160,22 @@ fn programs_info(programs: &Vec<String>) {
     println!("\t max depth: {}",max_depth);
 }
 
+
+fn simple_test() {
+    let e: Expr = "(app (app + 1) 2)".parse().unwrap();
+    println!("{}",e);
+    let res = e.eval(&[], &simple_domain::simple_dsl());
+    println!("{:?}",res);
+    panic!("done")
+}
+
 fn main() {
     procspawn::init();
     // eval::test_run();
 
     env_logger::init();
+
+    simple_test();
 
     let args: Args = Args::parse();
 

@@ -20,14 +20,19 @@ pub struct Expr {
 
 #[derive(Clone)]
 pub struct CurriedFn<D: DomainVal> {
-    name: egg::Symbol,
+    name: egg::Symbol, // name included really just for debugging/clarity
     func: fn(&[Val<D>]) -> Val<D>,
     arity: usize,
     partial_args: Vec<Val<D>>,
 }
+impl<D: DomainVal> fmt::Debug for CurriedFn<D> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "CurriedFn(name={:?}, arity={:?}, partial_args={:?})", self.name, self.arity, self.partial_args)
+    }
+}
 
 impl<D: DomainVal> CurriedFn<D> {
-    fn new(name: egg::Symbol, func: fn(&[Val<D>]) -> Val<D>, arity: usize) -> Self {
+    pub fn new(name: egg::Symbol, func: fn(&[Val<D>]) -> Val<D>, arity: usize) -> Self {
         Self {
             name,
             func,
@@ -35,7 +40,7 @@ impl<D: DomainVal> CurriedFn<D> {
             partial_args: Vec::new(),
         }
     }
-    fn apply(&self, arg: &Val<D>) -> Val<D> {
+    pub fn apply(&self, arg: &Val<D>) -> Val<D> {
         let mut new_dslfn = self.clone();
         new_dslfn.partial_args.push(arg.clone());
         if new_dslfn.partial_args.len() == new_dslfn.arity {
@@ -46,7 +51,7 @@ impl<D: DomainVal> CurriedFn<D> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Val<D: DomainVal> {
     Domain(D),
     PrimFun(CurriedFn<D>), // function ptr, arity, any args that have been partially filled in
@@ -54,15 +59,35 @@ pub enum Val<D: DomainVal> {
 }
 
 /// I'm sure this will come in handy
-pub trait DomainVal: Clone {
+pub trait DomainVal: Clone + fmt::Debug {
 
 }
 
+// todo theres def a better way to do this that doesnt have fallback as a functin pointer. Like
+// todo somehow it should be part of the DomainVal trait. Except how can that trait carry around a big
+// todo hashmap? Then again the fallback will be called almost never so optimizing for prims() makes
+// a fair bit of sense. Hmm I think lazy_static!{} would let you init a hashmap so that you can ref it
+// from fallback() and just not have prims at all.
+// hmm ya thatd be nice and then you could use D::get_val(sym) or something
 pub struct DSL<D: DomainVal> {
     pub prims: HashMap<egg::Symbol, Val<D>>,
+    pub fallback: fn(&egg::Symbol) -> Option<Val<D>>,
+}
+
+impl<D: DomainVal> DSL<D> {
+    pub fn new(prims: HashMap<egg::Symbol, Val<D>>, fallback: fn(&egg::Symbol) -> Option<Val<D>>) -> Self {
+        Self { prims, fallback }
+    }
+    pub fn get(&self, sym: &egg::Symbol) -> Option<Val<D>> {
+        self.prims.get(&sym).cloned().or_else(|| (self.fallback)(sym))
+    }
 }
 
 impl Expr {
+
+    pub fn root(&self) -> Id {
+        Id::from(self.nodes.len()-1)
+    }
 
     pub fn apply<D>(&self, f: &Val<D>, x: &Val<D>, dsl: &DSL<D>) -> Val<D>
     where
@@ -77,6 +102,14 @@ impl Expr {
             }
             _ => panic!("Expected function or closure"),
         }
+    }
+    pub fn eval<D: DomainVal>(
+        &self,
+        env: &[Val<D>],
+        dsl: &DSL<D>,
+    ) -> Val<D>
+    {
+        self.eval_child(self.root(), env, dsl)
     }
 
     pub fn eval_child<D>(
@@ -101,7 +134,7 @@ impl Expr {
                 self.apply(&f_val, &x_val, dsl)
             }
             Lambda::Prim(p) => {
-                match dsl.prims.get(p) {
+                match dsl.get(p) {
                     Some(v) => v.clone(),
                     None => panic!("Prim {} not found",p),
                 }
@@ -299,7 +332,7 @@ impl Display for Expr {
         if self.nodes.is_empty() {
             write!(f, "()")
         } else {
-            self.write_child(Id::from(self.nodes.len()-1), f)
+            self.write_child(self.root(), f)
         }
     }
 }
