@@ -96,9 +96,9 @@ impl Invention {
     fn new(body:Id, arity: usize) -> Invention {
         Invention { body, arity }
     }
-    fn canonicalize(&mut self, egraph: &EGraph) {
-        self.body = egraph.find(self.body);
-    }
+    // fn canonicalize(&mut self, egraph: &EGraph) {
+    //     self.body = egraph.find(self.body);
+    // }
     fn is_canonical(&self, egraph: &mut EGraph) -> bool {
         self.body == egraph.find(self.body)
     }
@@ -131,14 +131,14 @@ impl AppLam {
             args: args,
         }
     }
-    fn canonicalize(&mut self, egraph: &mut EGraph) {
-        self.inv.canonicalize(egraph);
-        for arg in &mut self.args {
-            if !canonical(arg, egraph) {
-                *arg = egraph.find(*arg);
-            }
-        }
-    }
+    // fn canonicalize(&mut self, egraph: &mut EGraph) {
+    //     self.inv.canonicalize(egraph);
+    //     for arg in &mut self.args {
+    //         if !canonical(arg, egraph) {
+    //             *arg = egraph.find(*arg);
+    //         }
+    //     }
+    // }
     fn is_canonical(&self, egraph: &mut EGraph) -> bool {
         self.inv.is_canonical(egraph) &&
         self.args.iter().all(|arg| canonical(arg, egraph))

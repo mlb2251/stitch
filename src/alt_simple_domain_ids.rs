@@ -7,36 +7,20 @@ pub enum Simple {
     Int(i32),
     List(Vec<Simple>),
 }
-impl Simple {
-    pub fn unwrap_int(self) -> i32 {
-        match self {
-            Simple::Int(i) => i,
-            _ => panic!("Simple::unwrap_int: expected Int"),
-        }
-    }
-    pub fn unwrap_list(self) -> Vec<Simple> {
-        match self {
-            Simple::List(l) => l,
-            _ => panic!("Simple::unwrap_list: expected List"),
-        }
-    }
-}
-
 use Simple::*;
 type Val = super::dom_expr::Val<Simple>;
 type DomExpr = super::dom_expr::DomExpr<Simple>;
-// type Result = super::dom_expr::Result<Simple>;
 
-type DSLFn = fn(Vec<Val>, &mut DomExpr) -> Val;
+type DSLFn = fn(&[Id], &mut DomExpr) -> Id;
 
 lazy_static::lazy_static! {
-    static ref PRIMS: HashMap<egg::Symbol, Val> = vec![
+    static ref PRIMS: HashMap<Symbol, Val> = vec![
             ("+".into(), PrimFun(CurriedFn::new("+".into(), 2))),
             ("*".into(), PrimFun(CurriedFn::new("*".into(), 2))),
             ("map".into(), PrimFun(CurriedFn::new("map".into(), 2))),
         ].into_iter().collect();
     
-    static ref FNS: HashMap<egg::Symbol, DSLFn> = vec![
+    static ref FNS: HashMap<Symbol, DSLFn> = vec![
         ("+".into(), add as DSLFn),
         ("*".into(), mul as DSLFn),
         ("map".into(), map as DSLFn),
@@ -71,26 +55,34 @@ impl Domain for Simple {
 
 
 
-fn add(mut args: Vec<Val>, _handle: &mut DomExpr) -> Val {
-    let x = args.remove(0).unwrap_dom().unwrap_int();
-    let y = args.remove(0).unwrap_dom().unwrap_int();
-    Int(x+y).into()
+fn add(args: &[Id], handle: &mut DomExpr) -> Id {
+    if let [Dom(Int(x)), Dom(Int(y))] = handle.get_many(args).as_slice() {
+        handle.add_dom(Int(x+y))
+    } else { panic!("type error: {:?}",args) }
 }
 
-fn mul(mut args: Vec<Val>, _handle: &mut DomExpr) -> Val {
-    let x = args.remove(0).unwrap_dom().unwrap_int();
-    let y = args.remove(0).unwrap_dom().unwrap_int();
-    Int(x*y).into()
+
+
+
+fn mul(args: &[Id], handle: &mut DomExpr) -> Id {
+    if let [Dom(Int(x)), Dom(Int(y))] = handle.get_many(args).as_slice() {
+        handle.add_dom(Int(x*y))
+    } else { panic!("type error: {:?}",args) }
 }
 
-fn map(mut args: Vec<Val>, handle: &mut DomExpr) -> Val {
-    let fn_val = args.remove(0);
-    let xs = args.remove(0).unwrap_dom().unwrap_list();
-    List(
-        xs.into_iter()
-            .map(|x| handle.apply(fn_val.clone(), x.into()).unwrap_dom())
-            .collect()
-    ).into()
+fn map(args: &[Id], handle: &mut DomExpr) -> Id {
+    if let [fn_id, xs_id] = args {
+        if let Dom(List(xs)) = handle[*xs_id].clone() {
+        let res = List(
+            xs.into_iter()
+                .map(|x| handle.add_dom(x)).collect::<Vec<_>>().into_iter()
+                .map(|x| handle.apply(*fn_id, x)).collect::<Vec<_>>().into_iter()
+                .map(|id| handle[id].unwrap_dom())
+                .collect()
+        );
+        handle.add_dom(res)
+    } else { panic!("type error: {:?}",args) }
+    } else { panic!("type error: {:?}",args) }
 }
 
 
