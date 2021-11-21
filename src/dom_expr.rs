@@ -29,7 +29,9 @@ pub struct DomExpr<D: Domain> {
 /// be creating a massive hash table of every object ever seen and then scanning it whenever you have
 /// a new object to make sure it isnt in there. That might not be crazy though? Idk it does seem like
 /// it could be pretty slow and we might want to allow the direct Val method.
-/// Maybe we should just have a PtrDomain<T> that people can easily implement if they implement T: Hash + PartialEq + Eq
+/// todo Maybe we should just have a PtrDomain<T> that people can easily implement if they implement T: Hash + PartialEq + Eq
+/// and then yeah we have some helper functions
+/// todo see the further development of this in my notes
 pub trait DomainData: Debug + Default {}
 
 // some common data types
