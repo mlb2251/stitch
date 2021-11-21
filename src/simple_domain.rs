@@ -71,7 +71,7 @@ fn map(args: &[Val], handle: &mut DomExpr) -> Val {
     if let [fn_val, Dom(List(xs))] = args {
         List(
             xs.iter()
-                .map(|x| handle.apply(fn_val, &Dom(x.clone())))
+                .map(|x| handle.apply(fn_val.clone(), x.clone().into()))
                 .map(|val| val.unwrap_dom())
                 .collect()
         ).into()

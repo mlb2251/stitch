@@ -14,27 +14,16 @@ pub struct DomExpr<D: Domain> {
 
 /// DomainData is attached to the DomExpr so all DSL functions will have a
 /// mut ref to it (through the handle argument).
-/// Motivation: Domain vals get cloned a lot and are required to implement a lot
-/// of traits. This might get annoying if the domain involves particularly expensive/large
-/// amounts of data / very strange data that cant just be passed around normally. Therefore one can instead just put
-/// `Id`s in all the places where a domain value is needed and have a big Vec<obj> as DomainData
-/// that holds the actual objects each Id points to. Then during DSL functions the handle lets you
-/// look up the actual object for a given Id, and also instantiate a new object and return its Id.
-/// Importantly you need to guarantee that Id equality <-> object equality, meaning you need to write
-/// a structural hasher for your domain.
-/// todo Would be great to flesh this idea out and actually write helpers that do most of it for you.
-/// todo Also it'd be interesting to think whether *all* domains should be implemented this way so
-/// all our code would effectively just be passing Ids in places where we currently have Val<D>. That
-/// could be really great as long as we could make a good structural hasher. Note that youd effectively
-/// be creating a massive hash table of every object ever seen and then scanning it whenever you have
-/// a new object to make sure it isnt in there. That might not be crazy though? Idk it does seem like
-/// it could be pretty slow and we might want to allow the direct Val method.
-/// todo Maybe we should just have a PtrDomain<T> that people can easily implement if they implement T: Hash + PartialEq + Eq
-/// and then yeah we have some helper functions
-/// todo see the further development of this in my notes
+/// Motivation: For some complicated domains you could leave Ids as pointers and
+/// have your domaindata be a system to lookup the actual value from teh pointer
+/// (and guarantee no value has multiple pointers so that comparison works by Ids).
+/// Btw, I briefly implemented it so that the whole system worked by these pointers
+/// and it was absolutely miserable, see my notes. But this is here if someone finds
+/// a use for it. Ofc be careful not to break function purity with this but otherwise
+/// be creative :)
 pub trait DomainData: Debug + Default {}
 
-// some common data types
+// some common data types, though generic structs could easily implement it
 impl DomainData for () {}
 impl<K: Debug, V: Debug> DomainData for HashMap<K,V> {}
 impl<T: Debug> DomainData for Vec<T> {}
@@ -79,9 +68,9 @@ impl<D: Domain> CurriedFn<D> {
     /// Feed one more argument into the function, returning a new CurriedFn if
     /// still not all the arguments have been received. Evaluate the function
     /// if all arguments have been received.
-    pub fn apply(&self, arg: &Val<D>, handle: &mut DomExpr<D>) -> Val<D> {
+    pub fn apply(&self, arg: Val<D>, handle: &mut DomExpr<D>) -> Val<D> {
         let mut new_dslfn = self.clone();
-        new_dslfn.partial_args.push(arg.clone());
+        new_dslfn.partial_args.push(arg);
         if new_dslfn.partial_args.len() == new_dslfn.arity {
             D::fn_of_prim(new_dslfn.name) (&new_dslfn.partial_args, handle)
         } else {
@@ -165,13 +154,13 @@ impl<D: Domain> DomExpr<D> {
     }
 
     /// apply a function (Val) to an argument (Val)
-    pub fn apply(&mut self, f: &Val<D>, x: &Val<D>) -> Val<D> {
+    pub fn apply(&mut self, f: Val<D>, x: Val<D>) -> Val<D> {
         match f {
-            Val::PrimFun(f) => f.apply(x, self),
+            Val::PrimFun(f) => f.apply(x.clone(), self),
             Val::LamClosure(f, env) => {
                 let mut new_env = vec![x.clone()];
                 new_env.extend(env.iter().cloned());
-                self.eval_child(*f, &new_env)
+                self.eval_child(f, &new_env)
             }
             _ => panic!("Expected function or closure"),
         }
@@ -204,7 +193,7 @@ impl<D: Domain> DomExpr<D> {
             Lambda::App([f,x]) => {
                 let f_val = self.eval_child(f, env);
                 let x_val = self.eval_child(x, env);
-                self.apply(&f_val, &x_val)
+                self.apply(f_val, x_val)
             }
             Lambda::Prim(p) => {
                 match D::val_of_prim(p) {

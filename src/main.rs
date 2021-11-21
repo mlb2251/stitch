@@ -1086,7 +1086,8 @@ fn simple_test() {
     let e: Expr = "(app (app map (lam (app (app + 1) $0))) $0)".parse().unwrap();
     let mut e: DomExpr<Simple> = e.into();
     println!("{}",e);
-    let res = e.eval(&[Simple::val_of_prim("[1,2,3]".into()).unwrap()]);
+    let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
+    let res = e.eval(&[arg]);
     println!("{:?}",res);
     println!("{}",e.pretty_evals());
 
