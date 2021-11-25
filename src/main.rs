@@ -1079,20 +1079,25 @@ fn programs_info(programs: &Vec<String>) {
 }
 
 
-fn simple_test() {
-    let e: Expr = "(app (app + 1) 2)".parse().unwrap();
-    let mut e: DomExpr<Simple> = e.into();
+fn simple_test() {    
+    let mut e: DomExpr<Simple> = Expr::parse_uncurried("(+ 1 2)").into();
     println!("{}",e);
     let res = e.eval(&[]);
     println!("{:?}",res);
 
-    let e: Expr = "(app (app map (lam (app (app + 1) $0))) $0)".parse().unwrap();
-    let mut e: DomExpr<Simple> = e.into();
+    let mut e: DomExpr<Simple> = Expr::parse_uncurried("(map (lam (+ 1 $0)) $0)").into();
     println!("{}",e);
     let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
     let res = e.eval(&[arg]);
     println!("{:?}",res);
-    println!("{}",e.pretty_evals());
+    // println!("{}",e.pretty_evals());
+
+    let mut e: DomExpr<Simple> = Expr::parse_uncurried("(sum (map (lam (+ 1 $0)) $0))").into();
+    println!("{}",e);
+    let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
+    let res = e.eval(&[arg]);
+    println!("{:?}",res);
+    // println!("{}",e.pretty_evals());
 
 
     // let res = eval::run_with_timeout(

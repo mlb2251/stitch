@@ -8,6 +8,11 @@ pub enum Simple {
     List(Vec<Simple>),
 }
 
+pub enum TSimple {
+    Int,
+    List(Box<TSimple>)
+}
+
 impl Simple {
     pub fn unwrap_int(self) -> Result<i32,VError> {
         match self {
@@ -27,19 +32,22 @@ use Simple::*;
 type Val = super::dom_expr::Val<Simple>;
 type DomExpr = super::dom_expr::DomExpr<Simple>;
 type VResult = super::dom_expr::VResult<Simple>;
+type Type = super::dom_expr::Type<Simple>;
 
 type DSLFn = fn(Vec<Val>, &mut DomExpr) -> VResult;
 
 define_semantics! {
     type Val = Val;
     type DSLFn = DSLFn;
-    "+" = (add, 2),
+    "+" = (add, 2), // Type::Fun(Type::Dom(Int), Type::Dom(Int), Type::Dom(Int))
     "*" = (mul, 2),
-    "map" = (map, 2)
+    "map" = (map, 2), // Fun(Fun(Dom(Int), Dom(Int)), Dom(List(Int)), Dom(List(Int)))
+    "sum" = (sum, 1)
 }
 
 impl Domain for Simple {
     type Data = ();
+    type DomType = TSimple;
     fn val_of_prim(p: egg::Symbol) -> Option<Val> {
         PRIMS.get(&p).cloned().or_else(||
             // starts with digit -> Int
@@ -60,6 +68,12 @@ impl Domain for Simple {
     fn fn_of_prim(p: Symbol) -> DSLFn {
         FUNCS.get(&p).cloned().unwrap_or_else(|| panic!("unknown function primitive: {}", p))
     }
+    // fn type_of_dom_val(v: &Self) -> Type {
+    //     match v {
+    //         Int(_) => Type::Int,
+    //         List(l) => Type::List(Box::new(l.iter().map(|v| type_of_val(v)).collect())),
+    //     }
+    // }
 }
 
 
@@ -85,6 +99,14 @@ fn map(mut args: Vec<Val>, handle: &mut DomExpr) -> VResult {
             .map(|x| handle.apply(fn_val.clone(), x.into()).and_then(|v| v.unwrap_dom()))
             .collect::<Result<_,_>>()?
     ).into())
+}
+
+fn sum(mut args: Vec<Val>, _handle: &mut DomExpr) -> VResult {
+    let xs = args.remove(0).unwrap_dom()?.unwrap_list()?;
+    Ok(Int(xs.into_iter()
+            .map(|x| x.unwrap_int())
+            .sum::<Result<_,_>>()? // result implements sum
+            ).into())
 }
 
 

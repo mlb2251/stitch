@@ -1,6 +1,7 @@
 use egg::*;
 use std::fmt::{self, Formatter, Display, Debug};
 use std::hash::Hash;
+use sexp::{Sexp,Atom};
 
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -133,6 +134,35 @@ impl std::str::FromStr for Expr {
     }
 }
 
+fn to_curried_rec(e: &Sexp) -> Sexp {
+    let app:Sexp = Sexp::Atom(Atom::S("app".into()));
+    match e {
+        Sexp::List(list) => {
+            assert!(list.len() > 1);
+            // recurse on children
+            let list: Vec<Sexp> = list.iter().map(|e| to_curried_rec(e)).collect();
+            match list[0].to_string().as_str() {
+                "lam" => {
+                    Sexp::List(list)
+                },
+                "app" => panic!("already curried"),
+                "programs" => {
+                    Sexp::List(list)
+                }
+                _ => {
+                    // (foo x y) -> (app (app foo x) y)
+                    let mut res = Sexp::List(vec![app.clone(), list[0].clone(), list[1].clone()]);
+                    for item in list.iter().skip(2) {
+                        res = Sexp::List(vec![app.clone(), res, item.clone()])
+                    }
+                    res
+                }
+            }
+        },
+        Sexp::Atom(atom) => Sexp::Atom(atom.clone())
+    }
+}
+
 impl Expr {
     pub fn new(nodes: Vec<Lambda>) -> Self {
         Self { nodes: nodes }
@@ -140,6 +170,14 @@ impl Expr {
     pub fn root(&self) -> Id {
         Id::from(self.nodes.len()-1)
     }
+
+    /// uncurried parser
+    pub fn parse_uncurried(s: &str) -> Self {
+        let sexpr: Sexp = to_curried_rec(&sexp::parse(s).unwrap());
+        sexpr.to_string().parse().unwrap()
+    }
+
+
     pub fn var(i: i32) -> Self {
         Self { nodes: vec![Lambda::Var(i)] }
     }

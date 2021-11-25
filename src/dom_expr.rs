@@ -109,6 +109,11 @@ pub enum Val<D: Domain> {
     LamClosure(Id, Vec<Val<D>>) // body, captured env
 }
 
+pub enum Type<D: Domain> {
+    Dom(D::DomType),
+    Fun(Vec<Type<D>>,Box<Type<D>>),
+}
+
 impl<D: Domain> Val<D> {
     pub fn unwrap_dom(self) -> Result<D,VError> {
         match self {
@@ -135,6 +140,7 @@ impl<D: Domain> From<D> for Val<D> {
 /// wrap them when passing things back out to our system.
 pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     type Data: DomainData;
+    type DomType;
     /// given a primitive's symbol return a runtime Val object. For function primitives
     /// this should return a PrimFun(CurriedFn) object.
     fn val_of_prim(_p: egg::Symbol) -> Option<Val<Self>> {
@@ -151,6 +157,9 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     fn fn_of_prim(_p: egg::Symbol) -> fn(Vec<Val<Self>>, &mut DomExpr<Self>) -> Result<Val<Self>,String> {
         unimplemented!()
     }
+    // fn type_of_dom_val(_v: &Self) -> Type<Self> {
+    //     unimplemented!()
+    // }
 }
 
 impl<D: Domain> DomExpr<D> {
