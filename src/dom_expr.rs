@@ -4,6 +4,26 @@ use egg::*;
 use std::fmt::{self, Formatter, Display, Debug};
 use std::hash::Hash;
 
+/// this macros defines two lazy static variables PRIMS
+/// and FUNCS 
+#[macro_export]
+macro_rules! define_semantics {
+    (   type Val = $val_type:ty;
+        type DSLFn = $dsl_fn_type:ty;
+        $($string:literal = ($fname:ident,$arity:literal) ),*
+    ) => { 
+        lazy_static::lazy_static! {
+        static ref PRIMS: HashMap<egg::Symbol, $val_type> = vec![
+            $(($string.into(), PrimFun(CurriedFn::new($string.into(), $arity)))),*
+            ].into_iter().collect();
+        
+        static ref FUNCS: HashMap<egg::Symbol, $dsl_fn_type> = vec![
+            $(($string.into(), $fname as $dsl_fn_type)),*
+        ].into_iter().collect();
+        }
+    }
+}
+
 
 #[derive(Debug, Clone)]
 pub struct DomExpr<D: Domain> {

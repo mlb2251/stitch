@@ -9,7 +9,10 @@ use serde_json::de::from_reader;
 use std::fs::File;
 use std::fmt::{self, Formatter, Display};
 pub mod expr;
+
+#[macro_use]
 pub mod dom_expr;
+
 use expr::*;
 use dom_expr::*;
 pub mod eval;
