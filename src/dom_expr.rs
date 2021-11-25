@@ -4,6 +4,9 @@ use egg::*;
 use std::fmt::{self, Formatter, Display, Debug};
 use std::hash::Hash;
 
+pub type VResult<D> = Result<Val<D>,VError>;
+pub type VError = String;
+
 /// this macros defines two lazy static variables PRIMS
 /// and FUNCS 
 #[macro_export]
@@ -88,20 +91,16 @@ impl<D: Domain> CurriedFn<D> {
     /// Feed one more argument into the function, returning a new CurriedFn if
     /// still not all the arguments have been received. Evaluate the function
     /// if all arguments have been received.
-    pub fn apply(&self, arg: Val<D>, handle: &mut DomExpr<D>) -> Val<D> {
+    pub fn apply(&self, arg: Val<D>, handle: &mut DomExpr<D>) -> VResult<D> {
         let mut new_dslfn = self.clone();
         new_dslfn.partial_args.push(arg);
         if new_dslfn.partial_args.len() == new_dslfn.arity {
             D::fn_of_prim(new_dslfn.name) (new_dslfn.partial_args, handle)
         } else {
-            Val::PrimFun(new_dslfn)
+            Ok(Val::PrimFun(new_dslfn))
         }
     }
 }
-
-// pub type Result<D> = std::result::Result<Val<D>, String>;
-
-
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Val<D: Domain> {
@@ -111,10 +110,10 @@ pub enum Val<D: Domain> {
 }
 
 impl<D: Domain> Val<D> {
-    pub fn unwrap_dom(self) -> D {
+    pub fn unwrap_dom(self) -> Result<D,VError> {
         match self {
-            Val::Dom(d) => d,
-            _ => panic!("Val::unwrap_dom: not a domain value")
+            Val::Dom(d) => Ok(d),
+            _ => Err("Val::unwrap_dom: not a domain value".into())
         }
     }
 }
@@ -149,7 +148,7 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     /// when applys happen and log them in our Expr.evals, and also it's necessary for
     /// executing LamClosures in order to look up their body Id (and we wouldn't want
     /// LamClosures to carry around full Exprs because that would break the Expr.evals tracking)
-    fn fn_of_prim(_p: egg::Symbol) -> fn(Vec<Val<Self>>, &mut DomExpr<Self>) -> Val<Self> {
+    fn fn_of_prim(_p: egg::Symbol) -> fn(Vec<Val<Self>>, &mut DomExpr<Self>) -> Result<Val<Self>,String> {
         unimplemented!()
     }
 }
@@ -177,7 +176,7 @@ impl<D: Domain> DomExpr<D> {
     }
 
     /// apply a function (Val) to an argument (Val)
-    pub fn apply(&mut self, f: Val<D>, x: Val<D>) -> Val<D> {
+    pub fn apply(&mut self, f: Val<D>, x: Val<D>) -> VResult<D> {
         match f {
             Val::PrimFun(f) => f.apply(x.clone(), self),
             Val::LamClosure(f, env) => {
@@ -192,7 +191,7 @@ impl<D: Domain> DomExpr<D> {
     pub fn eval(
         &mut self,
         env: &[Val<D>],
-    ) -> Val<D> {
+    ) -> VResult<D> {
         self.eval_child(self.expr.root(), env)
     }
 
@@ -201,10 +200,10 @@ impl<D: Domain> DomExpr<D> {
         &mut self,
         child: Id,
         env: &[Val<D>],
-    ) -> Val<D> {
+    ) -> VResult<D> {
         let key = (child, env.to_vec());
         if let Some(val) = self.evals.get(&key).cloned() {
-            return val;
+            return Ok(val);
         }
         let val = match self.expr.nodes[usize::from(child)] {
             Lambda::Var(i) => {
@@ -214,9 +213,9 @@ impl<D: Domain> DomExpr<D> {
                 panic!("attempting to execute a #i ivar")
             }
             Lambda::App([f,x]) => {
-                let f_val = self.eval_child(f, env);
-                let x_val = self.eval_child(x, env);
-                self.apply(f_val, x_val)
+                let f_val = self.eval_child(f, env)?;
+                let x_val = self.eval_child(x, env)?;
+                self.apply(f_val, x_val)?
             }
             Lambda::Prim(p) => {
                 match D::val_of_prim(p) {
@@ -232,6 +231,6 @@ impl<D: Domain> DomExpr<D> {
             }
         };
         self.evals.insert(key, val.clone());
-        val
+        Ok(val)
     }
 }
