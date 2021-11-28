@@ -134,18 +134,19 @@ impl std::str::FromStr for Expr {
     }
 }
 
-fn to_curried_rec(e: &Sexp) -> Sexp {
+fn curry_sexp(e: &Sexp) -> Sexp {
+    // (foo x y) -> (app (app foo x) y)
     let app:Sexp = Sexp::Atom(Atom::S("app".into()));
     match e {
         Sexp::List(list) => {
             assert!(list.len() > 1);
             // recurse on children
-            let list: Vec<Sexp> = list.iter().map(|e| to_curried_rec(e)).collect();
+            let list: Vec<Sexp> = list.iter().map(|e| curry_sexp(e)).collect();
             match list[0].to_string().as_str() {
                 "lam" => {
                     Sexp::List(list)
                 },
-                "app" => panic!("already curried"),
+                "app" => panic!("already curried: {}",e),
                 "programs" => {
                     Sexp::List(list)
                 }
@@ -163,6 +164,55 @@ fn to_curried_rec(e: &Sexp) -> Sexp {
     }
 }
 
+fn uncurry_sexp(e: &Sexp) -> Sexp {
+    // (app (app foo x) y) -> (foo x y)
+    match e {
+        Sexp::List(orig_list) => {
+            assert!(orig_list.len() > 1);
+            // recurse on children
+            let uncurried_children: Vec<Sexp> = orig_list.iter().map(|e| uncurry_sexp(e)).collect();
+            match uncurried_children[0].to_string().as_str() {
+                "lam" => {
+                    Sexp::List(uncurried_children)
+                },
+                "app" =>  {
+                    // (app (app foo x) y) -> (foo x y)
+                    assert_eq!(uncurried_children.len(), 3);
+
+                    // see if `f` is also an app in which case we'll have to flatten
+                    let has_inner_app = if let Sexp::List(innerlist) = &orig_list[1] {
+                        innerlist[0].to_string().as_str() == "app"
+                    } else { false };
+
+                    let f = uncurried_children[1].clone();
+                    let x = uncurried_children[2].clone();
+                    
+                    let mut res = vec![];
+
+                    if has_inner_app {
+                        match f {
+                            Sexp::List(list) => { res.extend(list) }
+                            _ => panic!("expected list, got {}", f)
+                        }
+                    } else {
+                        res.push(f);
+                    }
+                    res.push(x);
+                    Sexp::List(res)
+                },
+                "programs" => {
+                    Sexp::List(uncurried_children)
+                }
+                _ => {
+                    panic!("not curried {}",e);
+                }
+            }
+        },
+        Sexp::Atom(atom) => Sexp::Atom(atom.clone())
+    }
+}
+
+
 impl Expr {
     pub fn new(nodes: Vec<Lambda>) -> Self {
         Self { nodes: nodes }
@@ -173,10 +223,13 @@ impl Expr {
 
     /// uncurried parser
     pub fn parse_uncurried(s: &str) -> Self {
-        let sexpr: Sexp = to_curried_rec(&sexp::parse(s).unwrap());
+        let sexpr: Sexp = curry_sexp(&sexp::parse(s).unwrap());
         sexpr.to_string().parse().unwrap()
     }
 
+    pub fn to_string_uncurried(&self) -> String {
+        uncurry_sexp(&sexp::parse(&self.to_string()).unwrap()).to_string()
+    }
 
     pub fn var(i: i32) -> Self {
         Self { nodes: vec![Lambda::Var(i)] }

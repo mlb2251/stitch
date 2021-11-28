@@ -1097,6 +1097,7 @@ fn simple_test() {
     let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
     let res = e.eval(&[arg]);
     println!("{:?}",res);
+    // println!("{}",res.clone().unwrap().unwrap_dom().unwrap().unwrap_int().unwrap());
     // println!("{}",e.pretty_evals());
 
 
@@ -1105,7 +1106,6 @@ fn simple_test() {
     //     (e,&[]),
     //     std::time::Duration::from_millis(100)
     // );
-    println!("{:?}",res);
     panic!("done")
 }
 
