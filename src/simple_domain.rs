@@ -34,7 +34,7 @@ type DomExpr = super::dom_expr::DomExpr<Simple>;
 type VResult = super::dom_expr::VResult<Simple>;
 type Type = super::dom_expr::Type<Simple>;
 
-type DSLFn = fn(Vec<Val>, &mut DomExpr) -> VResult;
+type DSLFn = fn(Vec<Val>, &DomExpr) -> VResult;
 
 define_semantics! {
     type Val = Val;
@@ -79,19 +79,19 @@ impl Domain for Simple {
 
 
 
-fn add(mut args: Vec<Val>, _handle: &mut DomExpr) -> VResult {
+fn add(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
     let x = args.remove(0).unwrap_dom()?.unwrap_int()?;
     let y = args.remove(0).unwrap_dom()?.unwrap_int()?;
     Ok(Int(x+y).into())
 }
 
-fn mul(mut args: Vec<Val>, _handle: &mut DomExpr) -> VResult {
+fn mul(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
     let x = args.remove(0).unwrap_dom()?.unwrap_int()?;
     let y = args.remove(0).unwrap_dom()?.unwrap_int()?;
     Ok(Int(x*y).into())
 }
 
-fn map(mut args: Vec<Val>, handle: &mut DomExpr) -> VResult {
+fn map(mut args: Vec<Val>, handle: &DomExpr) -> VResult {
     let fn_val = args.remove(0);
     let xs = args.remove(0).unwrap_dom()?.unwrap_list()?;
     Ok(List(
@@ -101,7 +101,7 @@ fn map(mut args: Vec<Val>, handle: &mut DomExpr) -> VResult {
     ).into())
 }
 
-fn sum(mut args: Vec<Val>, _handle: &mut DomExpr) -> VResult {
+fn sum(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
     let xs = args.remove(0).unwrap_dom()?.unwrap_list()?;
     Ok(Int(xs.into_iter()
             .map(|x| x.unwrap_int())

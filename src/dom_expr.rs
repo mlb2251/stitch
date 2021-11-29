@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use egg::*;
 use std::fmt::{self, Formatter, Display, Debug};
 use std::hash::Hash;
+use std::cell::RefCell;
 
 pub type VResult<D> = Result<Val<D>,VError>;
 pub type VError = String;
@@ -31,16 +32,16 @@ macro_rules! define_semantics {
 #[derive(Debug, Clone)]
 pub struct DomExpr<D: Domain> {
     pub expr: Expr,
-    pub evals: HashMap<(Id,Vec<Val<D>>), Val<D>>, // from (node,env) to result
-    pub data: D::Data,
+    pub evals: RefCell<HashMap<(Id,Vec<Val<D>>), Val<D>>>, // from (node,env) to result
+    pub data: RefCell<D::Data>,
 }
 
 impl<D: Domain> From<Expr> for DomExpr<D> {
     fn from(expr: Expr) -> Self {
         DomExpr {
             expr,
-            evals: HashMap::new(),
-            data: Default::default(),
+            evals: HashMap::new().into(),
+            data: D::Data::default().into(),
         }
     }
 }
@@ -75,7 +76,7 @@ impl<D: Domain> CurriedFn<D> {
     /// Feed one more argument into the function, returning a new CurriedFn if
     /// still not all the arguments have been received. Evaluate the function
     /// if all arguments have been received.
-    pub fn apply(&self, arg: Val<D>, handle: &mut DomExpr<D>) -> VResult<D> {
+    pub fn apply(&self, arg: Val<D>, handle: &DomExpr<D>) -> VResult<D> {
         let mut new_dslfn = self.clone();
         new_dslfn.partial_args.push(arg);
         if new_dslfn.partial_args.len() == new_dslfn.arity {
@@ -142,7 +143,7 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     /// when applys happen and log them in our Expr.evals, and also it's necessary for
     /// executing LamClosures in order to look up their body Id (and we wouldn't want
     /// LamClosures to carry around full Exprs because that would break the Expr.evals tracking)
-    fn fn_of_prim(_p: egg::Symbol) -> fn(Vec<Val<Self>>, &mut DomExpr<Self>) -> Result<Val<Self>,String> {
+    fn fn_of_prim(_p: egg::Symbol) -> fn(Vec<Val<Self>>, &DomExpr<Self>) -> Result<Val<Self>,String> {
         unimplemented!()
     }
     // fn type_of_dom_val(_v: &Self) -> Type<Self> {
@@ -167,13 +168,14 @@ impl<D: Domain> DomExpr<D> {
 
     /// gets vec of (env,result) pairs for all the envs this node has been evaluated under
     pub fn evals_of_node(&self, node: Id) -> Vec<(Vec<Val<D>>,Val<D>)> {
-        let flat: Vec<(&(Id,_),_)> = self.evals.iter().collect();
-        flat.iter()
-            .filter(|((id,_env),_res)| *id == node).map(|((_id,env),res)| (env.clone(),(*res).clone())).collect()
+        self.evals.borrow().iter()
+            .filter(|((id,_env),_res)| *id == node)
+            .map(|((_id,env),res)| (env.clone(),(*res).clone()))
+            .collect()
     }
 
     /// apply a function (Val) to an argument (Val)
-    pub fn apply(&mut self, f: Val<D>, x: Val<D>) -> VResult<D> {
+    pub fn apply(&self, f: Val<D>, x: Val<D>) -> VResult<D> {
         match f {
             Val::PrimFun(f) => f.apply(x.clone(), self),
             Val::LamClosure(f, env) => {
@@ -186,7 +188,7 @@ impl<D: Domain> DomExpr<D> {
     }
     /// eval the Expr in an environment
     pub fn eval(
-        &mut self,
+        &self,
         env: &[Val<D>],
     ) -> VResult<D> {
         self.eval_child(self.expr.root(), env)
@@ -194,12 +196,12 @@ impl<D: Domain> DomExpr<D> {
 
     /// eval a subexpression in an environment
     pub fn eval_child(
-        &mut self,
+        &self,
         child: Id,
         env: &[Val<D>],
     ) -> VResult<D> {
         let key = (child, env.to_vec());
-        if let Some(val) = self.evals.get(&key).cloned() {
+        if let Some(val) = self.evals.borrow().get(&key).cloned() {
             return Ok(val);
         }
         let val = match self.expr.nodes[usize::from(child)] {
@@ -224,10 +226,10 @@ impl<D: Domain> DomExpr<D> {
                 Val::LamClosure(b, env.to_vec())
             }
             Lambda::Programs(_) => {
-                panic!("not implemented")
+                panic!("todo implement")
             }
         };
-        self.evals.insert(key, val.clone());
+        self.evals.borrow_mut().insert(key, val.clone());
         Ok(val)
     }
 }
