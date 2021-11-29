@@ -214,6 +214,11 @@ fn uncurry_sexp(e: &Sexp) -> Sexp {
 
 
 impl Expr {
+    // pub fn eval<D: super::dom_expr::Domain>(&self) {
+    //     let domexpr: super::dom_expr::DomExpr<D> = self.clone().into();
+    //     domexpr.eval();
+    // }
+
     pub fn new(nodes: Vec<Lambda>) -> Self {
         Self { nodes: nodes }
     }

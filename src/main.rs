@@ -1079,24 +1079,45 @@ fn programs_info(programs: &Vec<String>) {
 }
 
 
-fn simple_test() {    
-    let mut e: DomExpr<Simple> = Expr::parse_uncurried("(+ 1 2)").into();
+fn simple_test() {
+    let e: DomExpr<Simple> = Expr::parse_uncurried("(+ 1 2)").into();
     println!("{}",e);
-    let res = e.eval(&[]);
-    println!("{:?}",res);
+    let res = e.eval(&[]).unwrap().0.unwrap();
+    println!("-> {:?}",res);
+    assert_eq!(res.dom().unwrap().int().unwrap(),3);
 
-    let mut e: DomExpr<Simple> = Expr::parse_uncurried("(map (lam (+ 1 $0)) $0)").into();
+    let e: DomExpr<Simple> = Expr::parse_uncurried("(map (lam (+ 1 $0)) $0)").into();
     println!("{}",e);
     let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
-    let res = e.eval(&[arg]);
-    println!("{:?}",res);
+    let res = e.eval(&[arg]).unwrap().0.unwrap();
+    println!("-> {:?}",res);
+    assert_eq!(res.dom().unwrap().list().unwrap().iter().map(|v|v.clone().int().unwrap()).collect::<Vec<_>>(),vec![2,3,4]);
     // println!("{}",e.pretty_evals());
 
-    let mut e: DomExpr<Simple> = Expr::parse_uncurried("(sum (map (lam (+ 1 $0)) $0))").into();
+    let e: DomExpr<Simple> = Expr::parse_uncurried("(sum (map (lam (+ 1 $0)) $0))").into();
     println!("{}",e);
     let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
-    let res = e.eval(&[arg]);
-    println!("{:?}",res);
+    let res = e.eval(&[arg]).unwrap().0.unwrap();
+    println!("-> {:?}",res);
+    assert_eq!(res.dom().unwrap().int().unwrap(),9);
+
+    let e: DomExpr<Simple> = Expr::parse_uncurried("(map (lam (* $0 $0)) (map (lam (+ 1 $0)) $0))").into();
+    println!("{}",e);
+    let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
+    let res = e.eval(&[arg]).unwrap().0.unwrap();
+    println!("-> {:?}",res);
+    assert_eq!(res.dom().unwrap().list().unwrap().iter().map(|v|v.clone().int().unwrap()).collect::<Vec<_>>(),vec![4,9,16]);
+    
+
+    let e: DomExpr<Simple> = Expr::parse_uncurried("(map (lam (* $0 $0)) (map (lam (+ (sum $1) $0)) $0))").into();
+    println!("{}",e);
+    let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
+    let res = e.eval(&[arg]).unwrap().0.unwrap();
+    println!("-> {:?}",res);
+    assert_eq!(res.dom().unwrap().list().unwrap().iter().map(|v|v.clone().int().unwrap()).collect::<Vec<_>>(),vec![49,64,81]);
+
+
+
     // println!("{}",res.clone().unwrap().unwrap_dom().unwrap().unwrap_int().unwrap());
     // println!("{}",e.pretty_evals());
 
@@ -1106,7 +1127,7 @@ fn simple_test() {
     //     (e,&[]),
     //     std::time::Duration::from_millis(100)
     // );
-    panic!("done")
+    panic!("done");
 }
 
 fn main() {

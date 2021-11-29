@@ -14,13 +14,13 @@ pub enum TSimple {
 }
 
 impl Simple {
-    pub fn unwrap_int(self) -> Result<i32,VError> {
+    pub fn int(self) -> Result<i32,VError> {
         match self {
             Simple::Int(i) => Ok(i),
             _ => Err("Simple::unwrap_int: expected Int".into()),
         }
     }
-    pub fn unwrap_list(self) -> Result<Vec<Simple>,VError> {
+    pub fn list(self) -> Result<Vec<Simple>,VError> {
         match self {
             Simple::List(l) => Ok(l),
             _ => Err("Simple::unwrap_list: expected List".into()),
@@ -80,31 +80,31 @@ impl Domain for Simple {
 
 
 fn add(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
-    let x = args.remove(0).unwrap_dom()?.unwrap_int()?;
-    let y = args.remove(0).unwrap_dom()?.unwrap_int()?;
+    let x = args.remove(0).dom()?.int()?;
+    let y = args.remove(0).dom()?.int()?;
     Ok(Int(x+y).into())
 }
 
 fn mul(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
-    let x = args.remove(0).unwrap_dom()?.unwrap_int()?;
-    let y = args.remove(0).unwrap_dom()?.unwrap_int()?;
+    let x = args.remove(0).dom()?.int()?;
+    let y = args.remove(0).dom()?.int()?;
     Ok(Int(x*y).into())
 }
 
 fn map(mut args: Vec<Val>, handle: &DomExpr) -> VResult {
     let fn_val = args.remove(0);
-    let xs = args.remove(0).unwrap_dom()?.unwrap_list()?;
+    let xs = args.remove(0).dom()?.list()?;
     Ok(List(
         xs.into_iter()
-            .map(|x| handle.apply(fn_val.clone(), x.into()).and_then(|v| v.unwrap_dom()))
+            .map(|x| handle.apply(fn_val.clone(), x.into()).and_then(|v| v.dom()))
             .collect::<Result<_,_>>()?
     ).into())
 }
 
 fn sum(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
-    let xs = args.remove(0).unwrap_dom()?.unwrap_list()?;
+    let xs = args.remove(0).dom()?.list()?;
     Ok(Int(xs.into_iter()
-            .map(|x| x.unwrap_int())
+            .map(|x| x.int())
             .sum::<Result<_,_>>()? // result implements sum
             ).into())
 }

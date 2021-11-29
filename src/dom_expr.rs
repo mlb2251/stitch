@@ -100,7 +100,7 @@ pub enum Type<D: Domain> {
 }
 
 impl<D: Domain> Val<D> {
-    pub fn unwrap_dom(self) -> Result<D,VError> {
+    pub fn dom(self) -> Result<D,VError> {
         match self {
             Val::Dom(d) => Ok(d),
             _ => Err("Val::unwrap_dom: not a domain value".into())
@@ -188,10 +188,23 @@ impl<D: Domain> DomExpr<D> {
     }
     /// eval the Expr in an environment
     pub fn eval(
-        &self,
+        self,
         env: &[Val<D>],
-    ) -> VResult<D> {
-        self.eval_child(self.expr.root(), env)
+    ) -> Result<(VResult<D>,Self),String> {
+        let res = std::panic::catch_unwind(
+            std::panic::AssertUnwindSafe( // todo see my notes unsure what to do about this
+                move||{
+                    let vres = self.eval_child(self.expr.root(), env);
+                    (vres,self)
+                }
+            )
+        );
+        match res {
+            Ok(res) => Ok(res),
+            Err(e) => {
+                Err(format!("panic: {:?}",e))
+            }
+        }
     }
 
     /// eval a subexpression in an environment
