@@ -35,22 +35,6 @@ pub struct DomExpr<D: Domain> {
     pub data: D::Data,
 }
 
-/// DomainData is attached to the DomExpr so all DSL functions will have a
-/// mut ref to it (through the handle argument).
-/// Motivation: For some complicated domains you could leave Ids as pointers and
-/// have your domaindata be a system to lookup the actual value from the pointer
-/// (and guarantee no value has multiple pointers so that comparison works by Ids).
-/// Btw, I briefly implemented it so that the whole system worked by these pointers
-/// and it was absolutely miserable, see my notes. But this is here if someone finds
-/// a use for it. Ofc be careful not to break function purity with this but otherwise
-/// be creative :)
-pub trait DomainData: Debug + Default {}
-
-// some common data types, though generic structs could easily implement it
-impl DomainData for () {}
-impl<K: Debug, V: Debug> DomainData for HashMap<K,V> {}
-impl<T: Debug> DomainData for Vec<T> {}
-
 impl<D: Domain> From<Expr> for DomExpr<D> {
     fn from(expr: Expr) -> Self {
         DomExpr {
@@ -129,18 +113,22 @@ impl<D: Domain> From<D> for Val<D> {
 }
 
 
-/// todo unsure if we should require PartialEq Eq Hash
-/// in particular Eq is the big one since f64 doesnt implement it. But in order
-/// to use HashMaps (or even search for elements in Vecs) we need it. I think
-/// it's fair to require this since itll let us do a LOT more generic algorithms that
-/// work with the domain semantics. And if someone really wants f64s and know that
-/// they wont be NaN they can make a f64_noNaN type with From<f64> that panics on NaN
-/// and impl Eq for that, then whenever constructing a value variant that uses floats
-/// just do a .into() on it. So they can use f64s within their logic and just need to
-/// wrap them when passing things back out to our system.
+
+/// The key trait that defines a domain
 pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
-    type Data: DomainData;
-    type DomType;
+    /// Domain::Data is attached to the DomExpr so all DSL functions will have a
+    /// mut ref to it (through the handle argument). Feel free to make it the empty
+    /// tuple if you dont need it.
+    /// Motivation: For some complicated domains you could leave Ids as pointers and
+    /// have your domaindata be a system to lookup the actual value from the pointer
+    /// (and guarantee no value has multiple pointers so that comparison works by Ids).
+    /// Btw, I briefly implemented it so that the whole system worked by these pointers
+    /// and it was absolutely miserable, see my notes. But this is here if someone finds
+    /// a use for it. Ofc be careful not to break function purity with this but otherwise
+    /// be creative :)
+    type Data: Debug + Default;
+    /// Domain::DomType is the type of Domain values.
+    type DomType; // todo not yet used for anything
     /// given a primitive's symbol return a runtime Val object. For function primitives
     /// this should return a PrimFun(CurriedFn) object.
     fn val_of_prim(_p: egg::Symbol) -> Option<Val<Self>> {
