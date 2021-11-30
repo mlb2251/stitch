@@ -5,7 +5,7 @@ use egg::*;
 #[derive(Clone,Debug, PartialEq, Eq, Hash)]
 pub enum Simple {
     Int(i32),
-    List(Vec<Val>), // todo change to Val since thats how foralls work
+    List(Vec<Val>),
 }
 
 pub enum TSimple {
@@ -21,6 +21,10 @@ type Type = super::dom_expr::Type<Simple>;
 type DSLFn = fn(Vec<Val>, &DomExpr) -> VResult;
 
 
+/// From<Val> impls are needed for unwrapping values. We can assume the program
+/// has been type checked so it's okay to panic if the type is wrong. Each val variant
+/// must map to exactly one unwrapped type (though it doesnt need to be one to one in the
+/// other direction)
 impl From<Val> for i32 {
     fn from(v: Val) -> Self {
         match v {
@@ -38,24 +42,18 @@ impl<T: From<Val>> From<Val> for Vec<T> {
     }
 }
 
-
-
-
-impl Simple {
-    // pub fn int(self) -> Result<i32,VError> {
-    //     match self {
-    //         Simple::Int(i) => Ok(i),
-    //         _ => Err("Simple::unwrap_int: expected Int".into()),
-    //     }
-    // }
-    // pub fn list(self) -> Result<Vec<Simple>,VError> {
-    //     match self {
-    //         Simple::List(l) => Ok(l),
-    //         _ => Err("Simple::unwrap_list: expected List".into()),
-    //     }
-    // }
+/// These Into<Val>s are convenience functions. It's okay if theres not a one to one mapping
+/// like this in all domains - it just makes .into() save us a lot of work if there is.
+impl Into<Val> for i32 {
+    fn into(self) -> Val {
+        Dom(Simple::Int(self))
+    }
 }
-
+impl<T: Into<Val>> Into<Val> for Vec<T> {
+    fn into(self) -> Val {
+        Dom(Simple::List(self.into_iter().map(|v| v.into()).collect()))
+    }
+}
 
 define_semantics! {
     type Val = Val;
@@ -111,34 +109,30 @@ impl Domain for Simple {
 //     Ok(Int(x+y).into())
 // }
 
-
-
-
 fn add(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
     let x:i32 = args.remove(0).into();
     let y:i32 = args.remove(0).into();
-    Ok(Int(x+y).into())
+    Ok((x+y).into())
 }
 
 fn mul(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
     let x: i32 = args.remove(0).into();
     let y: i32 = args.remove(0).into();
-    Ok(Int(x*y).into())
+    Ok((x*y).into())
 }
 
 fn map(mut args: Vec<Val>, handle: &DomExpr) -> VResult {
     let fn_val = args.remove(0);
     let xs: Vec<Val> = args.remove(0).into();
-    Ok(List(
-        xs.into_iter()
-            .map(|x| handle.apply(&fn_val, x.into()))
-            .collect::<Result<_,_>>()?
-    ).into())
+    Ok(xs.into_iter()
+        .map(|x| handle.apply(&fn_val, x.into()))
+        .collect::<Result<Vec<Val>,_>>()?
+        .into())
 }
 
 fn sum(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
     let xs: Vec<i32> = args.remove(0).into();
-    Ok(Int(xs.iter().sum::<i32>().into()).into())
+    Ok(xs.iter().sum::<i32>().into())
 }
 
 
