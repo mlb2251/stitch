@@ -175,13 +175,13 @@ impl<D: Domain> DomExpr<D> {
     }
 
     /// apply a function (Val) to an argument (Val)
-    pub fn apply(&self, f: Val<D>, x: Val<D>) -> VResult<D> {
+    pub fn apply(&self, f: &Val<D>, x: Val<D>) -> VResult<D> {
         match f {
             Val::PrimFun(f) => f.apply(x.clone(), self),
             Val::LamClosure(f, env) => {
                 let mut new_env = vec![x.clone()];
                 new_env.extend(env.iter().cloned());
-                self.eval_child(f, &new_env)
+                self.eval_child(*f, &new_env)
             }
             _ => panic!("Expected function or closure"),
         }
@@ -227,7 +227,7 @@ impl<D: Domain> DomExpr<D> {
             Lambda::App([f,x]) => {
                 let f_val = self.eval_child(f, env)?;
                 let x_val = self.eval_child(x, env)?;
-                self.apply(f_val, x_val)?
+                self.apply(&f_val, x_val)?
             }
             Lambda::Prim(p) => {
                 match D::val_of_prim(p) {

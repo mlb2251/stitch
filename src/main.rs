@@ -79,7 +79,7 @@ struct Data {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 struct Invention {
-    body:Id, // this will be a subtree which can have IVars
+    body:Id, // this will be a sub–tree which can have IVars
     arity: usize // also equivalent to max ivar in subtree + 1
 }
 
@@ -1084,14 +1084,14 @@ fn simple_test() {
     println!("{}",e);
     let res = e.eval(&[]).unwrap().0.unwrap();
     println!("-> {:?}",res);
-    assert_eq!(res.dom().unwrap().int().unwrap(),3);
+    assert_eq!(i32::from(res),3);
 
     let e: DomExpr<Simple> = Expr::parse_uncurried("(map (lam (+ 1 $0)) $0)").into();
     println!("{}",e);
     let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
     let res = e.eval(&[arg]).unwrap().0.unwrap();
     println!("-> {:?}",res);
-    assert_eq!(res.dom().unwrap().list().unwrap().iter().map(|v|v.clone().int().unwrap()).collect::<Vec<_>>(),vec![2,3,4]);
+    assert_eq!(<Vec<i32>>::from(res),vec![2,3,4]);
     // println!("{}",e.pretty_evals());
 
     let e: DomExpr<Simple> = Expr::parse_uncurried("(sum (map (lam (+ 1 $0)) $0))").into();
@@ -1099,14 +1099,14 @@ fn simple_test() {
     let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
     let res = e.eval(&[arg]).unwrap().0.unwrap();
     println!("-> {:?}",res);
-    assert_eq!(res.dom().unwrap().int().unwrap(),9);
+    assert_eq!(i32::from(res),9);
 
     let e: DomExpr<Simple> = Expr::parse_uncurried("(map (lam (* $0 $0)) (map (lam (+ 1 $0)) $0))").into();
     println!("{}",e);
     let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
     let res = e.eval(&[arg]).unwrap().0.unwrap();
     println!("-> {:?}",res);
-    assert_eq!(res.dom().unwrap().list().unwrap().iter().map(|v|v.clone().int().unwrap()).collect::<Vec<_>>(),vec![4,9,16]);
+    assert_eq!(<Vec<i32>>::from(res),vec![4,9,16]);
     
 
     let e: DomExpr<Simple> = Expr::parse_uncurried("(map (lam (* $0 $0)) (map (lam (+ (sum $1) $0)) $0))").into();
@@ -1114,7 +1114,7 @@ fn simple_test() {
     let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
     let res = e.eval(&[arg]).unwrap().0.unwrap();
     println!("-> {:?}",res);
-    assert_eq!(res.dom().unwrap().list().unwrap().iter().map(|v|v.clone().int().unwrap()).collect::<Vec<_>>(),vec![49,64,81]);
+    assert_eq!(<Vec<i32>>::from(res),vec![49,64,81]);
 
 
 
