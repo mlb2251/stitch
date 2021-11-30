@@ -28,6 +28,15 @@ macro_rules! define_semantics {
     }
 }
 
+#[macro_export]
+macro_rules! load_args {
+    (   $args:expr,
+        $($name:ident : $type:ty ),*
+    ) => { 
+        $(let $name:$type = $args.remove(0).into();)*
+    }
+}
+
 
 #[derive(Debug, Clone)]
 pub struct DomExpr<D: Domain> {

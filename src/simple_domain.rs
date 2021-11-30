@@ -95,43 +95,26 @@ impl Domain for Simple {
     // }
 }
 
-// option 1: macros for loading
-// must handle stuff like Simple::Int Simple::List (ie polymorphic) and Val::Func
-// fn add(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
-//     let x = load_arg!(Simple::Int, args); // macro auto derefs the Dom bit via case analysis
-//     let y = load_arg!(Type::Func, args);
-//     Ok(Int(x+y).into())
-// }
-
-// option 2: move the type sig into the macro allowing for a more natural signature.
-// #[dslfn(Simple::Int, Type::List)]
-// fn add(x:i32, y:i32, _handle: &DomExpr) -> VResult {
-//     Ok(Int(x+y).into())
-// }
-
 fn add(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
-    let x:i32 = args.remove(0).into();
-    let y:i32 = args.remove(0).into();
+    load_args!(args, x:i32, y:i32);
     Ok((x+y).into())
 }
 
 fn mul(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
-    let x: i32 = args.remove(0).into();
-    let y: i32 = args.remove(0).into();
+    load_args!(args, x:i32, y:i32);
     Ok((x*y).into())
 }
 
 fn map(mut args: Vec<Val>, handle: &DomExpr) -> VResult {
-    let fn_val = args.remove(0);
-    let xs: Vec<Val> = args.remove(0).into();
+    load_args!(args, fn_val: Val, xs: Vec<Val>);
     Ok(xs.into_iter()
-        .map(|x| handle.apply(&fn_val, x.into()))
+        .map(|x| handle.apply(&fn_val, x))
         .collect::<Result<Vec<Val>,_>>()?
         .into())
 }
 
 fn sum(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
-    let xs: Vec<i32> = args.remove(0).into();
+    load_args!(args, xs: Vec<i32>);
     Ok(xs.iter().sum::<i32>().into())
 }
 
