@@ -37,6 +37,10 @@ macro_rules! load_args {
     }
 }
 
+pub fn ok<T: Into<Val<D>> , D:Domain>(v: T) -> VResult<D> {
+    Ok(v.into())
+}
+
 
 #[derive(Debug, Clone)]
 pub struct DomExpr<D: Domain> {

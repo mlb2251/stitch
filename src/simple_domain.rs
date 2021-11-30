@@ -87,35 +87,28 @@ impl Domain for Simple {
     fn fn_of_prim(p: Symbol) -> DSLFn {
         FUNCS.get(&p).cloned().unwrap_or_else(|| panic!("unknown function primitive: {}", p))
     }
-    // fn type_of_dom_val(v: &Self) -> Type {
-    //     match v {
-    //         Int(_) => Type::Int,
-    //         List(l) => Type::List(Box::new(l.iter().map(|v| type_of_val(v)).collect())),
-    //     }
-    // }
 }
 
 fn add(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
     load_args!(args, x:i32, y:i32);
-    Ok((x+y).into())
+    ok(x+y)
 }
 
 fn mul(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
     load_args!(args, x:i32, y:i32);
-    Ok((x*y).into())
+    ok(x*y)
 }
 
 fn map(mut args: Vec<Val>, handle: &DomExpr) -> VResult {
     load_args!(args, fn_val: Val, xs: Vec<Val>);
-    Ok(xs.into_iter()
+    ok(xs.into_iter()
         .map(|x| handle.apply(&fn_val, x))
-        .collect::<Result<Vec<Val>,_>>()?
-        .into())
+        .collect::<Result<Vec<Val>,_>>()?)
 }
 
 fn sum(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
     load_args!(args, xs: Vec<i32>);
-    Ok(xs.iter().sum::<i32>().into())
+    ok(xs.iter().sum::<i32>())
 }
 
 
