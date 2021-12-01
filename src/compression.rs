@@ -79,7 +79,7 @@ pub struct InventionExpr {
 
 impl Display for InventionExpr {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "([arity={}]: {})", self.arity, self.body)
+        write!(f, "(arity={}: {})", self.arity, self.body)
     }
 }
 
@@ -1004,6 +1004,7 @@ fn compression_step(
     }
 
     let tstart = std::time::Instant::now();
+
     let treenodes: Vec<Id> = toplogical_ordering(programs_id, &egraph);
     // println!("Topological ordering:");
     // treenodes.iter().for_each(|&id| {
@@ -1084,22 +1085,41 @@ pub fn compression(
     programs_expr: &Expr,
     args: &CompressionArgs,
     out_dir: &str,
-) -> (Vec<InventionExpr>,Expr) {
+) -> (Vec<(InventionExpr,String)>,Expr) {
     let mut rewritten: Expr = programs_expr.clone();
-    let mut invs: Vec<InventionExpr> = Default::default();
-    
+    let mut invs: Vec<(InventionExpr,String)> = Default::default();
+    let mut rewrittens: Vec<Expr> = Default::default();
+    let mut cost_improvement: Vec<i32> = Default::default();
+
+    let tstart = std::time::Instant::now();
+
     for i in 0..args.iterations {
         println!("\n=======Iteration {}=======",i);
-        let inv_name = &format!("inv{}",invs.len());
-        if let Some(res) = compression_step(&rewritten, args, out_dir, inv_name) {
+        let inv_name = format!("inv{}",invs.len());
+        if let Some(res) = compression_step(&rewritten, args, out_dir, &inv_name) {
             rewritten = res.rewritten.clone();
             println!("Chose Invention {}: {}\nRewritten (cost={})\n{}", inv_name, res.inv, res.rewritten.cost(), res.rewritten);
-            invs.push(res.inv);
+            invs.push((res.inv,inv_name));
+            rewrittens.push(res.rewritten);
         } else {
             println!("No inventions found at iteration {}",i);
             break;
         }
         
     }
+
+    println!("\n=======Compression Summary=======");
+    println!("Found {} inventions", invs.len());
+    println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(programs_expr,&rewritten), programs_expr.cost(), rewritten.cost());
+    let mut prev_rewritten = programs_expr;
+    for i in 0..invs.len() {
+        let (inv,inv_name) = &invs[i];
+        let rewritten = &rewrittens[i];
+        println!("({:.2}x wrt prev; {:.2}x wrt orig) {}: {}", compression_factor(prev_rewritten, &rewritten), compression_factor(programs_expr, &rewritten), inv_name, inv);
+        prev_rewritten = &rewritten;
+    }
+    println!("Time: {}ms", tstart.elapsed().as_millis());
+
+
     (invs,rewritten)
 }

@@ -142,3 +142,7 @@ where T: From<Val<D>>+ Debug + PartialEq
     let res = e.eval(&args).unwrap();
     assert_eq_val(&res,expected);
 }
+
+pub fn compression_factor(original: &Expr, compressed: &Expr) -> f64 {
+    f64::from(original.cost())/f64::from(compressed.cost())
+}
