@@ -302,6 +302,7 @@ impl Expr {
         uncurry_sexp(&self.to_sexp(self.root())).to_string()
     }
 
+    /// convert to an s expression. Useful for printing / parsing purposes
     pub fn to_sexp(&self, child: Id) -> Sexp {
         let node = &self.nodes[usize::from(child)];
         match node {
