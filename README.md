@@ -12,6 +12,8 @@ Note that `#i` is used for invention args and `$i` for original program args (th
 
 Change `--iterations` to alter how many inventions will be greedily found. Change `--max-arity` to alter the maximum allowed arity of inventions. Arity scaling is very exponential. It should be roughly linear with number of programs but exponential with number of leaf nodes. There are many other data files in the repo, including for example `data/train_200.json` which has 200 programs from the logo domain, the largest being depth ~23 and ~50 leaf nodes.
 
+JSON files should hold a list of strings. The strings can be in curried format like `(app (app + 3) 4)` or uncurried like `(+ 3 4)` it'll handle either seamlessly.
+
 Some relevant files in `src/`
 * `bin/compress.rs` the executable that runs when you do `cargo run --bin=compress`
 * `domains/` domain semantics implementations go here! You don't need this if you are just doing compression without execution/semantics.
