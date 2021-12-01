@@ -1,41 +1,33 @@
-use egg::*;
+use crate::*;
 use std::collections::{HashSet,HashMap};
-use std::path::PathBuf;
-use chrono;
-use serde_json;
-extern crate log;
-use clap::Parser;
-use serde_json::de::from_reader;
-use std::fs::File;
 use std::fmt::{self, Formatter, Display};
-pub mod expr;
+use clap::Parser;
+use std::path::PathBuf;
 
-#[macro_use]
-pub mod dom_expr;
 
-use expr::*;
-use dom_expr::*;
-pub mod eval;
-mod simple_domain;
-use simple_domain::Simple;
-mod egg_utils;
-use egg_utils::*;
 
 /// egg dream
 #[derive(Parser, Debug)]
 #[clap(name = "Dream Egg")]
-struct Args {
+pub struct CompressionArgs {
     /// json file to read compression input programs from
     #[clap(short, long, parse(from_os_str), default_value = "data/train_19.json")]
-    file: PathBuf,
+    pub file: PathBuf,
+
+    /// whether input is curried or uncurried.
+    /// Curried: (app (app + 3) 4)
+    /// Uncurried: (+ 3 4)
+    /// Dreamcoder: ...
+    #[clap(long, default_value = "curried")]
+    pub format: String,
 
     /// Number of iterations to run compression for
-    #[clap(short, long, default_value = "20")]
-    iterations: usize,
+    #[clap(short, long, default_value = "3")]
+    pub iterations: usize,
 
     /// max arity of inventions
     #[clap(short='a', long, default_value = "2")]
-    max_arity: usize,
+    pub max_arity: usize,
 
     /// beam size
     // #[clap(short, long, default_value = "10000000")]
@@ -43,23 +35,23 @@ struct Args {
 
     /// disable caching
     #[clap(long)]
-    no_cache: bool,
+    pub no_cache: bool,
 
     /// whether to render the inventions
     #[clap(long)]
-    render_inventions: bool,
+    pub render_inventions: bool,
 
     /// render the final egraph
     #[clap(long)]
-    render_final: bool,
+    pub render_final: bool,
 
     /// render initial egraph
     #[clap(long)]
-    render_initial: bool,
+    pub render_initial: bool,
 
     /// number of inventions to print - set to 0 if you dont want to print inventions at all
     #[clap(long, default_value="0")]
-    print_inventions: usize,
+    pub print_inventions: usize,
 }
 
 const COST_NONTERMINAL: i32 = 1;
@@ -68,23 +60,23 @@ const COST_TERMINAL: i32 = 100;
 type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
 
 #[derive(Default)]
-struct LambdaAnalysis;
+pub struct LambdaAnalysis;
 
 #[derive(Debug)]
-struct Data {
+pub struct Data {
     upward_refs: HashSet<i32>, // $i vars. "how much higher"
     upward_refs_ivar: HashSet<i32>, // for #i ivars
     inventionless_cost: i32,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-struct Invention {
+pub struct Invention {
     body:Id, // this will be a sub–tree which can have IVars
     arity: usize // also equivalent to max ivar in subtree + 1
 }
 
 #[derive(Debug, Clone)]
-struct InventionExpr {
+pub struct InventionExpr {
     lam_expr: Expr, // invention body but wrapped in lambdas
     arity: usize
 }
@@ -243,7 +235,7 @@ fn extract_under_inv(
             let arg_expr = extract_under_inv(*arg, inv, replace_inv_with, applams_of_treenode, best_inventions_of_treenode, egraph);
             expr = Expr::app(expr,arg_expr);
         }
-        assert_eq!(target_cost,cost_rec(&expr));
+        assert_eq!(target_cost,expr.cost());
         return expr
     }
     
@@ -276,7 +268,7 @@ fn extract_under_inv(
         }
     };
 
-    assert_eq!(target_cost,cost_rec(&expr));
+    assert_eq!(target_cost,expr.cost());
     expr
 }
 
@@ -526,7 +518,7 @@ fn recursive_var_mod_helper(
 }
 
 
-struct ProgramCost {}
+pub struct ProgramCost {}
 
 impl CostFunction<Lambda> for ProgramCost {
     type Cost = i32;
@@ -551,11 +543,7 @@ impl CostFunction<Lambda> for ProgramCost {
     }
 }
 
-fn cost_rec(expr: &Expr) -> i32 {
-    ProgramCost{}.cost_rec(expr.into())
-}
-
-struct ProgramDepth {}
+pub struct ProgramDepth {}
 
 impl CostFunction<Lambda> for ProgramDepth {
     type Cost = i32;
@@ -580,13 +568,7 @@ impl CostFunction<Lambda> for ProgramDepth {
     }
 }
 
-fn depth_rec(expr: &Expr) -> i32 {
-    ProgramDepth{}.cost_rec(expr.into())
-}
 
-fn timestamp() -> String {
-    format!("{}", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"))
-}
 
 fn toplogical_ordering(root: Id, egraph: &EGraph) -> Vec<Id> {
     // returns a Vec of Ids ending in the root Id (ie child first traversal)
@@ -953,7 +935,7 @@ struct CompressionResult {
 /// takes a (programs ...) expr, returns the best Invention and the Expr rewritten under that invention
 fn run_compression_step(
     programs_expr: &Expr,
-    args: &Args,
+    args: &CompressionArgs,
     out_dir: &str,
     new_inv_name: &str,
 ) -> Option<CompressionResult> {
@@ -1005,8 +987,8 @@ fn run_compression_step(
         println!("\nInvention {} {:?} (inv_cost={:?}; rewritten_cost={:?}):\n{}\n Rewritten:\n{}",
             i,
             inv,
-            cost_rec(&inv_expr),
-            cost_rec(&rewritten),
+            inv_expr.cost(),
+            rewritten.cost(),
             inv_expr,
             rewritten,
         );
@@ -1044,9 +1026,9 @@ fn run_compression_step(
     })
 }
 
-fn compression(
+pub fn compression(
     programs_expr: &Expr,
-    args: &Args,
+    args: &CompressionArgs,
     out_dir: &str,
 ) -> (Vec<InventionExpr>,Expr) {
     let mut rewritten: Expr = programs_expr.clone();
@@ -1067,98 +1049,3 @@ fn compression(
     }
     (invs,rewritten)
 }
-
-fn programs_info(programs: &Vec<String>) {
-    let ps: Vec<Expr> = programs.iter().map(|p| p.parse::<Expr>().unwrap()).collect();
-    let max_cost = ps.iter().map(|p| cost_rec(p)).max().unwrap();
-    let max_depth = ps.iter().map(|p| depth_rec(p)).max().unwrap();
-    println!("Programs:");
-    println!("\t num: {}",ps.len());
-    println!("\t max cost: {}",max_cost);
-    println!("\t max depth: {}",max_depth);
-}
-
-
-fn simple_test() {
-    let e: DomExpr<Simple> = Expr::parse_uncurried("(+ 1 2)").into();
-    println!("{}",e);
-    let res = e.eval(&[]).unwrap().0.unwrap();
-    println!("-> {:?}",res);
-    assert_eq!(i32::from(res),3);
-
-    let e: DomExpr<Simple> = Expr::parse_uncurried("(map (lam (+ 1 $0)) $0)").into();
-    println!("{}",e);
-    let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
-    let res = e.eval(&[arg]).unwrap().0.unwrap();
-    println!("-> {:?}",res);
-    assert_eq!(<Vec<i32>>::from(res),vec![2,3,4]);
-    // println!("{}",e.pretty_evals());
-
-    let e: DomExpr<Simple> = Expr::parse_uncurried("(sum (map (lam (+ 1 $0)) $0))").into();
-    println!("{}",e);
-    let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
-    let res = e.eval(&[arg]).unwrap().0.unwrap();
-    println!("-> {:?}",res);
-    assert_eq!(i32::from(res),9);
-
-    let e: DomExpr<Simple> = Expr::parse_uncurried("(map (lam (* $0 $0)) (map (lam (+ 1 $0)) $0))").into();
-    println!("{}",e);
-    let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
-    let res = e.eval(&[arg]).unwrap().0.unwrap();
-    println!("-> {:?}",res);
-    assert_eq!(<Vec<i32>>::from(res),vec![4,9,16]);
-    
-
-    let e: DomExpr<Simple> = Expr::parse_uncurried("(map (lam (* $0 $0)) (map (lam (+ (sum $1) $0)) $0))").into();
-    println!("{}",e);
-    let arg = Simple::val_of_prim("[1,2,3]".into()).unwrap();
-    let res = e.eval(&[arg]).unwrap().0.unwrap();
-    println!("-> {:?}",res);
-    assert_eq!(<Vec<i32>>::from(res),vec![49,64,81]);
-
-
-
-    // println!("{}",res.clone().unwrap().unwrap_dom().unwrap().unwrap_int().unwrap());
-    // println!("{}",e.pretty_evals());
-
-
-    // let res = eval::run_with_timeout(
-    //     |(e,env)|  e.eval::<simple_domain::SimpleVal>(env),
-    //     (e,&[]),
-    //     std::time::Duration::from_millis(100)
-    // );
-    panic!("done");
-}
-
-fn main() {
-    procspawn::init();
-    // eval::test_run();
-
-    env_logger::init();
-
-    simple_test();
-
-    let args: Args = Args::parse();
-
-    // create a new directory for logging outputs
-    let out_dir: String = format!("target/{}",timestamp());
-    let out_dir_p = std::path::Path::new(out_dir.as_str());
-    assert!(!out_dir_p.exists());
-    std::fs::create_dir(out_dir_p).unwrap();
-
-    let programs: Vec<String> = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
-    programs_info(&programs);
-    let programs: String = format!("(programs {})",programs.join(" "));
-
-    assert!(!programs.to_string().contains("(app (lam"),
-        "Normal dreamcoder programs never have unapplied lambdas in them! 
-         Who knows what might happen if you run this. Side note you can probably
-         inline them and it'd be fine (we've got a function for that!) and also
-         who knows maybe it wouldnt be an issue in the first place");
-
-    let programs_expr: Expr = programs.parse().unwrap();
-
-    compression(&programs_expr, &args, &out_dir);
-
-}
-

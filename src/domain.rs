@@ -1,42 +1,14 @@
-use super::expr::*;
+use crate::*;
 use std::collections::HashMap;
-use egg::*;
 use std::fmt::{self, Formatter, Display, Debug};
 use std::hash::Hash;
 use std::cell::RefCell;
 
 pub type VResult<D> = Result<Val<D>,VError>;
 pub type VError = String;
+pub type DSLFn<D> = fn(Vec<Val<D>>, &DomExpr<D>) -> VResult<D>;
 
-/// this macros defines two lazy static variables PRIMS
-/// and FUNCS 
-#[macro_export]
-macro_rules! define_semantics {
-    (   type Val = $val_type:ty;
-        type DSLFn = $dsl_fn_type:ty;
-        $($string:literal = ($fname:ident,$arity:literal) ),*
-    ) => { 
-        lazy_static::lazy_static! {
-        static ref PRIMS: HashMap<egg::Symbol, $val_type> = vec![
-            $(($string.into(), PrimFun(CurriedFn::new($string.into(), $arity)))),*
-            ].into_iter().collect();
-        
-        static ref FUNCS: HashMap<egg::Symbol, $dsl_fn_type> = vec![
-            $(($string.into(), $fname as $dsl_fn_type)),*
-        ].into_iter().collect();
-        }
-    }
-}
-
-#[macro_export]
-macro_rules! load_args {
-    (   $args:expr,
-        $($name:ident : $type:ty ),*
-    ) => { 
-        $(let $name:$type = $args.remove(0).into();)*
-    }
-}
-
+/// convenience function for returning arguments from a DSL function
 pub fn ok<T: Into<Val<D>> , D:Domain>(v: T) -> VResult<D> {
     Ok(v.into())
 }
@@ -59,9 +31,17 @@ impl<D: Domain> From<Expr> for DomExpr<D> {
     }
 }
 
-impl<D: Domain> Display for DomExpr<D> {
+impl<D:Domain> Display for DomExpr<D> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.expr)
+    }
+}
+
+impl<D: Domain> std::str::FromStr for DomExpr<D> {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let expr: Expr = s.parse()?;
+        Ok(expr.into())
     }
 }
 
@@ -93,7 +73,7 @@ impl<D: Domain> CurriedFn<D> {
         let mut new_dslfn = self.clone();
         new_dslfn.partial_args.push(arg);
         if new_dslfn.partial_args.len() == new_dslfn.arity {
-            D::fn_of_prim(new_dslfn.name) (new_dslfn.partial_args, handle)
+            D::fn_of_prim(new_dslfn.name).unwrap() (new_dslfn.partial_args, handle)
         } else {
             Ok(Val::PrimFun(new_dslfn))
         }
@@ -107,10 +87,10 @@ pub enum Val<D: Domain> {
     LamClosure(Id, Vec<Val<D>>) // body, captured env
 }
 
-pub enum Type<D: Domain> {
-    Dom(D::DomType),
-    Fun(Vec<Type<D>>,Box<Type<D>>),
-}
+// pub enum Type<D: Domain> {
+//     Dom(D::DomType),
+//     Fun(Vec<Type<D>>,Box<Type<D>>),
+// }
 
 impl<D: Domain> Val<D> {
     pub fn dom(self) -> Result<D,VError> {
@@ -142,7 +122,7 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     /// be creative :)
     type Data: Debug + Default;
     /// Domain::DomType is the type of Domain values.
-    type DomType; // todo not yet used for anything
+    // type DomType; // todo not yet used for anything
     /// given a primitive's symbol return a runtime Val object. For function primitives
     /// this should return a PrimFun(CurriedFn) object.
     fn val_of_prim(_p: egg::Symbol) -> Option<Val<Self>> {
@@ -156,7 +136,7 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     /// when applys happen and log them in our Expr.evals, and also it's necessary for
     /// executing LamClosures in order to look up their body Id (and we wouldn't want
     /// LamClosures to carry around full Exprs because that would break the Expr.evals tracking)
-    fn fn_of_prim(_p: egg::Symbol) -> fn(Vec<Val<Self>>, &DomExpr<Self>) -> Result<Val<Self>,String> {
+    fn fn_of_prim(_p: egg::Symbol) -> Option<DSLFn<Self>> {
         unimplemented!()
     }
     // fn type_of_dom_val(_v: &Self) -> Type<Self> {
@@ -172,7 +152,7 @@ impl<D: Domain> DomExpr<D> {
             let id = Id::from(id);
             s.push_str(&format!(
                 "\n\t{}:\n\t\t{}",
-                self.expr.to_string_child(id),
+                self.expr.to_string_uncurried(Some(id)),
                 self.evals_of_node(id).iter().map(|(env,res)| format!("{:?} -> {:?}",env,res)).collect::<Vec<_>>().join("\n\t\t")
             ))
         }

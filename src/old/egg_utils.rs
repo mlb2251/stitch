@@ -68,22 +68,7 @@ use egg::*;
 //     egraph.dot().to_png(format!("target/match_{}_2rebuild.png",name)).unwrap();
 // }
 
-pub fn search<L,A>(pat: &str, egraph: &EGraph<L,A>) -> Vec<SearchMatches>
-where 
-    L: Language,
-    A: Analysis<L>
-{
-    let applam:Pattern<L> = pat.parse().unwrap();
-    applam.search(&egraph)
-}
 
-pub fn save<L,A>(egraph: &EGraph<L,A>, name: &str, outdir: &str) 
-where 
-    L: Language,
-    A: Analysis<L>
-{
-    egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
-}
 
 // pub fn rule_map<L,A>() -> HashMap<String,Rewrite<L,A>> 
 // where 
@@ -103,10 +88,3 @@ where
 //     names.iter().map(|name|rule(name)).collect()
 // }
 
-pub fn egraph_info<L,A>(egraph: &EGraph<L,A>) -> String 
-where 
-    L: Language,
-    A: Analysis<L>
-{
-    format!("{} nodes, {} classes, {} memo", egraph.total_number_of_nodes(), egraph.number_of_classes(), egraph.total_size())
-}
