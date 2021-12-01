@@ -17,12 +17,7 @@ fn main() {
     std::fs::create_dir(out_dir_p).unwrap();
 
     let programs: Vec<String> = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
-    let programs: Vec<Expr> = match args.format.as_str() {
-        "uncurried" => programs.iter().map(|p| p.parse().unwrap()).collect(),
-        "curried" => programs.iter().map(|p| p.parse().unwrap()).collect(),
-        "dreamcoder" => unimplemented!(),
-        _ => panic!("unknown format: {}",args.format)
-    };
+    let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
 
     programs_info(&programs);
 

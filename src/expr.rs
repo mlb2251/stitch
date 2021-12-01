@@ -292,18 +292,37 @@ impl Expr {
             None => self.clone(),
             Some(id) => self.cloned_subexpr(id)
         };
-        let recexpr: RecExpr<Lambda> = expr.into();
-        recexpr.to_string()
+        expr.to_sexp(self.root()).to_string()
     }
 
     /// Print Expr as an uncurried string
     /// Uncurried: (foo x y)
     /// Curried: (app (app foo x) y)
     pub fn to_string_uncurried(&self, child:Option<Id>) -> String {
-        let curried_str: String = self.to_string_curried(child);
-        let mut sexpr = sexp::parse(&curried_str).unwrap();
-        sexpr = uncurry_sexp(&sexpr);
-        sexpr.to_string()
+        uncurry_sexp(&self.to_sexp(self.root())).to_string()
+    }
+
+    pub fn to_sexp(&self, child: Id) -> Sexp {
+        let node = &self.nodes[usize::from(child)];
+        match node {
+            Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => sexp::parse(&node.to_string()).unwrap(),
+            Lambda::App([f,x]) => {
+                let f = self.to_sexp(*f);
+                let x = self.to_sexp(*x);
+                let app = Sexp::Atom(sexp::Atom::S("app".to_string()));
+                Sexp::List(vec![app,f,x])
+            },
+            Lambda::Lam([b]) => {
+                let b = self.to_sexp(*b);
+                let lam = Sexp::Atom(sexp::Atom::S("lam".to_string()));
+                Sexp::List(vec![lam,b])
+            },
+            Lambda::Programs(root_ids) => {
+                let mut res = vec![Sexp::Atom(sexp::Atom::S("programs".to_string()))];
+                root_ids.iter().for_each(|id| res.push(self.to_sexp(*id)));
+                Sexp::List(res)
+            }
+        }
     }
 
     /// write the Expr to a file (includes structural hashing sharing)

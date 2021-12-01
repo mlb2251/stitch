@@ -6,20 +6,13 @@ use std::path::PathBuf;
 
 
 
-/// egg dream
+/// Args for compression
 #[derive(Parser, Debug)]
 #[clap(name = "Dream Egg")]
 pub struct CompressionArgs {
     /// json file to read compression input programs from
     #[clap(short, long, parse(from_os_str), default_value = "data/train_19.json")]
     pub file: PathBuf,
-
-    /// whether input is curried or uncurried.
-    /// Curried: (app (app + 3) 4)
-    /// Uncurried: (+ 3 4)
-    /// Dreamcoder: ...
-    #[clap(long, default_value = "curried")]
-    pub format: String,
 
     /// Number of iterations to run compression for
     #[clap(short, long, default_value = "3")]
