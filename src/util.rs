@@ -1,5 +1,6 @@
 use crate::*;
 use sexp::{Sexp,Atom};
+use std::fmt::Debug;
 
 /// Uncurries an s expression. For example: (app (app foo x) y) -> (foo x y)
 /// panics if sexp is already uncurried.
@@ -119,4 +120,25 @@ where
     A: Analysis<L>
 {
     format!("{} nodes, {} classes, {} memo", egraph.total_number_of_nodes(), egraph.number_of_classes(), egraph.total_size())
+}
+
+/// convenience function for returning arguments from a DSL function
+pub fn ok<T: Into<Val<D>> , D:Domain>(v: T) -> VResult<D> {
+    Ok(v.into())
+}
+
+/// convenience function for equality assertions
+pub fn assert_eq_val<D:Domain, T>(v: &Val<D>, o: T)
+where T: From<Val<D>>+ Debug + PartialEq
+{
+    assert_eq!(T::from(v.clone()), o);
+}
+
+/// convenience function for asserting that something executes to what you'd expect
+pub fn assert_execution<D: Domain, T>(expr: &str, args: &[Val<D>], expected: T)
+where T: From<Val<D>>+ Debug + PartialEq
+{
+    let e: Executable<D> = expr.parse().unwrap();
+    let res = e.eval(&args).unwrap();
+    assert_eq_val(&res,expected);
 }

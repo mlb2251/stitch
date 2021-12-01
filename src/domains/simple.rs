@@ -16,7 +16,7 @@ pub enum SimpleVal {
 
 // aliases of various typed specialized to our SimpleVal
 type Val = domain::Val<SimpleVal>;
-type DomExpr = domain::DomExpr<SimpleVal>;
+type Executable = domain::Executable<SimpleVal>;
 type VResult = domain::VResult<SimpleVal>;
 type DSLFn = domain::DSLFn<SimpleVal>;
 
@@ -76,6 +76,14 @@ impl Domain for SimpleVal {
     // we dont use Data here
     type Data = ();
 
+    // we guarantee that our DSL won't loop or panic - that is, treat a panic in a DSL function
+    // as a panic in the whole program. We may often prefer to use WontLoopMayPanic to catch
+    // to catch panics and treat their causes as malformed DSL programs. Finally MayLoopMayPanic
+    // means that DSL functions must be run in a separate process entirely which likely has
+    // performance concerns.
+    // todo investigate runtime impacts of different options
+    const TRUST_LEVEL: TrustLevel = TrustLevel::WontLoopWontPanic;
+
     // val_of_prim takes a symbol like "+" or "0" and returns the corresponding Val.
     // Note that it can largely just be a call to the global hashmap PRIMS that define_semantics generated
     // however you're also free to do any sort of generic parsing you want, allowing for domains with
@@ -110,7 +118,7 @@ impl Domain for SimpleVal {
 // *** DSL FUNCTIONS ***
 // See comments throughout pointing out useful aspects
 
-fn add(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
+fn add(mut args: Vec<Val>, _handle: &Executable) -> VResult {
     // load_args! macro is used to extract the arguments from the args vector. This uses
     // .into() to convert the Val into the appropriate type. For example an int list, which is written
     // as  Dom(List(Vec<Dom(Int)>)), can be .into()'d into a Vec<i32> or a Vec<Val> or a Val.
@@ -123,12 +131,12 @@ fn add(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
     ok(x+y)
 }
 
-fn mul(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
+fn mul(mut args: Vec<Val>, _handle: &Executable) -> VResult {
     load_args!(args, x:i32, y:i32);
     ok(x*y)
 }
 
-fn map(mut args: Vec<Val>, handle: &DomExpr) -> VResult {
+fn map(mut args: Vec<Val>, handle: &Executable) -> VResult {
     load_args!(args, fn_val: Val, xs: Vec<Val>);
     ok(xs.into_iter()
         // sometimes you might want to apply a value that you know is a function to something else. In that
@@ -141,7 +149,7 @@ fn map(mut args: Vec<Val>, handle: &DomExpr) -> VResult {
         .collect::<Result<Vec<Val>,_>>()?)
 }
 
-fn sum(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
+fn sum(mut args: Vec<Val>, _handle: &Executable) -> VResult {
     load_args!(args, xs: Vec<i32>);
     ok(xs.iter().sum::<i32>())
 }
@@ -152,11 +160,24 @@ fn sum(mut args: Vec<Val>, _handle: &DomExpr) -> VResult {
 mod tests {
     use super::*;
 
+    
+
     #[test]
     fn eval_test() {
-        let e: DomExpr = "(+ 1 2)".parse().unwrap();
-        let args: Vec<Val> = vec![];
-        let res = e.eval(&args).unwrap().0.unwrap();
-        assert_eq!(i32::from(res),3);
+
+        assert_execution("(+ 1 2)", &[], 3);
+
+        let arg = SimpleVal::val_of_prim("[1,2,3]".into()).unwrap();
+        assert_execution("(map (lam (+ 1 $0)) $0)", &[arg], vec![2,3,4]);
+
+        let arg = SimpleVal::val_of_prim("[1,2,3]".into()).unwrap();
+        assert_execution("(sum (map (lam (+ 1 $0)) $0))", &[arg], 9);
+
+        let arg = SimpleVal::val_of_prim("[1,2,3]".into()).unwrap();
+        assert_execution("(map (lam (* $0 $0)) (map (lam (+ 1 $0)) $0))", &[arg], vec![4,9,16]);
+
+        let arg = SimpleVal::val_of_prim("[1,2,3]".into()).unwrap();
+        assert_execution("(map (lam (* $0 $0)) (map (lam (+ (sum $1) $0)) $0))", &[arg], vec![49,64,81]);
+
     }
 }

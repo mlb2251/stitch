@@ -4,26 +4,34 @@ use std::fmt::{self, Formatter, Display, Debug};
 use std::hash::Hash;
 use std::cell::RefCell;
 
-pub type VResult<D> = Result<Val<D>,VError>;
-pub type VError = String;
-pub type DSLFn<D> = fn(Vec<Val<D>>, &DomExpr<D>) -> VResult<D>;
 
-/// convenience function for returning arguments from a DSL function
-pub fn ok<T: Into<Val<D>> , D:Domain>(v: T) -> VResult<D> {
-    Ok(v.into())
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Val<D: Domain> {
+    Dom(D),
+    PrimFun(CurriedFn<D>), // function ptr, arity, any args that have been partially filled in
+    LamClosure(Id, Vec<Val<D>>) // body, captured env
 }
 
+pub type VResult<D> = Result<Val<D>,VError>;
+pub type VError = String;
+pub type DSLFn<D> = fn(Vec<Val<D>>, &Executable<D>) -> VResult<D>;
+
+pub enum TrustLevel {
+    MayLoopMayPanic,
+    WontLoopMayPanic,
+    WontLoopWontPanic,
+}
 
 #[derive(Debug, Clone)]
-pub struct DomExpr<D: Domain> {
+pub struct Executable<D: Domain> {
     pub expr: Expr,
     pub evals: RefCell<HashMap<(Id,Vec<Val<D>>), Val<D>>>, // from (node,env) to result
     pub data: RefCell<D::Data>,
 }
 
-impl<D: Domain> From<Expr> for DomExpr<D> {
+impl<D: Domain> From<Expr> for Executable<D> {
     fn from(expr: Expr) -> Self {
-        DomExpr {
+        Executable {
             expr,
             evals: HashMap::new().into(),
             data: D::Data::default().into(),
@@ -31,13 +39,13 @@ impl<D: Domain> From<Expr> for DomExpr<D> {
     }
 }
 
-impl<D:Domain> Display for DomExpr<D> {
+impl<D:Domain> Display for Executable<D> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.expr)
     }
 }
 
-impl<D: Domain> std::str::FromStr for DomExpr<D> {
+impl<D: Domain> std::str::FromStr for Executable<D> {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let expr: Expr = s.parse()?;
@@ -68,8 +76,8 @@ impl<D: Domain> CurriedFn<D> {
     }
     /// Feed one more argument into the function, returning a new CurriedFn if
     /// still not all the arguments have been received. Evaluate the function
-    /// if all arguments have been received.
-    pub fn apply(&self, arg: Val<D>, handle: &DomExpr<D>) -> VResult<D> {
+    /// if all arguments have been received. Does not mutate the original.
+    pub fn apply(&self, arg: Val<D>, handle: &Executable<D>) -> VResult<D> {
         let mut new_dslfn = self.clone();
         new_dslfn.partial_args.push(arg);
         if new_dslfn.partial_args.len() == new_dslfn.arity {
@@ -79,18 +87,6 @@ impl<D: Domain> CurriedFn<D> {
         }
     }
 }
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum Val<D: Domain> {
-    Dom(D),
-    PrimFun(CurriedFn<D>), // function ptr, arity, any args that have been partially filled in
-    LamClosure(Id, Vec<Val<D>>) // body, captured env
-}
-
-// pub enum Type<D: Domain> {
-//     Dom(D::DomType),
-//     Fun(Vec<Type<D>>,Box<Type<D>>),
-// }
 
 impl<D: Domain> Val<D> {
     pub fn dom(self) -> Result<D,VError> {
@@ -110,7 +106,7 @@ impl<D: Domain> From<D> for Val<D> {
 
 /// The key trait that defines a domain
 pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
-    /// Domain::Data is attached to the DomExpr so all DSL functions will have a
+    /// Domain::Data is attached to the Executable so all DSL functions will have a
     /// mut ref to it (through the handle argument). Feel free to make it the empty
     /// tuple if you dont need it.
     /// Motivation: For some complicated domains you could leave Ids as pointers and
@@ -121,8 +117,9 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     /// a use for it. Ofc be careful not to break function purity with this but otherwise
     /// be creative :)
     type Data: Debug + Default;
-    /// Domain::DomType is the type of Domain values.
-    // type DomType; // todo not yet used for anything
+
+    const TRUST_LEVEL: TrustLevel;
+
     /// given a primitive's symbol return a runtime Val object. For function primitives
     /// this should return a PrimFun(CurriedFn) object.
     fn val_of_prim(_p: egg::Symbol) -> Option<Val<Self>> {
@@ -144,7 +141,7 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     // }
 }
 
-impl<D: Domain> DomExpr<D> {
+impl<D: Domain> Executable<D> {
     /// pretty prints the env->result pairs organized by node
     pub fn pretty_evals(&self) -> String {
         let mut s = format!("Evals for {}:",self);
@@ -179,33 +176,44 @@ impl<D: Domain> DomExpr<D> {
             _ => panic!("Expected function or closure"),
         }
     }
-    /// eval the Expr in an environment
-    pub fn eval(
-        self,
-        env: &[Val<D>],
-    ) -> Result<(VResult<D>,Self),String> {
-        let res = std::panic::catch_unwind(
-            std::panic::AssertUnwindSafe( // todo see my notes unsure what to do about this
-                move||{
-                    let vres = self.eval_child(self.expr.root(), env);
-                    (vres,self)
-                }
-            )
-        );
-        match res {
-            Ok(res) => Ok(res),
-            Err(e) => {
-                Err(format!("panic: {:?}",e))
+
+    /// Evaluate the expression with the given environment. If this returns
+    /// an error the whole Executable should be considered poisoned and you
+    /// should not inspect partial results in it. This is because the error
+    /// may have come from a panic that could leave Domain::Data in an invalid
+    /// state depending on how you implement it. Read about `UnwindSafe` in Rust
+    /// for more info. In practice it's probably actually generally safe to do
+    /// whatever you want with the expression.
+    /// 
+    /// You're free to call eval() on nodes multiple times (it caches results), and
+    /// to call it on new environments (itll union all the results together naturally). Just
+    /// beware of the Error case.
+    /// 
+    /// todo I can probably add some refcell bool flag that gets flipped when a panic is caught. Or
+    /// we could have people mark their stuff as UnwindSafe and really understand the risks (which are
+    /// probably nonexistent in most cases and only ever really introduced by Data)
+    pub fn eval(&self, env: &[Val<D>]) -> VResult<D> {
+        match D::TRUST_LEVEL {
+            TrustLevel::WontLoopWontPanic => {
+                self.eval_child(self.expr.root(), env)
+            }
+            TrustLevel::WontLoopMayPanic => {
+                std::panic::catch_unwind( // todo note if running in a separate thread eg when parallelizing you dont need catch_unwind i guess
+                    std::panic::AssertUnwindSafe( // todo see my notes unsure what to do about this
+                        ||self.eval_child(self.expr.root(), env)
+                    )
+                ).map_err(|e| format!("panic: {:?}",e))
+                 .and_then(|res| res) // flattens Result<Result<T,E>,E> -> Result<T,E>
+            }
+            TrustLevel::MayLoopMayPanic => {
+                // todo implement this using run_with_timeout(). Will need to do some Serde stuff but shouldnt be terrible
+                unimplemented!()
             }
         }
     }
 
     /// eval a subexpression in an environment
-    pub fn eval_child(
-        &self,
-        child: Id,
-        env: &[Val<D>],
-    ) -> VResult<D> {
+    pub fn eval_child(&self, child: Id, env: &[Val<D>]) -> VResult<D> {
         let key = (child, env.to_vec());
         if let Some(val) = self.evals.borrow().get(&key).cloned() {
             return Ok(val);
