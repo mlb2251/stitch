@@ -2,8 +2,6 @@
 
 # Quickstart
 
-You may want to use the `stable` branch (`git checkout stable`)
-
 Run `cargo run --bin=compress --release -- -f data/train_19.json --max-arity=2 --iterations=3`
 
 This will run compression on 19 programs from the dreamcoder logo graphics domain. The largest is depth ~11 and has ~10 leaf nodes, and there is a LOT of obvious shared structure if you look at the file. The command should have pulled out the n-sided polygon function first:
