@@ -667,7 +667,8 @@ impl CacheGenerator {
     }
 }
 
-/// result of 
+/// result of beta_inversions(). This struct feels pretty subject to change, it's a bit
+/// of a pain to work with these _of_treenode objects.
 struct InversionResult {
     applams_of_treenode: HashMap<Id,Vec<AppLam>>,
     best_inventions_of_treenode: HashMap<Id,BestInventions>
@@ -676,7 +677,7 @@ struct InversionResult {
 /// This is the main workhorse of compression. Takes a child-first ordering of nodes in an EGraph
 /// (assumed to be acyclic) and finds all the possible useful inventions up to the given arity.
 // #[inline(never)] // for flamegraph debugging
-fn run_inversions(
+fn beta_inversions(
     treenodes: &Vec<Id>,
     max_arity: usize,
     // beam_size: usize,
@@ -730,7 +731,6 @@ fn run_inversions(
                 for f_applam in f_applams.iter() {
                     let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,x]));
                     applams.push(AppLam::new(new_applam_body, f_applam.args.clone()));
-                    debug_assert_eq!(applams.last().unwrap().free_vars(egraph),egraph[*treenode].data.free_vars);                        
                 }
 
                 // bubbling from the right:
@@ -739,7 +739,6 @@ fn run_inversions(
                 for x_applam in x_applams.iter() {
                     let new_applam_body = egraph.add(Lambda::App([f, x_applam.inv.body]));
                     applams.push(AppLam::new(new_applam_body, x_applam.args.clone()));
-                    debug_assert_eq!(applams.last().unwrap().free_vars(egraph), egraph[*treenode].data.free_vars);
                 }
 
                 // println!("f_applam x_applam pairwise product size: {} x {} -> {}",f_applams.len(), x_applams.len(), f_applams.len() * x_applams.len());
@@ -806,7 +805,6 @@ fn run_inversions(
                             let mut new_applam_args = f_applam.args.clone();
                             new_applam_args.extend(new_x_applam_args);
                             applams.push(AppLam::new(new_applam_body, new_applam_args));
-                            debug_assert_eq!(applams.last().unwrap().free_vars(egraph),egraph[*treenode].data.free_vars);                        
                         } else {
                             // no overlap case - no merging, just upshift the x vars and we're done.
                             // We will use the lower indices for f_applam and will upshift x_applam to occupy the higher indices.
@@ -816,7 +814,6 @@ fn run_inversions(
                             let mut new_applam_args = f_applam.args.clone();
                             new_applam_args.extend(x_applam.args.clone());
                             applams.push(AppLam::new(new_applam_body, new_applam_args));
-                            debug_assert_eq!(applams.last().unwrap().free_vars(egraph),egraph[*treenode].data.free_vars);                        
                         };
                     }
                     
@@ -847,7 +844,6 @@ fn run_inversions(
 
                     let new_applam_body = egraph.add(Lambda::Lam([b_applam.inv.body]));
                     applams.push(AppLam::new(new_applam_body, new_args));
-                    debug_assert_eq!(applams.last().unwrap().free_vars(egraph),egraph[*treenode].data.free_vars);                        
                 }
             },
         }
@@ -990,7 +986,7 @@ struct CompressionResult {
 }
 
 /// takes a (programs ...) expr, returns the best Invention and the Expr rewritten under that invention
-fn run_compression_step(
+fn compression_step(
     programs_expr: &Expr,
     args: &CompressionArgs,
     out_dir: &str,
@@ -1015,7 +1011,7 @@ fn run_compression_step(
     // });
 
     let InversionResult { applams_of_treenode, best_inventions_of_treenode} =
-        run_inversions(
+        beta_inversions(
             &treenodes,
             args.max_arity,
             // args.beam_size,
@@ -1054,6 +1050,7 @@ fn run_compression_step(
 
     println!("Final egraph: {}",egraph_info(&egraph));
 
+    // print out the largest variable we've seen (useful to make sure our egraph isnt exploding due to Vars)
     for i in 0..1000 {
         if search(format!("(${})",i).as_str(),&egraph).is_empty() {
             println!("Largest variable: ${}",i-1);
@@ -1073,10 +1070,10 @@ fn run_compression_step(
         return None
     }
 
+    // return the top invention
     let top_inv = top_invs[0].clone();
     let top_inv_expr = top_inv.to_expr(&egraph);
     let top_inv_rewritten = extract_under_inv(programs_id, top_inv.clone(), new_inv_name, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
-
     Some(CompressionResult {
         inv: top_inv_expr,
         rewritten: top_inv_rewritten,
@@ -1094,7 +1091,7 @@ pub fn compression(
     for i in 0..args.iterations {
         println!("\n=======Iteration {}=======",i);
         let inv_name = &format!("inv{}",invs.len());
-        if let Some(res) = run_compression_step(&rewritten, args, out_dir, inv_name) {
+        if let Some(res) = compression_step(&rewritten, args, out_dir, inv_name) {
             rewritten = res.rewritten.clone();
             println!("Chose Invention {}: {}\nRewritten (cost={})\n{}", inv_name, res.inv, res.rewritten.cost(), res.rewritten);
             invs.push(res.inv);
