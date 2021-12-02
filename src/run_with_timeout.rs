@@ -43,6 +43,7 @@ mod tests {
 
     #[test]
     fn normal() {
+        panic!("todo fix this test")
         procspawn::init();
         let timeout = Duration::from_millis(10000);
         let args = vec![1, 2, 3, 4];
@@ -54,6 +55,7 @@ mod tests {
 
     #[test]
     fn panic() {
+        panic!("todo fix this test")
         procspawn::init();
         let timeout = Duration::from_millis(10000);
         let args = vec![1, 2, 3, 4];
@@ -66,6 +68,7 @@ mod tests {
 
     #[test]
     fn infinite_loop() {
+        panic!("todo fix this test")
         procspawn::init();
         let timeout = Duration::from_millis(2000);
         let args = vec![1, 2, 3, 4];
