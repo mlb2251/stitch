@@ -667,6 +667,39 @@ impl CacheGenerator {
     }
 }
 
+
+#[inline(always)]
+fn build_shift_table(applam_shift: &AppLam, applam_noshift: &AppLam) -> (Vec<i32>, Vec<Id>) {
+    let mut shift_table = vec![]; // just gonna assume nobody wants an arity greater than 10 (for static speed)
+    let mut to_remove = vec![];
+    let mut shift_rest_by = applam_noshift.inv.arity as i32; // normal amt we shift x by, except if there are merges to be done. If a merge happens all the higher x vars get shifted less, and the specific x var gets shifted a very specific amount
+    for (x_idx,xarg) in applam_shift.args.iter().enumerate() {
+        if let Some(f_idx) = applam_noshift.args.iter().position(|farg| farg == xarg) {
+            // we found a match! $x_idx should map to the same thing as $f_idx.
+            // remember, our body currently has $x_idx at the toplevel so now
+            // we want to shift it by $(f_idx-x_idx) so that it ends up as f_idx.
+            shift_table.push((f_idx as i32) - (x_idx as i32));
+            to_remove.push(true);
+            shift_rest_by -= 1; // effectively downshifts all the higher args now that this one is gone
+        } else {
+            // shift fully without merging
+            shift_table.push(shift_rest_by);
+            to_remove.push(false);
+        }
+    }
+
+    // remove the args from xargs that we can merge into fargs
+    let new_x_applam_args: Vec<Id> = applam_shift.args.iter()
+        .zip(to_remove)
+        .filter(|(_,remove)| !*remove)
+        .map(|(xarg,_)| xarg)
+        .cloned().collect();
+    
+    let mut new_applam_args = applam_noshift.args.clone();
+    new_applam_args.extend(new_x_applam_args);
+    (shift_table, new_applam_args)
+}
+
 /// result of beta_inversions(). This struct feels pretty subject to change, it's a bit
 /// of a pain to work with these _of_treenode objects.
 struct InversionResult {
@@ -676,7 +709,7 @@ struct InversionResult {
 
 /// This is the main workhorse of compression. Takes a child-first ordering of nodes in an EGraph
 /// (assumed to be acyclic) and finds all the possible useful inventions up to the given arity.
-// #[inline(never)] // for flamegraph debugging
+#[inline(never)] // for flamegraph debugging
 fn beta_inversions(
     treenodes: &Vec<Id>,
     max_arity: usize,
@@ -774,36 +807,10 @@ fn beta_inversions(
 
                             // x_shift_table[i] tells us how much to shift #i in x_applam.body
                             // (note without merging this would be the arity of f_applam)
-                            let mut x_shift_table = vec![]; // just gonna assume nobody wants an arity greater than 10 (for static speed)
-                            let mut to_remove = vec![];
-                            let mut shift_rest_by = f_applam.inv.arity as i32; // normal amt we shift x by, except if there are merges to be done. If a merge happens all the higher x vars get shifted less, and the specific x var gets shifted a very specific amount
-                            for (x_idx,xarg) in x_applam.args.iter().enumerate() {
-                                if let Some(f_idx) = f_applam.args.iter().position(|farg| farg == xarg) {
-                                    // we found a match! $x_idx should map to the same thing as $f_idx.
-                                    // remember, our body currently has $x_idx at the toplevel so now
-                                    // we want to shift it by $(f_idx-x_idx) so that it ends up as f_idx.
-                                    x_shift_table.push((f_idx as i32) - (x_idx as i32));
-                                    to_remove.push(true);
-                                    shift_rest_by -= 1; // effectively downshifts all the higher args now that this one is gone
-                                } else {
-                                    // shift fully without merging
-                                    x_shift_table.push(shift_rest_by);
-                                    to_remove.push(false);
-                                }
-                            }
+                            let (shift_table,new_applam_args) = build_shift_table(&f_applam, &x_applam);
+                            let shifted_f_applam_body = shift(f_applam.inv.body, Shift::TableShiftIVar(shift_table), egraph, Some(caches)).unwrap();
+                            let new_applam_body = egraph.add(Lambda::App([shifted_f_applam_body, x_applam.inv.body]));
 
-                            // remove the args from xargs that we can merge into fargs
-                            let new_x_applam_args: Vec<Id> = x_applam.args.iter()
-                                .zip(to_remove)
-                                .filter(|(_,remove)| !*remove)
-                                .map(|(xarg,_)| xarg)
-                                .cloned().collect();
-
-                            let shifted_x_applam_body = shift(x_applam.inv.body, Shift::TableShiftIVar(x_shift_table), egraph, Some(caches)).unwrap();
-
-                            let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x_applam_body]));
-                            let mut new_applam_args = f_applam.args.clone();
-                            new_applam_args.extend(new_x_applam_args);
                             applams.push(AppLam::new(new_applam_body, new_applam_args));
                         } else {
                             // no overlap case - no merging, just upshift the x vars and we're done.

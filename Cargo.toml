@@ -20,3 +20,6 @@ serde = "1.0.130"
 procspawn = "0.10.0"
 lazy_static = "1.4.0"
 sexp = "1.1.4"
+
+[profile.release]
+debug = true # for flamegraphs
