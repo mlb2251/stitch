@@ -2,3 +2,4 @@ target
 Cargo.lock
 flamegraph.svg
 .vscode
+*.svg
