@@ -973,9 +973,12 @@ fn beta_inversions(
     let mut treenode_to_roots: HashMap<Id,Vec<Id>> = get_treenode_to_roots(&roots, egraph);
     treenode_to_roots.insert(programs_node,vec![]); // Programs node has no roots
 
+    let tstart = std::time::Instant::now();
     let (mut all_appinv1s, shifted_treenodes) = get_appinv1s(&treenodes, no_cache, egraph);
+    println!("get_appinv1s: {:?}ms", tstart.elapsed().as_millis());
 
     // from inv1 body to set of roots that it's used under
+    let tstart = std::time::Instant::now();
     let mut usages: HashMap<Id,HashSet<Id>> = Default::default();
     for (treenode,appinv1s) in all_appinv1s.iter() {
         for appinv1 in appinv1s.iter() {
@@ -1001,6 +1004,9 @@ fn beta_inversions(
         .collect();
 
     println!("{} invs", invs.len());
+    println!("filtered out single use: {:?}ms", tstart.elapsed().as_millis());
+
+    let tstart = std::time::Instant::now();
 
     let mut all_derived_invs: HashMap<Id,Vec<AppliedInv>> = Default::default();
 
@@ -1034,7 +1040,11 @@ fn beta_inversions(
         }
     }
 
+    println!("derived all inventions: {:?}ms", tstart.elapsed().as_millis());
+
+
     // usage counts
+    let tstart = std::time::Instant::now();
     let mut usages: HashMap<Inv,HashSet<Id>> = Default::default();
     for (treenode,derived_invs) in all_derived_invs.iter() {
         for derived_inv in derived_invs.iter() {
@@ -1052,6 +1062,8 @@ fn beta_inversions(
     for (treenode, derived_invs) in all_derived_invs.iter_mut() {
         derived_invs.retain(|derived_inv| invs.contains(&derived_inv.to_inv()));
     }
+
+    println!("filtered out single use derived: {:?}ms", tstart.elapsed().as_millis());
 
     // all_derived_invs = all_derived_invs.into_iter()
     //     .map(|(treenode,derived_invs)|{
