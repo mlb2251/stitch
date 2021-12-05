@@ -1056,11 +1056,15 @@ fn beta_inversions(
     let to_remove: Vec<Inv> = usages.iter()
         .filter_map(|(inv,usages)| if usages.len() == 1 {Some(inv)} else {None})
         .cloned().collect();
-    for (treenode, derived_invs) in all_derived_invs.iter_mut() {
+    for (_, derived_invs) in all_derived_invs.iter_mut() {
         derived_invs.retain(|derived_inv| !to_remove.contains(&derived_inv.inv));
     }
 
     println!("filtered out single use derived: {:?}ms", tstart.elapsed().as_millis());
+    println!("{} derived invs", invs.len());
+
+
+
 
     // all_derived_invs = all_derived_invs.into_iter()
     //     .map(|(treenode,derived_invs)|{
@@ -1073,7 +1077,6 @@ fn beta_inversions(
     //     .collect();
 
 
-    println!("{} derived invs", invs.len());
 
 
 
@@ -1086,6 +1089,129 @@ fn beta_inversions(
     //     println!("id: {}, cost: {}, depth: {}  applams: {} valid: {}", treenode, expr.cost(), expr.depth(), applams.len(), valid.len());
     // }
     unimplemented!()
+}
+
+
+struct NodeCost {
+    inventionless_cost: i32,
+    inventionful_cost: HashMap<Inv, i32>
+}
+impl NodeCost {
+    fn new(inventionless_cost: i32) -> Self {
+        NodeCost {
+            inventionless_cost,
+            inventionful_cost: Default::default()
+        }
+    }
+    /// improve the cost using a new invention, or do nothing if we've already seen
+    /// a better cost for this invention. Also skip if inventionless cost is better.
+    fn new_cost_under_inv(&mut self, inv: &Inv, cost:i32) {
+        if cost < self.inventionless_cost {
+            if !self.inventionful_cost.contains_key(inv)
+               || cost < self.inventionful_cost[&inv]  {
+                self.inventionful_cost.insert(inv.clone(), cost);
+            }
+        }
+    }
+    /// cost under an invention if it's useful for this node, else inventionless cost
+    fn cost_under_inv(&self, inv: &Inv) -> i32 {
+        self.inventionful_cost.get(inv).cloned().unwrap_or(self.inventionless_cost)
+    }
+}
+
+struct NodeCosts {
+    costs: HashMap<Id,NodeCost>,
+    remap: HashMap<Id,Id>
+}
+impl NodeCosts {
+    fn new(treenodes: &[Id], remap: HashMap<Id,Id>, egraph: &EGraph) -> Self {
+        let costs = treenodes.iter().map(|node| (*node,NodeCost::new(egraph[*node].data.inventionless_cost))).collect();
+        NodeCosts { costs, remap }
+    }
+    fn cost_under_inv(&self, node: Id, inv: &Inv) -> i32 {
+        let remapped_node = if self.costs.contains_key(&node) {node} else {self.remap[&node]};
+        self.costs[&remapped_node].cost_under_inv(inv)
+    }
+    fn new_cost_under_inv(&mut self, node: Id, inv: &Inv, cost:i32) {
+        self.costs.get_mut(&node).unwrap().new_cost_under_inv(inv, cost);
+    }
+    fn useful_invs(&self, node: Id) -> Vec<Inv> {
+        let remapped_node = if self.costs.contains_key(&node) {node} else {self.remap[&node]};
+        self.costs[&remapped_node].inventionful_cost.keys().cloned().collect()
+    }
+}
+
+
+fn best_inventions(invs_of_node: &HashMap<Id,Vec<AppliedInv>>, remap: &HashMap<Id,Id>, programs_node: Id, egraph: &EGraph) {
+    let treenodes: Vec<Id> = toplogical_ordering(programs_node,egraph);
+
+    // first get inventionless costs
+    let mut node_costs = NodeCosts::new(&treenodes, remap.clone(), egraph);
+
+    for node in treenodes.iter() {
+        // using an invention at this node
+        for appinv in invs_of_node[node].iter() {
+            let cost: i32 =
+                COST_TERMINAL // the new primitive for this invention
+                + COST_NONTERMINAL * appinv.args.len() as i32 // the chain of app()s needed to apply the new primitive
+                + appinv.args.iter()
+                    .map(|arg| node_costs.cost_under_inv(*node, &appinv.inv))
+                    .sum::<i32>(); // sum costs of actual args
+            node_costs.new_cost_under_inv(*node, &appinv.inv, cost);
+        }
+
+        let enode = egraph[*node].nodes[0].clone();
+
+        // inventions that helped our children
+        let child_inventions: Vec<Inv> = enode.children().iter()
+            .map(|id| node_costs.useful_invs(*id))
+            .flatten()
+            .collect();
+        
+        match enode {
+            Lambda::IVar(_) => { panic!("unreachable"); }
+            Lambda::Var(_) | Lambda::Prim(_) => {},
+            Lambda::App([f,x]) => {                                
+                for inv in child_inventions {
+                    let fcost = node_costs.cost_under_inv(f, &inv);
+                    let xcost = node_costs.cost_under_inv(x, &inv);
+                    let cost = COST_NONTERMINAL+fcost+xcost;
+                    node_costs.new_cost_under_inv(*node, &inv, cost);
+                }
+            }
+            Lambda::Lam([b]) => {
+                // just map +1 over the costs
+                for inv in child_inventions {
+                    let bcost = node_costs.cost_under_inv(b, &inv);
+                    let cost = COST_NONTERMINAL+bcost;
+                    node_costs.new_cost_under_inv(*node, &inv, cost);
+                }
+            }
+            Lambda::Programs(roots) => {
+                // union together all the useful inventions of diff programs
+                
+                // count num occurences of each invention
+                let mut counts: HashMap<Inv,i32> = child_inventions.iter().cloned().map(|i| (i,0)).collect();
+                for inv in child_inventions {
+                    counts.insert(inv.clone(), counts[&inv] + 1);
+                }
+
+                // keep only inventions used by 2+ programs
+                let inventions: Vec<Inv> = counts.into_iter()
+                    .filter_map(|(i,c)| if c > 1 { Some(i) } else { None }).collect();
+                
+                for inv in inventions {
+                    let cost = roots.iter().map(|root| {
+                            node_costs.cost_under_inv(*root, &inv)
+                        }).sum();
+                    node_costs.new_cost_under_inv(*node, &inv, cost);
+                }
+            }
+        }
+
+    }
+
+
 }
 
 struct CompressionResult {
