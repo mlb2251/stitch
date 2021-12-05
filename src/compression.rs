@@ -755,6 +755,10 @@ impl AppliedInv {
     fn to_inv(&self) -> Inv {
         Inv { invs: self.invs.iter().map(|appinv1| appinv1.inv.body).collect(), multiuses: self.multiuses.iter().map(|(inv1,i)| (inv1.body,*i)).collect() }
     }
+    fn compare(&self, other: &Inv) -> bool {
+        self.invs.iter().zip(other.invs.iter()).all(|(inv1,inv2)| inv1.inv.body == *inv2) &&
+        self.multiuses.iter().zip(other.multiuses.iter()).all(|((inv1,i1),(inv2,i2))| inv1.body == *inv2 && i1 == i2)
+    }
     #[inline]
     fn zippers_interfere(&self, inv1: &Inv1) -> bool {
         // merge works if inv1.zipper is not a prefix of any of our zippers or vis versa
