@@ -3,6 +3,7 @@ use std::collections::{HashSet,HashMap};
 use std::fmt::{self, Formatter, Display};
 use clap::Parser;
 use std::path::PathBuf;
+use std::hash::Hash;
 
 /// Args for compression
 #[derive(Parser, Debug)]
@@ -700,6 +701,133 @@ fn build_shift_table(applam_shift: &AppLam, applam_noshift: &AppLam) -> (Vec<i32
     (shift_table, new_applam_args)
 }
 
+/// path down a tree. false = children[0]; true = children[1]
+type Zipper = Vec<bool>;
+/// comparison/merging of inventions can be done thru comparison of zippers if the body is constant
+/// (this does NOT work if body is different).
+type LocalInvention = Vec<Zipper>;
+/// when you start comparing inventions created at diff nodes, you gotta represent it as a set of
+/// trees (each with a single #0)
+type GlobalInvention = Vec<Id>;
+
+
+
+#[derive(Debug,Clone)] // does NOT derive PartialEq
+struct Inv1 {
+    body: Id, // from original tree but with a single #0
+    zipper: Zipper, // alternative representation of `.trees`
+}
+
+
+impl Inv1 {
+    fn new(body: Id, zipper: Zipper) -> Inv1 {
+        Inv1 { body, zipper }
+    }
+}
+
+#[derive(Debug,Clone)]
+struct AppliedInv1 {
+    inv: Inv1,
+    arg: Id, // from original tree modulo shifting
+}
+
+impl AppliedInv1 {
+    fn new(inv1: Inv1, arg: Id) -> AppliedInv1 {
+        AppliedInv1 { inv: inv1, arg }
+    }
+}
+
+#[derive(Debug,Clone,Eq,PartialEq,Hash)]
+struct Inv {
+    invs: Vec<Id>, // like inv1.body
+    multiuses: Vec<(Id,usize)> // Id is  .body
+}
+
+struct AppliedInv {
+    invs: Vec<AppliedInv1>,
+    multiuses: Vec<(Inv1,usize)> // usize says which `inv` this multiuse is sharing with
+}
+impl AppliedInv {
+    fn new(invs: Vec<AppliedInv1>, multiuses: Vec<(Inv1,usize)>) -> AppliedInv {
+        AppliedInv { invs, multiuses }
+    }
+    #[inline]
+    fn to_inv(&self) -> Inv {
+        Inv { invs: self.invs.iter().map(|appinv1| appinv1.inv.body).collect(), multiuses: self.multiuses.iter().map(|(inv1,i)| (inv1.body,*i)).collect() }
+    }
+    #[inline]
+    fn zippers_interfere(&self, inv1: &Inv1) -> bool {
+        // merge works if inv1.zipper is not a prefix of any of our zippers or vis versa
+        // (note that the prefix case is a path towards adding higher order functions, though
+        // it would take a good bit of extra work to make that work)
+        self.invs.iter().any(|inv| inv.inv.zipper.starts_with(&inv1.zipper) || inv1.zipper.starts_with(&inv.inv.zipper)) ||
+        self.multiuses.iter().any(|(inv,_)| inv.zipper.starts_with(&inv1.zipper) || inv1.zipper.starts_with(&inv.zipper))
+    }
+    #[inline]
+    fn merge_multiarg(&self, appinv1: &AppliedInv1, max_arity: usize) -> Option<AppliedInv> {
+        if self.invs.len() >= max_arity {
+            return None; // would exceed arity
+        }
+        if self.zippers_interfere(&appinv1.inv) {
+            return None; // zipper is ancestor of other zipper
+        }
+        let mut invs = self.invs.clone();
+        invs.push(appinv1.clone());
+        Some(AppliedInv::new(invs, self.multiuses.clone()))
+    }
+    #[inline]
+    fn merge_multiuse(&self, appinv1: &AppliedInv1) -> Option<Vec<AppliedInv>> {
+        if !self.invs.iter().any(|inv| inv.arg == appinv1.arg) {
+            return None // no overlap
+        }
+        if self.zippers_interfere(&appinv1.inv) {
+            return None; // zipper is ancestor of other zipper
+        }
+        let mut res =  vec![];
+        for (i,inv) in self.invs.iter().enumerate().filter(|(_,inv)| inv.arg == appinv1.arg) {
+            let mut multiuses = self.multiuses.clone();
+            multiuses.push((appinv1.inv.clone(),i));
+            res.push(AppliedInv::new(self.invs.clone(), multiuses));
+        }
+        Some(res)
+    }
+    // #[inline]
+    // fn cost(&self, costs: &HashMap<Id,i32>) -> i32 {
+    //     COST_TERMINAL // the new primitive for this invention
+    //     + COST_NONTERMINAL * self.invs.len() as i32 // the chain of app()s needed to apply the new primitive
+    //     + self.invs.iter()
+    //         .map(|appinv1| costs[&appinv1.arg])
+    //         .sum::<i32>(); // sum costs of actual args
+    // }
+}
+
+// impl PartialEq for Inv1 {
+//     fn eq(&self, other: &Inv1) -> bool {
+//         self.body == other.body // comparison is just based on the .body
+//     }
+// }
+// impl Eq for Inv1 {}
+
+// #[derive(Debug,Clone)]
+// struct Inv {
+//     invs: Vec<Inv1>,
+// }
+
+// #[derive(Debug,Clone)]
+// struct AppliedInv {
+//     inv: Inv,
+//     args: Vec<Id>, // from original tree modulo shifting
+// }
+
+// struct Inv {
+//     trees: Vec<Id>, // from original tree but with a single #0
+//     origin: Id, // where in the original tree this was created.
+//     zippers: Vec<Vec<bool>>, // alternative representation of `.trees`
+// }
+
+
+
+
 /// result of beta_inversions(). This struct feels pretty subject to change, it's a bit
 /// of a pain to work with these _of_treenode objects.
 struct InversionResult {
@@ -707,24 +835,23 @@ struct InversionResult {
     best_inventions_of_treenode: HashMap<Id,BestInventions>
 }
 
-/// This is the main workhorse of compression. Takes a child-first ordering of nodes in an EGraph
-/// (assumed to be acyclic) and finds all the possible useful inventions up to the given arity.
-#[inline(never)] // for flamegraph debugging
-fn beta_inversions(
-    treenodes: &Vec<Id>,
-    max_arity: usize,
-    // beam_size: usize,
-    no_cache: bool,
-    egraph: &mut EGraph
-) -> InversionResult {
-    // one vector of applams per tree node
-    let mut applams_of_treenode: HashMap<Id,Vec<AppLam>> = Default::default();
-    let mut best_inventions_of_treenode: HashMap<Id,BestInventions> = Default::default();
-    
-    let ivar0: Id = egraph.add(Lambda::IVar(0));
+fn get_treenode_to_roots(roots: &Vec<Id>, egraph: &EGraph) -> HashMap<Id,Vec<Id>> {
+    let mut treenode_to_roots: HashMap<Id,Vec<Id>> = Default::default();
+    fn get_treenode_to_roots_rec(treenode: Id, root: Id, treenode_to_roots: &mut HashMap<Id,Vec<Id>>, egraph: &EGraph) {
+        treenode_to_roots.entry(treenode).or_default().push(root);
+        egraph[treenode].nodes[0].children().iter().for_each(|child| get_treenode_to_roots_rec(*child, root, treenode_to_roots, egraph));
+    }
+    roots.iter().for_each(|root| get_treenode_to_roots_rec(*root, *root, &mut treenode_to_roots, egraph));
+    treenode_to_roots
+}
 
-    // Caches - these give us considerable speedup (26s -> 18s)
+fn get_appinv1s(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (HashMap<Id,Vec<AppliedInv1>>, HashMap<Id,Id>) {
+    let mut all_appinv1s: HashMap<Id,Vec<AppliedInv1>> = Default::default();
+    let identity_inv1 = Inv1::new(egraph.add(Lambda::IVar(0)), vec![]);
     let caches = &mut CacheGenerator::new(!no_cache);
+    
+    // keys are shifted treenodes values are original treenodes. Useful since shifted ones can use same inventions as originals
+    let mut shifted_treenodes: HashMap<Id,Id> = Default::default();
 
     for treenode in treenodes.iter() {
         // println!("processing id={}: {}", treenode, extract(*treenode, egraph) );
@@ -736,18 +863,16 @@ fn beta_inversions(
 
         // its very very very important that these are all canonical because
         // we treat Id equality as true equality in various cases which is only true when theyre canonical
-        debug_assert!(node.children().iter().all(|c| applams_of_treenode[c].iter().all(|applam| applam.is_canonical(egraph))));
-        debug_assert!(node.children().iter().all(|c| best_inventions_of_treenode[c].inventionful_cost.keys().all(|inv| inv.is_canonical(egraph))));
+        // debug_assert!(node.children().iter().all(|c| applams_of_treenode[c].iter().all(|applam| applam.is_canonical(egraph))));
+        // debug_assert!(node.children().iter().all(|c| best_inventions_of_treenode[c].inventionful_cost.keys().all(|inv| inv.is_canonical(egraph))));
 
         //==================================//
         // *** PROPAGATE/CREATE APPLAMS *** //
         //==================================//
+        let mut appinv1s: Vec<AppliedInv1> = Default::default();
         
-        let mut applams: Vec<AppLam> = Vec::new();
-        let mut downshifted_applam_args: Vec<(Id,Id)> = Vec::new(); // minor implementation detail
-        
-        // any node can become the identity applam
-        applams.push(AppLam::new(ivar0, vec![*treenode]));
+        // any node can become the identity
+        appinv1s.push(AppliedInv1::new(identity_inv1.clone(), *treenode));
 
         match node {
             Lambda::IVar(_) => {
@@ -755,236 +880,199 @@ fn beta_inversions(
             }
             Lambda::Var(_) | Lambda::Prim(_) | Lambda::Programs(_) => {},
             Lambda::App([f,x]) => {
-                let ref f_applams = applams_of_treenode[&f];
-                let ref x_applams = applams_of_treenode[&x];
+                let ref f_appinv1s = all_appinv1s[&f];
+                let ref x_appinv1s = all_appinv1s[&x];
 
                 // bubbling from the left:
-                // (app f x) == (app (applam body arg) x) => (applam (app body upshift(x)) arg)
+                // (app f x) == (app (appinv1 body arg) x) => (appinv1 (app body upshift(x)) arg)
                 // note no shifting is needed thanks to IVars
-                for f_applam in f_applams.iter() {
-                    let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,x]));
-                    applams.push(AppLam::new(new_applam_body, f_applam.args.clone()));
+                for f_appinv1 in f_appinv1s.iter() {
+                    let body = egraph.add(Lambda::App([f_appinv1.inv.body,x]));
+                    let mut zipper = vec![false];
+                    zipper.extend(f_appinv1.inv.zipper.clone());
+                    appinv1s.push(AppliedInv1::new(Inv1::new(body,zipper), f_appinv1.arg));
                 }
 
                 // bubbling from the right:
-                // (app f x) == (app f (applam body arg)) => (applam (app upshift(f) body) arg)
+                // (app f x) == (app f (appinv1 body arg)) => (appinv1 (app upshift(f) body) arg)
                 // note no shifting is needed thanks to IVars
-                for x_applam in x_applams.iter() {
-                    let new_applam_body = egraph.add(Lambda::App([f, x_applam.inv.body]));
-                    applams.push(AppLam::new(new_applam_body, x_applam.args.clone()));
+                for x_appinv1 in x_appinv1s.iter() {
+                    let body = egraph.add(Lambda::App([f,x_appinv1.inv.body]));
+                    let mut zipper = vec![true];
+                    zipper.extend(x_appinv1.inv.zipper.clone());
+                    appinv1s.push(AppliedInv1::new(Inv1::new(body,zipper), x_appinv1.arg));
                 }
-
-                // println!("f_applam x_applam pairwise product size: {} x {} -> {}",f_applams.len(), x_applams.len(), f_applams.len() * x_applams.len());
-
-                for f_applam in f_applams.iter() {
-                    for x_applam in x_applams.iter() {
-                        // making a higher arity applam out of two diff applams and merging any shared arguments. Higher arity applam looks a bit like:
-                        // (app f x) == (app (applam body1 arg1) (applam body2 arg2)) => (applam (app body1 upshift_ivars(body2)) arg1 arg2).
-                        //
-                        // Note that (applam body arg0 arg1) means arg0 will fill upward refs to $0 and arg1 will fill upward refs to $1
-                        // so somewhat confusingly (applam body arg0 arg1) == (app (app (lam (lam body)) arg1) arg0)
-                        //
-                        // Merging: when f_applam and x_applam have identical args we can merge them
-                        // (app f x) == (app (applam body1 arg) (applam body2 arg)) => (applam (app body1 body2) arg)
-                        // 
-                        // Everything in between: more generically, a pair of applams might have some vars that are shared and
-                        // some that are unique to each of them. First we calculate the `overlap` between the two to determine
-                        // if the resulting merge will be too high in arity and we should just fail fast. If it's not too high
-                        // in arity, then we proceed with a merge. We merge the ivars in `x` into the ivars in `f`, that is `f`
-                        // remains completely unchanged while shared arguments in `x` get remapped to point to `f` vars and nonshared
-                        // arguments in `x` get upshifted since we're using the lower ivars are the `f` ivars and the higher ones
-                        // as the `x` ivars. We accomplish all this by constructing a table that says how much each var should shift by,
-                        // and then use a shift(Shift::TableShiftIVar) to perform this remapping.
-
-                        // how many args are shared between `f` and `x`?
-                        let overlap: usize = f_applam.args.iter().filter(|farg| x_applam.args.contains(farg)).count();
-                        if f_applam.inv.arity + x_applam.inv.arity - overlap > max_arity {
-                            continue; // too high in arity
-                        }
-
-                        if overlap > 0 {
-                            // overlap case - need to merge
-
-                            // x_shift_table[i] tells us how much to shift #i in x_applam.body
-                            // (note without merging this would be the arity of f_applam)
-                            let (shift_table,new_applam_args) = build_shift_table(&f_applam, &x_applam);
-                            let shifted_f_applam_body = shift(f_applam.inv.body, Shift::TableShiftIVar(shift_table), egraph, Some(caches)).unwrap();
-                            let new_applam_body = egraph.add(Lambda::App([shifted_f_applam_body, x_applam.inv.body]));
-
-                            applams.push(AppLam::new(new_applam_body, new_applam_args));
-                        } else {
-                            // no overlap case - no merging, just upshift the x vars and we're done.
-                            // We will use the lower indices for f_applam and will upshift x_applam to occupy the higher indices.
-                            let shifted_x_applam_body = shift(x_applam.inv.body, Shift::ShiftIVar(f_applam.inv.arity as i32), egraph, Some(caches)).unwrap();
-
-                            let new_applam_body = egraph.add(Lambda::App([f_applam.inv.body,shifted_x_applam_body]));
-                            let mut new_applam_args = f_applam.args.clone();
-                            new_applam_args.extend(x_applam.args.clone());
-                            applams.push(AppLam::new(new_applam_body, new_applam_args));
-                        };
-                    }
-                    
-                }
-
             },
             Lambda::Lam([b]) => {
-                let ref b_applams = applams_of_treenode[&b];
+                let ref b_appinv1s = all_appinv1s[&b];
                 // bubbling up over the lambda:
-                // (lam b) == (lam (applam body arg)) => (applam (lam body) downshift(arg))
+                // (lam b) == (lam (appinv1 body arg)) => (appinv1 (lam body) downshift(arg))
                 // where:
                 //  - arg must not have any upward refs to $0 in it since we cant jump over a lambda we point to
-                //    > (in the multiarg applam case, none of them can have $0)
+                //    > (in the multiarg appinv1 case, none of them can have $0)
                 //  - in the pre-ivar era this required a RotateShift which turned out to be a huge speed bottleneck
                 //    as it created tons of new nodes in the egraph. This is no longer needed with ivars. No shfiting at lal!
 
-                for b_applam in b_applams.iter() {
-                    // can't bubble an applam over a lambda if its arg refers to the lambda!
-                    if b_applam.args.iter().any(|arg| egraph[*arg].data.free_vars.contains(&0)) {
+                for b_appinv1 in b_appinv1s.iter() {
+                    // can't bubble an appinv1 over a lambda if its arg refers to the lambda!
+                    if egraph[b_appinv1.arg].data.free_vars.contains(&0) {
                         continue;
                     }
                     
                     // downshift the args since the lambda above them moved below them (earlier we made sure none of them had pointers to it)
-                    let new_args: Vec<Id> = b_applam.args.iter().map(|arg| shift(*arg, Shift::ShiftVar(-1), egraph, Some(caches)).unwrap()).collect();
+                    let new_arg: Id = shift(b_appinv1.arg, Shift::ShiftVar(-1), egraph, Some(caches)).unwrap();
 
-                    // add the downshifted args to a worklist discussed below. Worklist needed bc of borrow checker.
-                    downshifted_applam_args.extend(new_args.iter().cloned().zip(b_applam.args.iter().cloned())); // (new,old)
+                    // to keep track of the fact that this shifted treenode can use the same inventions as the original
+                    shifted_treenodes.insert(new_arg, b_appinv1.arg);
 
-                    let new_applam_body = egraph.add(Lambda::Lam([b_applam.inv.body]));
-                    applams.push(AppLam::new(new_applam_body, new_args));
+                    let body = egraph.add(Lambda::Lam([b_appinv1.inv.body]));
+                    let mut zipper = vec![false];
+                    zipper.extend(b_appinv1.inv.zipper.clone());
+                    appinv1s.push(AppliedInv1::new(Inv1::new(body,zipper), new_arg));
                 }
             },
         }
 
-        // let child_applams: Vec<usize> = node.children().iter()
-        //     .map(|id| applams_of_treenode[id].len())
-        //     .collect();
-        // println!("{:?}:\n\t{:?} -> {}\n\t{}",node,child_applams, applams.len(), egraph.total_size());
+        all_appinv1s.insert(*treenode, appinv1s);
+    }
 
-        // Processing downshifted_applam_args. The following is really just an implementation detail. If it proved
-        // to be a bottleneck it could absolutely be done differently.
-        //
-        // Downshifting args in the "bubbling over lam" case is sortof a big deal because other than this moment we have had the invariant that args
-        // are always subtrees of the original program (and are smaller than their parent and thus have already been
-        // processed in the child-first traversal). Now we have just created some args that weren't in the original program
-        // and thus aren't in our best_inventions list. Luckily if you think a bit you can see that downshifting
-        // all free vars in an expression results in something that can be compressed in exactly the same ways as the original
-        // expression (assuming we're compressing using a valid invention that doesnt itself have free vars). Please correct
-        // me if I'm wrong. But basically TLDR we can just duplicate the list of best inventions and
-        // use it for the shifted one. Side note if the shifted guy is already in our best_inventions list then it must already
-        // have the right inventions for it and everything so we can skip that.
-        // However note the applams can be cloned too but you do need to downshift all their args since their args are all part of a toplevel
-        // applam. Then you need to repeat the shifting for them too if need be...luckily arguments must get strictly
-        // smaller so it will converge and probably very fast. This is all handled here.
-        // todo note that if this were a slowdown you could deal with it differently thru pointers for sure but I think it will be fine
-        loop {
-            match downshifted_applam_args.pop() {
-                Some((new_arg,old_arg)) => {
-                    if !best_inventions_of_treenode.contains_key(&new_arg) {
-                        let cloned = best_inventions_of_treenode[&old_arg].clone();
-                        best_inventions_of_treenode.insert(new_arg,cloned);
-                        let new_applams = applams_of_treenode[&old_arg].iter()
-                            .map(|applam|{
-                                let new_args = applam.args.iter()
-                                .map(|arg|{
-                                    let arg_mod = shift(*arg, Shift::ShiftVar(-1), egraph, Some(caches)).unwrap();
-                                    downshifted_applam_args.push((arg_mod,*arg)); // recursively fix these children
-                                    arg_mod
-                                }).collect();
-                                AppLam::new(applam.inv.body,new_args)
-                            }
-                            ).collect();
-                        applams_of_treenode.insert(new_arg,new_applams);
+    // remove any appinv1s that have free variables & remove identity functions
+    all_appinv1s = all_appinv1s.into_iter()
+        .map(|(treenode,appinv1s)|{
+            let new_appinv1s: Vec<AppliedInv1> = appinv1s.into_iter()
+                .filter(|appinv1|
+                    !egraph[appinv1.inv.body].data.free_vars.is_empty() && appinv1.inv.body != identity_inv1.body
+                ).collect();
+            (treenode,new_appinv1s)
+        })
+        .collect();
+
+    (all_appinv1s,shifted_treenodes)
+}
+
+
+/// This is the main workhorse of compression. Takes a child-first ordering of nodes in an EGraph
+/// (assumed to be acyclic) and finds all the possible useful inventions up to the given arity.
+#[inline(never)] // for flamegraph debugging
+fn beta_inversions(
+    programs_node: Id,
+    max_arity: usize,
+    // beam_size: usize,
+    no_cache: bool,
+    egraph: &mut EGraph
+) -> InversionResult {
+
+    let treenodes: Vec<Id> = toplogical_ordering(programs_node,egraph);
+    let roots: Vec<Id> = egraph[programs_node].nodes[0].children().iter().cloned().collect();
+
+    // lets you lookup which roots a treenode is a descendent of
+    let mut treenode_to_roots: HashMap<Id,Vec<Id>> = get_treenode_to_roots(&roots, egraph);
+    treenode_to_roots.insert(programs_node,vec![]); // Programs node has no roots
+
+    let (mut all_appinv1s, shifted_treenodes) = get_appinv1s(&treenodes, no_cache, egraph);
+
+    // from inv1 body to set of roots that it's used under
+    let mut usages: HashMap<Id,HashSet<Id>> = Default::default();
+    for (treenode,appinv1s) in all_appinv1s.iter() {
+        for appinv1 in appinv1s.iter() {
+            usages.entry(appinv1.inv.body).or_default().extend(treenode_to_roots[treenode].clone());
+        }
+    }
+
+    // prune down to ones that are used in multiple places
+    let mut invs: Vec<Id> = usages.iter()
+        .filter_map(|(inv,usages)| if usages.len() > 1 {Some(inv)} else {None})
+        .cloned().collect();
+    invs.sort();
+
+    all_appinv1s = all_appinv1s.into_iter()
+        .map(|(treenode,appinv1s)|{
+            let mut new_appinv1s: Vec<AppliedInv1> = appinv1s.into_iter()
+                .filter(|appinv1|
+                    invs.contains(&appinv1.inv.body)
+                ).collect();
+            new_appinv1s.sort_by(|a,b| a.inv.body.cmp(&b.inv.body));
+            (treenode,new_appinv1s)
+        })
+        .collect();
+
+    println!("{} invs", invs.len());
+
+    let mut all_derived_invs: HashMap<Id,Vec<AppliedInv>> = Default::default();
+
+    for base_inv in invs.iter() {
+        for node in treenodes.iter() {
+            let appinv1s = &all_appinv1s[&node];
+            let idx = match appinv1s.binary_search_by_key(base_inv, |appinv1| appinv1.inv.body) {
+                Ok(idx) => idx,
+                Err(_) => continue,
+            };
+
+            let base_appinv1: &AppliedInv1 = &all_appinv1s[&node][idx];
+
+            // invs built from the original iteratively. The usize is to track the largest Id used so far (to make it easy)
+            let mut derived_invs: Vec<(AppliedInv,usize)> = vec![(AppliedInv::new(vec![base_appinv1.clone()], vec![]), idx)];
+            let mut offset: usize = 0;
+            while offset < derived_invs.len() {
+                let skip_to: usize = derived_invs[offset].1;
+                for (i,appinv1) in appinv1s[skip_to+1..].iter().enumerate() {
+                    debug_assert!(appinv1.inv.body > *base_inv, "wasnt sorted!!");
+                    if let Some(new_derived_inv) = derived_invs[offset].0.merge_multiarg(appinv1,max_arity) {
+                        derived_invs.push((new_derived_inv,skip_to+1+i));
+                    }
+                    if let Some(new_derived_invs) = derived_invs[offset].0.merge_multiuse(appinv1) {
+                        derived_invs.extend(new_derived_invs.into_iter().map(|inv|(inv,skip_to+1+i)));
                     }
                 }
-                None => break,
+                offset += 1;
             }
+            all_derived_invs.entry(*node).or_default().extend(derived_invs.into_iter().map(|(inv,_)| inv));
         }
-
-        //===================================//
-        // *** CALCULATE BEST INVENTIONS *** //
-        //===================================//
-
-        let mut best_inventions = BestInventions::new(egraph[*treenode].data.inventionless_cost);
-
-        // For each applam that doesnt have any free variables, we can call it a complete invention
-        // and apply it here! Our cost is the basically the cost of our arguments plus a bit extra.
-        for applam in applams.iter() {
-            if applam.inv.valid_invention(egraph) && applam.inv.body != ivar0 {
-                let cost: i32 =
-                    COST_TERMINAL // the new primitive for this invention
-                    + COST_NONTERMINAL * applam.inv.arity as i32 // the chain of app()s needed to apply the new primitive
-                    + applam.args.iter()
-                        .map(|id| best_inventions_of_treenode[&id]
-                        .cost_under_inv(&applam.inv))
-                        .sum::<i32>(); // sum costs of actual args
-                best_inventions.new_cost_under_inv(applam.inv, cost);
-            }
-        }
-                
-        // inventions that helped our children
-        let child_inventions: Vec<Invention> = node.children().iter()
-            .map(|id| best_inventions_of_treenode[id].inventionful_cost.keys().cloned())
-            .flatten()
-            .collect();
-
-        // inventions based on specific node type
-        match node {
-            Lambda::IVar(_) => {
-                panic!("unreachable, should have crashed in previous match statement");
-            }
-            Lambda::Var(_) | Lambda::Prim(_) => {},
-            Lambda::App([f,x]) => {
-                let ref f_best_inventions = best_inventions_of_treenode[&f];
-                let ref x_best_inventions = best_inventions_of_treenode[&x];
-                                
-                // costs with inventions as 1 + fcost + xcost. Use inventionless cost as a default.
-                // if either fcost or xcost is None (ie infinite)
-                for inv in child_inventions {
-                    let fcost = f_best_inventions.cost_under_inv(&inv);
-                    let xcost = x_best_inventions.cost_under_inv(&inv);
-                    let cost = COST_NONTERMINAL+fcost+xcost;
-                    best_inventions.new_cost_under_inv(inv, cost);
-                }
-            }
-            Lambda::Lam([b]) => {
-                // just map +1 over the costs
-                let ref b_best_inventions = best_inventions_of_treenode[&b];
-                for (inv,cost) in b_best_inventions.inventionful_cost.iter() {
-                    best_inventions.new_cost_under_inv(*inv, cost + COST_NONTERMINAL);
-                }
-            }
-            Lambda::Programs(roots) => {
-                // union together all the useful inventions of diff programs
-                
-                // count num occurences of each invention
-                let mut counts: HashMap<Invention,i32> = child_inventions.iter().map(|i| (*i,0)).collect();
-                for inv in child_inventions {
-                    counts.insert(inv, counts[&inv] + 1);
-                }
-
-                // keep only inventions used by 2+ programs
-                // (otherwise it's pretty boring and just abstracts out an entire program)
-                let inventions: Vec<Invention> = counts.iter()
-                    .filter_map(|(i,c)| if *c > 1 { Some(*i) } else { None }).collect();
-                
-                for inv in inventions {
-                    let cost = roots.iter().map(|root| {
-                            best_inventions_of_treenode[root].cost_under_inv(&inv)
-                        }).sum();
-                    best_inventions.new_cost_under_inv(inv, cost);
-                }
-            }
-        }
-        // narrow_beam(&mut best_inventions.inventionful_cost, beam_size);
-
-        applams_of_treenode.insert(*treenode, applams);
-        best_inventions_of_treenode.insert(*treenode, best_inventions);
-
     }
-    InversionResult {
-        applams_of_treenode: applams_of_treenode,
-        best_inventions_of_treenode: best_inventions_of_treenode,
+
+    // usage counts
+    let mut usages: HashMap<Inv,HashSet<Id>> = Default::default();
+    for (treenode,derived_invs) in all_derived_invs.iter() {
+        for derived_inv in derived_invs.iter() {
+            usages.entry(derived_inv.to_inv()).or_default().extend(treenode_to_roots[treenode].clone());
+        }
     }
+
+    println!("{} derived invs before pruning", usages.len());
+
+    // prune down to ones that arent used in multiple places
+    let mut invs: Vec<Inv> = usages.iter()
+        .filter_map(|(inv,usages)| if usages.len() > 1 {Some(inv)} else {None})
+        .cloned().collect();
+
+    for (treenode, derived_invs) in all_derived_invs.iter_mut() {
+        derived_invs.retain(|derived_inv| invs.contains(&derived_inv.to_inv()));
+    }
+
+    // all_derived_invs = all_derived_invs.into_iter()
+    //     .map(|(treenode,derived_invs)|{
+    //         let mut new_derived_invs: Vec<AppliedInv> = derived_invs.into_iter()
+    //             .filter(|appinv1|
+    //                 invs.contains(&appinv1.to_inv())
+    //             ).collect();
+    //         (treenode,new_derived_invs)
+    //     })
+    //     .collect();
+
+
+    println!("{} derived invs", invs.len());
+
+
+
+    
+    // for treenode in treenodes.iter() {
+    //     let applams = &applams_of_treenode[treenode];
+    //     let valid = applams.iter().filter(|applam| applam.inv.valid_invention(egraph)).collect::<Vec<_>>();
+    //     let best_inventions = &best_inventions_of_treenode[treenode];
+    //     let expr = extract(*treenode, egraph);
+    //     println!("id: {}, cost: {}, depth: {}  applams: {} valid: {}", treenode, expr.cost(), expr.depth(), applams.len(), valid.len());
+    // }
+    unimplemented!()
 }
 
 struct CompressionResult {
@@ -1020,7 +1108,7 @@ fn compression_step(
 
     let InversionResult { applams_of_treenode, best_inventions_of_treenode} =
         beta_inversions(
-            &treenodes,
+            programs_id,
             args.max_arity,
             // args.beam_size,
             args.no_cache,
