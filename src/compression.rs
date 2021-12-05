@@ -703,95 +703,82 @@ fn build_shift_table(applam_shift: &AppLam, applam_noshift: &AppLam) -> (Vec<i32
 
 /// path down a tree. false = children[0]; true = children[1]
 type Zipper = Vec<bool>;
-/// comparison/merging of inventions can be done thru comparison of zippers if the body is constant
-/// (this does NOT work if body is different).
-type LocalInvention = Vec<Zipper>;
-/// when you start comparing inventions created at diff nodes, you gotta represent it as a set of
-/// trees (each with a single #0)
-type GlobalInvention = Vec<Id>;
+type InvId = Id;
 
-
-
-#[derive(Debug,Clone)] // does NOT derive PartialEq
-struct Inv1 {
-    body: Id, // from original tree but with a single #0
-    zipper: Zipper, // alternative representation of `.trees`
-}
-
-
-impl Inv1 {
-    fn new(body: Id, zipper: Zipper) -> Inv1 {
-        Inv1 { body, zipper }
-    }
-}
 
 #[derive(Debug,Clone)]
 struct AppliedInv1 {
-    inv: Inv1,
+    body: InvId,
     arg: Id, // from original tree modulo shifting
+    zipper: Zipper, // useful for performing efficient merges
 }
 
 impl AppliedInv1 {
-    fn new(inv1: Inv1, arg: Id) -> AppliedInv1 {
-        AppliedInv1 { inv: inv1, arg }
+    fn new(body: InvId, arg: Id, zipper: Zipper) -> AppliedInv1 {
+        AppliedInv1 { body, arg, zipper }
     }
 }
 
 #[derive(Debug,Clone,Eq,PartialEq,Hash)]
 struct Inv {
-    invs: Vec<Id>, // like inv1.body
-    multiuses: Vec<(Id,usize)> // Id is  .body
+    multiarg_bodies: Vec<InvId>, // like inv1.body
+    multiuse_bodies: Vec<(usize,InvId)> // Id is  .body, usize says which `inv` this multiuse is merged with
+}
+impl Inv {
+    fn new(multiarg_bodies: Vec<InvId>, multiuse_bodies: Vec<(usize,InvId)>) -> Inv {
+        Inv { multiarg_bodies, multiuse_bodies }
+    }
 }
 
+#[derive(Debug, Clone)]
 struct AppliedInv {
-    invs: Vec<AppliedInv1>,
-    multiuses: Vec<(Inv1,usize)> // usize says which `inv` this multiuse is sharing with
+    inv: Inv,
+    args: Vec<Id>,
+    multiarg_zippers: Vec<Zipper>, // has the unique ones then the multiuse ones
+    multiuse_zippers: Vec<Zipper>,
 }
 impl AppliedInv {
-    fn new(invs: Vec<AppliedInv1>, multiuses: Vec<(Inv1,usize)>) -> AppliedInv {
-        AppliedInv { invs, multiuses }
+    fn new(inv: Inv, args: Vec<Id>, multiarg_zippers: Vec<Zipper>, multiuse_zippers: Vec<Zipper>) -> AppliedInv {
+        AppliedInv { inv, args, multiarg_zippers, multiuse_zippers }
     }
     #[inline]
-    fn to_inv(&self) -> Inv {
-        Inv { invs: self.invs.iter().map(|appinv1| appinv1.inv.body).collect(), multiuses: self.multiuses.iter().map(|(inv1,i)| (inv1.body,*i)).collect() }
-    }
-    fn compare(&self, other: &Inv) -> bool {
-        self.invs.iter().zip(other.invs.iter()).all(|(inv1,inv2)| inv1.inv.body == *inv2) &&
-        self.multiuses.iter().zip(other.multiuses.iter()).all(|((inv1,i1),(inv2,i2))| inv1.body == *inv2 && i1 == i2)
-    }
-    #[inline]
-    fn zippers_interfere(&self, inv1: &Inv1) -> bool {
+    fn zippers_interfere(&self, appinv1: &AppliedInv1) -> bool {
         // merge works if inv1.zipper is not a prefix of any of our zippers or vis versa
         // (note that the prefix case is a path towards adding higher order functions, though
         // it would take a good bit of extra work to make that work)
-        self.invs.iter().any(|inv| inv.inv.zipper.starts_with(&inv1.zipper) || inv1.zipper.starts_with(&inv.inv.zipper)) ||
-        self.multiuses.iter().any(|(inv,_)| inv.zipper.starts_with(&inv1.zipper) || inv1.zipper.starts_with(&inv.zipper))
+        self.multiarg_zippers.iter()
+            .chain(self.multiuse_zippers.iter())
+            .any(|z| z.starts_with(&appinv1.zipper) || appinv1.zipper.starts_with(&z)) //||
+        // self.multiuses.iter().any(|(inv,_)| inv.zipper.starts_with(&inv1.zipper) || inv1.zipper.startås_with(&inv.zipper))
     }
     #[inline]
     fn merge_multiarg(&self, appinv1: &AppliedInv1, max_arity: usize) -> Option<AppliedInv> {
-        if self.invs.len() >= max_arity {
+        if self.args.len() >= max_arity {
             return None; // would exceed arity
         }
-        if self.zippers_interfere(&appinv1.inv) {
+        if self.zippers_interfere(&appinv1) {
             return None; // zipper is ancestor of other zipper
         }
-        let mut invs = self.invs.clone();
-        invs.push(appinv1.clone());
-        Some(AppliedInv::new(invs, self.multiuses.clone()))
+        let mut new_appinv = self.clone();
+        new_appinv.inv.multiarg_bodies.push(appinv1.body.clone());
+        new_appinv.args.push(appinv1.arg.clone());
+        new_appinv.multiarg_zippers.push(appinv1.zipper.clone());
+        Some(new_appinv)
     }
     #[inline]
     fn merge_multiuse(&self, appinv1: &AppliedInv1) -> Option<Vec<AppliedInv>> {
-        if !self.invs.iter().any(|inv| inv.arg == appinv1.arg) {
-            return None // no overlap
+        if !self.args.iter().any(|arg| *arg == appinv1.arg) {
+            return None // no shared arg
         }
-        if self.zippers_interfere(&appinv1.inv) {
+        if self.zippers_interfere(&appinv1) {
             return None; // zipper is ancestor of other zipper
         }
         let mut res =  vec![];
-        for (i,inv) in self.invs.iter().enumerate().filter(|(_,inv)| inv.arg == appinv1.arg) {
-            let mut multiuses = self.multiuses.clone();
-            multiuses.push((appinv1.inv.clone(),i));
-            res.push(AppliedInv::new(self.invs.clone(), multiuses));
+        for (i,inv) in self.args.iter().enumerate().filter(|(_,arg)| **arg == appinv1.arg) {
+            let mut new_appinv = self.clone();
+            new_appinv.inv.multiuse_bodies.push((i,appinv1.body.clone()));
+            new_appinv.multiuse_zippers.push(appinv1.zipper.clone());
+            res.push(new_appinv);
         }
         Some(res)
     }
@@ -851,7 +838,7 @@ fn get_treenode_to_roots(roots: &Vec<Id>, egraph: &EGraph) -> HashMap<Id,Vec<Id>
 
 fn get_appinv1s(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (HashMap<Id,Vec<AppliedInv1>>, HashMap<Id,Id>) {
     let mut all_appinv1s: HashMap<Id,Vec<AppliedInv1>> = Default::default();
-    let identity_inv1 = Inv1::new(egraph.add(Lambda::IVar(0)), vec![]);
+    let identity_body = egraph.add(Lambda::IVar(0));
     let caches = &mut CacheGenerator::new(!no_cache);
     
     // keys are shifted treenodes values are original treenodes. Useful since shifted ones can use same inventions as originals
@@ -876,7 +863,7 @@ fn get_appinv1s(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (HashMa
         let mut appinv1s: Vec<AppliedInv1> = Default::default();
         
         // any node can become the identity
-        appinv1s.push(AppliedInv1::new(identity_inv1.clone(), *treenode));
+        appinv1s.push(AppliedInv1::new(identity_body.clone(), *treenode, vec![]));
 
         match node {
             Lambda::IVar(_) => {
@@ -891,20 +878,20 @@ fn get_appinv1s(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (HashMa
                 // (app f x) == (app (appinv1 body arg) x) => (appinv1 (app body upshift(x)) arg)
                 // note no shifting is needed thanks to IVars
                 for f_appinv1 in f_appinv1s.iter() {
-                    let body = egraph.add(Lambda::App([f_appinv1.inv.body,x]));
+                    let body = egraph.add(Lambda::App([f_appinv1.body,x]));
                     let mut zipper = vec![false];
-                    zipper.extend(f_appinv1.inv.zipper.clone());
-                    appinv1s.push(AppliedInv1::new(Inv1::new(body,zipper), f_appinv1.arg));
+                    zipper.extend(f_appinv1.zipper.clone());
+                    appinv1s.push(AppliedInv1::new(body, f_appinv1.arg, zipper));
                 }
 
                 // bubbling from the right:
                 // (app f x) == (app f (appinv1 body arg)) => (appinv1 (app upshift(f) body) arg)
                 // note no shifting is needed thanks to IVars
                 for x_appinv1 in x_appinv1s.iter() {
-                    let body = egraph.add(Lambda::App([f,x_appinv1.inv.body]));
+                    let body = egraph.add(Lambda::App([x,x_appinv1.body]));
                     let mut zipper = vec![true];
-                    zipper.extend(x_appinv1.inv.zipper.clone());
-                    appinv1s.push(AppliedInv1::new(Inv1::new(body,zipper), x_appinv1.arg));
+                    zipper.extend(x_appinv1.zipper.clone());
+                    appinv1s.push(AppliedInv1::new(body, x_appinv1.arg, zipper));
                 }
             },
             Lambda::Lam([b]) => {
@@ -929,10 +916,10 @@ fn get_appinv1s(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (HashMa
                     // to keep track of the fact that this shifted treenode can use the same inventions as the original
                     shifted_treenodes.insert(new_arg, b_appinv1.arg);
 
-                    let body = egraph.add(Lambda::Lam([b_appinv1.inv.body]));
+                    let body = egraph.add(Lambda::Lam([b_appinv1.body]));
                     let mut zipper = vec![false];
-                    zipper.extend(b_appinv1.inv.zipper.clone());
-                    appinv1s.push(AppliedInv1::new(Inv1::new(body,zipper), new_arg));
+                    zipper.extend(b_appinv1.zipper.clone());
+                    appinv1s.push(AppliedInv1::new(body, new_arg, zipper));
                 }
             },
         }
@@ -945,7 +932,7 @@ fn get_appinv1s(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (HashMa
         .map(|(treenode,appinv1s)|{
             let new_appinv1s: Vec<AppliedInv1> = appinv1s.into_iter()
                 .filter(|appinv1|
-                    !egraph[appinv1.inv.body].data.free_vars.is_empty() && appinv1.inv.body != identity_inv1.body
+                    !egraph[appinv1.body].data.free_vars.is_empty() && appinv1.body != identity_body
                 ).collect();
             (treenode,new_appinv1s)
         })
@@ -982,9 +969,11 @@ fn beta_inversions(
     let mut usages: HashMap<Id,HashSet<Id>> = Default::default();
     for (treenode,appinv1s) in all_appinv1s.iter() {
         for appinv1 in appinv1s.iter() {
-            usages.entry(appinv1.inv.body).or_default().extend(treenode_to_roots[treenode].clone());
+            usages.entry(appinv1.body).or_default().extend(treenode_to_roots[treenode].clone());
         }
     }
+
+    println!("{} invs", usages.len());
 
     // prune down to ones that are used in multiple places
     let mut invs: Vec<Id> = usages.iter()
@@ -996,15 +985,15 @@ fn beta_inversions(
         .map(|(treenode,appinv1s)|{
             let mut new_appinv1s: Vec<AppliedInv1> = appinv1s.into_iter()
                 .filter(|appinv1|
-                    invs.contains(&appinv1.inv.body)
+                    invs.contains(&appinv1.body)
                 ).collect();
-            new_appinv1s.sort_by(|a,b| a.inv.body.cmp(&b.inv.body));
+            new_appinv1s.sort_by(|a,b| a.body.cmp(&b.body));
             (treenode,new_appinv1s)
         })
         .collect();
 
-    println!("{} invs", invs.len());
     println!("filtered out single use: {:?}ms", tstart.elapsed().as_millis());
+    println!("{} invs", invs.len());
 
     let tstart = std::time::Instant::now();
 
@@ -1013,7 +1002,7 @@ fn beta_inversions(
     for base_inv in invs.iter() {
         for node in treenodes.iter() {
             let appinv1s = &all_appinv1s[&node];
-            let idx = match appinv1s.binary_search_by_key(base_inv, |appinv1| appinv1.inv.body) {
+            let idx = match appinv1s.binary_search_by_key(base_inv, |appinv1| appinv1.body) {
                 Ok(idx) => idx,
                 Err(_) => continue,
             };
@@ -1021,12 +1010,17 @@ fn beta_inversions(
             let base_appinv1: &AppliedInv1 = &all_appinv1s[&node][idx];
 
             // invs built from the original iteratively. The usize is to track the largest Id used so far (to make it easy)
-            let mut derived_invs: Vec<(AppliedInv,usize)> = vec![(AppliedInv::new(vec![base_appinv1.clone()], vec![]), idx)];
+            let mut derived_invs: Vec<(AppliedInv,usize)> = vec![(AppliedInv::new(
+                Inv::new(vec![*base_inv], vec![]),
+                vec![base_appinv1.arg], // args
+                vec![base_appinv1.zipper.clone()], // multiarg zipper
+                vec![], // multiuse zipper
+            ),idx)];
             let mut offset: usize = 0;
             while offset < derived_invs.len() {
                 let skip_to: usize = derived_invs[offset].1;
                 for (i,appinv1) in appinv1s[skip_to+1..].iter().enumerate() {
-                    debug_assert!(appinv1.inv.body > *base_inv, "wasnt sorted!!");
+                    debug_assert!(appinv1.body > *base_inv, "wasnt sorted!!");
                     if let Some(new_derived_inv) = derived_invs[offset].0.merge_multiarg(appinv1,max_arity) {
                         derived_invs.push((new_derived_inv,skip_to+1+i));
                     }
@@ -1048,19 +1042,22 @@ fn beta_inversions(
     let mut usages: HashMap<Inv,HashSet<Id>> = Default::default();
     for (treenode,derived_invs) in all_derived_invs.iter() {
         for derived_inv in derived_invs.iter() {
-            usages.entry(derived_inv.to_inv()).or_default().extend(treenode_to_roots[treenode].clone());
+            usages.entry(derived_inv.inv.clone()).or_default().extend(treenode_to_roots[treenode].clone());
         }
     }
 
     println!("{} derived invs before pruning", usages.len());
 
     // prune down to ones that arent used in multiple places
-    let mut invs: Vec<Inv> = usages.iter()
+    let invs: Vec<Inv> = usages.iter()
         .filter_map(|(inv,usages)| if usages.len() > 1 {Some(inv)} else {None})
         .cloned().collect();
-
+    
+    let to_remove: Vec<Inv> = usages.iter()
+        .filter_map(|(inv,usages)| if usages.len() == 1 {Some(inv)} else {None})
+        .cloned().collect();
     for (treenode, derived_invs) in all_derived_invs.iter_mut() {
-        derived_invs.retain(|derived_inv| invs.contains(&derived_inv.to_inv()));
+        derived_invs.retain(|derived_inv| !to_remove.contains(&derived_inv.inv));
     }
 
     println!("filtered out single use derived: {:?}ms", tstart.elapsed().as_millis());
