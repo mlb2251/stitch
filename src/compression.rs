@@ -717,6 +717,10 @@ impl AppliedInv1 {
     fn new(body: InvId, arg: Id, zipper: Zipper) -> AppliedInv1 {
         AppliedInv1 { body, arg, zipper }
     }
+    fn print(&self, egraph: &EGraph) {
+        println!("body: {}", extract(self.body, egraph));
+        println!("\targ {}", extract(self.arg, egraph));
+    }
 }
 
 #[derive(Debug,Clone,Eq,PartialEq,Hash)]
@@ -755,6 +759,10 @@ impl AppliedInv {
     fn new(inv: Inv, args: Vec<Id>, multiarg_zippers: Vec<Zipper>, multiuse_zippers: Vec<Zipper>) -> AppliedInv {
         AppliedInv { inv, args, multiarg_zippers, multiuse_zippers }
     }
+    fn print(&self, egraph: &EGraph) {
+        self.inv.print(egraph);
+        self.args.iter().for_each(|arg| println!("\targ {}", extract(*arg, egraph)));
+    }
     #[inline]
     fn zippers_interfere(&self, appinv1: &AppliedInv1) -> bool {
         // merge works if inv1.zipper is not a prefix of any of our zippers or vis versa
@@ -784,15 +792,18 @@ impl AppliedInv {
         if !self.args.iter().any(|arg| *arg == appinv1.arg) {
             return None // no shared arg
         }
+        println!("multiuse 1!!!"); // todo this is never printing!!!
         if self.zippers_interfere(&appinv1) {
             return None; // zipper is ancestor of other zipper
         }
+        println!("multiuse 2!!!"); // todo this is never printing!!!
         let mut res =  vec![];
-        for (i,inv) in self.args.iter().enumerate().filter(|(_,arg)| **arg == appinv1.arg) {
+        for (i,_) in self.args.iter().enumerate().filter(|(_,arg)| **arg == appinv1.arg) {
             let mut new_appinv = self.clone();
             new_appinv.inv.multiuse_bodies.push((i,appinv1.body.clone()));
             new_appinv.multiuse_zippers.push(appinv1.zipper.clone());
             res.push(new_appinv);
+            println!("multiuse 3!!!"); // todo this is never printing!!!
         }
         Some(res)
     }
@@ -847,6 +858,7 @@ fn get_treenode_to_roots(roots: &Vec<Id>, egraph: &EGraph) -> HashMap<Id,Vec<Id>
         egraph[treenode].nodes[0].children().iter().for_each(|child| get_treenode_to_roots_rec(*child, root, treenode_to_roots, egraph));
     }
     roots.iter().for_each(|root| get_treenode_to_roots_rec(*root, *root, &mut treenode_to_roots, egraph));
+    treenode_to_roots.iter_mut().for_each(|(_,roots)| {roots.sort(); roots.dedup();});
     treenode_to_roots
 }
 
@@ -979,10 +991,15 @@ fn beta_inversions(
 
     let treenodes: Vec<Id> = toplogical_ordering(programs_node,egraph);
     let roots: Vec<Id> = egraph[programs_node].nodes[0].children().iter().cloned().collect();
+    assert!(roots.iter().collect::<HashSet<_>>().len() == roots.len(), "duplicate programs found");
 
     // lets you lookup which roots a treenode is a descendent of
+    println!("ROOOOOOTS {:?}", roots);
     let mut treenode_to_roots: HashMap<Id,Vec<Id>> = get_treenode_to_roots(&roots, egraph);
     treenode_to_roots.insert(programs_node,vec![]); // Programs node has no roots
+    for (treenode, roots) in treenode_to_roots.iter() {
+        println!("{} {:?}", extract(*treenode, egraph), roots);
+    }
 
     let tstart = std::time::Instant::now();
     let (mut all_appinv1s, shifted_treenodes) = get_appinv1s(&treenodes, no_cache, egraph);
@@ -993,6 +1010,8 @@ fn beta_inversions(
     let mut usages: HashMap<Id,HashSet<Id>> = Default::default();
     for (treenode,appinv1s) in all_appinv1s.iter() {
         for appinv1 in appinv1s.iter() {
+            appinv1.print(egraph);
+            println!("{:?}",treenode_to_roots[treenode]);
             usages.entry(appinv1.body).or_default().extend(treenode_to_roots[treenode].clone());
         }
     }
@@ -1012,6 +1031,7 @@ fn beta_inversions(
                     invs.contains(&appinv1.body)
                 ).collect();
             new_appinv1s.sort_by(|a,b| a.body.cmp(&b.body));
+            new_appinv1s.iter().for_each(|appinv1| appinv1.print(egraph));
             (treenode,new_appinv1s)
         })
         .collect();
@@ -1045,11 +1065,13 @@ fn beta_inversions(
                 let skip_to: usize = derived_invs[offset].1;
                 for (i,appinv1) in appinv1s[skip_to+1..].iter().enumerate() {
                     debug_assert!(appinv1.body > *base_inv, "wasnt sorted!!");
+
+                    // assert_ne!(appinv1.arg, derived_invs[offset].0.args[0]);
+                    // derived_invs[offset].0.print(egraph);
+                    // appinv1.print(egraph);
+                    // println!("\n");
+
                     if let Some(new_derived_inv) = derived_invs[offset].0.merge_multiarg(appinv1,max_arity) {
-                        // println!("marg \n\t{}\n\t{}\n\t{:?}",
-                        //     extract(new_derived_inv.inv.multiarg_bodies[0],egraph).to_string_curried(None),
-                        //     extract(new_derived_inv.inv.multiarg_bodies[1],egraph).to_string_curried(None),
-                        //     new_derived_inv.inv.multiarg_bodies);
                         derived_invs.push((new_derived_inv,skip_to+1+i));
                     }
                     if let Some(new_derived_invs) = derived_invs[offset].0.merge_multiuse(appinv1) {
@@ -1098,7 +1120,7 @@ fn beta_inversions(
     let node_costs: NodeCosts = best_inventions(&all_derived_invs, &shifted_treenodes, programs_node, egraph);
     // println!("{:?}", node_costs);
 
-    let inv_costs = node_costs.best_inventions(programs_node, 1000);
+    let inv_costs = node_costs.best_inventions(programs_node, 10);
 
     let orig_cost = extract(programs_node,egraph).cost();
     for (inv, cost) in inv_costs {
@@ -1208,6 +1230,7 @@ fn best_inventions(invs_of_node: &HashMap<Id,Vec<AppliedInv>>, remap: &HashMap<I
         // using an invention at this node
         // println!("node: {}", extract(*node,egraph));
         if invs_of_node.contains_key(node) {
+            println!("node: {} has cost {}", extract(*node,egraph), extract(*node,egraph).cost()); // todo temp
             for appinv in invs_of_node[node].iter() {
                 let cost: i32 =
                     COST_TERMINAL // the new primitive for this invention
@@ -1215,6 +1238,8 @@ fn best_inventions(invs_of_node: &HashMap<Id,Vec<AppliedInv>>, remap: &HashMap<I
                     + appinv.args.iter()
                         .map(|arg| node_costs.cost_under_inv(*arg, &appinv.inv))
                         .sum::<i32>(); // sum costs of actual args
+                appinv.print(egraph);
+                println!("which has cost: {}", cost);
                 node_costs.new_cost_under_inv(*node, &appinv.inv, cost);
             }
         }
