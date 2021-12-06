@@ -733,6 +733,15 @@ impl Inv {
         // todo implement using zippers add them in bc theyre legit when transferred even
         expr
     }
+    fn print(&self, egraph: &EGraph) {
+        println!("{:?}", self);
+        for e in self.multiarg_bodies.iter() {
+            println!("\tmultiarg {}", extract(*e, egraph));
+        }
+        for e in self.multiuse_bodies.iter() {
+            println!("\tmultiuse {}", extract(e.1, egraph));
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1037,6 +1046,10 @@ fn beta_inversions(
                 for (i,appinv1) in appinv1s[skip_to+1..].iter().enumerate() {
                     debug_assert!(appinv1.body > *base_inv, "wasnt sorted!!");
                     if let Some(new_derived_inv) = derived_invs[offset].0.merge_multiarg(appinv1,max_arity) {
+                        // println!("marg \n\t{}\n\t{}\n\t{:?}",
+                        //     extract(new_derived_inv.inv.multiarg_bodies[0],egraph).to_string_curried(None),
+                        //     extract(new_derived_inv.inv.multiarg_bodies[1],egraph).to_string_curried(None),
+                        //     new_derived_inv.inv.multiarg_bodies);
                         derived_invs.push((new_derived_inv,skip_to+1+i));
                     }
                     if let Some(new_derived_invs) = derived_invs[offset].0.merge_multiuse(appinv1) {
@@ -1078,22 +1091,19 @@ fn beta_inversions(
     println!("filtered out single use derived: {:?}ms", tstart.elapsed().as_millis());
     println!("{} derived invs", invs.len());
 
+    for ref inv in invs {
+        inv.print(egraph);
+    }
+
     let node_costs: NodeCosts = best_inventions(&all_derived_invs, &shifted_treenodes, programs_node, egraph);
     // println!("{:?}", node_costs);
 
-    let inv_costs = node_costs.best_inventions(programs_node, 10);
+    let inv_costs = node_costs.best_inventions(programs_node, 1000);
 
     let orig_cost = extract(programs_node,egraph).cost();
     for (inv, cost) in inv_costs {
-        println!("{:?} {} -> {}", inv, orig_cost, cost, );
-        println!("multiarg");
-        for e in inv.multiarg_bodies.iter() {
-            println!("{}", extract(*e, egraph));
-        }
-        println!("multiuse");
-        for e in inv.multiuse_bodies.iter() {
-            println!("{}", extract(e.1, egraph));
-        }
+        println!("{} -> {}", orig_cost, cost);
+        inv.print(egraph);
     }
 
 

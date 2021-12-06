@@ -19,6 +19,10 @@ fn main() {
     let programs: Vec<String> = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
     let mut programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
 
+    for prog in programs.iter() {
+        println!("{}", prog);
+    }
+
     // programs.sort_by(|a,b| a.cost().cmp(&b.cost()));
     
 
