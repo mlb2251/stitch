@@ -728,6 +728,11 @@ impl Inv {
     fn new(multiarg_bodies: Vec<InvId>, multiuse_bodies: Vec<(usize,InvId)>) -> Inv {
         Inv { multiarg_bodies, multiuse_bodies }
     }
+    fn to_expr(&self, egraph: &EGraph) -> Expr { // todo the Vec<> bit is temporary
+        let expr:Expr = extract(self.multiarg_bodies[0], egraph);
+        // todo implement using zippers add them in bc theyre legit when transferred even
+        expr
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -888,7 +893,7 @@ fn get_appinv1s(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (HashMa
                 // (app f x) == (app f (appinv1 body arg)) => (appinv1 (app upshift(f) body) arg)
                 // note no shifting is needed thanks to IVars
                 for x_appinv1 in x_appinv1s.iter() {
-                    let body = egraph.add(Lambda::App([x,x_appinv1.body]));
+                    let body = egraph.add(Lambda::App([f,x_appinv1.body]));
                     let mut zipper = vec![true];
                     zipper.extend(x_appinv1.zipper.clone());
                     appinv1s.push(AppliedInv1::new(body, x_appinv1.arg, zipper));
@@ -952,6 +957,8 @@ fn beta_inversions(
     no_cache: bool,
     egraph: &mut EGraph
 ) -> InversionResult {
+
+    println!("{}", extract(programs_node, egraph));
 
     let treenodes: Vec<Id> = toplogical_ordering(programs_node,egraph);
     let roots: Vec<Id> = egraph[programs_node].nodes[0].children().iter().cloned().collect();
@@ -1063,6 +1070,23 @@ fn beta_inversions(
     println!("filtered out single use derived: {:?}ms", tstart.elapsed().as_millis());
     println!("{} derived invs", invs.len());
 
+    let node_costs: NodeCosts = best_inventions(&all_derived_invs, &shifted_treenodes, programs_node, egraph);
+    // println!("{:?}", node_costs);
+
+    let inv_costs = node_costs.best_inventions(programs_node, 10);
+
+    let orig_cost = extract(programs_node,egraph).cost();
+    for (inv, cost) in inv_costs {
+        println!("{:?} {} -> {}", inv, orig_cost, cost, );
+        println!("multiarg");
+        for e in inv.multiarg_bodies.iter() {
+            println!("{}", extract(*e, egraph));
+        }
+        println!("multiuse");
+        for e in inv.multiuse_bodies.iter() {
+            println!("{}", extract(e.1, egraph));
+        }
+    }
 
 
 
@@ -1091,7 +1115,7 @@ fn beta_inversions(
     unimplemented!()
 }
 
-
+#[derive(Debug)]
 struct NodeCost {
     inventionless_cost: i32,
     inventionful_cost: HashMap<Inv, i32>
@@ -1117,8 +1141,17 @@ impl NodeCost {
     fn cost_under_inv(&self, inv: &Inv) -> i32 {
         self.inventionful_cost.get(inv).cloned().unwrap_or(self.inventionless_cost)
     }
+    /// best inventions - a very slow way
+    fn best_inventions(&self, k: usize) -> Vec<(Inv,i32)> {
+        let mut invs: Vec<(Inv,i32)> = self.inventionful_cost.iter().map(|(i,c)| (i.clone(),*c)).collect();
+        // reverse order sort
+        invs.sort_by(|(_,c1),(_,c2)| c1.cmp(c2));
+        invs.truncate(k);
+        invs
+    }
 }
 
+#[derive(Debug)]
 struct NodeCosts {
     costs: HashMap<Id,NodeCost>,
     remap: HashMap<Id,Id>
@@ -1139,25 +1172,33 @@ impl NodeCosts {
         let remapped_node = if self.costs.contains_key(&node) {node} else {self.remap[&node]};
         self.costs[&remapped_node].inventionful_cost.keys().cloned().collect()
     }
+    fn best_inventions(&self, node: Id, k: usize) -> Vec<(Inv,i32)> {
+        let remapped_node = if self.costs.contains_key(&node) {node} else {self.remap[&node]};
+        self.costs[&remapped_node].best_inventions(k)
+    }
 }
 
 
-fn best_inventions(invs_of_node: &HashMap<Id,Vec<AppliedInv>>, remap: &HashMap<Id,Id>, programs_node: Id, egraph: &EGraph) {
+fn best_inventions(invs_of_node: &HashMap<Id,Vec<AppliedInv>>, remap: &HashMap<Id,Id>, programs_node: Id, egraph: &EGraph) -> NodeCosts {
     let treenodes: Vec<Id> = toplogical_ordering(programs_node,egraph);
 
+    // todo make wayyyyy more efficient by switching out Inv everywhere in the interals with Id or usize
     // first get inventionless costs
     let mut node_costs = NodeCosts::new(&treenodes, remap.clone(), egraph);
 
     for node in treenodes.iter() {
         // using an invention at this node
-        for appinv in invs_of_node[node].iter() {
-            let cost: i32 =
-                COST_TERMINAL // the new primitive for this invention
-                + COST_NONTERMINAL * appinv.args.len() as i32 // the chain of app()s needed to apply the new primitive
-                + appinv.args.iter()
-                    .map(|arg| node_costs.cost_under_inv(*node, &appinv.inv))
-                    .sum::<i32>(); // sum costs of actual args
-            node_costs.new_cost_under_inv(*node, &appinv.inv, cost);
+        // println!("node: {}", extract(*node,egraph));
+        if invs_of_node.contains_key(node) {
+            for appinv in invs_of_node[node].iter() {
+                let cost: i32 =
+                    COST_TERMINAL // the new primitive for this invention
+                    + COST_NONTERMINAL * appinv.args.len() as i32 // the chain of app()s needed to apply the new primitive
+                    + appinv.args.iter()
+                        .map(|arg| node_costs.cost_under_inv(*arg, &appinv.inv))
+                        .sum::<i32>(); // sum costs of actual args
+                node_costs.new_cost_under_inv(*node, &appinv.inv, cost);
+            }
         }
 
         let enode = egraph[*node].nodes[0].clone();
@@ -1210,8 +1251,7 @@ fn best_inventions(invs_of_node: &HashMap<Id,Vec<AppliedInv>>, remap: &HashMap<I
         }
 
     }
-
-
+    node_costs
 }
 
 struct CompressionResult {
