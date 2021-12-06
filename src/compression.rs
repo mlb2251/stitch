@@ -937,11 +937,19 @@ fn get_appinv1s(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (HashMa
         .map(|(treenode,appinv1s)|{
             let new_appinv1s: Vec<AppliedInv1> = appinv1s.into_iter()
                 .filter(|appinv1|
-                    !egraph[appinv1.body].data.free_vars.is_empty() && appinv1.body != identity_body
+                    egraph[appinv1.body].data.free_vars.is_empty() && appinv1.body != identity_body
                 ).collect();
             (treenode,new_appinv1s)
         })
         .collect();
+
+    // all_appinv1s.iter().for_each(
+    //     |(treenode,appinv1s)|{
+    //         appinv1s.iter().for_each(|appinv1|{
+    //             println!("{} {:?} {}", extract(appinv1.body,egraph), egraph[appinv1.body].data.free_vars, !egraph[appinv1.body].data.free_vars.is_empty());
+    //         });
+    //     }
+    // );
 
     (all_appinv1s,shifted_treenodes)
 }
