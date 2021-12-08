@@ -701,8 +701,122 @@ fn build_shift_table(applam_shift: &AppLam, applam_noshift: &AppLam) -> (Vec<i32
     (shift_table, new_applam_args)
 }
 
+
+#[derive(Debug,Clone)]
+enum ZNode {
+    Func,
+    Arg,
+    Body,
+    FuncDiverge(Zipper),
+}
+
+#[derive(Debug,Clone)]
+struct Zipper {
+    nodes: Vec<ZNode>
+}
+
+#[derive(Debug,Clone)]
+enum OffZNode {
+    Func(Id),
+    Arg(Id),
+    Body,
+    FuncDiverge(OffZipper)
+}
+
+#[derive(Debug,Clone)]
+struct OffZipper {
+    nodes: Vec<OffZNode>
+}
+
+struct AppOffZipper1 {
+    offzipper: OffZipper,
+    arg: Id,
+}
+
+struct AppOffZipper {
+    offzipper: OffZipper,
+    args: Vec<Id>,
+}
+
+
+impl Zipper {
+    fn new(nodes: Vec<ZNode>) -> Zipper {
+        Zipper { nodes }
+    }
+}
+
+impl OffZipper {
+    fn new(nodes: Vec<OffZNode>) -> OffZipper {
+        OffZipper { nodes }
+    }
+    /// forget all the off zipper elements leaving just a zipper
+    fn forget(&self) -> Zipper {
+        let mut nodes = vec![];
+        for node in &self.nodes {
+            nodes.push(match node {
+                OffZNode::Func(_) => ZNode::Func,
+                OffZNode::Arg(_) => ZNode::Arg,
+                OffZNode::Body => ZNode::Body,
+                OffZNode::FuncDiverge(z) => ZNode::FuncDiverge(z.forget()),
+            });
+        }
+        Zipper::new(nodes)
+    }
+    fn merge(&self, other: &OffZipper, allow_rightmost_only: bool) -> Option<OffZipper> {
+        // since we always upmerge we know we know `self` cant be a prefix of `other`
+        // btw I think prefixes are pretty rare compared to normal things so no need to fail super fast with it?
+        // todo I wrote this merge function, but I worry it's a low slower than the version that just treats a ztuple
+        // todo as literally a list of tuples and just merges with the rightmost one and handles multiuse as a separate
+        // todo case of Vec<(usize,offzipper)> or something as long as its canonical.
+
+        let mut res = self.clone();
+        let mut curr_nodes = &mut res.nodes;
+        let mut offset = 0;
+        let mut reset_offset = false;
+
+        for (i,node) in other.nodes.iter().enumerate() {
+            match (curr_nodes[offset],  node) {
+                (OffZNode::FuncDiverge(z), OffZNode::Func(x)) => {
+                    // curr_nodes goes left, and `other` also goes left. Nothing to do!
+                    assert!(!allow_rightmost_only); // `other` takes a left turn while `self` diverged, so `other` is not the rightmost zipper
+                },
+                (OffZNode::FuncDiverge(z), OffZNode::Arg(f)) => {
+                    // curr_nodes goes left, and `other` goes right. We need to switch to the other zipper.
+                    curr_nodes = &mut z.nodes;
+                    reset_offset = true;
+                },
+                (OffZNode::Func(x), OffZNode::Arg(f)) => {
+                    // new divergence
+                    curr_nodes[offset] = OffZNode::FuncDiverge(OffZipper::new(self.nodes[i..].iter().cloned().collect()));
+                    return Some(res);
+                },
+                (a, b) => {
+                    assert_eq!(a,b,"Are you sure these offzippers are from the same node? Unexpected node pair: {:?} {:?}", a, b);
+                }
+            }
+            offset += 1;
+            if offset >= curr_nodes.len() {
+                return None; // prefix
+            }
+            if reset_offset {
+                offset = 0;
+                reset_offset = false;
+            }
+        }
+        panic!("unreachable, `other` should never be a prefix of `self`");
+    }
+        
+}
+
+
+
+
+
+
+
+
 /// path down a tree. false = children[0]; true = children[1]
-type Zipper = Vec<bool>;
+type ZipperZ = Vec<bool>;
 type InvId = Id;
 
 
@@ -710,11 +824,11 @@ type InvId = Id;
 struct AppliedInv1 {
     body: InvId,
     arg: Id, // from original tree modulo shifting
-    zipper: Zipper, // useful for performing efficient merges
+    zipper: ZipperZ, // useful for performing efficient merges
 }
 
 impl AppliedInv1 {
-    fn new(body: InvId, arg: Id, zipper: Zipper) -> AppliedInv1 {
+    fn new(body: InvId, arg: Id, zipper: ZipperZ) -> AppliedInv1 {
         AppliedInv1 { body, arg, zipper }
     }
     fn print(&self, egraph: &EGraph) {
@@ -752,11 +866,11 @@ impl Inv {
 struct AppliedInv {
     inv: Inv,
     args: Vec<Id>,
-    multiarg_zippers: Vec<Zipper>, // has the unique ones then the multiuse ones
-    multiuse_zippers: Vec<Zipper>,
+    multiarg_zippers: Vec<ZipperZ>, // has the unique ones then the multiuse ones
+    multiuse_zippers: Vec<ZipperZ>,
 }
 impl AppliedInv {
-    fn new(inv: Inv, args: Vec<Id>, multiarg_zippers: Vec<Zipper>, multiuse_zippers: Vec<Zipper>) -> AppliedInv {
+    fn new(inv: Inv, args: Vec<Id>, multiarg_zippers: Vec<ZipperZ>, multiuse_zippers: Vec<ZipperZ>) -> AppliedInv {
         AppliedInv { inv, args, multiarg_zippers, multiuse_zippers }
     }
     fn print(&self, egraph: &EGraph) {
