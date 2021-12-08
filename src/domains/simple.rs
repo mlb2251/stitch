@@ -14,6 +14,28 @@ pub enum SimpleVal {
     List(Vec<Val>),
 }
 
+// enum Translation {
+//     Scale(i32),
+//     // etc
+// }
+
+// pub enum CADVal {
+//     Canvas(Matrix),
+//     Translation(Translation),
+//     Number(i32),
+// }
+
+// fn map(mut args: Vec<Val>, handle: &Executable) -> VResult {
+//     load_args!(args, fn_val: Val, it: i32, init: Matrix);
+//     let res = init;
+//     for i in 0..it {
+//         let res = handle.apply2(&fn_val, i, res)?;
+//     }
+//     ok(res.into())
+// }
+
+
+
 // aliases of various typed specialized to our SimpleVal
 type Val = domain::Val<SimpleVal>;
 type Executable = domain::Executable<SimpleVal>;

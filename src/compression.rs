@@ -768,6 +768,7 @@ impl OffZipper {
         // todo I wrote this merge function, but I worry it's a low slower than the version that just treats a ztuple
         // todo as literally a list of tuples and just merges with the rightmost one and handles multiuse as a separate
         // todo case of Vec<(usize,offzipper)> or something as long as its canonical.
+        // todo SEE discussion in my notes
 
         let mut res = self.clone();
         let mut curr_nodes = &mut res.nodes;
