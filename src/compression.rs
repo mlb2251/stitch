@@ -707,12 +707,6 @@ enum ZNode {
     Func,
     Arg,
     Body,
-    FuncDiverge(Zipper),
-}
-
-#[derive(Debug,Clone)]
-struct Zipper {
-    nodes: Vec<ZNode>
 }
 
 #[derive(Debug,Clone)]
@@ -720,23 +714,58 @@ enum OffZNode {
     Func(Id),
     Arg(Id),
     Body,
-    FuncDiverge(OffZipper)
+    Diverge,
 }
 
+type ZId = Id;
+
+/// a 1 arg invention abstracted into a zipper
+#[derive(Debug,Clone)]
+struct Zipper {
+    nodes: Vec<ZNode>
+}
+
+/// a 1 arg invention
 #[derive(Debug,Clone)]
 struct OffZipper {
     nodes: Vec<OffZNode>
 }
 
-struct AppOffZipper1 {
+/// a 1 arg applied invention
+struct AppOffZipper {
     offzipper: OffZipper,
     arg: Id,
 }
 
-struct AppOffZipper {
-    offzipper: OffZipper,
-    args: Vec<Id>,
+enum OffZTupleElem {
+    Multiarg(OffZipper),
+    Multiuse(OffZipper,ZId)
 }
+
+enum ZTupleElem {
+    Multiarg(ZId),
+    Multiuse(ZId,ZId)
+}
+
+/// a multiarg multiuse invention
+struct ZTuple {
+    elems: Vec<ZTupleElem>,
+}
+
+/// a multiarg multiuse invention abstracted into a ztuple
+struct OffZTuple {
+    elems: Vec<OffZTupleElem>,
+}
+
+/// a multiarg multiuse invention applied
+struct AppOffZTuple {
+    ztuple: ZTuple,
+    args: Vec<Id>, // separated out for ease of comparing by ztuple
+}
+
+
+
+
 
 
 impl Zipper {
