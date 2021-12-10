@@ -4,6 +4,7 @@ use std::fmt::{self, Formatter, Display};
 use clap::Parser;
 use std::path::PathBuf;
 use std::hash::Hash;
+use std::cmp::Ordering;
 
 /// Args for compression
 #[derive(Parser, Debug)]
@@ -702,69 +703,85 @@ fn build_shift_table(applam_shift: &AppLam, applam_noshift: &AppLam) -> (Vec<i32
 }
 
 
-#[derive(Debug,Clone)]
+/// A node in a Zipper
+/// Ord: Func < Body < Arg < AppDiverge
+/// (though you should never be comparing things with AppDiverges anyways...)
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 enum ZNode {
+    // * order of variants here is important because the derived Ord will use it
     Func,
+    Body,
     Arg,
-    Body,
-    AppDiverge,
+    AppDiverge(DivergeDir),
 }
 
-#[derive(Debug,Clone)]
+/// A node in an OffZipper
+/// Ord: Func < Body < Arg < AppDiverge
+/// (though you should never be comparing things with AppDiverges anyways...)
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 enum OffZNode {
+    // * order of variants here is important because the derived Ord will use it
     Func(Id),
+    Body, 
     Arg(Id),
-    Body,
-    AppDiverge,
+    AppDiverge(DivergeDir),
 }
 
-type ZId = Id;
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+enum DivergeDir {
+    Left,
+    Right,
+}
+
+type ZId = usize;
 
 /// a 1 arg invention abstracted into a zipper
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 struct Zipper {
     nodes: Vec<ZNode>
 }
 
 /// a 1 arg invention
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 struct OffZipper {
     nodes: Vec<OffZNode>
 }
 
+
+
 /// a 1 arg applied invention
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone, Eq, PartialEq, Hash)]
 struct AppOffZipper {
     offzipper: OffZipper,
     arg: Id,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone, Eq, PartialEq, Hash)]
 enum OffZTupleElem {
     MultiArg(OffZipper),
     MultiUse(OffZipper,ZId)
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone, Eq, PartialEq, Hash)]
 enum ZTupleElem {
     MultiArg(ZId),
     MultiUse(ZId,ZId)
 }
 
 /// a multiarg multiuse invention
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone, Eq, PartialEq, Hash)]
 struct ZTuple {
     elems: Vec<ZTupleElem>,
 }
 
 /// a multiarg multiuse invention abstracted into a ztuple
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone, Eq, PartialEq, Hash)]
 struct OffZTuple {
     elems: Vec<OffZTupleElem>,
 }
 
 /// a multiarg multiuse invention applied
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone, Eq, PartialEq, Hash)]
 struct AppOffZTuple {
     ztuple: ZTuple,
     args: Vec<Id>, // separated out for ease of comparing by ztuple
@@ -772,7 +789,30 @@ struct AppOffZTuple {
 
 
 
+// /// ordering: leftmost zippers come before rightmost zippers, and to break the tie prefix zippers come before suffix zippers
+// impl PartialOrd for ZNode {
+//     fn partial_cmp(&self, other: &ZNode) -> Option<Ordering> {
+//         match (self,other) {
+//             // Func < Body < Arg
+//             (ZNode::Func, ZNode::Arg) => Some(Ordering::Less),
+//             (ZNode::Func, ZNode::Body) => Some(Ordering::Less),
+//             (ZNode::Body, ZNode::Arg) => Some(Ordering::Less),
 
+//             // Arg > Body > Func
+//             (ZNode::Arg, ZNode::Func) => Some(Ordering::Greater),
+//             (ZNode::Body, ZNode::Func) => Some(Ordering::Greater),
+//             (ZNode::Arg, ZNode::Body) => Some(Ordering::Greater),
+
+//             // Func == Func etc
+//             (ZNode::Func, ZNode::Func) => Some(Ordering::Equal),
+//             (ZNode::Arg, ZNode::Arg) => Some(Ordering::Equal),
+//             (ZNode::Body, ZNode::Body) => Some(Ordering::Equal),
+
+//             // you shouldnt be trying to do orderings here...
+//             (ZNode::AppDiverge, _) | (_, ZNode::AppDiverge) => panic!("AppDiverge should never be compared to anything"),
+//         }
+//     }
+// }
 
 
 impl Zipper {
@@ -788,7 +828,7 @@ impl OffZNode {
             OffZNode::Func(_) => ZNode::Func,
             OffZNode::Arg(_) => ZNode::Arg,
             OffZNode::Body => ZNode::Body,
-            OffZNode::AppDiverge => ZNode::AppDiverge,
+            OffZNode::AppDiverge(b) => ZNode::AppDiverge(b.clone()),
         }
     }
 }
@@ -805,7 +845,7 @@ impl AppOffZipper {
     }
     fn free_vars(&self,egraph: &EGraph) -> HashSet<i32> {
         let mut free_vars = self.offzipper.free_vars(egraph);
-        free_vars.extend(egraph[self.arg].data.free_vars);
+        free_vars.extend(egraph[self.arg].data.free_vars.clone());
         free_vars
     }
 }
@@ -830,6 +870,18 @@ impl OffZipper {
         }
         free_vars
     }
+
+    fn to_expr(&self, egraph: &EGraph) -> Expr {
+        self.nodes.iter().rev().fold(Expr::ivar(0), |acc,node| {
+            match node {
+                OffZNode::Func(x) => Expr::app(acc, extract(*x,egraph)),
+                OffZNode::Arg(f) => Expr::app(extract(*f,egraph), acc),
+                OffZNode::Body => Expr::lam(acc),
+                OffZNode::AppDiverge(_) => panic!("found AppDiverge"),
+            }
+        })
+    }
+
     /// forget all the off zipper elements leaving just a zipper
     #[inline]
     fn forget(&self) -> Zipper {
@@ -1075,7 +1127,7 @@ fn get_appoffzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (H
         let mut appoffzippers: Vec<AppOffZipper> = Default::default();
         
         // any node can become the identity function (the empty offzipper)
-        appoffzippers.push(AppOffZipper::new(vec![], *treenode));
+        appoffzippers.push(AppOffZipper::new(OffZipper::new(vec![]), *treenode));
 
         match node {
             Lambda::IVar(_) => { panic!("attempted to abstract an IVar") }
@@ -1174,7 +1226,7 @@ fn beta_inversions(
 
     let treenodes: Vec<Id> = toplogical_ordering(programs_node,egraph);
     let roots: Vec<Id> = egraph[programs_node].nodes[0].children().iter().cloned().collect();
-    assert!(roots.iter().collect::<HashSet<_>>().len() == roots.len(), "duplicate programs found");
+    // assert!(roots.iter().collect::<HashSet<_>>().len() == roots.len(), "duplicate programs found");
 
     // lets you lookup which roots a treenode is a descendent of
     println!("ROOOOOOTS {:?}", roots);
@@ -1185,42 +1237,57 @@ fn beta_inversions(
     }
 
     let tstart = std::time::Instant::now();
-    let (mut all_appinv1s, shifted_treenodes) = get_appinv1s(&treenodes, no_cache, egraph);
-    println!("get_appinv1s: {:?}ms", tstart.elapsed().as_millis());
+    let (all_appoffzippers, shifted_treenodes) = get_appoffzippers(&treenodes, no_cache, egraph);
+    println!("get_appoffzippers: {:?}ms", tstart.elapsed().as_millis());
+
 
     // from inv1 body to set of roots that it's used under
     let tstart = std::time::Instant::now();
-    let mut usages: HashMap<Id,HashSet<Id>> = Default::default();
-    for (treenode,appinv1s) in all_appinv1s.iter() {
-        for appinv1 in appinv1s.iter() {
-            appinv1.print(egraph);
-            println!("{:?}",treenode_to_roots[treenode]);
-            usages.entry(appinv1.body).or_default().extend(treenode_to_roots[treenode].clone());
+
+    // usages of abstracted out zippers
+    let mut usages: HashMap<Zipper,HashSet<Id>> = Default::default();
+    for (treenode,appoffzippers) in all_appoffzippers.iter() {
+        for appoffzipper in appoffzippers.iter() {
+            usages.entry(appoffzipper.offzipper.forget()).or_default().extend(treenode_to_roots[treenode].clone());
+        }
+        println!("{} appoffzippers at: {}", appoffzippers.len(), extract(*treenode, egraph));
+        for appoffzipper in appoffzippers.iter() {
+            println!("\t{} -> {:?}", appoffzipper.offzipper.to_expr(egraph), appoffzipper.offzipper.forget());
         }
     }
 
-    println!("{} invs", usages.len());
+    println!("{} zippers pre pruning", usages.len());
 
-    // prune down to ones that are used in multiple places
-    let mut invs: Vec<Id> = usages.iter()
+    // with Zippers (not offzippers) we can actually confidently prune away ones that are only used once
+    // bc you create a fully unique set of ZTuples from them that no other way could get
+    let mut invs: Vec<Zipper> = usages.iter()
         .filter_map(|(inv,usages)| if usages.len() > 1 {Some(inv)} else {None})
         .cloned().collect();
     invs.sort();
 
-    all_appinv1s = all_appinv1s.into_iter()
-        .map(|(treenode,appinv1s)|{
-            let mut new_appinv1s: Vec<AppliedInv1> = appinv1s.into_iter()
-                .filter(|appinv1|
-                    invs.contains(&appinv1.body)
-                ).collect();
-            new_appinv1s.sort_by(|a,b| a.body.cmp(&b.body));
-            new_appinv1s.iter().for_each(|appinv1| appinv1.print(egraph));
-            (treenode,new_appinv1s)
-        })
-        .collect();
+    println!("{} zippers post single-use pruning", usages.len());
+
+    // lookup from treenode + zipperid to get 
+    // todo not certain if nested hashmaps makes more sense but this is what I did to start. Given how
+    // todo we might end up iterating the inner hashmap values a lot it certainly could make sense to switch to that (see how it goes first tho)
+    let mut appoffzipper_of_node_zid: HashMap<(Id,ZId),AppOffZipper> = Default::default();
+    let mut zids_of_node: HashMap<Id,Vec<ZId>> = Default::default();
+
+    // now actually prune all those out of all_appoffzippers
+    for (treenode,appoffzippers) in all_appoffzippers {
+        for appoffzipper in appoffzippers {
+            if let Some(i) = invs.iter().position(|x| *x == appoffzipper.offzipper.forget()) {
+                // not pruned!
+                zids_of_node.entry(treenode).or_default().push(i);
+                appoffzipper_of_node_zid.insert((treenode,i),appoffzipper.clone());
+            }
+        }
+    }
+
+    let num_invs = appoffzipper_of_node_zid.values().map(|appoffzipper| appoffzipper.offzipper.clone()).collect::<HashSet<OffZipper>>().len();
 
     println!("filtered out single use: {:?}ms", tstart.elapsed().as_millis());
-    println!("{} invs", invs.len());
+    println!("{} single arg invs", num_invs);
 
     let tstart = std::time::Instant::now();
 
@@ -1228,42 +1295,42 @@ fn beta_inversions(
 
     for base_inv in invs.iter() {
         for node in treenodes.iter() {
-            let appinv1s = &all_appinv1s[&node];
-            let idx = match appinv1s.binary_search_by_key(base_inv, |appinv1| appinv1.body) {
-                Ok(idx) => idx,
-                Err(_) => continue,
-            };
+        //     let appinv1s = &all_appinv1s[&node];
+        //     let idx = match appinv1s.binary_search_by_key(base_inv, |appinv1| appinv1.body) {
+        //         Ok(idx) => idx,
+        //         Err(_) => continue,
+        //     };
 
-            let base_appinv1: &AppliedInv1 = &all_appinv1s[&node][idx];
+        //     let base_appinv1: &AppliedInv1 = &all_appinv1s[&node][idx];
 
-            // invs built from the original iteratively. The usize is to track the largest Id used so far (to make it easy)
-            let mut derived_invs: Vec<(AppliedInv,usize)> = vec![(AppliedInv::new(
-                Inv::new(vec![*base_inv], vec![]),
-                vec![base_appinv1.arg], // args
-                vec![base_appinv1.zipper.clone()], // multiarg zipper
-                vec![], // multiuse zipper
-            ),idx)];
-            let mut offset: usize = 0;
-            while offset < derived_invs.len() {
-                let skip_to: usize = derived_invs[offset].1;
-                for (i,appinv1) in appinv1s[skip_to+1..].iter().enumerate() {
-                    debug_assert!(appinv1.body > *base_inv, "wasnt sorted!!");
+        //     // invs built from the original iteratively. The usize is to track the largest Id used so far (to make it easy)
+        //     let mut derived_invs: Vec<(AppliedInv,usize)> = vec![(AppliedInv::new(
+        //         Inv::new(vec![*base_inv], vec![]),
+        //         vec![base_appinv1.arg], // args
+        //         vec![base_appinv1.zipper.clone()], // multiarg zipper
+        //         vec![], // multiuse zipper
+        //     ),idx)];
+        //     let mut offset: usize = 0;
+        //     while offset < derived_invs.len() {
+        //         let skip_to: usize = derived_invs[offset].1;
+        //         for (i,appinv1) in appinv1s[skip_to+1..].iter().enumerate() {
+        //             debug_assert!(appinv1.body > *base_inv, "wasnt sorted!!");
 
-                    // assert_ne!(appinv1.arg, derived_invs[offset].0.args[0]);
-                    // derived_invs[offset].0.print(egraph);
-                    // appinv1.print(egraph);
-                    // println!("\n");
+        //             // assert_ne!(appinv1.arg, derived_invs[offset].0.args[0]);
+        //             // derived_invs[offset].0.print(egraph);
+        //             // appinv1.print(egraph);
+        //             // println!("\n");
 
-                    if let Some(new_derived_inv) = derived_invs[offset].0.merge_multiarg(appinv1,max_arity) {
-                        derived_invs.push((new_derived_inv,skip_to+1+i));
-                    }
-                    if let Some(new_derived_invs) = derived_invs[offset].0.merge_multiuse(appinv1) {
-                        derived_invs.extend(new_derived_invs.into_iter().map(|inv|(inv,skip_to+1+i)));
-                    }
-                }
-                offset += 1;
-            }
-            all_derived_invs.entry(*node).or_default().extend(derived_invs.into_iter().map(|(inv,_)| inv));
+        //             if let Some(new_derived_inv) = derived_invs[offset].0.merge_multiarg(appinv1,max_arity) {
+        //                 derived_invs.push((new_derived_inv,skip_to+1+i));
+        //             }
+        //             if let Some(new_derived_invs) = derived_invs[offset].0.merge_multiuse(appinv1) {
+        //                 derived_invs.extend(new_derived_invs.into_iter().map(|inv|(inv,skip_to+1+i)));
+        //             }
+        //         }
+        //         offset += 1;
+        //     }
+        //     all_derived_invs.entry(*node).or_default().extend(derived_invs.into_iter().map(|(inv,_)| inv));
         }
     }
 
