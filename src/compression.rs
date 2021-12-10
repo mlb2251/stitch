@@ -848,6 +848,13 @@ impl AppOffZipper {
         free_vars.extend(egraph[self.arg].data.free_vars.clone());
         free_vars
     }
+    fn to_string(&self,egraph: &EGraph) -> String {
+        format!("\t{} <- {} | {:?}",
+            self.offzipper.to_expr(egraph),
+            extract(self.arg,egraph),
+            self.offzipper.forget()
+        )
+    }
 }
 
 impl OffZipper {
@@ -860,12 +867,16 @@ impl OffZipper {
         for node in self.nodes.iter() {
             match node {
                 OffZNode::Func(o) | OffZNode::Arg(o) => {
-                    free_vars.extend(egraph[*o].data.free_vars.iter().map(|fv| *fv-depth));
+                    free_vars.extend(egraph[*o].data.free_vars.iter()
+                    .filter_map(|fv|
+                        if *fv >= depth {Some(fv-depth)} else {None}));
                 }
                 OffZNode::Body => {
                     depth += 1;
                 }
-                _ => {}
+                OffZNode::AppDiverge(d) => {
+                    panic!("AppDiverge should never be in an OffZipper");
+                }
             }
         }
         free_vars
@@ -1181,6 +1192,8 @@ fn get_appoffzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (H
                     // todo note once you allow threading it's unclear if this remapping still holds or if there are new ways to remap
                     shifted_treenodes.insert(new_arg, b_appoffzipper.arg);
 
+                    // println!("Bubbled over lam:\n\t{}\n{}", extract(*treenode,egraph), new.to_string(egraph));
+
                     appoffzippers.push(new);
                 }
             },
@@ -1252,7 +1265,7 @@ fn beta_inversions(
         }
         println!("{} appoffzippers at: {}", appoffzippers.len(), extract(*treenode, egraph));
         for appoffzipper in appoffzippers.iter() {
-            println!("\t{} -> {:?}", appoffzipper.offzipper.to_expr(egraph), appoffzipper.offzipper.forget());
+            println!("{}", appoffzipper.to_string(egraph));
         }
     }
 
