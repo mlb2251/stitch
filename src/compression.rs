@@ -875,7 +875,7 @@ impl OffZipper {
                     depth += 1;
                 }
                 OffZNode::AppDiverge(d) => {
-                    panic!("AppDiverge should never be in an OffZipper");
+                    panic!("appdiverge encountered");
                 }
             }
         }
