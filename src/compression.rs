@@ -787,6 +787,11 @@ struct AppOffZTuple {
     args: Vec<Id>, // separated out for ease of comparing by ztuple
 }
 
+impl ZTuple {
+    fn new(elems: Vec<ZTupleElem>) -> ZTuple {
+        ZTuple { elems }
+    }
+}
 
 
 // /// ordering: leftmost zippers come before rightmost zippers, and to break the tie prefix zippers come before suffix zippers
@@ -1277,10 +1282,10 @@ fn beta_inversions(
 
     // with Zippers (not offzippers) we can actually confidently prune away ones that are only used once
     // bc you create a fully unique set of ZTuples from them that no other way could get
-    let mut invs: Vec<Zipper> = usages.iter()
+    let mut zippers: Vec<Zipper> = usages.iter()
         .filter_map(|(inv,usages)| if usages.len() > 1 {Some(inv)} else {None})
         .cloned().collect();
-    invs.sort();
+        zippers.sort();
 
     println!("{} zippers post single-use pruning", usages.len());
 
@@ -1293,7 +1298,7 @@ fn beta_inversions(
     // now actually prune all those out of all_appoffzippers
     for (treenode,appoffzippers) in all_appoffzippers {
         for appoffzipper in appoffzippers {
-            if let Ok(i) = invs.binary_search(&appoffzipper.offzipper.forget()) {
+            if let Ok(i) = zippers.binary_search(&appoffzipper.offzipper.forget()) {
                 // not pruned!
                 zids_of_node.entry(treenode).or_default().push(i);
                 appoffzipper_of_node_zid.insert((treenode,i),appoffzipper.clone());
@@ -1314,7 +1319,25 @@ fn beta_inversions(
 
     let mut all_derived_invs: HashMap<Id,Vec<AppliedInv>> = Default::default();
 
-    for base_inv in invs.iter() {
+    let mut worklist: Vec<ZTuple> = zippers.iter().enumerate().map(|(zid,_zipper)| ZTuple::new(vec![ZTupleElem::MultiArg(zid)])).collect();
+
+
+    // todo ofc can parallelize this
+    while !worklist.is_empty() {
+        let ztuple:ZTuple = worklist.pop().unwrap();
+        let best_inventions: NodeCosts = NodeCosts::new(); // todo except a verison of NodeCosts with OffZTuples and preferably `remap` not duplicated in every time - instead passed by ref somehow at some point
+        for node in treenodes.iter() {
+            // 1) bail fast if this node doesnt have all the zids the ztuple needs.
+            // 1.1) later, could try making a Vec<Id> of treenodes part of the worklist entry with a ztuple so we know exactly where it applies. Speed memory tradeoff.
+            // 2) instantiate an offztuple roughly by mapping zids to offzippers, rank it with NodeCosts.cost_under_inv(), and push it into NodeCosts
+            // 3) use merge_multiarg and merge_multiuse to extend the worklist - or to extent a temp worklist where things that only show up once are removed
+            // 3.1) def worth also experimenting with building the full worklist in a separate pass before any of this other stuff, putting it all in memory if its not too big
+            // 4) narrow to the top k=1 invention @ Programs() level and push to a list.
+        }
+    }
+
+
+    for base_inv in zippers.iter() {
         for node in treenodes.iter() {
         //     let appinv1s = &all_appinv1s[&node];
         //     let idx = match appinv1s.binary_search_by_key(base_inv, |appinv1| appinv1.body) {
