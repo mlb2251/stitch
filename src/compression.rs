@@ -1257,17 +1257,21 @@ fn beta_inversions(
     // from inv1 body to set of roots that it's used under
     let tstart = std::time::Instant::now();
 
+    let mut total_inv_usages = 0;
+
     // usages of abstracted out zippers
     let mut usages: HashMap<Zipper,HashSet<Id>> = Default::default();
     for (treenode,appoffzippers) in all_appoffzippers.iter() {
         for appoffzipper in appoffzippers.iter() {
             usages.entry(appoffzipper.offzipper.forget()).or_default().extend(treenode_to_roots[treenode].clone());
+            total_inv_usages += 1;
         }
-        println!("{} appoffzippers at: {}", appoffzippers.len(), extract(*treenode, egraph));
-        for appoffzipper in appoffzippers.iter() {
-            println!("{}", appoffzipper.to_string(egraph));
-        }
+        // println!("{} appoffzippers at: {}", appoffzippers.len(), extract(*treenode, egraph));
+        // for appoffzipper in appoffzippers.iter() {
+        //     println!("{}", appoffzipper.to_string(egraph));
+        // }
     }
+    println!("total invention usages (not just unique ones): {}", total_inv_usages);
 
     println!("{} zippers pre pruning", usages.len());
 
@@ -1289,7 +1293,7 @@ fn beta_inversions(
     // now actually prune all those out of all_appoffzippers
     for (treenode,appoffzippers) in all_appoffzippers {
         for appoffzipper in appoffzippers {
-            if let Some(i) = invs.iter().position(|x| *x == appoffzipper.offzipper.forget()) {
+            if let Ok(i) = invs.binary_search(&appoffzipper.offzipper.forget()) {
                 // not pruned!
                 zids_of_node.entry(treenode).or_default().push(i);
                 appoffzipper_of_node_zid.insert((treenode,i),appoffzipper.clone());
@@ -1297,9 +1301,13 @@ fn beta_inversions(
         }
     }
 
-    let num_invs = appoffzipper_of_node_zid.values().map(|appoffzipper| appoffzipper.offzipper.clone()).collect::<HashSet<OffZipper>>().len();
 
-    println!("filtered out single use: {:?}ms", tstart.elapsed().as_millis());
+
+    println!("filtered out single use & built data structs: {:?}ms", tstart.elapsed().as_millis());
+    
+    let tstart = std::time::Instant::now();
+    let num_invs = appoffzipper_of_node_zid.values().map(|appoffzipper| appoffzipper.offzipper.clone()).collect::<HashSet<OffZipper>>().len();
+    println!("counted inventions: {:?}ms", tstart.elapsed().as_millis());
     println!("{} single arg invs", num_invs);
 
     let tstart = std::time::Instant::now();
