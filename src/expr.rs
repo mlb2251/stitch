@@ -196,6 +196,16 @@ impl Expr {
         Id::from(self.nodes.len()-1)
     }
 
+    /// Returns the root
+    pub fn get_root(&self) -> &Lambda {
+        self.get(self.root())
+    }
+
+    /// Returns the root
+    pub fn get(&self, child:Id) -> &Lambda {
+        &self.nodes[usize::from(child)]
+    }
+
     /// construct an Expr with a single Var node
     pub fn var(i: i32) -> Self {
         Self::new(vec![Lambda::Var(i)])
@@ -265,6 +275,13 @@ impl Expr {
     pub fn cloned_subexpr(&self, child:Id) -> Self {
         assert!(self.nodes.len() > child.into());
         Self::new(self.nodes.iter().take(child.into()).cloned().collect())
+    }
+    /// Consumes an expr and returns a subexpr.
+    /// Importantly all Id indexing should be preserved just fine since this is implemented through truncating the underlying vector.
+    pub fn into_subexpr(mut self, child:Id) -> Self {
+        assert!(self.nodes.len() > child.into());
+        self.nodes.truncate(child.into());
+        self
     }
 
     /// Go from a curried string to an Expr
