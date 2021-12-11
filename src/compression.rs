@@ -1532,14 +1532,14 @@ fn beta_inversions(
     // todo not certain if nested hashmaps makes more sense but this is what I did to start. Given how
     // todo we might end up iterating the inner hashmap values a lot it certainly could make sense to switch to that (see how it goes first tho)
     let mut appoffzipper_of_node_zid: HashMap<(Id,ZId),AppOffZipper> = Default::default();
-    let mut zids_of_node: HashMap<Id,Vec<ZId>> = Default::default();
+    let mut zids_of_node: HashMap<Id,Vec<ZId>> = treenodes.iter().map(|treenode| (treenode.clone(),Vec::new())).collect();
 
     // now actually prune all those out of all_appoffzippers
     for (treenode,appoffzippers) in all_appoffzippers {
         for appoffzipper in appoffzippers {
             if let Ok(i) = zippers.binary_search(&appoffzipper.offzipper.forget()) {
                 // not pruned!
-                zids_of_node.entry(treenode).or_default().push(i);
+                zids_of_node.get_mut(&treenode).unwrap().push(i);
                 appoffzipper_of_node_zid.insert((treenode,i),appoffzipper.clone());
             }
         }
@@ -1568,6 +1568,7 @@ fn beta_inversions(
     while !worklist.is_empty() {
         let ztuple: ZTuple = worklist.pop().unwrap();
         let mut invs: Vec<OffZTuple> = vec![];
+        let mut worklist_additions: Vec<ZTuple> = vec![];
         for node in treenodes.iter() {
             // 1) fail fast if this node doesnt have all the zids the ztuple needs.
             if ztuple.zids().any(|zid| !zids_of_node[node].contains(&zid)) {
@@ -1584,19 +1585,19 @@ fn beta_inversions(
                 invs.len() - 1
             });
 
-            // 3) use merge_multiarg and merge_multiuse to extend the worklist - or to extend a temp worklist where things that only show up once are removed
-            // todo -> left off here <-
+            // 3) use merge_multiarg and merge_multiuse to extend the worklist
+            // opt future improvement: extend a temp worklist where things that only show up once are removed
             let largest_zid: ZId = ztuple.zids().last().unwrap();
             for zid in zids_of_node[node].iter().filter(|zid| **zid > largest_zid) {
                 let appoffzipper: &AppOffZipper = &appoffzipper_of_node_zid[&(*node,*zid)];
                 if appoffztuple.args.len() < max_arity {
                     // arity is low so can attempt to merge
                     if let Some(new_ztuple) = appoffztuple.merge_multiarg(appoffzipper, *zid, &ztuple) {
-                        worklist.push(new_ztuple);
+                        worklist_additions.push(new_ztuple);
                     }
                 }
                 if let Some(new_ztuples) = appoffztuple.merge_multiuse(appoffzipper, *zid, &ztuple) {
-                    worklist.extend(new_ztuples);
+                    worklist_additions.extend(new_ztuples);
                 }
             }
 
@@ -1623,11 +1624,19 @@ fn beta_inversions(
             best_inventions.truncate(100);
         }
         node_costs.clear(); // wipe caches, but keep allocated memory for reuse
+
+        // 7) add worklist additions to the worklist
+        // todo note it could be worth filtering out singly used ones, or especially filtering out ones that are used only once across multiple programs
+        worklist_additions.dedup(); // very important to dedup
+        worklist.extend(worklist_additions);
     }
 
     best_inventions.sort_by(|(_,cost1),(_,cost2)| cost1.cmp(cost2));
     best_inventions.truncate(100);
 
+    println!("best invention (cost={}): {:?}", best_inventions[0].1, best_inventions[0].0);
+
+    unimplemented!();
 
     for base_inv in zippers.iter() {
         for node in treenodes.iter() {
