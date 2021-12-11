@@ -759,13 +759,13 @@ struct AppOffZipper {
 #[derive(Debug,Clone, Eq, PartialEq, Hash)]
 enum OffZTupleElem {
     MultiArg(OffZipper),
-    MultiUse(OffZipper,ZId)
+    MultiUse(OffZipper,usize)
 }
 
 #[derive(Debug,Clone, Eq, PartialEq, Hash)]
 enum ZTupleElem {
     MultiArg(ZId),
-    MultiUse(ZId,ZId)
+    MultiUse(ZId,usize)
 }
 
 /// a multiarg multiuse invention
@@ -783,7 +783,7 @@ struct OffZTuple {
 /// a multiarg multiuse invention applied
 #[derive(Debug,Clone, Eq, PartialEq, Hash)]
 struct AppOffZTuple {
-    ztuple: ZTuple,
+    offztuple: OffZTuple,
     args: Vec<Id>, // separated out for ease of comparing by ztuple
 }
 
@@ -794,31 +794,41 @@ impl ZTuple {
 }
 
 
-// /// ordering: leftmost zippers come before rightmost zippers, and to break the tie prefix zippers come before suffix zippers
-// impl PartialOrd for ZNode {
-//     fn partial_cmp(&self, other: &ZNode) -> Option<Ordering> {
-//         match (self,other) {
-//             // Func < Body < Arg
-//             (ZNode::Func, ZNode::Arg) => Some(Ordering::Less),
-//             (ZNode::Func, ZNode::Body) => Some(Ordering::Less),
-//             (ZNode::Body, ZNode::Arg) => Some(Ordering::Less),
+impl ZTuple {
+    #[inline]
+    fn zids(&self) -> impl ExactSizeIterator<Item=ZId> + '_ {
+        self.elems.iter().map(|elem| match elem {
+            ZTupleElem::MultiArg(zid) => *zid,
+            ZTupleElem::MultiUse(zid,_) => *zid,
+        })
+    }
 
-//             // Arg > Body > Func
-//             (ZNode::Arg, ZNode::Func) => Some(Ordering::Greater),
-//             (ZNode::Body, ZNode::Func) => Some(Ordering::Greater),
-//             (ZNode::Arg, ZNode::Body) => Some(Ordering::Greater),
+}
 
-//             // Func == Func etc
-//             (ZNode::Func, ZNode::Func) => Some(Ordering::Equal),
-//             (ZNode::Arg, ZNode::Arg) => Some(Ordering::Equal),
-//             (ZNode::Body, ZNode::Body) => Some(Ordering::Equal),
-
-//             // you shouldnt be trying to do orderings here...
-//             (ZNode::AppDiverge, _) | (_, ZNode::AppDiverge) => panic!("AppDiverge should never be compared to anything"),
-//         }
-//     }
-// }
-
+impl AppOffZTuple {
+    #[inline]
+    fn from_appoffzippers(ztuple: &ZTuple, appoffzippers: Vec<AppOffZipper>) -> AppOffZTuple
+    {
+        let args: Vec<Id> = appoffzippers.iter().map(|appoffzipper| appoffzipper.arg.clone()).collect();
+        let elems: Vec<OffZTupleElem> = ztuple.elems.iter()
+            .zip(appoffzippers.into_iter())
+            .map(|(elem,appoffzipper)| match elem {
+            ZTupleElem::MultiArg(zid) => OffZTupleElem::MultiArg(appoffzipper.offzipper),
+            ZTupleElem::MultiUse(zid,which) => OffZTupleElem::MultiUse(appoffzipper.offzipper,*which),
+        }).collect();
+        let mut res = AppOffZTuple::new(OffZTuple::new(elems),args);
+        res.mask_divergences();
+        res
+    }
+    fn new(offztuple: OffZTuple, args: Vec<Id>) -> AppOffZTuple {
+        AppOffZTuple { offztuple, args }
+    }
+}
+impl OffZTuple {
+    fn new(elems: Vec<OffZTupleElem>) -> OffZTuple {
+        OffZTuple { elems }
+    }
+}
 
 impl Zipper {
     fn new(nodes: Vec<ZNode>) -> Zipper {
@@ -1229,6 +1239,121 @@ fn get_appoffzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (H
     (all_appoffzippers,shifted_treenodes)
 }
 
+#[derive(Debug)]
+struct Cost {
+    inventionless_cost: i32,
+    inventionful_cost: HashMap<OffZTuple, i32> 
+}
+impl Cost {
+    fn new(inventionless_cost: i32) -> Self {
+        Cost {
+            inventionless_cost,
+            inventionful_cost: Default::default()
+        }
+    }
+    /// improve the cost using a new invention, or do nothing if we've already seen
+    /// a better cost for this invention. Also skip if inventionless cost is better.
+    fn new_cost_under_inv(&mut self, inv: &OffZTuple, cost:i32) {
+        if cost < self.inventionless_cost {
+            if !self.inventionful_cost.contains_key(inv)
+               || cost < self.inventionful_cost[&inv]  {
+                self.inventionful_cost.insert(inv.clone(), cost);
+            }
+        }
+    }
+    /// cost under an invention if it's useful for this node, else inventionless cost
+    fn cost_under_inv(&self, inv: &OffZTuple) -> i32 {
+        self.inventionful_cost.get(inv).cloned().unwrap_or(self.inventionless_cost)
+    }
+    /// best inventions - a very slow way
+    fn best_inventions(&self, k: usize) -> Vec<(OffZTuple,i32)> {
+        let mut invs: Vec<(OffZTuple,i32)> = self.inventionful_cost.iter().map(|(i,c)| (i.clone(),*c)).collect();
+        // reverse order sort
+        invs.sort_by(|(_,c1),(_,c2)| c1.cmp(c2));
+        invs.truncate(k);
+        invs
+    }
+}
+
+#[derive(Debug)]
+struct Costs {
+    costs: HashMap<Id,Cost>, // todo note this could be a Vec<> instead of a hashmap
+    remap: HashMap<Id,Id>
+}
+impl Costs {
+    fn new(treenodes: &[Id], remap: HashMap<Id,Id>, egraph: &EGraph) -> Self {
+        let costs = treenodes.iter().map(|node| (*node,Cost::new(egraph[*node].data.inventionless_cost))).collect();
+        Costs { costs, remap }
+    }
+    fn cost_under_inv(&self, node: Id, inv: &OffZTuple) -> i32 {
+        let remapped_node = if self.costs.contains_key(&node) {node} else {self.remap[&node]};
+        self.costs[&remapped_node].cost_under_inv(inv)
+    }
+    fn new_cost_under_inv(&mut self, node: Id, inv: &OffZTuple, cost:i32) {
+        self.costs.get_mut(&node).unwrap().new_cost_under_inv(inv, cost);
+    }
+    fn useful_invs(&self, node: Id) -> Vec<OffZTuple> {
+        let remapped_node = if self.costs.contains_key(&node) {node} else {self.remap[&node]};
+        self.costs[&remapped_node].inventionful_cost.keys().cloned().collect()
+    }
+    fn best_inventions(&self, node: Id, k: usize) -> Vec<(OffZTuple,i32)> {
+        let remapped_node = if self.costs.contains_key(&node) {node} else {self.remap[&node]};
+        self.costs[&remapped_node].best_inventions(k)
+    }
+
+    fn bubble_up_costs(&mut self, node: Id, egraph: &EGraph) {
+        let enode = egraph[node].nodes[0].clone();
+
+        // inventions that helped our children
+        let child_inventions: Vec<Inv> = enode.children().iter()
+            .map(|id| node_costs.useful_invs(*id))
+            .flatten()
+            .collect();
+        
+        match enode {
+            Lambda::IVar(_) => { panic!("unreachable"); }
+            Lambda::Var(_) | Lambda::Prim(_) => {},
+            Lambda::App([f,x]) => {                                
+                for inv in child_inventions {
+                    let fcost = node_costs.cost_under_inv(f, &inv);
+                    let xcost = node_costs.cost_under_inv(x, &inv);
+                    let cost = COST_NONTERMINAL+fcost+xcost;
+                    node_costs.new_cost_under_inv(*node, &inv, cost);
+                }
+            }
+            Lambda::Lam([b]) => {
+                // just map +1 over the costs
+                for inv in child_inventions {
+                    let bcost = node_costs.cost_under_inv(b, &inv);
+                    let cost = COST_NONTERMINAL+bcost;
+                    node_costs.new_cost_under_inv(*node, &inv, cost);
+                }
+            }
+            Lambda::Programs(roots) => {
+                // union together all the useful inventions of diff programs
+                
+                // count num occurences of each invention
+                let mut counts: HashMap<Inv,i32> = child_inventions.iter().cloned().map(|i| (i,0)).collect();
+                for inv in child_inventions {
+                    counts.insert(inv.clone(), counts[&inv] + 1);
+                }
+
+                // keep only inventions used by 2+ programs
+                let inventions: Vec<Inv> = counts.into_iter()
+                    .filter_map(|(i,c)| if c > 1 { Some(i) } else { None }).collect();
+                
+                for inv in inventions {
+                    let cost = roots.iter().map(|root| {
+                            node_costs.cost_under_inv(*root, &inv)
+                        }).sum();
+                    node_costs.new_cost_under_inv(*node, &inv, cost);
+                }
+            }
+        }
+    }
+}
+
+
 /// This is the main workhorse of compression. Takes a child-first ordering of nodes in an EGraph
 /// (assumed to be acyclic) and finds all the possible useful inventions up to the given arity.
 #[inline(never)] // for flamegraph debugging
@@ -1324,12 +1449,29 @@ fn beta_inversions(
 
     // todo ofc can parallelize this
     while !worklist.is_empty() {
-        let ztuple:ZTuple = worklist.pop().unwrap();
-        let best_inventions: NodeCosts = NodeCosts::new(); // todo except a verison of NodeCosts with OffZTuples and preferably `remap` not duplicated in every time - instead passed by ref somehow at some point
+        let ztuple: ZTuple = worklist.pop().unwrap();
+        let node_costs: NodeCosts = NodeCosts::new(); // todo except a verison of NodeCosts with OffZTuples and preferably `remap` not duplicated in every time - instead passed by ref somehow at some point
         for node in treenodes.iter() {
             // 1) bail fast if this node doesnt have all the zids the ztuple needs.
-            // 1.1) later, could try making a Vec<Id> of treenodes part of the worklist entry with a ztuple so we know exactly where it applies. Speed memory tradeoff.
-            // 2) instantiate an offztuple roughly by mapping zids to offzippers, rank it with NodeCosts.cost_under_inv(), and push it into NodeCosts
+            if ztuple.zids().any(|zid| !zids_of_node[node].contains(&zid)) {
+                continue; // this node is missing a necessary zid
+            }
+            
+            // 2) instantiate an offztuple roughly by mapping zids to offzippers
+            let appoffzippers: Vec<AppOffZipper> =  ztuple.zids().map(|zid| appoffzipper_of_node_zid[&(*node,zid)].clone()).collect();
+            let appoffztuple = AppOffZTuple::from_appoffzippers(&ztuple, appoffzippers);
+
+            // 3) get the cost
+            let cost: i32 =
+                COST_TERMINAL // the new primitive for this invention
+                + COST_NONTERMINAL * appoffztuple.args.len() as i32 // the chain of app()s needed to apply the new primitive
+                + appoffztuple.args.iter()
+                    .map(|arg| node_costs.cost_under_inv(*arg, &appoffztuple.offztuple))
+                    .sum::<i32>(); // sum costs of actual args
+            
+            // 4) rank it with NodeCosts.cost_under_inv(), and push it into NodeCosts
+
+            // x.into_iter().zip(ztuple.elems.iter()).map(|(appoffzipper,ztupleelem)|)
             // 3) use merge_multiarg and merge_multiuse to extend the worklist - or to extent a temp worklist where things that only show up once are removed
             // 3.1) def worth also experimenting with building the full worklist in a separate pass before any of this other stuff, putting it all in memory if its not too big
             // 4) narrow to the top k=1 invention @ Programs() level and push to a list.
