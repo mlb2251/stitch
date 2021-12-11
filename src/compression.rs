@@ -899,7 +899,7 @@ impl OffZTuple {
     fn to_string(&self,egraph: &EGraph) -> String {
         self.elems.iter().map(|elem| {
             elem.offzipper.to_expr(egraph, elem.arg_idx as i32).to_string()
-        }).collect::<Vec<String>>().join("\n\t")
+        }).collect::<Vec<String>>().join("\n")
     }
 }
 
@@ -1021,8 +1021,8 @@ impl OffZipper {
                 OffZNode::Func(x) => Expr::app(acc, extract(*x,egraph)),
                 OffZNode::Arg(f) => Expr::app(extract(*f,egraph), acc),
                 OffZNode::Body => Expr::lam(acc),
-                OffZNode::FuncDiverge => Expr::prim("FuncDiverge".into()),
-                OffZNode::ArgDiverge => Expr::prim("ArgDiverge".into())
+                OffZNode::FuncDiverge => Expr::app(acc, Expr::prim("_".into())),
+                OffZNode::ArgDiverge => Expr::app(Expr::prim("_".into()), acc)
                 // OffZNode::FuncDiverge | OffZNode::ArgDiverge => {
                     // panic!("attempting to to_expr() a diverging zipper - you probably mean to extract the parent ztuple instead")
                 // }
