@@ -940,7 +940,7 @@ impl OffZTuple {
                         }
                     }
                 }
-                (_,_) => panic!("node types in merge dont match"),
+                (_,_) => panic!("node types in merge dont match {} {}", nodeleft, noderight),
             }
         }
         let mut exprs: Vec<Expr> = self.elems.iter().map(|elem| elem.offzipper.to_expr(egraph, elem.arg_idx as i32)).collect();
@@ -954,6 +954,7 @@ impl OffZTuple {
     fn to_string_detailed(&self,egraph: &EGraph) -> String {
         let exprs: Vec<Expr> = self.elems.iter().map(|elem| elem.offzipper.to_expr(egraph, elem.arg_idx as i32)).collect();
         let s: String = exprs.iter().map(|e|e.to_string()).collect::<Vec<String>>().join("\n");
+        println!("{}", s);
         format!("{}\nfrom:\n{}\n", self.to_expr(egraph).to_string(), s)
     }
 }
@@ -980,6 +981,16 @@ impl Zipper {
             }
         }
         panic!("unreachable unless self > other");
+    }
+
+    fn to_expr(&self, ivar_idx: i32) -> Expr {
+        self.nodes.iter().rev().fold(Expr::ivar(ivar_idx), |acc,node| {
+            match node {
+                ZNode::Func => Expr::app(acc, Expr::prim(HOLE.into())),
+                ZNode::Arg => Expr::app(Expr::prim(HOLE.into()), acc),
+                ZNode::Body => Expr::lam(acc),
+            }
+        })
     }
 }
 
@@ -1431,6 +1442,7 @@ impl Cost {
         if cost < self.inventionless_cost {
             if !self.inventionful_cost.contains_key(&inv) // todo swap this to use entry api
                || cost < self.inventionful_cost[&inv]  {
+                println!("new cost added");
                 self.inventionful_cost.insert(inv.clone(), cost);
             }
         }
@@ -1506,9 +1518,11 @@ impl Costs {
                 }
             }
             Lambda::Programs(roots) => {
+                println!("root cost processing");
                 // union together all the useful inventions of diff programs. Throw out ones only used in one place.
 
                 while let Some(inv) = child_inventions.pop() {
+                    println!("processing inv {:?}", inv);
                     // weird setup: if you see exactly one copy of yourself ahead of you, youre good to go.
                     // That way if theres only 1 copy of something it gets skipped, and if there are like 5 copies itll still only
                     // do the computation once.
@@ -1568,10 +1582,10 @@ fn beta_inversions(
             usages.entry(appoffzipper.offzipper.forget()).or_default().extend(treenode_to_roots[treenode].clone());
             total_inv_usages += 1;
         }
-        // println!("{} appoffzippers at: {}", appoffzippers.len(), extract(*treenode, egraph));
-        // for appoffzipper in appoffzippers.iter() {
-        //     println!("{}", appoffzipper.to_string(egraph));
-        // }
+        println!("{} appoffzippers at: {}", appoffzippers.len(), extract(*treenode, egraph));
+        for appoffzipper in appoffzippers.iter() {
+            println!("{}", appoffzipper.to_string(egraph));
+        }
     }
     println!("total invention usages (not just unique ones): {}", total_inv_usages);
 
@@ -1624,7 +1638,12 @@ fn beta_inversions(
     // todo ofc can parallelize this 
     let mut node_costs = Costs::new(&treenodes,remap,egraph); // todo except a verison of NodeCosts with OffZTuples and preferably `remap` not duplicated in every time - instead passed by ref somehow at some point
     while let Some(ztuple) = worklist.pop() {
-        // println!("{} {:?}", ztuple.elems.len(), ztuple);
+        println!("{} {:?}", ztuple.elems.len(), ztuple);
+        for expr in ztuple.elems.iter().map(|elem| zippers[elem.zid].to_expr(elem.arg_idx as i32)) {
+            println!("\t{}", expr.to_string_curried(None));
+        }
+
+
         let mut invs: Vec<OffZTuple> = vec![];
         let mut worklist_additions: Vec<ZTuple> = vec![];
         for node in treenodes.iter() {
@@ -1645,6 +1664,7 @@ fn beta_inversions(
             // 4) for efficiency we'll switch to referring to the invention by its location in `invs`
             let inv: InvId = invs.iter().position(|inv| inv == &appoffztuple.offztuple).unwrap_or_else(|| {
                 invs.push(appoffztuple.offztuple.clone());
+                println!("new inv: {}", appoffztuple.offztuple.to_string_detailed(egraph));
                 invs.len() - 1
             });
 
@@ -1670,17 +1690,22 @@ fn beta_inversions(
                 + appoffztuple.args.iter()
                     .map(|arg| node_costs.cost_under_inv(*arg, inv))
                     .sum::<i32>(); // sum costs of actual args
-
+            println!("COST: {} -> {} at {}", extract(*node,egraph).cost(), cost, extract(*node,egraph));
             // 4) Push invention + cost into NodeCosts
             node_costs.new_cost_under_inv(*node, inv, cost);            
 
         }
+        // println!("benefited: {}", !node_costs.best_inventions(programs_node, 1).is_empty());
         // 6) after all nodes are processed, add the best k=1 toplevel inventions to the list, sort/prune it if it's too long
         best_inventions.extend(node_costs.best_inventions(programs_node, 1).into_iter().map(|(inv,cost)| (invs[inv].clone(),cost)));
         if best_inventions.len() > 10000 {
             best_inventions.sort_by(|(_,cost1),(_,cost2)| cost1.cmp(cost2));
             best_inventions.truncate(100);
         }
+
+        if ztuple.elems.len() == 3 { panic!("check this out")}
+
+
         node_costs.clear(); // wipe caches, but keep allocated memory for reuse
 
         // 7) add worklist additions to the worklist
