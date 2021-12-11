@@ -704,33 +704,25 @@ fn build_shift_table(applam_shift: &AppLam, applam_noshift: &AppLam) -> (Vec<i32
 
 
 /// A node in a Zipper
-/// Ord: Func < Body < Arg < AppDiverge
-/// (though you should never be comparing things with AppDiverges anyways...)
+/// Ord: Func < Body < Arg
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 enum ZNode {
     // * order of variants here is important because the derived Ord will use it
     Func,
     Body,
     Arg,
-    AppDiverge(DivergeDir),
 }
 
 /// A node in an OffZipper
-/// Ord: Func < Body < Arg < AppDiverge
-/// (though you should never be comparing things with AppDiverges anyways...)
+/// Ord: Func < Body < Arg
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 enum OffZNode {
     // * order of variants here is important because the derived Ord will use it
     Func(Id),
+    FuncDiverge,
     Body, 
     Arg(Id),
-    AppDiverge(DivergeDir),
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-enum DivergeDir {
-    Left,
-    Right,
+    ArgDiverge,
 }
 
 type ZId = usize;
@@ -756,22 +748,35 @@ struct AppOffZipper {
     arg: Id,
 }
 
+// #[derive(Debug,Clone, Eq, PartialEq, Hash)]
+// enum OffZTupleElem {
+//     MultiArg(OffZipper),
+//     MultiUse(OffZipper,usize)
+// }
+
+// #[derive(Debug,Clone, Eq, PartialEq, Hash)]
+// enum ZTupleElem {
+//     MultiArg(ZId),
+//     MultiUse(ZId,usize)
+// }
+
 #[derive(Debug,Clone, Eq, PartialEq, Hash)]
-enum OffZTupleElem {
-    MultiArg(OffZipper),
-    MultiUse(OffZipper,usize)
+struct OffZTupleElem {
+    offzipper: OffZipper,
+    multiuse: Option<usize>
 }
 
 #[derive(Debug,Clone, Eq, PartialEq, Hash)]
-enum ZTupleElem {
-    MultiArg(ZId),
-    MultiUse(ZId,usize)
+struct ZTupleElem {
+    zid: ZId,
+    multiuse: Option<usize>
 }
 
 /// a multiarg multiuse invention
 #[derive(Debug,Clone, Eq, PartialEq, Hash)]
 struct ZTuple {
     elems: Vec<ZTupleElem>,
+    divergence_idxs: Vec<usize>,
 }
 
 /// a multiarg multiuse invention abstracted into a ztuple
@@ -787,9 +792,21 @@ struct AppOffZTuple {
     args: Vec<Id>, // separated out for ease of comparing by ztuple
 }
 
+
+impl OffZTupleElem {
+    fn new(offzipper: OffZipper, multiuse: Option<usize>) -> OffZTupleElem {
+        OffZTupleElem { offzipper: offzipper, multiuse: multiuse }
+    }
+}
+impl ZTupleElem {
+    fn new(zid: ZId, multiuse: Option<usize>) -> ZTupleElem {
+        ZTupleElem { zid: zid, multiuse: multiuse }
+    }
+}
+
 impl ZTuple {
-    fn new(elems: Vec<ZTupleElem>) -> ZTuple {
-        ZTuple { elems }
+    fn new(elems: Vec<ZTupleElem>, divergence_idxs: Vec<usize>) -> ZTuple {
+        ZTuple { elems, divergence_idxs }
     }
 }
 
@@ -797,10 +814,7 @@ impl ZTuple {
 impl ZTuple {
     #[inline]
     fn zids(&self) -> impl ExactSizeIterator<Item=ZId> + '_ {
-        self.elems.iter().map(|elem| match elem {
-            ZTupleElem::MultiArg(zid) => *zid,
-            ZTupleElem::MultiUse(zid,_) => *zid,
-        })
+        self.elems.iter().map(|elem| elem.zid)
     }
 
 }
@@ -810,15 +824,17 @@ impl AppOffZTuple {
     fn from_appoffzippers(ztuple: &ZTuple, appoffzippers: Vec<AppOffZipper>) -> AppOffZTuple
     {
         let args: Vec<Id> = appoffzippers.iter().map(|appoffzipper| appoffzipper.arg.clone()).collect();
-        let elems: Vec<OffZTupleElem> = ztuple.elems.iter()
+        let mut elems: Vec<OffZTupleElem> = ztuple.elems.iter()
             .zip(appoffzippers.into_iter())
-            .map(|(elem,appoffzipper)| match elem {
-            ZTupleElem::MultiArg(zid) => OffZTupleElem::MultiArg(appoffzipper.offzipper),
-            ZTupleElem::MultiUse(zid,which) => OffZTupleElem::MultiUse(appoffzipper.offzipper,*which),
-        }).collect();
-        let mut res = AppOffZTuple::new(OffZTuple::new(elems),args);
-        res.mask_divergences();
-        res
+            .map(|(elem,appoffzipper)| 
+                OffZTupleElem::new(appoffzipper.offzipper, elem.multiuse)
+        ).collect();
+        // mask out the places where adjacent zippers block out each others off elements
+        for (i,idx) in ztuple.divergence_idxs.iter().enumerate() {
+            elems[i].offzipper.nodes[*idx] = OffZNode::FuncDiverge;
+            elems[i+1].offzipper.nodes[*idx] = OffZNode::ArgDiverge;
+        }
+        AppOffZTuple::new(OffZTuple::new(elems),args)
     }
     fn new(offztuple: OffZTuple, args: Vec<Id>) -> AppOffZTuple {
         AppOffZTuple { offztuple, args }
@@ -841,9 +857,10 @@ impl OffZNode {
     fn forget(&self) -> ZNode {
         match self {
             OffZNode::Func(_) => ZNode::Func,
+            OffZNode::FuncDiverge => ZNode::Func, // this makes sense! Even though you probably almost never do it
             OffZNode::Arg(_) => ZNode::Arg,
+            OffZNode::ArgDiverge => ZNode::Arg,
             OffZNode::Body => ZNode::Body,
-            OffZNode::AppDiverge(b) => ZNode::AppDiverge(b.clone()),
         }
     }
 }
@@ -889,8 +906,8 @@ impl OffZipper {
                 OffZNode::Body => {
                     depth += 1;
                 }
-                OffZNode::AppDiverge(d) => {
-                    panic!("appdiverge encountered");
+                OffZNode::FuncDiverge | OffZNode::ArgDiverge => {
+                    // these dont contribute
                 }
             }
         }
@@ -903,7 +920,9 @@ impl OffZipper {
                 OffZNode::Func(x) => Expr::app(acc, extract(*x,egraph)),
                 OffZNode::Arg(f) => Expr::app(extract(*f,egraph), acc),
                 OffZNode::Body => Expr::lam(acc),
-                OffZNode::AppDiverge(_) => panic!("found AppDiverge"),
+                OffZNode::FuncDiverge | OffZNode::ArgDiverge => {
+                    panic!("attempting to to_expr() a diverging zipper - you probably mean to extract the parent ztuple instead")
+                }
             }
         })
     }
@@ -1305,51 +1324,51 @@ impl Costs {
         let enode = egraph[node].nodes[0].clone();
 
         // inventions that helped our children
-        let child_inventions: Vec<Inv> = enode.children().iter()
-            .map(|id| node_costs.useful_invs(*id))
-            .flatten()
-            .collect();
+        // let child_inventions: Vec<Inv> = enode.children().iter()
+        //     .map(|id| node_costs.useful_invs(*id))
+        //     .flatten()
+        //     .collect();
         
-        match enode {
-            Lambda::IVar(_) => { panic!("unreachable"); }
-            Lambda::Var(_) | Lambda::Prim(_) => {},
-            Lambda::App([f,x]) => {                                
-                for inv in child_inventions {
-                    let fcost = node_costs.cost_under_inv(f, &inv);
-                    let xcost = node_costs.cost_under_inv(x, &inv);
-                    let cost = COST_NONTERMINAL+fcost+xcost;
-                    node_costs.new_cost_under_inv(*node, &inv, cost);
-                }
-            }
-            Lambda::Lam([b]) => {
-                // just map +1 over the costs
-                for inv in child_inventions {
-                    let bcost = node_costs.cost_under_inv(b, &inv);
-                    let cost = COST_NONTERMINAL+bcost;
-                    node_costs.new_cost_under_inv(*node, &inv, cost);
-                }
-            }
-            Lambda::Programs(roots) => {
-                // union together all the useful inventions of diff programs
+        // match enode {
+        //     Lambda::IVar(_) => { panic!("unreachable"); }
+        //     Lambda::Var(_) | Lambda::Prim(_) => {},
+        //     Lambda::App([f,x]) => {                                
+        //         for inv in child_inventions {
+        //             let fcost = node_costs.cost_under_inv(f, &inv);
+        //             let xcost = node_costs.cost_under_inv(x, &inv);
+        //             let cost = COST_NONTERMINAL+fcost+xcost;
+        //             node_costs.new_cost_under_inv(*node, &inv, cost);
+        //         }
+        //     }
+        //     Lambda::Lam([b]) => {
+        //         // just map +1 over the costs
+        //         for inv in child_inventions {
+        //             let bcost = node_costs.cost_under_inv(b, &inv);
+        //             let cost = COST_NONTERMINAL+bcost;
+        //             node_costs.new_cost_under_inv(*node, &inv, cost);
+        //         }
+        //     }
+        //     Lambda::Programs(roots) => {
+        //         // union together all the useful inventions of diff programs
                 
-                // count num occurences of each invention
-                let mut counts: HashMap<Inv,i32> = child_inventions.iter().cloned().map(|i| (i,0)).collect();
-                for inv in child_inventions {
-                    counts.insert(inv.clone(), counts[&inv] + 1);
-                }
+        //         // count num occurences of each invention
+        //         let mut counts: HashMap<Inv,i32> = child_inventions.iter().cloned().map(|i| (i,0)).collect();
+        //         for inv in child_inventions {
+        //             counts.insert(inv.clone(), counts[&inv] + 1);
+        //         }
 
-                // keep only inventions used by 2+ programs
-                let inventions: Vec<Inv> = counts.into_iter()
-                    .filter_map(|(i,c)| if c > 1 { Some(i) } else { None }).collect();
+        //         // keep only inventions used by 2+ programs
+        //         let inventions: Vec<Inv> = counts.into_iter()
+        //             .filter_map(|(i,c)| if c > 1 { Some(i) } else { None }).collect();
                 
-                for inv in inventions {
-                    let cost = roots.iter().map(|root| {
-                            node_costs.cost_under_inv(*root, &inv)
-                        }).sum();
-                    node_costs.new_cost_under_inv(*node, &inv, cost);
-                }
-            }
-        }
+        //         for inv in inventions {
+        //             let cost = roots.iter().map(|root| {
+        //                     node_costs.cost_under_inv(*root, &inv)
+        //                 }).sum();
+        //             node_costs.new_cost_under_inv(*node, &inv, cost);
+        //         }
+        //     }
+        // }
     }
 }
 
@@ -1380,7 +1399,7 @@ fn beta_inversions(
     }
 
     let tstart = std::time::Instant::now();
-    let (all_appoffzippers, shifted_treenodes) = get_appoffzippers(&treenodes, no_cache, egraph);
+    let (all_appoffzippers, remap) = get_appoffzippers(&treenodes, no_cache, egraph);
     println!("get_appoffzippers: {:?}ms", tstart.elapsed().as_millis());
 
 
@@ -1444,13 +1463,13 @@ fn beta_inversions(
 
     let mut all_derived_invs: HashMap<Id,Vec<AppliedInv>> = Default::default();
 
-    let mut worklist: Vec<ZTuple> = zippers.iter().enumerate().map(|(zid,_zipper)| ZTuple::new(vec![ZTupleElem::MultiArg(zid)])).collect();
+    let mut worklist: Vec<ZTuple> = zippers.iter().enumerate().map(|(zid,_zipper)| ZTuple::new(vec![ZTupleElem::new(zid,None)],vec![])).collect();
 
 
     // todo ofc can parallelize this
+    let node_costs = Costs::new(&treenodes,remap,egraph); // todo except a verison of NodeCosts with OffZTuples and preferably `remap` not duplicated in every time - instead passed by ref somehow at some point
     while !worklist.is_empty() {
         let ztuple: ZTuple = worklist.pop().unwrap();
-        let node_costs: NodeCosts = NodeCosts::new(); // todo except a verison of NodeCosts with OffZTuples and preferably `remap` not duplicated in every time - instead passed by ref somehow at some point
         for node in treenodes.iter() {
             // 1) bail fast if this node doesnt have all the zids the ztuple needs.
             if ztuple.zids().any(|zid| !zids_of_node[node].contains(&zid)) {
@@ -1520,49 +1539,49 @@ fn beta_inversions(
         }
     }
 
-    println!("derived all inventions: {:?}ms", tstart.elapsed().as_millis());
+    // println!("derived all inventions: {:?}ms", tstart.elapsed().as_millis());
 
 
-    // usage counts
-    let tstart = std::time::Instant::now();
-    let mut usages: HashMap<Inv,HashSet<Id>> = Default::default();
-    for (treenode,derived_invs) in all_derived_invs.iter() {
-        for derived_inv in derived_invs.iter() {
-            usages.entry(derived_inv.inv.clone()).or_default().extend(treenode_to_roots[treenode].clone());
-        }
-    }
+    // // usage counts
+    // let tstart = std::time::Instant::now();
+    // let mut usages: HashMap<Inv,HashSet<Id>> = Default::default();
+    // for (treenode,derived_invs) in all_derived_invs.iter() {
+    //     for derived_inv in derived_invs.iter() {
+    //         usages.entry(derived_inv.inv.clone()).or_default().extend(treenode_to_roots[treenode].clone());
+    //     }
+    // }
 
-    println!("{} derived invs before pruning", usages.len());
+    // println!("{} derived invs before pruning", usages.len());
 
-    // prune down to ones that arent used in multiple places
-    let invs: Vec<Inv> = usages.iter()
-        .filter_map(|(inv,usages)| if usages.len() > 1 {Some(inv)} else {None})
-        .cloned().collect();
+    // // prune down to ones that arent used in multiple places
+    // let invs: Vec<Inv> = usages.iter()
+    //     .filter_map(|(inv,usages)| if usages.len() > 1 {Some(inv)} else {None})
+    //     .cloned().collect();
     
-    let to_remove: Vec<Inv> = usages.iter()
-        .filter_map(|(inv,usages)| if usages.len() == 1 {Some(inv)} else {None})
-        .cloned().collect();
-    for (_, derived_invs) in all_derived_invs.iter_mut() {
-        derived_invs.retain(|derived_inv| !to_remove.contains(&derived_inv.inv));
-    }
+    // let to_remove: Vec<Inv> = usages.iter()
+    //     .filter_map(|(inv,usages)| if usages.len() == 1 {Some(inv)} else {None})
+    //     .cloned().collect();
+    // for (_, derived_invs) in all_derived_invs.iter_mut() {
+    //     derived_invs.retain(|derived_inv| !to_remove.contains(&derived_inv.inv));
+    // }
 
-    println!("filtered out single use derived: {:?}ms", tstart.elapsed().as_millis());
-    println!("{} derived invs", invs.len());
+    // println!("filtered out single use derived: {:?}ms", tstart.elapsed().as_millis());
+    // println!("{} derived invs", invs.len());
 
-    for ref inv in invs {
-        inv.print(egraph);
-    }
+    // for ref inv in invs {
+    //     inv.print(egraph);
+    // }
 
-    let node_costs: NodeCosts = best_inventions(&all_derived_invs, &shifted_treenodes, programs_node, egraph);
-    // println!("{:?}", node_costs);
+    // let node_costs: NodeCosts = best_inventions(&all_derived_invs, &shifted_treenodes, programs_node, egraph);
+    // // println!("{:?}", node_costs);
 
-    let inv_costs = node_costs.best_inventions(programs_node, 10);
+    // let inv_costs = node_costs.best_inventions(programs_node, 10);
 
-    let orig_cost = extract(programs_node,egraph).cost();
-    for (inv, cost) in inv_costs {
-        println!("{} -> {}", orig_cost, cost);
-        inv.print(egraph);
-    }
+    // let orig_cost = extract(programs_node,egraph).cost();
+    // for (inv, cost) in inv_costs {
+    //     println!("{} -> {}", orig_cost, cost);
+    //     inv.print(egraph);
+    // }
 
 
 
