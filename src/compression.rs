@@ -764,13 +764,13 @@ struct AppOffZipper {
 #[derive(Debug,Clone, Eq, PartialEq, Hash)]
 struct OffZTupleElem {
     offzipper: OffZipper,
-    multiuse: Option<usize>
+    arg_idx: usize // which arg this is
 }
 
 #[derive(Debug,Clone, Eq, PartialEq, Hash)]
 struct ZTupleElem {
     zid: ZId,
-    multiuse: Option<usize> // which argument this is using from .args
+    arg_idx: usize // which argument this is using from .args
 }
 
 /// a multiarg multiuse invention
@@ -778,12 +778,14 @@ struct ZTupleElem {
 struct ZTuple {
     elems: Vec<ZTupleElem>,
     divergence_idxs: Vec<usize>,
+    arity: usize,
 }
 
 /// a multiarg multiuse invention abstracted into a ztuple
 #[derive(Debug,Clone, Eq, PartialEq, Hash)]
 struct OffZTuple {
     elems: Vec<OffZTupleElem>,
+    arity: usize,
 }
 
 /// a multiarg multiuse invention applied
@@ -797,19 +799,19 @@ struct AppOffZTuple {
 
 
 impl OffZTupleElem {
-    fn new(offzipper: OffZipper, multiuse: Option<usize>) -> OffZTupleElem {
-        OffZTupleElem { offzipper: offzipper, multiuse: multiuse }
+    fn new(offzipper: OffZipper, arg_idx: usize) -> OffZTupleElem {
+        OffZTupleElem { offzipper: offzipper, arg_idx: arg_idx }
     }
 }
 impl ZTupleElem {
-    fn new(zid: ZId, multiuse: Option<usize>) -> ZTupleElem {
-        ZTupleElem { zid: zid, multiuse: multiuse }
+    fn new(zid: ZId, arg_idx: usize) -> ZTupleElem {
+        ZTupleElem { zid: zid, arg_idx: arg_idx }
     }
 }
 
 impl ZTuple {
-    fn new(elems: Vec<ZTupleElem>, divergence_idxs: Vec<usize>) -> ZTuple {
-        ZTuple { elems, divergence_idxs }
+    fn new(elems: Vec<ZTupleElem>, divergence_idxs: Vec<usize>, arity: usize) -> ZTuple {
+        ZTuple { elems, divergence_idxs, arity }
     }
 }
 
@@ -834,26 +836,33 @@ impl AppOffZTuple {
     #[inline]
     fn from_appoffzippers(ztuple: &ZTuple, appoffzippers: Vec<AppOffZipper>) -> AppOffZTuple
     {
-        let args: Vec<Id> = appoffzippers.iter().map(|appoffzipper| appoffzipper.arg.clone()).collect();
+        assert_eq!(ztuple.elems.len(), appoffzippers.len());
+        let mut args: Vec<Id> = vec![];
         let mut elems: Vec<OffZTupleElem> = ztuple.elems.iter()
             .zip(appoffzippers.into_iter())
-            .map(|(elem,appoffzipper)| 
-                OffZTupleElem::new(appoffzipper.offzipper, elem.multiuse)
+            .map(|(elem,appoffzipper)| {
+                debug_assert!(elem.arg_idx <= args.len());
+                if elem.arg_idx == args.len() {
+                    args.push(appoffzipper.arg.clone());
+                }
+                OffZTupleElem::new(appoffzipper.offzipper, elem.arg_idx)
+            }
         ).collect();
         // mask out the places where adjacent zippers block out each others off elements
         for (i,idx) in ztuple.divergence_idxs.iter().enumerate() {
             elems[i].offzipper.nodes[*idx] = OffZNode::FuncDiverge;
             elems[i+1].offzipper.nodes[*idx] = OffZNode::ArgDiverge;
         }
-        AppOffZTuple::new(OffZTuple::new(elems),args)
+        AppOffZTuple::new(OffZTuple::new(elems,ztuple.arity),args)
     }
     #[inline]
     fn merge_multiarg(&self, appoffzipper: &AppOffZipper, appoffzipper_zid: ZId, ztuple: &ZTuple) -> Option<ZTuple> {
         debug_assert!(self.offztuple.offzippers().all(|offzipper| offzipper.forget() < appoffzipper.offzipper.forget()), "not an upward merge");
         if let Some(diverge_idx) = self.offztuple.offzippers().last().unwrap().intersect_from_right(&appoffzipper.offzipper) {
             let mut new_ztuple: ZTuple = ztuple.clone();
-            new_ztuple.elems.push(ZTupleElem::new(appoffzipper_zid, None)); // new multiarg
+            new_ztuple.elems.push(ZTupleElem::new(appoffzipper_zid, ztuple.arity)); // new multiarg
             new_ztuple.divergence_idxs.push(diverge_idx);
+            new_ztuple.arity += 1;
             return Some(new_ztuple);
         }
         None
@@ -869,7 +878,7 @@ impl AppOffZTuple {
             let mut new_ztuples =  vec![];
             for (i,_) in self.args.iter().enumerate().filter(|(_,arg)| **arg == appoffzipper.arg) {
                 let mut new_ztuple: ZTuple = ztuple.clone();
-                new_ztuple.elems.push(ZTupleElem::new(appoffzipper_zid, Some(i))); // new multiuse for argument i
+                new_ztuple.elems.push(ZTupleElem::new(appoffzipper_zid, i)); // new multiuse for argument i
                 new_ztuple.divergence_idxs.push(diverge_idx);
                 new_ztuples.push(new_ztuple);
             }
@@ -878,24 +887,19 @@ impl AppOffZTuple {
         None
     }
 
-    // #[inline]
-    // fn zippers_interfere(&self, appoffzipper: &AppOffZipper) -> bool {
-    //     debug_assert!(self.offztuple.offzippers().all(|offzipper| *offzipper < appoffzipper.offzipper), "not an upward merge");
-    //     // zippers interfere when one is a prefix of another. appoffzipper is larger than
-    //     // all of our zippers (we assume) and our last zipper is our largest one, so if there's
-    //     // any prefixing going on it's gonna be our last zipper being a prefix of appoffzipper.
-    //     appoffzipper.offzipper.nodes.starts_with(&self.offztuple.offzippers().last().unwrap().nodes)
-    // }
-
-
-
     fn new(offztuple: OffZTuple, args: Vec<Id>) -> AppOffZTuple {
+        debug_assert_eq!(offztuple.arity, args.len());
         AppOffZTuple { offztuple, args }
     }
 }
 impl OffZTuple {
-    fn new(elems: Vec<OffZTupleElem>) -> OffZTuple {
-        OffZTuple { elems }
+    fn new(elems: Vec<OffZTupleElem>, arity: usize) -> OffZTuple {
+        OffZTuple { elems, arity }
+    }
+    fn to_string(&self,egraph: &EGraph) -> String {
+        self.elems.iter().map(|elem| {
+            elem.offzipper.to_expr(egraph, elem.arg_idx as i32).to_string()
+        }).collect::<Vec<String>>().join("\n\t")
     }
 }
 
@@ -954,7 +958,7 @@ impl AppOffZipper {
     }
     fn to_string(&self,egraph: &EGraph) -> String {
         format!("\t{} <- {} | {:?}",
-            self.offzipper.to_expr(egraph),
+            self.offzipper.to_expr(egraph, 0),
             extract(self.arg,egraph),
             self.offzipper.forget()
         )
@@ -991,10 +995,9 @@ impl OffZipper {
     /// and returns the index at which they diverge ie self is Func and other is Arg.
     fn intersect_from_right(&self, other: &OffZipper) -> Option<usize> {
         debug_assert!(self.forget() < other.forget(), "not an intersect from the right");
-        if other.nodes.starts_with(&self.nodes) {
-            return None // prefix case
-        }
-        // not a prefix, and self < other, so lets find the place where self == Func and other == Arg
+        // note that we cant do a .startswith check for offzippers bc of divergences 
+
+        // lets find the place where self == Func and other == Arg
         for (i,s) in self.nodes.iter().enumerate() {
             let ref o = other.nodes[i]; // we assume that `o` is shorter if its a 
             match (s,o) {
@@ -1009,18 +1012,20 @@ impl OffZipper {
                 },
             }
         }
-        panic!("unreachable unless self > other");
+        None // prefix case
     }
 
-    fn to_expr(&self, egraph: &EGraph) -> Expr {
-        self.nodes.iter().rev().fold(Expr::ivar(0), |acc,node| {
+    fn to_expr(&self, egraph: &EGraph, ivar_idx: i32) -> Expr {
+        self.nodes.iter().rev().fold(Expr::ivar(ivar_idx), |acc,node| {
             match node {
                 OffZNode::Func(x) => Expr::app(acc, extract(*x,egraph)),
                 OffZNode::Arg(f) => Expr::app(extract(*f,egraph), acc),
                 OffZNode::Body => Expr::lam(acc),
-                OffZNode::FuncDiverge | OffZNode::ArgDiverge => {
-                    panic!("attempting to to_expr() a diverging zipper - you probably mean to extract the parent ztuple instead")
-                }
+                OffZNode::FuncDiverge => Expr::prim("FuncDiverge".into()),
+                OffZNode::ArgDiverge => Expr::prim("ArgDiverge".into())
+                // OffZNode::FuncDiverge | OffZNode::ArgDiverge => {
+                    // panic!("attempting to to_expr() a diverging zipper - you probably mean to extract the parent ztuple instead")
+                // }
             }
         })
     }
@@ -1450,12 +1455,13 @@ impl Costs {
             }
             Lambda::Programs(roots) => {
                 // union together all the useful inventions of diff programs. Throw out ones only used in one place.
-                
+
                 while let Some(inv) = child_inventions.pop() {
                     // weird setup: if you see exactly one copy of yourself ahead of you, youre good to go.
                     // That way if theres only 1 copy of something it gets skipped, and if there are like 5 copies itll still only
                     // do the computation once.
                     if child_inventions.iter().filter(|inv2| **inv2 == inv).count() == 1 {
+                        
                         let cost = roots.iter().map(|root| {
                             self.cost_under_inv(*root, inv)
                         }).sum();
@@ -1558,35 +1564,39 @@ fn beta_inversions(
 
     let mut all_derived_invs: HashMap<Id,Vec<AppliedInv>> = Default::default();
 
-    let mut worklist: Vec<ZTuple> = zippers.iter().enumerate().map(|(zid,_zipper)| ZTuple::new(vec![ZTupleElem::new(zid,None)],vec![])).collect();
+    let mut worklist: Vec<ZTuple> = zippers.iter().enumerate().map(|(zid,_zipper)| ZTuple::new(vec![ZTupleElem::new(zid,0)], vec![], 1)).collect();
 
 
     let mut best_inventions: Vec<(OffZTuple,i32)> = Default::default();
 
     // todo ofc can parallelize this
     let mut node_costs = Costs::new(&treenodes,remap,egraph); // todo except a verison of NodeCosts with OffZTuples and preferably `remap` not duplicated in every time - instead passed by ref somehow at some point
-    while !worklist.is_empty() {
-        let ztuple: ZTuple = worklist.pop().unwrap();
+    while let Some(ztuple) = worklist.pop() {
+        // println!("{} {:?}", ztuple.elems.len(), ztuple);
         let mut invs: Vec<OffZTuple> = vec![];
         let mut worklist_additions: Vec<ZTuple> = vec![];
         for node in treenodes.iter() {
-            // 1) fail fast if this node doesnt have all the zids the ztuple needs.
+
+            // 1) inherit useful inventions from children by bubbling up one step of costs from them. In the Programs case
+            //    this also will filter out singly-used inventions. Important to do this on all nodes even ones where ztuple doesnt apply!
+            node_costs.bubble_up_costs(*node, egraph);
+
+            // 2) fail fast if this node doesnt have all the zids the ztuple needs.
             if ztuple.zids().any(|zid| !zids_of_node[node].contains(&zid)) {
                 continue; // this node is missing a necessary zid
             }
             
-            // 2) instantiate an offztuple roughly by mapping zids to offzippers
+            // 3) instantiate an offztuple roughly by mapping zids to offzippers
             let appoffzippers: Vec<AppOffZipper> =  ztuple.zids().map(|zid| appoffzipper_of_node_zid[&(*node,zid)].clone()).collect();
             let appoffztuple = AppOffZTuple::from_appoffzippers(&ztuple, appoffzippers);
 
-            // 3) for efficiency we'll switch to referring to the invention by its location in `invs`
+            // 4) for efficiency we'll switch to referring to the invention by its location in `invs`
             let inv: InvId = invs.iter().position(|inv| inv == &appoffztuple.offztuple).unwrap_or_else(|| {
                 invs.push(appoffztuple.offztuple.clone());
                 invs.len() - 1
             });
 
-            // 3) use merge_multiarg and merge_multiuse to extend the worklist
-            // opt future improvement: extend a temp worklist where things that only show up once are removed
+            // 5) use merge_multiarg and merge_multiuse to extend the worklist (or rather a temp worklist that gets deduped later)
             let largest_zid: ZId = ztuple.zids().last().unwrap();
             for zid in zids_of_node[node].iter().filter(|zid| **zid > largest_zid) {
                 let appoffzipper: &AppOffZipper = &appoffzipper_of_node_zid[&(*node,*zid)];
@@ -1601,20 +1611,16 @@ fn beta_inversions(
                 }
             }
 
-            // 3) get the cost
+            // 6) get the cost of applying the invention at this node
             let cost: i32 =
                 COST_TERMINAL // the new primitive for this invention
                 + COST_NONTERMINAL * appoffztuple.args.len() as i32 // the chain of app()s needed to apply the new primitive
                 + appoffztuple.args.iter()
                     .map(|arg| node_costs.cost_under_inv(*arg, inv))
                     .sum::<i32>(); // sum costs of actual args
-            
-            // 4) Push invention + cost into NodeCosts (we do this last bc it consumes the value)
-            node_costs.new_cost_under_inv(*node, inv, cost);
 
-            // 5) inherit useful inventions from children by bubbling up one step of costs from them. In the Programs case
-            //    this also will filter out singly-used inventions.
-            node_costs.bubble_up_costs(*node, egraph);
+            // 4) Push invention + cost into NodeCosts
+            node_costs.new_cost_under_inv(*node, inv, cost);            
 
         }
         // 6) after all nodes are processed, add the best k=1 toplevel inventions to the list, sort/prune it if it's too long
@@ -1627,14 +1633,17 @@ fn beta_inversions(
 
         // 7) add worklist additions to the worklist
         // todo note it could be worth filtering out singly used ones, or especially filtering out ones that are used only once across multiple programs
-        worklist_additions.dedup(); // very important to dedup
-        worklist.extend(worklist_additions);
+        worklist.extend(worklist_additions.into_iter().collect::<HashSet<ZTuple>>()); // very important to dedup and no Ord so must use hashset
     }
 
     best_inventions.sort_by(|(_,cost1),(_,cost2)| cost1.cmp(cost2));
     best_inventions.truncate(100);
 
-    println!("best invention (cost={}): {:?}", best_inventions[0].1, best_inventions[0].0);
+    let orig_cost = extract(programs_node,egraph).cost();
+    for (inv, cost) in best_inventions.iter().take(5) {
+        println!("{} -> {}\n{}\n", orig_cost, cost, inv.to_string(egraph));
+        
+    }
 
     unimplemented!();
 
