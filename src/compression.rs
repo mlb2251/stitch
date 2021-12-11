@@ -770,7 +770,7 @@ struct OffZTupleElem {
 #[derive(Debug,Clone, Eq, PartialEq, Hash)]
 struct ZTupleElem {
     zid: ZId,
-    multiuse: Option<usize>
+    multiuse: Option<usize> // which argument this is using from .args
 }
 
 /// a multiarg multiuse invention
@@ -792,6 +792,8 @@ struct AppOffZTuple {
     offztuple: OffZTuple,
     args: Vec<Id>, // separated out for ease of comparing by ztuple
 }
+
+
 
 
 impl OffZTupleElem {
@@ -820,7 +822,15 @@ impl ZTuple {
 
 }
 
+impl OffZTuple {
+    #[inline]
+    fn offzippers(&self) -> impl ExactSizeIterator<Item=&OffZipper> + '_ {
+        self.elems.iter().map(|elem| &elem.offzipper)
+    }
+}
+
 impl AppOffZTuple {
+    
     #[inline]
     fn from_appoffzippers(ztuple: &ZTuple, appoffzippers: Vec<AppOffZipper>) -> AppOffZTuple
     {
@@ -837,6 +847,48 @@ impl AppOffZTuple {
         }
         AppOffZTuple::new(OffZTuple::new(elems),args)
     }
+    #[inline]
+    fn merge_multiarg(&self, appoffzipper: &AppOffZipper, appoffzipper_zid: ZId, ztuple: &ZTuple) -> Option<ZTuple> {
+        debug_assert!(self.offztuple.offzippers().all(|offzipper| offzipper.forget() < appoffzipper.offzipper.forget()), "not an upward merge");
+        if let Some(diverge_idx) = self.offztuple.offzippers().last().unwrap().intersect_from_right(&appoffzipper.offzipper) {
+            let mut new_ztuple: ZTuple = ztuple.clone();
+            new_ztuple.elems.push(ZTupleElem::new(appoffzipper_zid, None)); // new multiarg
+            new_ztuple.divergence_idxs.push(diverge_idx);
+            return Some(new_ztuple);
+        }
+        None
+    }
+    #[inline]
+    fn merge_multiuse(&self, appoffzipper: &AppOffZipper, appoffzipper_zid: ZId, ztuple: &ZTuple) -> Option<Vec<ZTuple>> {
+        debug_assert!(self.offztuple.offzippers().all(|offzipper| offzipper.forget() < appoffzipper.offzipper.forget()), "not an upward merge");
+        if !self.args.iter().any(|arg| *arg == appoffzipper.arg) {
+            return None // no shared arg
+        }
+
+        if let Some(diverge_idx) = self.offztuple.offzippers().last().unwrap().intersect_from_right(&appoffzipper.offzipper) {
+            let mut new_ztuples =  vec![];
+            for (i,_) in self.args.iter().enumerate().filter(|(_,arg)| **arg == appoffzipper.arg) {
+                let mut new_ztuple: ZTuple = ztuple.clone();
+                new_ztuple.elems.push(ZTupleElem::new(appoffzipper_zid, Some(i))); // new multiuse for argument i
+                new_ztuple.divergence_idxs.push(diverge_idx);
+                new_ztuples.push(new_ztuple);
+            }
+            return Some(new_ztuples);
+        }
+        None
+    }
+
+    // #[inline]
+    // fn zippers_interfere(&self, appoffzipper: &AppOffZipper) -> bool {
+    //     debug_assert!(self.offztuple.offzippers().all(|offzipper| *offzipper < appoffzipper.offzipper), "not an upward merge");
+    //     // zippers interfere when one is a prefix of another. appoffzipper is larger than
+    //     // all of our zippers (we assume) and our last zipper is our largest one, so if there's
+    //     // any prefixing going on it's gonna be our last zipper being a prefix of appoffzipper.
+    //     appoffzipper.offzipper.nodes.starts_with(&self.offztuple.offzippers().last().unwrap().nodes)
+    // }
+
+
+
     fn new(offztuple: OffZTuple, args: Vec<Id>) -> AppOffZTuple {
         AppOffZTuple { offztuple, args }
     }
@@ -850,6 +902,25 @@ impl OffZTuple {
 impl Zipper {
     fn new(nodes: Vec<ZNode>) -> Zipper {
         Zipper { nodes }
+    }
+    /// intersect two zippers, assumes other > self (ie it's coming "from the right")
+    /// and returns the index at which they diverge ie self is Func and other is Arg.
+    fn intersect_from_right(&self, other: &Zipper) -> Option<usize> {
+        debug_assert!(self < other, "not an intersect from the right");
+        if other.nodes.starts_with(&self.nodes) {
+            return None // prefix case
+        }
+        // not a prefix, and self < other, so lets find the place where self == Func and other == Arg
+        for (i,s) in self.nodes.iter().enumerate() {
+            let ref o = other.nodes[i]; // we assume that `o` is shorter if its a 
+            match (s,o) {
+                (ZNode::Func, ZNode::Arg) => return Some(i),
+                _ => {
+                    assert_eq!(s,o, "these zippers might not have come from the same origin");
+                },
+            }
+        }
+        panic!("unreachable unless self > other");
     }
 }
 
@@ -894,6 +965,7 @@ impl OffZipper {
     fn new(nodes: Vec<OffZNode>) -> OffZipper {
         OffZipper { nodes }
     }
+
     fn free_vars(&self,egraph: &EGraph) -> HashSet<i32> {
         let mut free_vars: HashSet<i32> = Default::default();
         let mut depth:i32 = 0;
@@ -915,6 +987,31 @@ impl OffZipper {
         free_vars
     }
 
+    /// intersect two offzippers, assumes other > self (ie it's coming "from the right")
+    /// and returns the index at which they diverge ie self is Func and other is Arg.
+    fn intersect_from_right(&self, other: &OffZipper) -> Option<usize> {
+        debug_assert!(self.forget() < other.forget(), "not an intersect from the right");
+        if other.nodes.starts_with(&self.nodes) {
+            return None // prefix case
+        }
+        // not a prefix, and self < other, so lets find the place where self == Func and other == Arg
+        for (i,s) in self.nodes.iter().enumerate() {
+            let ref o = other.nodes[i]; // we assume that `o` is shorter if its a 
+            match (s,o) {
+                (OffZNode::Func(_), OffZNode::Arg(_)) => return Some(i),
+                // I'm not sure that these cases will ever happen, but just in case I'm ensuring that
+                // Diverges are treated as normal things. Because the point of this function is it should
+                // be identical to if we had .forgot() - but w the benefit of no new allocation.
+                (OffZNode::ArgDiverge, OffZNode::Arg(_)) | (OffZNode::FuncDiverge, OffZNode::Func(_)) |
+                (OffZNode::Arg(_), OffZNode::ArgDiverge) | (OffZNode::Func(_), OffZNode::FuncDiverge) => {},
+                _ => {
+                    assert_eq!(s,o, "these zippers might not have come from the same origin");
+                },
+            }
+        }
+        panic!("unreachable unless self > other");
+    }
+
     fn to_expr(&self, egraph: &EGraph) -> Expr {
         self.nodes.iter().rev().fold(Expr::ivar(0), |acc,node| {
             match node {
@@ -928,7 +1025,7 @@ impl OffZipper {
         })
     }
 
-    /// forget all the off zipper elements leaving just a zipper
+    /// forget all the off zipper elements leaving just a zipper. Not that cheap.
     #[inline]
     fn forget(&self) -> Zipper {
         Zipper::new(self.nodes.iter().map(|node| node.forget()).collect())
@@ -1487,8 +1584,21 @@ fn beta_inversions(
                 invs.len() - 1
             });
 
-            // 3) use merge_multiarg and merge_multiuse to extend the worklist - or to extent a temp worklist where things that only show up once are removed
-            
+            // 3) use merge_multiarg and merge_multiuse to extend the worklist - or to extend a temp worklist where things that only show up once are removed
+            // todo -> left off here <-
+            let largest_zid: ZId = ztuple.zids().last().unwrap();
+            for zid in zids_of_node[node].iter().filter(|zid| **zid > largest_zid) {
+                let appoffzipper: &AppOffZipper = &appoffzipper_of_node_zid[&(*node,*zid)];
+                if appoffztuple.args.len() < max_arity {
+                    // arity is low so can attempt to merge
+                    if let Some(new_ztuple) = appoffztuple.merge_multiarg(appoffzipper, *zid, &ztuple) {
+                        worklist.push(new_ztuple);
+                    }
+                }
+                if let Some(new_ztuples) = appoffztuple.merge_multiuse(appoffzipper, *zid, &ztuple) {
+                    worklist.extend(new_ztuples);
+                }
+            }
 
             // 3) get the cost
             let cost: i32 =
