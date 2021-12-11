@@ -274,13 +274,13 @@ impl Expr {
     /// Importantly all Id indexing should be preserved just fine since this is implemented through truncating the underlying vector.
     pub fn cloned_subexpr(&self, child:Id) -> Self {
         assert!(self.nodes.len() > child.into());
-        Self::new(self.nodes.iter().take(child.into()).cloned().collect())
+        Self::new(self.nodes.iter().take(usize::from(child)+1).cloned().collect())
     }
     /// Consumes an expr and returns a subexpr.
     /// Importantly all Id indexing should be preserved just fine since this is implemented through truncating the underlying vector.
     pub fn into_subexpr(mut self, child:Id) -> Self {
         assert!(self.nodes.len() > child.into());
-        self.nodes.truncate(child.into());
+        self.nodes.truncate(usize::from(child)+1);
         self
     }
 
@@ -316,7 +316,7 @@ impl Expr {
     /// Uncurried: (foo x y)
     /// Curried: (app (app foo x) y)
     pub fn to_string_uncurried(&self, child:Option<Id>) -> String {
-        uncurry_sexp(&self.to_sexp(self.root())).to_string()
+        uncurry_sexp(&self.to_sexp(child.unwrap_or(self.root()))).to_string()
     }
 
     /// convert to an s expression. Useful for printing / parsing purposes

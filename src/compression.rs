@@ -907,7 +907,7 @@ impl OffZTuple {
             let noderight = eright.get(child_right);
             // search for place where eleft == "merge->" and eright == "<-merge"
             match (nodeleft,noderight) {
-                (Lambda::Prim(pl),Lambda::Prim(pr)) => { assert_eq!(pl,pr); None },
+                (Lambda::Prim(pl),Lambda::Prim(pr)) => { assert_eq!(pl,pr); assert_ne!(*pl,Symbol::from(MERGE_RIGHT)); assert_ne!(*pl,Symbol::from(MERGE_LEFT)); assert_ne!(*pl,Symbol::from(HOLE)); None },
                 (Lambda::Var(il),Lambda::Var(ir)) => { assert_eq!(il,ir); None },
                 (Lambda::IVar(_),Lambda::IVar(_)) => panic!("IVar found before finding splice point"),
                 (Lambda::Programs(_),Lambda::Programs(_)) => panic!("Programs node found in invention"),
@@ -919,17 +919,23 @@ impl OffZTuple {
                     if eleft.get(*fl) == &Lambda::Prim(MERGE_RIGHT.into()) {
                         // merge point!
                         assert_eq!(eright.get(*fr), &Lambda::Prim(MERGE_LEFT.into()));
-                        if let (Lambda::App([f,_]),Lambda::App([_,x])) = (eleft.get(*xl), eright.get(*xr)) {
+                        if let (Lambda::App([f,h1]),Lambda::App([h2,x])) = (eleft.get(*xl), eright.get(*xr)) {
+                            assert_eq!(eleft.get(*h1), &Lambda::Prim(HOLE.into()));
+                            assert_eq!(eright.get(*h2), &Lambda::Prim(HOLE.into()));
                             Some(Expr::app(eleft.cloned_subexpr(*f),eright.cloned_subexpr(*x)))
                         } else {
                             panic!("malformed merge point");
                         }
-                    } else{
+                    } else {
                         // merge fl with fr and xl with xr
                         match (merge(eleft, *fl, eright, *fr), merge(eleft, *xl, eright, *xr)) {
                             (Some(_), Some(_)) => panic!("implies two merge points"),
-                            (Some(f), None) => Some(Expr::app(f, eleft.cloned_subexpr(*xl))), // note eleft xl == eright xr as per the `None` so we just pick one to clone
-                            (None, Some(x)) => Some(Expr::app(eleft.cloned_subexpr(*fl), x)), // note eleft fl == eright fr as per the `None` so we just pick one to clone
+                            (Some(f), None) => {
+                                Some(Expr::app(f, eright.cloned_subexpr(*xr))) // note eleft xl == eright xr as per the `None` so we just pick one to clone
+                            },
+                            (None, Some(x)) => {
+                                Some(Expr::app(eright.cloned_subexpr(*fr), x)) // note eleft fl == eright fr as per the `None` so we just pick one to clone
+                            },
                             (None, None) => None,
                         }
                     }
@@ -948,7 +954,7 @@ impl OffZTuple {
     fn to_string_detailed(&self,egraph: &EGraph) -> String {
         let exprs: Vec<Expr> = self.elems.iter().map(|elem| elem.offzipper.to_expr(egraph, elem.arg_idx as i32)).collect();
         let s: String = exprs.iter().map(|e|e.to_string()).collect::<Vec<String>>().join("\n");
-        format!("{}\nfrom:\n{}\n", self.to_expr(egraph), s)
+        format!("{}\nfrom:\n{}\n", self.to_expr(egraph).to_string(), s)
     }
 }
 
