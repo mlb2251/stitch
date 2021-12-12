@@ -16,7 +16,9 @@ fn main() {
     assert!(!out_dir_p.exists());
     std::fs::create_dir(out_dir_p).unwrap();
 
-    let programs: Vec<String> = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
+    let mut programs: Vec<String> = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
+    programs.sort();
+    programs.dedup();
     let mut programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
 
     for prog in programs.iter() {

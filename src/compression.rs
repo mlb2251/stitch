@@ -287,7 +287,7 @@ fn extract_under_inv(
 }
 
 
-#[inline(never)]
+#[inline]
 fn canonical(id:&Id, egraph: &EGraph) -> bool {
     egraph.find(*id) == *id
 }
@@ -392,7 +392,7 @@ impl Analysis<Lambda> for LambdaAnalysis {
 /// * ShiftVar(i32) -> increment all free variables by the given amount
 /// * ShiftIVar(i32) -> increment all ivars by given amount
 /// * TableShiftIVar(Vec<i32>) -> increment ivar #i by the amount given by table[i]
-#[inline(never)] // useful to inline since callsite can usually tell which Shift type is happening allowing further optimization
+#[inline] // useful to inline since callsite can usually tell which Shift type is happening allowing further optimization
 fn shift(e: Id, shift: Shift, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
     let mut empty = HashMap::new();
     let seen = match caches {
@@ -821,7 +821,7 @@ impl ZTuple {
 
 
 impl ZTuple {
-    #[inline(never)]
+    #[inline]
     fn zids(&self) -> impl ExactSizeIterator<Item=ZId> + '_ {
         self.elems.iter().map(|elem| elem.zid)
     }
@@ -829,7 +829,7 @@ impl ZTuple {
 }
 
 impl OffZTuple {
-    #[inline(never)]
+    #[inline]
     fn offzippers(&self) -> impl ExactSizeIterator<Item=&OffZipper> + '_ {
         self.elems.iter().map(|elem| &elem.offzipper)
     }
@@ -837,7 +837,7 @@ impl OffZTuple {
 
 impl AppOffZTuple {
     
-    #[inline(never)]
+    #[inline]
     fn from_appoffzippers(ztuple: &ZTuple, appoffzippers: Vec<AppOffZipper>) -> AppOffZTuple
     {
         assert_eq!(ztuple.elems.len(), appoffzippers.len());
@@ -887,7 +887,7 @@ impl AppOffZTuple {
         }
         AppOffZTuple::new(OffZTuple::new(elems,ztuple.arity),args)
     }
-    #[inline(never)]
+    #[inline]
     fn merge_multiarg(&self, appoffzipper: &AppOffZipper, appoffzipper_zid: ZId, ztuple: &ZTuple) -> Option<ZTuple> {
         debug_assert!(self.offztuple.offzippers().all(|offzipper| offzipper.forget() < appoffzipper.offzipper.forget()), "not an upward merge");
         if let Some(diverge_idx) = self.offztuple.offzippers().last().unwrap().intersect_from_right(&appoffzipper.offzipper) {
@@ -899,7 +899,7 @@ impl AppOffZTuple {
         }
         None
     }
-    #[inline(never)]
+    #[inline]
     fn merge_multiuse(&self, appoffzipper: &AppOffZipper, appoffzipper_zid: ZId, ztuple: &ZTuple) -> Option<Vec<ZTuple>> {
         debug_assert!(self.offztuple.offzippers().all(|offzipper| offzipper.forget() < appoffzipper.offzipper.forget()),
             "not an upward merge:\n{}\n\n{}\n\n{}\n{:?}\n{:?}\n{:?}\n",
@@ -1041,7 +1041,7 @@ impl Zipper {
 }
 
 impl OffZNode {
-    #[inline(never)]
+    #[inline]
     fn forget(&self) -> ZNode {
         match self {
             OffZNode::Func(_) => ZNode::Func,
@@ -1057,7 +1057,7 @@ impl AppOffZipper {
     fn new(offzipper: OffZipper, arg: Id) -> AppOffZipper {
         AppOffZipper { offzipper, arg }
     }
-    #[inline(never)]
+    #[inline]
     fn clone_prepend(&self, new: OffZNode) -> AppOffZipper {
         let mut appoffzipper: AppOffZipper = self.clone();
         appoffzipper.offzipper.nodes.insert(0,new);
@@ -1140,7 +1140,7 @@ impl OffZipper {
     }
 
     /// forget all the off zipper elements leaving just a zipper. Not that cheap.
-    #[inline(never)]
+    #[inline]
     fn forget(&self) -> Zipper {
         Zipper::new(self.nodes.iter().map(|node| node.forget()).collect())
     }
@@ -1259,7 +1259,7 @@ impl AppliedInv {
         self.inv.print(egraph);
         self.args.iter().for_each(|arg| println!("\targ {}", extract(*arg, egraph)));
     }
-    #[inline(never)]
+    #[inline]
     fn zippers_interfere(&self, appinv1: &AppliedInv1) -> bool {
         // merge works if inv1.zipper is not a prefix of any of our zippers or vis versa
         // (note that the prefix case is a path towards adding higher order functions, though
@@ -1269,7 +1269,7 @@ impl AppliedInv {
             .any(|z| z.starts_with(&appinv1.zipper) || appinv1.zipper.starts_with(&z)) //||
         // self.multiuses.iter().any(|(inv,_)| inv.zipper.starts_with(&inv1.zipper) || inv1.zipper.startås_with(&inv.zipper))
     }
-    #[inline(never)]
+    #[inline]
     fn merge_multiarg(&self, appinv1: &AppliedInv1, max_arity: usize) -> Option<AppliedInv> {
         if self.args.len() >= max_arity {
             return None; // would exceed arity
@@ -1283,7 +1283,7 @@ impl AppliedInv {
         new_appinv.multiarg_zippers.push(appinv1.zipper.clone());
         Some(new_appinv)
     }
-    #[inline(never)]
+    #[inline]
     fn merge_multiuse(&self, appinv1: &AppliedInv1) -> Option<Vec<AppliedInv>> {
         if !self.args.iter().any(|arg| *arg == appinv1.arg) {
             return None // no shared arg
@@ -1303,7 +1303,7 @@ impl AppliedInv {
         }
         Some(res)
     }
-    // #[inline(never)]
+    // #[inline]
     // fn cost(&self, costs: &HashMap<Id,i32>) -> i32 {
     //     COST_TERMINAL // the new primitive for this invention
     //     + COST_NONTERMINAL * self.invs.len() as i32 // the chain of app()s needed to apply the new primitive
@@ -1517,21 +1517,21 @@ impl Costs {
         let costs = treenodes.iter().map(|node| Cost::new(egraph[*node].data.inventionless_cost)).collect();
         Costs { costs, remap }
     }
-    #[inline(never)]
+    #[inline]
     fn cost_under_inv(&self, node: Id, inv: InvId) -> i32 {
         let remapped_node = if usize::from(node) < self.costs.len() {node} else {self.remap[&node]};
         self.costs[usize::from(remapped_node)].cost_under_inv(inv)
     }
-    #[inline(never)]
+    #[inline]
     fn new_cost_under_inv(&mut self, node: Id, inv: InvId, cost:i32) {
         self.costs[usize::from(node)].new_cost_under_inv(inv, cost);
     }
-    #[inline(never)]
+    #[inline]
     fn useful_invs(&self, node: Id) -> impl Iterator<Item=InvId> + '_ {
         let remapped_node = if usize::from(node) < self.costs.len() {node} else {self.remap[&node]};
         self.costs[usize::from(remapped_node)].inventionful_cost.keys().copied()
     }
-    #[inline(never)]
+    #[inline]
     fn best_inventions(&self, node: Id, k: usize) -> Vec<(InvId,i32)> {
         let remapped_node = if usize::from(node) < self.costs.len() {node} else {self.remap[&node]};
         self.costs[usize::from(remapped_node)].best_inventions(k)
@@ -1541,7 +1541,7 @@ impl Costs {
         self.costs.iter_mut().for_each(|cost| cost.inventionful_cost.clear());
     }
 
-    #[inline(never)]
+    #[inline]
     fn bubble_up_costs(&mut self, node: Id, egraph: &EGraph) {
         let ref enode = egraph[node].nodes[0];
 
@@ -1593,7 +1593,7 @@ impl Costs {
 
 /// This is the main workhorse of compression. Takes a child-first ordering of nodes in an EGraph
 /// (assumed to be acyclic) and finds all the possible useful inventions up to the given arity.
-#[inline(never)] // for flamegraph debugging
+#[inline] // for flamegraph debugging
 fn beta_inversions(
     programs_node: Id,
     max_arity: usize,
@@ -1605,7 +1605,11 @@ fn beta_inversions(
     println!("{}", extract(programs_node, egraph));
 
     let treenodes: Vec<Id> = toplogical_ordering(programs_node,egraph);
-    let roots: Vec<Id> = egraph[programs_node].nodes[0].children().iter().cloned().collect();
+    let mut roots: Vec<Id> = egraph[programs_node].nodes[0].children().iter().cloned().collect();
+    if roots.iter().copied().collect::<HashSet<Id>>().len() != roots.len() {
+        panic!("roots are not unique, this will cause issues and just doesnt make sense as an input");
+    }
+
     // assert!(roots.iter().collect::<HashSet<_>>().len() == roots.len(), "duplicate programs found");
 
     // lets you lookup which roots a treenode is a descendent of
@@ -1696,7 +1700,7 @@ fn beta_inversions(
     }
     unimplemented!();
 }
-#[inline(never)]
+#[inline]
 fn derive_inventions(programs_node: Id, treenodes: Vec<Id>, remap: HashMap<Id,Id>, egraph: &EGraph, zippers: &Vec<Zipper>, appoffzipper_of_node_zid: &HashMap<(Id,ZId),AppOffZipper>, zids_of_node: &Vec<Vec<ZId>>, max_arity: usize) -> Vec<(OffZTuple,i32)> {
 
     let mut worklist: Vec<ZTuple> = zippers.iter().enumerate().map(|(zid,_zipper)| ZTuple::new(vec![ZTupleElem::new(zid,0)], vec![], 1)).collect();
