@@ -853,9 +853,46 @@ impl AppOffZTuple {
             }
         ).collect();
         // mask out the places where adjacent zippers block out each others off elements
-        for (i,idx) in ztuple.divergence_idxs.iter().enumerate() {
-            elems[i].offzipper.nodes[*idx] = OffZNode::FuncDiverge;
-            elems[i+1].offzipper.nodes[*idx] = OffZNode::ArgDiverge;
+        // elems.
+
+        // todo
+
+        for (i,diverges_at) in ztuple.divergence_idxs.iter().enumerate() {
+            // mask with FuncDiverge 
+            for j in 0..=i {
+                if ztuple.divergence_idxs[j] >= *diverges_at {
+                    elems[j].offzipper.nodes[*diverges_at] = OffZNode::FuncDiverge;
+                }
+            }
+            for j in i..ztuple.divergence_idxs.len() {
+                if ztuple.divergence_idxs[j] >= *diverges_at {
+                    // note we must do j+1 bc the jth divergence index tells you about
+                    // masking elems[j] with FuncDiverge and elems[j+1] with ArgDiverge
+                    elems[j+1].offzipper.nodes[*diverges_at] = OffZNode::ArgDiverge;
+                }
+            }
+
+
+
+            // // at each divergence point, the righthand zipper goes RIGHT
+            // elems[i+1].offzipper.nodes[*diverges_at] = OffZNode::ArgDiverge;
+            // // and the lefthand zipper goes LEFT
+            // elems[i].offzipper.nodes[*diverges_at] = OffZNode::FuncDiverge;
+            // // but also any other zippers to the left of the lefthand zipper that
+            // // diverge later than it still share a prefix with it at this point so
+            // // they need funcdiverges too!
+            // elems.iter_mut().zip(ztuple.divergence_idxs.iter())
+            //     .take(i) // zippers to the left of elems[i]
+            //     .filter(|(_,div_idx)| *div_idx > diverges_at)
+            //     .for_each(|(elem,_)| elem.offzipper.nodes[*diverges_at] = OffZNode::FuncDiverge);
+            // // ... and any other zippers to the right of the righthand zipper that
+            // // diverge later than it still share a prefix with it at this point so
+            // // they need argdiverges too!
+            // elems.iter_mut().zip(ztuple.divergence_idxs.iter())
+            //     .skip(i+1) // zippers to the right of elems[i+1]
+            //     .filter(|(_,div_idx)| *div_idx > idx)
+            //     .for_each(|(elem,_)| elem.offzipper.nodes[*idx] = OffZNode::ArgDiverge);
+
         }
         AppOffZTuple::new(OffZTuple::new(elems,ztuple.arity),args)
     }
@@ -907,7 +944,7 @@ impl OffZTuple {
             let noderight = eright.get(child_right);
             // search for place where eleft == "merge->" and eright == "<-merge"
             match (nodeleft,noderight) {
-                (Lambda::Prim(pl),Lambda::Prim(pr)) => { assert_eq!(pl,pr); assert_ne!(*pl,Symbol::from(MERGE_RIGHT)); assert_ne!(*pl,Symbol::from(MERGE_LEFT)); assert_ne!(*pl,Symbol::from(HOLE)); None },
+                (Lambda::Prim(pl),Lambda::Prim(pr)) => { assert_eq!(pl,pr); None },
                 (Lambda::Var(il),Lambda::Var(ir)) => { assert_eq!(il,ir); None },
                 (Lambda::IVar(_),Lambda::IVar(_)) => panic!("IVar found before finding splice point"),
                 (Lambda::Programs(_),Lambda::Programs(_)) => panic!("Programs node found in invention"),
@@ -916,8 +953,8 @@ impl OffZTuple {
                     merge(eleft, *bl, eright, *br).map(|e| Expr::lam(e))
                 }
                 (Lambda::App([fl,xl]),Lambda::App([fr,xr])) => {
-                    if eleft.get(*fl) == &Lambda::Prim(MERGE_RIGHT.into()) {
-                        // merge point!
+                    if eleft.get(*fl) == &Lambda::Prim(MERGE_RIGHT.into()) && eright.get(*fr) != &Lambda::Prim(MERGE_RIGHT.into()) {
+                        // LEFT is merge-> (and right is not merge-> which would mean we could just ignore them for now)
                         assert_eq!(eright.get(*fr), &Lambda::Prim(MERGE_LEFT.into()));
                         if let (Lambda::App([f,h1]),Lambda::App([h2,x])) = (eleft.get(*xl), eright.get(*xr)) {
                             assert_eq!(eleft.get(*h1), &Lambda::Prim(HOLE.into()));
@@ -940,7 +977,7 @@ impl OffZTuple {
                         }
                     }
                 }
-                (_,_) => panic!("node types in merge dont match {} {}", nodeleft, noderight),
+                (_,_) => panic!("node types in merge dont match: {} and {} when merging:\n{}\n{}", nodeleft, noderight, eleft, eright),
             }
         }
         let mut exprs: Vec<Expr> = self.elems.iter().map(|elem| elem.offzipper.to_expr(egraph, elem.arg_idx as i32)).collect();
@@ -1442,7 +1479,7 @@ impl Cost {
         if cost < self.inventionless_cost {
             if !self.inventionful_cost.contains_key(&inv) // todo swap this to use entry api
                || cost < self.inventionful_cost[&inv]  {
-                println!("new cost added");
+                // println!("new cost added");
                 self.inventionful_cost.insert(inv.clone(), cost);
             }
         }
@@ -1518,11 +1555,11 @@ impl Costs {
                 }
             }
             Lambda::Programs(roots) => {
-                println!("root cost processing");
+                // println!("root cost processing");
                 // union together all the useful inventions of diff programs. Throw out ones only used in one place.
 
                 while let Some(inv) = child_inventions.pop() {
-                    println!("processing inv {:?}", inv);
+                    // println!("processing inv {:?}", inv);
                     // weird setup: if you see exactly one copy of yourself ahead of you, youre good to go.
                     // That way if theres only 1 copy of something it gets skipped, and if there are like 5 copies itll still only
                     // do the computation once.
@@ -1703,7 +1740,7 @@ fn beta_inversions(
             best_inventions.truncate(100);
         }
 
-        if ztuple.elems.len() == 3 { panic!("check this out")}
+        if ztuple.elems.len() == 3 && ztuple.arity == 1 { panic!("check this out")}
 
 
         node_costs.clear(); // wipe caches, but keep allocated memory for reuse
