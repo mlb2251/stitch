@@ -287,7 +287,7 @@ fn extract_under_inv(
 }
 
 
-#[inline]
+#[inline(never)]
 fn canonical(id:&Id, egraph: &EGraph) -> bool {
     egraph.find(*id) == *id
 }
@@ -392,7 +392,7 @@ impl Analysis<Lambda> for LambdaAnalysis {
 /// * ShiftVar(i32) -> increment all free variables by the given amount
 /// * ShiftIVar(i32) -> increment all ivars by given amount
 /// * TableShiftIVar(Vec<i32>) -> increment ivar #i by the amount given by table[i]
-#[inline] // useful to inline since callsite can usually tell which Shift type is happening allowing further optimization
+#[inline(never)] // useful to inline since callsite can usually tell which Shift type is happening allowing further optimization
 fn shift(e: Id, shift: Shift, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
     let mut empty = HashMap::new();
     let seen = match caches {
@@ -821,7 +821,7 @@ impl ZTuple {
 
 
 impl ZTuple {
-    #[inline]
+    #[inline(never)]
     fn zids(&self) -> impl ExactSizeIterator<Item=ZId> + '_ {
         self.elems.iter().map(|elem| elem.zid)
     }
@@ -829,7 +829,7 @@ impl ZTuple {
 }
 
 impl OffZTuple {
-    #[inline]
+    #[inline(never)]
     fn offzippers(&self) -> impl ExactSizeIterator<Item=&OffZipper> + '_ {
         self.elems.iter().map(|elem| &elem.offzipper)
     }
@@ -837,7 +837,7 @@ impl OffZTuple {
 
 impl AppOffZTuple {
     
-    #[inline]
+    #[inline(never)]
     fn from_appoffzippers(ztuple: &ZTuple, appoffzippers: Vec<AppOffZipper>) -> AppOffZTuple
     {
         assert_eq!(ztuple.elems.len(), appoffzippers.len());
@@ -884,32 +884,10 @@ impl AppOffZTuple {
                 elems[j+1].offzipper.nodes[*diverges_at] = OffZNode::ArgDiverge;
                 elems[j+1].offzipper.nodes[*diverges_at] = OffZNode::ArgDiverge;
             }
-
-
-
-            // // at each divergence point, the righthand zipper goes RIGHT
-            // elems[i+1].offzipper.nodes[*diverges_at] = OffZNode::ArgDiverge;
-            // // and the lefthand zipper goes LEFT
-            // elems[i].offzipper.nodes[*diverges_at] = OffZNode::FuncDiverge;
-            // // but also any other zippers to the left of the lefthand zipper that
-            // // diverge later than it still share a prefix with it at this point so
-            // // they need funcdiverges too!
-            // elems.iter_mut().zip(ztuple.divergence_idxs.iter())
-            //     .take(i) // zippers to the left of elems[i]
-            //     .filter(|(_,div_idx)| *div_idx > diverges_at)
-            //     .for_each(|(elem,_)| elem.offzipper.nodes[*diverges_at] = OffZNode::FuncDiverge);
-            // // ... and any other zippers to the right of the righthand zipper that
-            // // diverge later than it still share a prefix with it at this point so
-            // // they need argdiverges too!
-            // elems.iter_mut().zip(ztuple.divergence_idxs.iter())
-            //     .skip(i+1) // zippers to the right of elems[i+1]
-            //     .filter(|(_,div_idx)| *div_idx > idx)
-            //     .for_each(|(elem,_)| elem.offzipper.nodes[*idx] = OffZNode::ArgDiverge);
-
         }
         AppOffZTuple::new(OffZTuple::new(elems,ztuple.arity),args)
     }
-    #[inline]
+    #[inline(never)]
     fn merge_multiarg(&self, appoffzipper: &AppOffZipper, appoffzipper_zid: ZId, ztuple: &ZTuple) -> Option<ZTuple> {
         debug_assert!(self.offztuple.offzippers().all(|offzipper| offzipper.forget() < appoffzipper.offzipper.forget()), "not an upward merge");
         if let Some(diverge_idx) = self.offztuple.offzippers().last().unwrap().intersect_from_right(&appoffzipper.offzipper) {
@@ -921,7 +899,7 @@ impl AppOffZTuple {
         }
         None
     }
-    #[inline]
+    #[inline(never)]
     fn merge_multiuse(&self, appoffzipper: &AppOffZipper, appoffzipper_zid: ZId, ztuple: &ZTuple) -> Option<Vec<ZTuple>> {
         debug_assert!(self.offztuple.offzippers().all(|offzipper| offzipper.forget() < appoffzipper.offzipper.forget()),
             "not an upward merge:\n{}\n\n{}\n\n{}\n{:?}\n{:?}\n{:?}\n",
@@ -1063,7 +1041,7 @@ impl Zipper {
 }
 
 impl OffZNode {
-    #[inline]
+    #[inline(never)]
     fn forget(&self) -> ZNode {
         match self {
             OffZNode::Func(_) => ZNode::Func,
@@ -1079,7 +1057,7 @@ impl AppOffZipper {
     fn new(offzipper: OffZipper, arg: Id) -> AppOffZipper {
         AppOffZipper { offzipper, arg }
     }
-    #[inline]
+    #[inline(never)]
     fn clone_prepend(&self, new: OffZNode) -> AppOffZipper {
         let mut appoffzipper: AppOffZipper = self.clone();
         appoffzipper.offzipper.nodes.insert(0,new);
@@ -1162,7 +1140,7 @@ impl OffZipper {
     }
 
     /// forget all the off zipper elements leaving just a zipper. Not that cheap.
-    #[inline]
+    #[inline(never)]
     fn forget(&self) -> Zipper {
         Zipper::new(self.nodes.iter().map(|node| node.forget()).collect())
     }
@@ -1281,7 +1259,7 @@ impl AppliedInv {
         self.inv.print(egraph);
         self.args.iter().for_each(|arg| println!("\targ {}", extract(*arg, egraph)));
     }
-    #[inline]
+    #[inline(never)]
     fn zippers_interfere(&self, appinv1: &AppliedInv1) -> bool {
         // merge works if inv1.zipper is not a prefix of any of our zippers or vis versa
         // (note that the prefix case is a path towards adding higher order functions, though
@@ -1291,7 +1269,7 @@ impl AppliedInv {
             .any(|z| z.starts_with(&appinv1.zipper) || appinv1.zipper.starts_with(&z)) //||
         // self.multiuses.iter().any(|(inv,_)| inv.zipper.starts_with(&inv1.zipper) || inv1.zipper.startås_with(&inv.zipper))
     }
-    #[inline]
+    #[inline(never)]
     fn merge_multiarg(&self, appinv1: &AppliedInv1, max_arity: usize) -> Option<AppliedInv> {
         if self.args.len() >= max_arity {
             return None; // would exceed arity
@@ -1305,7 +1283,7 @@ impl AppliedInv {
         new_appinv.multiarg_zippers.push(appinv1.zipper.clone());
         Some(new_appinv)
     }
-    #[inline]
+    #[inline(never)]
     fn merge_multiuse(&self, appinv1: &AppliedInv1) -> Option<Vec<AppliedInv>> {
         if !self.args.iter().any(|arg| *arg == appinv1.arg) {
             return None // no shared arg
@@ -1325,7 +1303,7 @@ impl AppliedInv {
         }
         Some(res)
     }
-    // #[inline]
+    // #[inline(never)]
     // fn cost(&self, costs: &HashMap<Id,i32>) -> i32 {
     //     COST_TERMINAL // the new primitive for this invention
     //     + COST_NONTERMINAL * self.invs.len() as i32 // the chain of app()s needed to apply the new primitive
@@ -1531,34 +1509,39 @@ impl Cost {
 
 #[derive(Debug)]
 struct Costs {
-    costs: HashMap<Id,Cost>, // todo note this could be a Vec<> instead of a hashmap
+    costs: Vec<Cost>, // todo note this could be a Vec<> instead of a hashmap
     remap: HashMap<Id,Id>
 }
 impl Costs {
     fn new(treenodes: &[Id], remap: HashMap<Id,Id>, egraph: &EGraph) -> Self {
-        let costs = treenodes.iter().map(|node| (*node,Cost::new(egraph[*node].data.inventionless_cost))).collect();
+        let costs = treenodes.iter().map(|node| Cost::new(egraph[*node].data.inventionless_cost)).collect();
         Costs { costs, remap }
     }
+    #[inline(never)]
     fn cost_under_inv(&self, node: Id, inv: InvId) -> i32 {
-        let remapped_node = if self.costs.contains_key(&node) {node} else {self.remap[&node]};
-        self.costs[&remapped_node].cost_under_inv(inv)
+        let remapped_node = if usize::from(node) < self.costs.len() {node} else {self.remap[&node]};
+        self.costs[usize::from(remapped_node)].cost_under_inv(inv)
     }
+    #[inline(never)]
     fn new_cost_under_inv(&mut self, node: Id, inv: InvId, cost:i32) {
-        self.costs.get_mut(&node).unwrap().new_cost_under_inv(inv, cost);
+        self.costs[usize::from(node)].new_cost_under_inv(inv, cost);
     }
+    #[inline(never)]
     fn useful_invs(&self, node: Id) -> impl Iterator<Item=InvId> + '_ {
-        let remapped_node = if self.costs.contains_key(&node) {node} else {self.remap[&node]};
-        self.costs[&remapped_node].inventionful_cost.keys().copied()
+        let remapped_node = if usize::from(node) < self.costs.len() {node} else {self.remap[&node]};
+        self.costs[usize::from(remapped_node)].inventionful_cost.keys().copied()
     }
+    #[inline(never)]
     fn best_inventions(&self, node: Id, k: usize) -> Vec<(InvId,i32)> {
-        let remapped_node = if self.costs.contains_key(&node) {node} else {self.remap[&node]};
-        self.costs[&remapped_node].best_inventions(k)
+        let remapped_node = if usize::from(node) < self.costs.len() {node} else {self.remap[&node]};
+        self.costs[usize::from(remapped_node)].best_inventions(k)
     }
 
     fn clear(&mut self) {
-        self.costs.values_mut().for_each(|cost| cost.inventionful_cost.clear());
+        self.costs.iter_mut().for_each(|cost| cost.inventionful_cost.clear());
     }
 
+    #[inline(never)]
     fn bubble_up_costs(&mut self, node: Id, egraph: &EGraph) {
         let ref enode = egraph[node].nodes[0];
 
@@ -1767,13 +1750,14 @@ fn beta_inversions(
         // println!("benefited: {}", !node_costs.best_inventions(programs_node, 1).is_empty());
         // 6) after all nodes are processed, add the best k=1 toplevel inventions to the list, sort/prune it if it's too long
         best_inventions.extend(node_costs.best_inventions(programs_node, 1).into_iter().map(|(inv,cost)| (invs[inv].clone(),cost)));
-        if best_inventions.len() > 10000 {
+        if best_inventions.len() > 300 {
             best_inventions.sort_by(|(_,cost1),(_,cost2)| cost1.cmp(cost2));
             best_inventions.truncate(100);
         }
 
         // if ztuple.elems.len() == 3 && ztuple.arity == 1 { panic!("check this out")}
 
+        invs.clear();
 
         node_costs.clear(); // wipe caches, but keep allocated memory for reuse
 
@@ -1959,9 +1943,9 @@ impl NodeCosts {
     fn new_cost_under_inv(&mut self, node: Id, inv: &Inv, cost:i32) {
         self.costs.get_mut(&node).unwrap().new_cost_under_inv(inv, cost);
     }
-    fn useful_invs(&self, node: Id) -> Vec<Inv> {
+    fn useful_invs(&self, node: Id) -> impl Iterator<Item=Inv> + '_ {
         let remapped_node = if self.costs.contains_key(&node) {node} else {self.remap[&node]};
-        self.costs[&remapped_node].inventionful_cost.keys().cloned().collect()
+        self.costs[&remapped_node].inventionful_cost.keys().cloned()
     }
     fn best_inventions(&self, node: Id, k: usize) -> Vec<(Inv,i32)> {
         let remapped_node = if self.costs.contains_key(&node) {node} else {self.remap[&node]};
