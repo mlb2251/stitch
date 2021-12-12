@@ -771,14 +771,14 @@ struct OffZTupleElem {
     arg_idx: usize // which arg this is
 }
 
-#[derive(Debug,Clone, Eq, PartialEq, Hash)]
+#[derive(Debug,Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 struct ZTupleElem {
     zid: ZId,
     arg_idx: usize // which argument this is using from .args
 }
 
 /// a multiarg multiuse invention
-#[derive(Debug,Clone, Eq, PartialEq, Hash)]
+#[derive(Debug,Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 struct ZTuple {
     elems: Vec<ZTupleElem>,
     divergence_idxs: Vec<usize>,
@@ -1569,19 +1569,21 @@ impl Costs {
             Lambda::Programs(roots) => {
                 // println!("root cost processing");
                 // union together all the useful inventions of diff programs. Throw out ones only used in one place.
+                filter_singles(&mut child_inventions);
 
-                while let Some(inv) = child_inventions.pop() {
+                // while let Some(inv) = child_inventions.pop() {
                     // println!("processing inv {:?}", inv);
                     // weird setup: if you see exactly one copy of yourself ahead of you, youre good to go.
                     // That way if theres only 1 copy of something it gets skipped, and if there are like 5 copies itll still only
                     // do the computation once.
-                    if child_inventions.iter().filter(|inv2| **inv2 == inv).count() == 1 {
-                        
-                        let cost = roots.iter().map(|root| {
-                            self.cost_under_inv(*root, inv)
-                        }).sum();
-                        self.new_cost_under_inv(node, inv, cost);
-                    }
+                    // if child_inventions.iter().filter(|inv2| **inv2 == inv).count() == 1 {
+                
+                for inv in child_inventions {
+                    let cost = roots.iter()
+                        .map(|root| self.cost_under_inv(*root, inv))
+                        .sum();
+                    self.new_cost_under_inv(node, inv, cost);
+                    // }
                 }
             }
         }
@@ -1781,8 +1783,10 @@ fn derive_inventions(programs_node: Id, treenodes: Vec<Id>, remap: HashMap<Id,Id
         node_costs.clear(); // wipe caches, but keep allocated memory for reuse
 
         // 7) add worklist additions to the worklist
-        // todo note it could be worth filtering out singly used ones, or especially filtering out ones that are used only once across multiple programs
-        worklist.extend(worklist_additions.into_iter().collect::<HashSet<ZTuple>>()); // very important to dedup and no Ord so must use hashset
+        // todo ofc one step further of pruning would be checking which roots these correspond to and filtering singles wrt that
+        filter_singles(&mut worklist_additions);
+        worklist.extend(worklist_additions);
+        // worklist.extend(worklist_additions.into_iter().collect::<HashSet<ZTuple>>()); // very important to dedup and no Ord so must use hashset
     }
 
     println!("processed {} ztuples", num_processed);
@@ -1791,6 +1795,25 @@ fn derive_inventions(programs_node: Id, treenodes: Vec<Id>, remap: HashMap<Id,Id
     best_inventions.truncate(100);
     best_inventions
 }
+
+/// sorts v, removes the last copy of every
+/// unique value, and dedups. So this is the same
+/// as deduping but keeping only things that appear
+/// more than once.
+#[inline]
+fn filter_singles<T: Ord>(v: &mut Vec<T>) {
+    v.sort();
+    let mut i = 0;
+    while i + 1 < v.len() {
+        if v[i] != v[i+1] {
+            v.remove(i);
+        } else {
+            i += 1;
+        }
+    }
+    v.dedup();
+}
+
 
 #[derive(Debug)]
 struct NodeCost {
