@@ -1658,14 +1658,17 @@ fn beta_inversions(
     // todo not certain if nested hashmaps makes more sense but this is what I did to start. Given how
     // todo we might end up iterating the inner hashmap values a lot it certainly could make sense to switch to that (see how it goes first tho)
     let mut appoffzipper_of_node_zid: HashMap<(Id,ZId),AppOffZipper> = Default::default();
-    let mut zids_of_node: HashMap<Id,Vec<ZId>> = treenodes.iter().map(|treenode| (treenode.clone(),Vec::new())).collect();
+    let mut zids_of_node: Vec<Vec<ZId>> = treenodes.iter().map(|_| vec![]).collect();
+
+    // make sure treenodes is a permutation of the first N numbers
+    assert!(*treenodes.iter().max().unwrap() == Id::from(treenodes.len()-1));
 
     // now actually prune all those out of all_appoffzippers
     for (treenode,appoffzippers) in all_appoffzippers {
         for appoffzipper in appoffzippers {
             if let Ok(i) = zippers.binary_search(&appoffzipper.offzipper.forget()) {
                 // not pruned!
-                zids_of_node.get_mut(&treenode).unwrap().push(i);
+                zids_of_node[usize::from(treenode)].push(i);
                 appoffzipper_of_node_zid.insert((treenode,i),appoffzipper.clone());
             }
         }
@@ -1680,11 +1683,23 @@ fn beta_inversions(
     println!("counted inventions: {:?}ms", tstart.elapsed().as_millis());
     println!("{} single arg invs", num_invs);
 
-    println!("building inventions...");
+    println!("deriving inventions...");
     let tstart = std::time::Instant::now();
 
-    let mut worklist: Vec<ZTuple> = zippers.iter().enumerate().map(|(zid,_zipper)| ZTuple::new(vec![ZTupleElem::new(zid,0)], vec![], 1)).collect();
+    let best_inventions = derive_inventions(programs_node, treenodes, remap, egraph, &zippers, &appoffzipper_of_node_zid, &zids_of_node, max_arity);
 
+    println!("\ndone: {:?}ms\n", tstart.elapsed().as_millis());
+
+    let orig_cost = extract(programs_node,egraph).cost();
+    for (inv, cost) in best_inventions.iter().take(5) {
+        println!("{} -> {}\n{}", orig_cost, cost, inv.to_expr(egraph)); 
+    }
+    unimplemented!();
+}
+#[inline(never)]
+fn derive_inventions(programs_node: Id, treenodes: Vec<Id>, remap: HashMap<Id,Id>, egraph: &EGraph, zippers: &Vec<Zipper>, appoffzipper_of_node_zid: &HashMap<(Id,ZId),AppOffZipper>, zids_of_node: &Vec<Vec<ZId>>, max_arity: usize) -> Vec<(OffZTuple,i32)> {
+
+    let mut worklist: Vec<ZTuple> = zippers.iter().enumerate().map(|(zid,_zipper)| ZTuple::new(vec![ZTupleElem::new(zid,0)], vec![], 1)).collect();
     let mut best_inventions: Vec<(OffZTuple,i32)> = Default::default();
 
     // todo ofc can parallelize this 
@@ -1705,7 +1720,7 @@ fn beta_inversions(
             node_costs.bubble_up_costs(*node, egraph);
 
             // 2) fail fast if this node doesnt have all the zids the ztuple needs.
-            if ztuple.zids().any(|zid| !zids_of_node[node].contains(&zid)) {
+            if ztuple.zids().any(|zid| !zids_of_node[usize::from(*node)].contains(&zid)) {
                 continue; // this node is missing a necessary zid
             }
             
@@ -1722,7 +1737,7 @@ fn beta_inversions(
 
             // 5) use merge_multiarg and merge_multiuse to extend the worklist (or rather a temp worklist that gets deduped later)
             let largest_zid: ZId = ztuple.zids().last().unwrap();
-            for zid in zids_of_node[node].iter().filter(|zid| **zid > largest_zid) {
+            for zid in zids_of_node[usize::from(*node)].iter().filter(|zid| **zid > largest_zid) {
                 let appoffzipper: &AppOffZipper = &appoffzipper_of_node_zid[&(*node,*zid)];
                 if appoffztuple.offztuple.arity < max_arity {
                     // arity is low so can attempt to merge
@@ -1768,126 +1783,7 @@ fn beta_inversions(
 
     best_inventions.sort_by(|(_,cost1),(_,cost2)| cost1.cmp(cost2));
     best_inventions.truncate(100);
-
-    println!("\ndone: {:?}ms\n", tstart.elapsed().as_millis());
-
-    let orig_cost = extract(programs_node,egraph).cost();
-    for (inv, cost) in best_inventions.iter().take(5) {
-        println!("{} -> {}\n{}", orig_cost, cost, inv.to_expr(egraph)); 
-    }
-
-    unimplemented!();
-
-    for base_inv in zippers.iter() {
-        for node in treenodes.iter() {
-        //     let appinv1s = &all_appinv1s[&node];
-        //     let idx = match appinv1s.binary_search_by_key(base_inv, |appinv1| appinv1.body) {
-        //         Ok(idx) => idx,
-        //         Err(_) => continue,
-        //     };
-
-        //     let base_appinv1: &AppliedInv1 = &all_appinv1s[&node][idx];
-
-        //     // invs built from the original iteratively. The usize is to track the largest Id used so far (to make it easy)
-        //     let mut derived_invs: Vec<(AppliedInv,usize)> = vec![(AppliedInv::new(
-        //         Inv::new(vec![*base_inv], vec![]),
-        //         vec![base_appinv1.arg], // args
-        //         vec![base_appinv1.zipper.clone()], // multiarg zipper
-        //         vec![], // multiuse zipper
-        //     ),idx)];
-        //     let mut offset: usize = 0;
-        //     while offset < derived_invs.len() {
-        //         let skip_to: usize = derived_invs[offset].1;
-        //         for (i,appinv1) in appinv1s[skip_to+1..].iter().enumerate() {
-        //             debug_assert!(appinv1.body > *base_inv, "wasnt sorted!!");
-
-        //             // assert_ne!(appinv1.arg, derived_invs[offset].0.args[0]);
-        //             // derived_invs[offset].0.print(egraph);
-        //             // appinv1.print(egraph);
-        //             // println!("\n");
-
-        //             if let Some(new_derived_inv) = derived_invs[offset].0.merge_multiarg(appinv1,max_arity) {
-        //                 derived_invs.push((new_derived_inv,skip_to+1+i));
-        //             }
-        //             if let Some(new_derived_invs) = derived_invs[offset].0.merge_multiuse(appinv1) {
-        //                 derived_invs.extend(new_derived_invs.into_iter().map(|inv|(inv,skip_to+1+i)));
-        //             }
-        //         }
-        //         offset += 1;
-        //     }
-        //     all_derived_invs.entry(*node).or_default().extend(derived_invs.into_iter().map(|(inv,_)| inv));
-        }
-    }
-
-    // println!("derived all inventions: {:?}ms", tstart.elapsed().as_millis());
-
-
-    // // usage counts
-    // let tstart = std::time::Instant::now();
-    // let mut usages: HashMap<Inv,HashSet<Id>> = Default::default();
-    // for (treenode,derived_invs) in all_derived_invs.iter() {
-    //     for derived_inv in derived_invs.iter() {
-    //         usages.entry(derived_inv.inv.clone()).or_default().extend(treenode_to_roots[treenode].clone());
-    //     }
-    // }
-
-    // println!("{} derived invs before pruning", usages.len());
-
-    // // prune down to ones that arent used in multiple places
-    // let invs: Vec<Inv> = usages.iter()
-    //     .filter_map(|(inv,usages)| if usages.len() > 1 {Some(inv)} else {None})
-    //     .cloned().collect();
-    
-    // let to_remove: Vec<Inv> = usages.iter()
-    //     .filter_map(|(inv,usages)| if usages.len() == 1 {Some(inv)} else {None})
-    //     .cloned().collect();
-    // for (_, derived_invs) in all_derived_invs.iter_mut() {
-    //     derived_invs.retain(|derived_inv| !to_remove.contains(&derived_inv.inv));
-    // }
-
-    // println!("filtered out single use derived: {:?}ms", tstart.elapsed().as_millis());
-    // println!("{} derived invs", invs.len());
-
-    // for ref inv in invs {
-    //     inv.print(egraph);
-    // }
-
-    // let node_costs: NodeCosts = best_inventions(&all_derived_invs, &shifted_treenodes, programs_node, egraph);
-    // // println!("{:?}", node_costs);
-
-    // let inv_costs = node_costs.best_inventions(programs_node, 10);
-
-    // let orig_cost = extract(programs_node,egraph).cost();
-    // for (inv, cost) in inv_costs {
-    //     println!("{} -> {}", orig_cost, cost);
-    //     inv.print(egraph);
-    // }
-
-
-
-    // all_derived_invs = all_derived_invs.into_iter()
-    //     .map(|(treenode,derived_invs)|{
-    //         let mut new_derived_invs: Vec<AppliedInv> = derived_invs.into_iter()
-    //             .filter(|appinv1|
-    //                 invs.contains(&appinv1.to_inv())
-    //             ).collect();
-    //         (treenode,new_derived_invs)
-    //     })
-    //     .collect();
-
-
-
-
-
-    
-    // for treenode in treenodes.iter() {
-    //     let applams = &applams_of_treenode[treenode];
-    //     let valid = applams.iter().filter(|applam| applam.inv.valid_invention(egraph)).collect::<Vec<_>>();
-    //     let best_inventions = &best_inventions_of_treenode[treenode];
-    //     let expr = extract(*treenode, egraph);
-    //     println!("id: {}, cost: {}, depth: {}  applams: {} valid: {}", treenode, expr.cost(), expr.depth(), applams.len(), valid.len());
-    // }
-    unimplemented!()
+    best_inventions
 }
 
 #[derive(Debug)]
