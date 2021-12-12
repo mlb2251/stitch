@@ -859,19 +859,22 @@ impl AppOffZTuple {
 
         for (i,diverges_at) in ztuple.divergence_idxs.iter().enumerate() {
             // mask with FuncDiverge 
-            for j in 0..=i {
-                if ztuple.divergence_idxs[j] >= *diverges_at {
-                    debug_assert!(matches!(elems[j].offzipper.nodes[*diverges_at], OffZNode::Func(_)));
-                    elems[j].offzipper.nodes[*diverges_at] = OffZNode::FuncDiverge;
+            for j in i..=0 {
+                // as soon as a smaller zipper diverges earlier than me, it and all subsequent zippers dont share this divergence point
+                if ztuple.divergence_idxs[j] < *diverges_at {
+                    break;
                 }
+                debug_assert!(matches!(elems[j].offzipper.nodes[*diverges_at], OffZNode::Func(_)), "{:?}", elems[j].offzipper.nodes[*diverges_at]);
+                elems[j].offzipper.nodes[*diverges_at] = OffZNode::FuncDiverge;
             }
             for j in i..ztuple.divergence_idxs.len() {
-                if ztuple.divergence_idxs[j] >= *diverges_at {
-                    // note we must do j+1 bc the jth divergence index tells you about
-                    // masking elems[j] with FuncDiverge and elems[j+1] with ArgDiverge
-                    debug_assert!(matches!(elems[j+1].offzipper.nodes[*diverges_at], OffZNode::Arg(_)), "{:?}", elems[j+1].offzipper.nodes[*diverges_at]);
-                    elems[j+1].offzipper.nodes[*diverges_at] = OffZNode::ArgDiverge;
+                if ztuple.divergence_idxs[j] < *diverges_at {
+                    break
                 }
+                // note we must do j+1 bc the jth divergence index tells you about
+                // masking elems[j] with FuncDiverge and elems[j+1] with ArgDiverge
+                debug_assert!(matches!(elems[j+1].offzipper.nodes[*diverges_at], OffZNode::Arg(_)), "{:?}", elems[j+1].offzipper.nodes[*diverges_at]);
+                elems[j+1].offzipper.nodes[*diverges_at] = OffZNode::ArgDiverge;
             }
 
 
