@@ -838,9 +838,9 @@ impl OffZTuple {
 impl AppOffZTuple {
     
     #[inline]
-    fn from_appoffzippers(ztuple: &ZTuple, appoffzippers: Vec<AppOffZipper>) -> AppOffZTuple
+    fn from_appoffzippers(ztuple: &ZTuple, appoffzippers: impl Iterator<Item=AppOffZipper>) -> AppOffZTuple
     {
-        assert_eq!(ztuple.elems.len(), appoffzippers.len());
+        // assert_eq!(ztuple.elems.len(), appoffzippers.len());
         let mut args: Vec<Id> = vec![];
         let mut elems: Vec<OffZTupleElem> = ztuple.elems.iter()
             .zip(appoffzippers.into_iter())
@@ -854,9 +854,7 @@ impl AppOffZTuple {
         ).collect();
         // mask out the places where adjacent zippers block out each others off elements
         // elems.
-
-        // todo
-
+        
         for (i,diverges_at) in ztuple.divergence_idxs.iter().enumerate() {
             // mask with FuncDiverge and ArgDiverge
             // note the jth divergence index tells you about
@@ -1708,7 +1706,9 @@ fn derive_inventions(programs_node: Id, treenodes: Vec<Id>, remap: HashMap<Id,Id
 
     // todo ofc can parallelize this 
     let mut node_costs = Costs::new(&treenodes,remap,egraph); // todo except a verison of NodeCosts with OffZTuples and preferably `remap` not duplicated in every time - instead passed by ref somehow at some point
+    let mut num_processed = 0;
     while let Some(ztuple) = worklist.pop() {
+        num_processed += 1;
         // println!("{} {:?}", ztuple.elems.len(), ztuple);
         // for expr in ztuple.elems.iter().map(|elem| zippers[elem.zid].to_expr(elem.arg_idx as i32)) {
         //     println!("\t{}", expr.to_string_curried(None));
@@ -1729,7 +1729,7 @@ fn derive_inventions(programs_node: Id, treenodes: Vec<Id>, remap: HashMap<Id,Id
             }
             
             // 3) instantiate an offztuple roughly by mapping zids to offzippers
-            let appoffzippers: Vec<AppOffZipper> =  ztuple.zids().map(|zid| appoffzipper_of_node_zid[&(*node,zid)].clone()).collect();
+            let appoffzippers =  ztuple.zids().map(|zid| appoffzipper_of_node_zid[&(*node,zid)].clone());
             let appoffztuple = AppOffZTuple::from_appoffzippers(&ztuple, appoffzippers);
 
             // 4) for efficiency we'll switch to referring to the invention by its location in `invs`
@@ -1784,6 +1784,8 @@ fn derive_inventions(programs_node: Id, treenodes: Vec<Id>, remap: HashMap<Id,Id
         // todo note it could be worth filtering out singly used ones, or especially filtering out ones that are used only once across multiple programs
         worklist.extend(worklist_additions.into_iter().collect::<HashSet<ZTuple>>()); // very important to dedup and no Ord so must use hashset
     }
+
+    println!("processed {} ztuples", num_processed);
 
     best_inventions.sort_by(|(_,cost1),(_,cost2)| cost1.cmp(cost2));
     best_inventions.truncate(100);
