@@ -6,9 +6,9 @@ use std::path::PathBuf;
 use std::hash::Hash;
 use std::cmp::Ordering;
 
-const MERGE_RIGHT: &str = "merge->";
-const MERGE_LEFT: &str = "<-merge";
-const HOLE: &str = "_";
+const FHOLE_STR: &str = "_f";
+const XHOLE_STR: &str = "_x";
+const HOLE_STR: &str = "_";
 
 /// Args for compression
 #[derive(Parser, Debug)]
@@ -861,6 +861,7 @@ impl AppOffZTuple {
             // mask with FuncDiverge 
             for j in 0..=i {
                 if ztuple.divergence_idxs[j] >= *diverges_at {
+                    debug_assert!(matches!(elems[j].offzipper.nodes[*diverges_at], OffZNode::Func(_)));
                     elems[j].offzipper.nodes[*diverges_at] = OffZNode::FuncDiverge;
                 }
             }
@@ -868,6 +869,7 @@ impl AppOffZTuple {
                 if ztuple.divergence_idxs[j] >= *diverges_at {
                     // note we must do j+1 bc the jth divergence index tells you about
                     // masking elems[j] with FuncDiverge and elems[j+1] with ArgDiverge
+                    debug_assert!(matches!(elems[j+1].offzipper.nodes[*diverges_at], OffZNode::Arg(_)), "{:?}", elems[j+1].offzipper.nodes[*diverges_at]);
                     elems[j+1].offzipper.nodes[*diverges_at] = OffZNode::ArgDiverge;
                 }
             }
@@ -910,7 +912,15 @@ impl AppOffZTuple {
     }
     #[inline]
     fn merge_multiuse(&self, appoffzipper: &AppOffZipper, appoffzipper_zid: ZId, ztuple: &ZTuple) -> Option<Vec<ZTuple>> {
-        debug_assert!(self.offztuple.offzippers().all(|offzipper| offzipper.forget() < appoffzipper.offzipper.forget()), "not an upward merge");
+        debug_assert!(self.offztuple.offzippers().all(|offzipper| offzipper.forget() < appoffzipper.offzipper.forget()),
+            "not an upward merge:\n{}\n\n{}\n\n{}\n{:?}\n{:?}\n{:?}\n",
+            self.offztuple.to_string_forgetful(),
+            appoffzipper.offzipper.forget().to_expr(100),
+            appoffzipper_zid,
+            ztuple.zids().collect::<Vec<_>>(),
+            appoffzipper.offzipper.forget(),
+            self.offztuple.offzippers().last().unwrap().forget()
+        );
         if !self.args.iter().any(|arg| *arg == appoffzipper.arg) {
             return None // no shared arg
         }
@@ -938,46 +948,53 @@ impl OffZTuple {
     fn new(elems: Vec<OffZTupleElem>, arity: usize) -> OffZTuple {
         OffZTuple { elems, arity }
     }
+    /// in case you dont have and egraph and still want to print something
+    fn to_string_forgetful(&self) -> String {
+        self.elems.iter()
+            .map(|elem| elem.offzipper.forget().to_expr(elem.arg_idx as i32).to_string())
+            .collect::<Vec<String>>()
+            .join("\n")
+    }
     fn to_expr(&self, egraph: &EGraph) -> Expr {
         fn merge(eleft: &Expr, child_left: Id, eright: &Expr, child_right: Id) -> Option<Expr> {
             let nodeleft = eleft.get(child_left);
             let noderight = eright.get(child_right);
+
+            // left can never be an FHOLE. The _f would never get merged thru right merging.
+            assert_ne!(*nodeleft, Lambda::Prim(FHOLE_STR.into()));
+
+            // _x & any_right -> any_right  (fine even if rhs is some sort of hole)
+            if *nodeleft == Lambda::Prim(XHOLE_STR.into()) {
+                return Some(eright.cloned_subexpr(child_right));
+            }
+            // any_left & _f -> any_left
+            if *noderight == Lambda::Prim(FHOLE_STR.into()) {
+                return Some(eleft.cloned_subexpr(child_left));
+            }
+
             // search for place where eleft == "merge->" and eright == "<-merge"
             match (nodeleft,noderight) {
-                (Lambda::Prim(pl),Lambda::Prim(pr)) => { assert_eq!(pl,pr); None },
-                (Lambda::Var(il),Lambda::Var(ir)) => { assert_eq!(il,ir); None },
-                (Lambda::IVar(_),Lambda::IVar(_)) => panic!("IVar found before finding splice point"),
-                (Lambda::Programs(_),Lambda::Programs(_)) => panic!("Programs node found in invention"),
                 (Lambda::Lam([bl]),Lambda::Lam([br])) => {
                     // if body merge returns None we return None, otherwise we wrap the body result in an Expr
                     merge(eleft, *bl, eright, *br).map(|e| Expr::lam(e))
                 }
                 (Lambda::App([fl,xl]),Lambda::App([fr,xr])) => {
-                    if eleft.get(*fl) == &Lambda::Prim(MERGE_RIGHT.into()) && eright.get(*fr) != &Lambda::Prim(MERGE_RIGHT.into()) {
-                        // LEFT is merge-> (and right is not merge-> which would mean we could just ignore them for now)
-                        assert_eq!(eright.get(*fr), &Lambda::Prim(MERGE_LEFT.into()));
-                        if let (Lambda::App([f,h1]),Lambda::App([h2,x])) = (eleft.get(*xl), eright.get(*xr)) {
-                            assert_eq!(eleft.get(*h1), &Lambda::Prim(HOLE.into()));
-                            assert_eq!(eright.get(*h2), &Lambda::Prim(HOLE.into()));
-                            Some(Expr::app(eleft.cloned_subexpr(*f),eright.cloned_subexpr(*x)))
-                        } else {
-                            panic!("malformed merge point");
-                        }
+                    // merge fl with fr and xl with xr
+                    let f = merge(eleft, *fl, eright, *fr);
+                    let x = merge(eleft, *xl, eright, *xr);
+                    if f.is_none() && x.is_none() {
+                        None
                     } else {
-                        // merge fl with fr and xl with xr
-                        match (merge(eleft, *fl, eright, *fr), merge(eleft, *xl, eright, *xr)) {
-                            (Some(_), Some(_)) => panic!("implies two merge points"),
-                            (Some(f), None) => {
-                                Some(Expr::app(f, eright.cloned_subexpr(*xr))) // note eleft xl == eright xr as per the `None` so we just pick one to clone
-                            },
-                            (None, Some(x)) => {
-                                Some(Expr::app(eright.cloned_subexpr(*fr), x)) // note eleft fl == eright fr as per the `None` so we just pick one to clone
-                            },
-                            (None, None) => None,
-                        }
+                        Some(Expr::app(
+                            f.unwrap_or_else(||eright.cloned_subexpr(*fr)), // eleft.cloned_... would be the same since `None` said theyre the same
+                            x.unwrap_or_else(||eright.cloned_subexpr(*xr))
+                        ))
                     }
                 }
-                (_,_) => panic!("node types in merge dont match: {} and {} when merging:\n{}\n{}", nodeleft, noderight, eleft, eright),
+                (a,b) => {
+                    assert_eq!(a,b,"\nnode types in merge dont match: {} and {} when merging:\n{}\n{}", nodeleft, noderight, eleft, eright);
+                    None
+                },
             }
         }
         let mut exprs: Vec<Expr> = self.elems.iter().map(|elem| elem.offzipper.to_expr(egraph, elem.arg_idx as i32)).collect();
@@ -988,10 +1005,13 @@ impl OffZTuple {
         }
         expr
     }
+    fn forget(&self) -> Vec<Zipper> {
+        self.elems.iter().map(|elem| elem.offzipper.forget()).collect()
+    }
     fn to_string_detailed(&self,egraph: &EGraph) -> String {
         let exprs: Vec<Expr> = self.elems.iter().map(|elem| elem.offzipper.to_expr(egraph, elem.arg_idx as i32)).collect();
         let s: String = exprs.iter().map(|e|e.to_string()).collect::<Vec<String>>().join("\n");
-        println!("{}", s);
+        // println!("{}", s);
         format!("{}\nfrom:\n{}\n", self.to_expr(egraph).to_string(), s)
     }
 }
@@ -1023,8 +1043,8 @@ impl Zipper {
     fn to_expr(&self, ivar_idx: i32) -> Expr {
         self.nodes.iter().rev().fold(Expr::ivar(ivar_idx), |acc,node| {
             match node {
-                ZNode::Func => Expr::app(acc, Expr::prim(HOLE.into())),
-                ZNode::Arg => Expr::app(Expr::prim(HOLE.into()), acc),
+                ZNode::Func => Expr::app(acc, Expr::prim(HOLE_STR.into())),
+                ZNode::Arg => Expr::app(Expr::prim(HOLE_STR.into()), acc),
                 ZNode::Body => Expr::lam(acc),
             }
         })
@@ -1122,10 +1142,10 @@ impl OffZipper {
         self.nodes.iter().rev().fold(Expr::ivar(ivar_idx), |acc,node| {
             match node {
                 OffZNode::Func(x) => Expr::app(acc, extract(*x,egraph)),
+                OffZNode::FuncDiverge => Expr::app(acc, Expr::prim(XHOLE_STR.into())),
                 OffZNode::Arg(f) => Expr::app(extract(*f,egraph), acc),
+                OffZNode::ArgDiverge => Expr::app(Expr::prim(FHOLE_STR.into()), acc),
                 OffZNode::Body => Expr::lam(acc),
-                OffZNode::FuncDiverge => Expr::app(Expr::prim(MERGE_RIGHT.into()), Expr::app(acc, Expr::prim(HOLE.into()))),
-                OffZNode::ArgDiverge => Expr::app(Expr::prim(MERGE_LEFT.into()),  Expr::app(Expr::prim(HOLE.into()), acc)),
             }
         })
     }
@@ -1598,9 +1618,9 @@ fn beta_inversions(
     println!("ROOOOOOTS {:?}", roots);
     let mut treenode_to_roots: HashMap<Id,Vec<Id>> = get_treenode_to_roots(&roots, egraph);
     treenode_to_roots.insert(programs_node,vec![]); // Programs node has no roots
-    for (treenode, roots) in treenode_to_roots.iter() {
-        println!("{} {:?}", extract(*treenode, egraph), roots);
-    }
+    // for (treenode, roots) in treenode_to_roots.iter() {
+    //     println!("{} {:?}", extract(*treenode, egraph), roots);
+    // }
 
     let tstart = std::time::Instant::now();
     let (all_appoffzippers, remap) = get_appoffzippers(&treenodes, no_cache, egraph);
@@ -1619,10 +1639,10 @@ fn beta_inversions(
             usages.entry(appoffzipper.offzipper.forget()).or_default().extend(treenode_to_roots[treenode].clone());
             total_inv_usages += 1;
         }
-        println!("{} appoffzippers at: {}", appoffzippers.len(), extract(*treenode, egraph));
-        for appoffzipper in appoffzippers.iter() {
-            println!("{}", appoffzipper.to_string(egraph));
-        }
+        // println!("{} appoffzippers at: {}", appoffzippers.len(), extract(*treenode, egraph));
+        // for appoffzipper in appoffzippers.iter() {
+        //     println!("{}", appoffzipper.to_string(egraph));
+        // }
     }
     println!("total invention usages (not just unique ones): {}", total_inv_usages);
 
@@ -1634,6 +1654,9 @@ fn beta_inversions(
         .filter_map(|(inv,usages)| if usages.len() > 1 {Some(inv)} else {None})
         .cloned().collect();
     zippers.sort();
+    for (i,z) in zippers.iter().enumerate() {
+        println!("{}: {:?}",i, z);
+    }
 
     println!("{} zippers post single-use pruning", zippers.len());
 
@@ -1663,22 +1686,20 @@ fn beta_inversions(
     println!("counted inventions: {:?}ms", tstart.elapsed().as_millis());
     println!("{} single arg invs", num_invs);
 
+    println!("building inventions...");
     let tstart = std::time::Instant::now();
 
-    let mut all_derived_invs: HashMap<Id,Vec<AppliedInv>> = Default::default();
-
     let mut worklist: Vec<ZTuple> = zippers.iter().enumerate().map(|(zid,_zipper)| ZTuple::new(vec![ZTupleElem::new(zid,0)], vec![], 1)).collect();
-
 
     let mut best_inventions: Vec<(OffZTuple,i32)> = Default::default();
 
     // todo ofc can parallelize this 
     let mut node_costs = Costs::new(&treenodes,remap,egraph); // todo except a verison of NodeCosts with OffZTuples and preferably `remap` not duplicated in every time - instead passed by ref somehow at some point
     while let Some(ztuple) = worklist.pop() {
-        println!("{} {:?}", ztuple.elems.len(), ztuple);
-        for expr in ztuple.elems.iter().map(|elem| zippers[elem.zid].to_expr(elem.arg_idx as i32)) {
-            println!("\t{}", expr.to_string_curried(None));
-        }
+        // println!("{} {:?}", ztuple.elems.len(), ztuple);
+        // for expr in ztuple.elems.iter().map(|elem| zippers[elem.zid].to_expr(elem.arg_idx as i32)) {
+        //     println!("\t{}", expr.to_string_curried(None));
+        // }
 
 
         let mut invs: Vec<OffZTuple> = vec![];
@@ -1701,7 +1722,7 @@ fn beta_inversions(
             // 4) for efficiency we'll switch to referring to the invention by its location in `invs`
             let inv: InvId = invs.iter().position(|inv| inv == &appoffztuple.offztuple).unwrap_or_else(|| {
                 invs.push(appoffztuple.offztuple.clone());
-                println!("new inv: {}", appoffztuple.offztuple.to_string_detailed(egraph));
+                // println!("new inv: {}", appoffztuple.offztuple.to_string_detailed(egraph));
                 invs.len() - 1
             });
 
@@ -1727,7 +1748,7 @@ fn beta_inversions(
                 + appoffztuple.args.iter()
                     .map(|arg| node_costs.cost_under_inv(*arg, inv))
                     .sum::<i32>(); // sum costs of actual args
-            println!("COST: {} -> {} at {}", extract(*node,egraph).cost(), cost, extract(*node,egraph));
+            // println!("COST: {} -> {} at {}", extract(*node,egraph).cost(), cost, extract(*node,egraph));
             // 4) Push invention + cost into NodeCosts
             node_costs.new_cost_under_inv(*node, inv, cost);            
 
@@ -1740,7 +1761,7 @@ fn beta_inversions(
             best_inventions.truncate(100);
         }
 
-        if ztuple.elems.len() == 3 && ztuple.arity == 1 { panic!("check this out")}
+        // if ztuple.elems.len() == 3 && ztuple.arity == 1 { panic!("check this out")}
 
 
         node_costs.clear(); // wipe caches, but keep allocated memory for reuse
@@ -1753,10 +1774,11 @@ fn beta_inversions(
     best_inventions.sort_by(|(_,cost1),(_,cost2)| cost1.cmp(cost2));
     best_inventions.truncate(100);
 
+    println!("\ndone: {:?}ms\n", tstart.elapsed().as_millis());
+
     let orig_cost = extract(programs_node,egraph).cost();
     for (inv, cost) in best_inventions.iter().take(5) {
-        println!("{} -> {}\n{}", orig_cost, cost, inv.to_string_detailed(egraph));
-        
+        println!("{} -> {}\n{}", orig_cost, cost, inv.to_expr(egraph)); 
     }
 
     unimplemented!();
