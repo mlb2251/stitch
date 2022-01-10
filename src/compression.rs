@@ -837,7 +837,7 @@ impl OffZTuple {
 
 impl AppOffZTuple {
     
-    #[inline]
+    #[inline(never)]
     fn from_appoffzippers(ztuple: &ZTuple, appoffzippers: impl Iterator<Item=AppOffZipper>) -> AppOffZTuple
     {
         // assert_eq!(ztuple.elems.len(), appoffzippers.len());
@@ -885,7 +885,7 @@ impl AppOffZTuple {
         }
         AppOffZTuple::new(OffZTuple::new(elems,ztuple.arity),args)
     }
-    #[inline]
+    #[inline(never)]
     fn merge_multiarg(&self, appoffzipper: &AppOffZipper, appoffzipper_zid: ZId, ztuple: &ZTuple) -> Option<ZTuple> {
         debug_assert!(self.offztuple.offzippers().all(|offzipper| offzipper.forget() < appoffzipper.offzipper.forget()), "not an upward merge");
         if let Some(diverge_idx) = self.offztuple.offzippers().last().unwrap().intersect_from_right(&appoffzipper.offzipper) {
@@ -897,7 +897,7 @@ impl AppOffZTuple {
         }
         None
     }
-    #[inline]
+    #[inline(never)]
     fn merge_multiuse(&self, appoffzipper: &AppOffZipper, appoffzipper_zid: ZId, ztuple: &ZTuple) -> Option<Vec<ZTuple>> {
         debug_assert!(self.offztuple.offzippers().all(|offzipper| offzipper.forget() < appoffzipper.offzipper.forget()),
             "not an upward merge:\n{}\n\n{}\n\n{}\n{:?}\n{:?}\n{:?}\n",
@@ -1103,6 +1103,7 @@ impl OffZipper {
 
     /// intersect two offzippers, assumes other > self (ie it's coming "from the right")
     /// and returns the index at which they diverge ie self is Func and other is Arg.
+    #[inline(never)]
     fn intersect_from_right(&self, other: &OffZipper) -> Option<usize> {
         debug_assert!(self.forget() < other.forget(), "not an intersect from the right");
         // note that we cant do a .startswith check for offzippers bc of divergences 
@@ -1138,7 +1139,7 @@ impl OffZipper {
     }
 
     /// forget all the off zipper elements leaving just a zipper. Not that cheap.
-    #[inline]
+    #[inline(never)]
     fn forget(&self) -> Zipper {
         Zipper::new(self.nodes.iter().map(|node| node.forget()).collect())
     }
@@ -1515,21 +1516,21 @@ impl Costs {
         let costs = treenodes.iter().map(|node| Cost::new(egraph[*node].data.inventionless_cost)).collect();
         Costs { costs, remap }
     }
-    #[inline]
+    #[inline(never)]
     fn cost_under_inv(&self, node: Id, inv: InvId) -> i32 {
         let remapped_node = if usize::from(node) < self.costs.len() {node} else {self.remap[&node]};
         self.costs[usize::from(remapped_node)].cost_under_inv(inv)
     }
-    #[inline]
+    #[inline(never)]
     fn new_cost_under_inv(&mut self, node: Id, inv: InvId, cost:i32) {
         self.costs[usize::from(node)].new_cost_under_inv(inv, cost);
     }
-    #[inline]
+    #[inline(never)]
     fn useful_invs(&self, node: Id) -> impl Iterator<Item=InvId> + '_ {
         let remapped_node = if usize::from(node) < self.costs.len() {node} else {self.remap[&node]};
         self.costs[usize::from(remapped_node)].inventionful_cost.keys().copied()
     }
-    #[inline]
+    #[inline(never)]
     fn best_inventions(&self, node: Id, k: usize) -> Vec<(InvId,i32)> {
         let remapped_node = if usize::from(node) < self.costs.len() {node} else {self.remap[&node]};
         self.costs[usize::from(remapped_node)].best_inventions(k)
@@ -1539,7 +1540,7 @@ impl Costs {
         self.costs.iter_mut().for_each(|cost| cost.inventionful_cost.clear());
     }
 
-    #[inline]
+    #[inline(never)]
     fn bubble_up_costs(&mut self, node: Id, egraph: &EGraph) {
         let ref enode = egraph[node].nodes[0];
 
@@ -1593,7 +1594,7 @@ impl Costs {
 
 /// This is the main workhorse of compression. Takes a child-first ordering of nodes in an EGraph
 /// (assumed to be acyclic) and finds all the possible useful inventions up to the given arity.
-#[inline] // for flamegraph debugging
+#[inline(never)] // for flamegraph debugging
 fn beta_inversions(
     programs_node: Id,
     max_arity: usize,
@@ -1614,8 +1615,8 @@ fn beta_inversions(
 
     // lets you lookup which roots a treenode is a descendent of
     println!("ROOOOOOTS {:?}", roots);
-    let mut treenode_to_roots: HashMap<Id,Vec<Id>> = get_treenode_to_roots(&roots, egraph);
-    treenode_to_roots.insert(programs_node,vec![]); // Programs node has no roots
+    let mut roots_of_node: HashMap<Id,Vec<Id>> = get_treenode_to_roots(&roots, egraph);
+    roots_of_node.insert(programs_node,vec![]); // Programs node has no roots
     // for (treenode, roots) in treenode_to_roots.iter() {
     //     println!("{} {:?}", extract(*treenode, egraph), roots);
     // }
@@ -1634,7 +1635,7 @@ fn beta_inversions(
     let mut usages: HashMap<Zipper,HashSet<Id>> = Default::default();
     for (treenode,appoffzippers) in all_appoffzippers.iter() {
         for appoffzipper in appoffzippers.iter() {
-            usages.entry(appoffzipper.offzipper.forget()).or_default().extend(treenode_to_roots[treenode].clone());
+            usages.entry(appoffzipper.offzipper.forget()).or_default().extend(roots_of_node[treenode].clone());
             total_inv_usages += 1;
         }
         // println!("{} appoffzippers at: {}", appoffzippers.len(), extract(*treenode, egraph));
@@ -1652,9 +1653,9 @@ fn beta_inversions(
         .filter_map(|(inv,usages)| if usages.len() > 1 {Some(inv)} else {None})
         .cloned().collect();
     zippers.sort();
-    for (i,z) in zippers.iter().enumerate() {
-        println!("{}: {:?}",i, z);
-    }
+    // for (i,z) in zippers.iter().enumerate() {
+    //     println!("{}: {:?}",i, z);
+    // }
 
     println!("{} zippers post single-use pruning", zippers.len());
 
@@ -1663,6 +1664,8 @@ fn beta_inversions(
     // todo we might end up iterating the inner hashmap values a lot it certainly could make sense to switch to that (see how it goes first tho)
     let mut appoffzipper_of_node_zid: HashMap<(Id,ZId),AppOffZipper> = Default::default();
     let mut zids_of_node: Vec<Vec<ZId>> = treenodes.iter().map(|_| vec![]).collect();
+    let mut nodes_of_zid: Vec<Vec<Id>> = zippers.iter().map(|_| vec![]).collect();
+    let mut roots_of_zid: Vec<Vec<Id>> = zippers.iter().map(|_| vec![]).collect();
 
     // make sure treenodes is a permutation of the first N numbers
     assert!(*treenodes.iter().max().unwrap() == Id::from(treenodes.len()-1));
@@ -1673,10 +1676,16 @@ fn beta_inversions(
             if let Ok(i) = zippers.binary_search(&appoffzipper.offzipper.forget()) {
                 // not pruned!
                 zids_of_node[usize::from(treenode)].push(i);
+                nodes_of_zid[i].push(treenode);
+                roots_of_zid[i].extend(roots_of_node[&treenode].clone());
                 appoffzipper_of_node_zid.insert((treenode,i),appoffzipper.clone());
             }
         }
     }
+
+    zids_of_node.iter_mut().for_each(|v| {v.sort(); v.dedup()});
+    nodes_of_zid.iter_mut().for_each(|v| {v.sort(); v.dedup()});
+    roots_of_zid.iter_mut().for_each(|v| {v.sort(); v.dedup()});
 
 
 
@@ -1700,7 +1709,7 @@ fn beta_inversions(
     }
     unimplemented!();
 }
-#[inline]
+#[inline(never)]
 fn derive_inventions(programs_node: Id, treenodes: Vec<Id>, remap: HashMap<Id,Id>, egraph: &EGraph, zippers: &Vec<Zipper>, appoffzipper_of_node_zid: &HashMap<(Id,ZId),AppOffZipper>, zids_of_node: &Vec<Vec<ZId>>, max_arity: usize) -> Vec<(OffZTuple,i32)> {
 
     let mut worklist: Vec<ZTuple> = zippers.iter().enumerate().map(|(zid,_zipper)| ZTuple::new(vec![ZTupleElem::new(zid,0)], vec![], 1)).collect();
@@ -1784,7 +1793,10 @@ fn derive_inventions(programs_node: Id, treenodes: Vec<Id>, remap: HashMap<Id,Id
 
         // 7) add worklist additions to the worklist
         // todo ofc one step further of pruning would be checking which roots these correspond to and filtering singles wrt that
-        filter_singles(&mut worklist_additions);
+        // filter_singles(&mut worklist_additions);
+        // note that sadly you cant prune based on what shows up only once bc you actually have to go by roots bc a single node could have multiple roots and thus be totally fine
+        worklist_additions.sort();
+        worklist_additions.dedup();
         worklist.extend(worklist_additions);
         // worklist.extend(worklist_additions.into_iter().collect::<HashSet<ZTuple>>()); // very important to dedup and no Ord so must use hashset
     }
@@ -1800,6 +1812,7 @@ fn derive_inventions(programs_node: Id, treenodes: Vec<Id>, remap: HashMap<Id,Id
 /// unique value, and dedups. So this is the same
 /// as deduping but keeping only things that appear
 /// more than once.
+/// AHHH 
 #[inline]
 fn filter_singles<T: Ord>(v: &mut Vec<T>) {
     v.sort();
