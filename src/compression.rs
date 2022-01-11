@@ -235,8 +235,11 @@ fn extract_under_inv(
     if best_inventions_of_treenode[&root].inventionful_cost.contains_key(&inv)
        && applams_of_treenode[&root].iter().any(|applam| applam.inv == inv) {
         let applam: Vec<AppLam> = applams_of_treenode[&root].iter().filter(|applam| applam.inv == inv).cloned().collect();
-        assert!(applam.len() == 1);
-        let applam = &applam[0];
+        let applam = if applam.len() > 1 {
+            applam.iter().min_by_key(|al| al.args.iter().map(|arg| egraph[*arg].data.inventionless_cost).sum::<i32>()).unwrap()  // TODO make this cheaper
+        } else {
+            &applam[0]
+        };
         let mut expr = Expr::prim(replace_inv_with.into());
         // wrap the new primitive in app() calls. Note that you pass in the $0 args LAST given how appapplamlam works
         for arg in applam.args.iter().rev() {
@@ -349,7 +352,7 @@ impl Analysis<Lambda> for LambdaAnalysis {
             }
             Lambda::Programs(programs) => {
                 // assert no free variables in programs
-                assert!(programs.iter().all(|p| egraph[*p].data.free_vars.is_empty()));
+                //assert!(programs.iter().all(|p| egraph[*p].data.free_vars.is_empty()));
                 assert!(programs.iter().all(|p| egraph[*p].data.free_ivars.is_empty()));
             }
         }
@@ -835,21 +838,54 @@ fn beta_inversions(
                 //  - arg must not have any upward refs to $0 in it since we cant jump over a lambda we point to
                 //    > (in the multiarg applam case, none of them can have $0)
                 //  - in the pre-ivar era this required a RotateShift which turned out to be a huge speed bottleneck
-                //    as it created tons of new nodes in the egraph. This is no longer needed with ivars. No shfiting at lal!
+                //    as it created tons of new nodes in the egraph. This is no longer needed with ivars. No shfiting at all!
 
                 for b_applam in b_applams.iter() {
                     // can't bubble an applam over a lambda if its arg refers to the lambda!
                     if b_applam.args.iter().any(|arg| egraph[*arg].data.free_vars.contains(&0)) {
-                        continue;
+                        
+                    } else {
+
                     }
                     
+                    let mut body = b_applam.inv.body;
                     // downshift the args since the lambda above them moved below them (earlier we made sure none of them had pointers to it)
-                    let new_args: Vec<Id> = b_applam.args.iter().map(|arg| shift(*arg, Shift::ShiftVar(-1), egraph, Some(caches)).unwrap()).collect();
+                    let new_args: Vec<Id> = b_applam.args.iter().enumerate().map(
+                        |(i, arg)| {
+                            if egraph[*arg].data.free_vars.contains(&0) {
+                                body = recursive_var_mod(
+                                    |actual_idx, depth, _which_upward_ref, egraph| {
+                                        if actual_idx == i as i32 {
+                                            let f = egraph.add(Lambda::IVar(actual_idx));
+                                            let x = egraph.add(Lambda::Var(depth));
+                                            Some(egraph.add(Lambda::App([f, x])))
+                                        } else {
+                                            Some(egraph.add(Lambda::IVar(actual_idx)))  // i.e. do nothing
+                                        }
+                                    },
+                                    true, // operate on IVars
+                                    body, egraph, &mut HashMap::new()
+                                ).unwrap();
+                                let new_arg = egraph.add(Lambda::Lam([*arg]));
+                                if !best_inventions_of_treenode.contains_key(&new_arg) {
+                                    let mut cloned = best_inventions_of_treenode[arg].clone();
+                                    cloned.inventionless_cost += COST_NONTERMINAL;
+                                    cloned.inventionful_cost.iter_mut().for_each(|(_key, val)| *val += COST_NONTERMINAL);
+                                    best_inventions_of_treenode.insert(new_arg,cloned);
+                                }
+                                new_arg
+                            } else {
+                                let shifted_arg = shift(*arg, Shift::ShiftVar(-1), egraph, Some(caches)).unwrap();
+                                downshifted_applam_args.push((shifted_arg, *arg));
+                                shifted_arg
+                            }
+                        }
+                    ).collect();
 
                     // add the downshifted args to a worklist discussed below. Worklist needed bc of borrow checker.
-                    downshifted_applam_args.extend(new_args.iter().cloned().zip(b_applam.args.iter().cloned())); // (new,old)
+                    //downshifted_applam_args.extend(new_args.iter().cloned().zip(b_applam.args.iter().cloned())); // (new,old)
 
-                    let new_applam_body = egraph.add(Lambda::Lam([b_applam.inv.body]));
+                    let new_applam_body = egraph.add(Lambda::Lam([body]));
                     applams.push(AppLam::new(new_applam_body, new_args));
                 }
             },
