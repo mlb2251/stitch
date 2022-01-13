@@ -484,7 +484,7 @@ fn extract_from_nodecosts(
                 let arg_expr = extract_from_nodecosts(*arg, invs, nodecost_of_treenode, replace_invs_with, egraph);
                 expr = Expr::app(expr,arg_expr);
             }
-            debug_assert_eq!(target_cost,expr.cost());
+            assert_eq!(target_cost,expr.cost());
             return expr
         } else {
             // inventions were used in our children
@@ -506,13 +506,13 @@ fn extract_from_nodecosts(
                     Expr::programs(root_exprs)
                 }
             };
-            debug_assert_eq!(target_cost,expr.cost());
+            assert_eq!(target_cost,expr.cost());
             return expr
         }
     } else {
         // no invention was useful, just return original tree
         let expr =  extract(root, egraph);
-        debug_assert_eq!(target_cost,expr.cost());
+        assert_eq!(target_cost,expr.cost());
         return expr
     }
 }
