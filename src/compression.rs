@@ -195,12 +195,29 @@ impl BestInventions {
     }
 }
 
-/// convert an egraph Id to an Expr by extracting the expression
-fn extract(eclass: Id, egraph: &EGraph) -> Expr {
+/// convert an egraph Id to an Expr by extracting the expression 
+fn extract_old(eclass: Id, egraph: &EGraph) -> Expr {
     let mut extractor = Extractor::new(&egraph, ProgramCost{});
     let (_,p) = extractor.find_best(eclass);
     p.into()
 }
+
+/// convert an egraph Id to an Expr. Assumes one node per class (just picks the first node). Note
+/// that this could cause an infinite loop if the egraph didnt just have a single node in a class
+/// and instead the first node had a self loop.
+fn extract(eclass: Id, egraph: &EGraph) -> Expr {
+    debug_assert!(egraph[eclass].nodes.len() == 1);
+    match &egraph[eclass].nodes[0] {
+        Lambda::Prim(p) => Expr::prim(*p),
+        Lambda::Var(i) => Expr::var(*i),
+        Lambda::IVar(i) => Expr::ivar(*i),
+        Lambda::App([f,x]) => Expr::app(extract(*f,egraph), extract(*x,egraph)),
+        Lambda::Lam([b]) => Expr::lam(extract(*b,egraph)),
+        Lambda::Programs(roots) => Expr::programs(roots.iter().map(|r| extract(*r,egraph)).collect()),
+    }
+}
+
+
 
 /// like extract() but works on nodes
 fn extract_enode(enode: &Lambda, egraph: &EGraph) -> Expr {
