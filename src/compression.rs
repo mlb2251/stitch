@@ -1405,7 +1405,7 @@ fn compression_step(
     for (i,inv) in top_invs.iter().take(args.print_inventions).enumerate() {
         let inv_expr = inv.to_expr(&egraph).body;
         let inv_str = &format!("inv{}_{}",inv.body,inv.arity);
-        let rewritten = extract_under_inv(programs_id, *inv, inv_str, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
+        let rewritten = rewrite_with_inventions(programs_id,&[*inv], &[inv_str], &mut egraph);
         println!("\nInvention {} {:?} (inv_cost={:?}; rewritten_cost={:?}):\n{}\n Rewritten:\n{}",
             i,
             inv,
