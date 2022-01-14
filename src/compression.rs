@@ -302,7 +302,7 @@ fn match_expr_with_inv_rec(
             let internal_free_vars: HashSet<i32> = egraph[root].data.free_vars.iter().filter(|i| **i < depth).cloned().collect();
             let num_to_thread = internal_free_vars.len() as i32;
             if internal_free_vars == egraph[inv].data.free_vars {
-                println!("threading");
+                // println!("threading");
                 // free vars match exactly so we could thread here note that if we match here than an inner thread site wont match.
                 // however, also note that there some chance a nonthreading approach could work too which is always simpler,
                 // for example when matching (#0 $0) against (inc $0) we can simply set #0=inc instead of #0=(lam (inc $0))
@@ -1444,14 +1444,14 @@ fn compression_step(
     // return the top invention
     let top_inv = top_invs[0].clone();
     let top_inv_expr = top_inv.to_expr(&egraph);
-    let top_inv_rewritten = extract_under_inv(programs_id, top_inv.clone(), new_inv_name, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
+    // let top_inv_rewritten = extract_under_inv(programs_id, top_inv.clone(), new_inv_name, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
     let new_top_inv_rewritten = rewrite_with_inventions(programs_id,&[top_inv.clone()], &[new_inv_name], &mut egraph);
-    assert_eq!(top_inv_rewritten.to_string(), new_top_inv_rewritten.to_string(),
-        "{}", top_inv_expr.to_string()
-    );
+    println!("Expected cost: {}", best_inventions_of_treenode[&programs_id].cost_under_inv(&top_inv));
+    // println!("old rewriter cost: {}", top_inv_rewritten.cost());
+    println!("new rewriter cost: {}", new_top_inv_rewritten.cost());
     Some(CompressionResult {
         inv: top_inv_expr,
-        rewritten: top_inv_rewritten,
+        rewritten: new_top_inv_rewritten,
     })
 }
 
