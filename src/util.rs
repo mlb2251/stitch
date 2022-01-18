@@ -1,6 +1,6 @@
 use crate::*;
 use sexp::{Sexp,Atom};
-use std::fmt::Debug;
+use std::fmt::{Debug,Display};
 
 /// Uncurries an s expression. For example: (app (app foo x) y) -> (foo x y)
 /// panics if sexp is already uncurried.
@@ -97,18 +97,18 @@ pub fn timestamp() -> String {
     format!("{}", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"))
 }
 
-pub fn search<L,A>(pat: &str, egraph: &EGraph<L,A>) -> Vec<SearchMatches>
-where 
-    L: Language,
-    A: Analysis<L>
-{
-    let applam:Pattern<L> = pat.parse().unwrap();
-    applam.search(&egraph)
-}
+// pub fn search<'a,L,A>(pat: &str, egraph: &EGraph<L,A>) -> Vec<SearchMatches<'a,L>>
+// where 
+//     L: Language + FromOp,
+//     A: Analysis<L>
+// {
+//     let applam:Pattern<L> = pat.parse().unwrap();
+//     applam.search(&egraph)
+// }
 
 pub fn save<L,A>(egraph: &EGraph<L,A>, name: &str, outdir: &str) 
 where 
-    L: Language,
+    L: Language + Display,
     A: Analysis<L>
 {
     egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();

@@ -636,7 +636,8 @@ pub struct LambdaAnalysis;
 
 impl Analysis<Lambda> for LambdaAnalysis {
     type Data = Data;
-    fn merge(&self, to: &mut Data, from: Data) -> bool {
+    // fn merge(&self, to: &mut Self::Data, from: Self::Data) -> bool;
+    fn merge(&mut self, to: &mut Data, from: Data) -> egg::DidMerge {
         // we really shouldnt be merging anyone ever rn I think.
         panic!("shouldn't be merging");
 
@@ -647,7 +648,7 @@ impl Analysis<Lambda> for LambdaAnalysis {
         // keep the lowest inventionless cost
         // modified |= merge_inventionless(&mut to.inventionless_cost_any, &from.inventionless_cost_any);
         
-        false // didnt modify anything
+        DidMerge(false,false) // didnt modify anything
     }
 
     fn make(egraph: &EGraph, enode: &Lambda) -> Data {
@@ -1423,7 +1424,7 @@ fn compression_step(
 
     // print out the largest variable we've seen (useful to make sure our egraph isnt exploding due to Vars)
     for i in 0..1000 {
-        if search(format!("(${})",i).as_str(),&egraph).is_empty() {
+        if format!("(${})",i).parse::<Pattern<Lambda>>().unwrap().search(&egraph).is_empty() {
             println!("Largest variable: ${}",i-1);
             break;
         }
