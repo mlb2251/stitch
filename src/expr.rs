@@ -102,13 +102,13 @@ impl Language for Lambda {
             _ => &mut [],
         }
     }
+}
+impl FromOp for Lambda {
+    type Error = String;
 
-    fn display_op(&self) -> &dyn Display {
-        unimplemented!("use `Expr` not `RecExpr` for displaying expressions. This is because egg 0.6.0 hasnt fixed issue #83 so displaying things like \"$5\" is not possible")
-    }
-
-    fn from_op_str(op_str: &str, children: Vec<Id>) -> Result<Self, String> {
-        match op_str {
+    /// Parse an e-node with operator `op` and children `children`.
+    fn from_op(op: &str, children: Vec<Id>) -> Result<Self, Self::Error> {
+        match op {
             "app" => {
                 if children.len() != 2 {
                     return Err(format!("app needs 2 children, got {}", children.len()));
@@ -124,21 +124,24 @@ impl Language for Lambda {
             "programs" => Ok(Self::Programs(children)),
             _ => {
                 if children.len() != 0 {
-                    return Err(format!("{} needs 0 children, got {}", op_str, children.len()))
+                    return Err(format!("{} needs 0 children, got {}", op, children.len()))
                 }
-                if op_str.starts_with("$") {
-                    let i = op_str.chars().skip(1).collect::<String>().parse::<i32>().unwrap();
+                if op.starts_with("$") {
+                    let i = op.chars().skip(1).collect::<String>().parse::<i32>().unwrap();
                     Ok(Self::Var(i))
-                } else if op_str.starts_with("#") {
-                    let i = op_str.chars().skip(1).collect::<String>().parse::<i32>().unwrap();
+                } else if op.starts_with("#") {
+                    let i = op.chars().skip(1).collect::<String>().parse::<i32>().unwrap();
                     Ok(Self::IVar(i))
                 } else {
-                    Ok(Self::Prim(egg::Symbol::from(op_str)))
+                    Ok(Self::Prim(egg::Symbol::from(op)))
                 }
             },
         }
     }
+
 }
+
+
 
 /// Expr <-> RecExpr
 impl From<RecExpr<Lambda>> for Expr {
@@ -271,7 +274,7 @@ impl Expr {
     /// Uncurried: (foo x y)
     /// Curried: (app (app foo x) y)
     pub fn from_curried(s: &str) -> Result<Self,String> {
-        let recexpr: RecExpr<Lambda> = s.parse()?;
+        let recexpr: RecExpr<Lambda> = s.parse().map_err(|e|format!("{:?}",e))?;
         Ok(recexpr.into())
     }
 
