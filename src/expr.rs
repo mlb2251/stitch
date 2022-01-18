@@ -2,6 +2,7 @@ use crate::*;
 use std::fmt::{self, Formatter, Display, Debug};
 use std::hash::Hash;
 use sexp::Sexp;
+use serde::{Serialize, Deserialize};
 
 /// A node of an untyped lambda calculus expression compatible with `egg` but also used more widely throughout this crate.
 /// Note that there is no domain associated with this object. This makes it easy to run compression on
@@ -20,7 +21,7 @@ use sexp::Sexp;
 /// Note there is no AppLam construct. This is because AppLams are represented through the `AppLam` struct when it comes
 /// to invention-finding, and they don't belong in Lambda because they never actually show up within programs (theyre only
 /// ever used in passing at the top level when constructing inventions) 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Lambda {
     Var(i32), // db index ($i)
     IVar(i32), // db index used by inventions (#i)
@@ -50,7 +51,7 @@ pub enum Lambda {
 /// * Expr::cloned_subexpr(Id) returns the subexpression rooted at the Id. Generally you want to avoid this because
 ///   most methods can get by just fine by taking a parent Expr and a child Id without the need for all this cloning.
 ///   Importantly all Id indexing should be preserved just fine since this is implemented through truncating the underlying vector.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Expr {
     pub nodes: Vec<Lambda>, // just like in a RecExpr but public
 }
@@ -102,13 +103,13 @@ impl Language for Lambda {
             _ => &mut [],
         }
     }
+}
+impl FromOp for Lambda {
+    type Error = String;
 
-    fn display_op(&self) -> &dyn Display {
-        unimplemented!("use `Expr` not `RecExpr` for displaying expressions. This is because egg 0.6.0 hasnt fixed issue #83 so displaying things like \"$5\" is not possible")
-    }
-
-    fn from_op_str(op_str: &str, children: Vec<Id>) -> Result<Self, String> {
-        match op_str {
+    /// Parse an e-node with operator `op` and children `children`.
+    fn from_op(op: &str, children: Vec<Id>) -> Result<Self, Self::Error> {
+        match op {
             "app" => {
                 if children.len() != 2 {
                     return Err(format!("app needs 2 children, got {}", children.len()));
@@ -124,21 +125,24 @@ impl Language for Lambda {
             "programs" => Ok(Self::Programs(children)),
             _ => {
                 if children.len() != 0 {
-                    return Err(format!("{} needs 0 children, got {}", op_str, children.len()))
+                    return Err(format!("{} needs 0 children, got {}", op, children.len()))
                 }
-                if op_str.starts_with("$") {
-                    let i = op_str.chars().skip(1).collect::<String>().parse::<i32>().unwrap();
+                if op.starts_with("$") {
+                    let i = op.chars().skip(1).collect::<String>().parse::<i32>().unwrap();
                     Ok(Self::Var(i))
-                } else if op_str.starts_with("#") {
-                    let i = op_str.chars().skip(1).collect::<String>().parse::<i32>().unwrap();
+                } else if op.starts_with("#") {
+                    let i = op.chars().skip(1).collect::<String>().parse::<i32>().unwrap();
                     Ok(Self::IVar(i))
                 } else {
-                    Ok(Self::Prim(egg::Symbol::from(op_str)))
+                    Ok(Self::Prim(egg::Symbol::from(op)))
                 }
             },
         }
     }
+
 }
+
+
 
 /// Expr <-> RecExpr
 impl From<RecExpr<Lambda>> for Expr {
@@ -271,7 +275,7 @@ impl Expr {
     /// Uncurried: (foo x y)
     /// Curried: (app (app foo x) y)
     pub fn from_curried(s: &str) -> Result<Self,String> {
-        let recexpr: RecExpr<Lambda> = s.parse()?;
+        let recexpr: RecExpr<Lambda> = s.parse().map_err(|e|format!("{:?}",e))?;
         Ok(recexpr.into())
     }
 
