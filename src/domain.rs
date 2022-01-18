@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use std::fmt::{self, Formatter, Display, Debug};
 use std::hash::Hash;
 use std::cell::RefCell;
+use serde::{Deserialize, Serialize};
 
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Val<D: Domain> {
     Dom(D),
     PrimFun(CurriedFn<D>), // function ptr, arity, any args that have been partially filled in
@@ -59,7 +60,7 @@ impl<D: Domain> std::str::FromStr for Executable<D> {
 /// (app + 3) evals to a CurriedFn with vec![3] as the partial_args. The expression
 /// (app (app + 3) 4) will evaluate to 7 (since .apply() will fill the last argument,
 /// notice that all arguments are filled, and return the result).
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct CurriedFn<D: Domain> {
     name: egg::Symbol,
     arity: usize,
