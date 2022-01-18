@@ -17,7 +17,7 @@ fn main() {
     std::fs::create_dir(out_dir_p).unwrap();
 
     let programs: Vec<String> = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
-    let mut programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
+    let mut programs: Vec<Task<D>> = programs.iter().map(|p| p.parse().unwrap()).collect();
 
     // programs.sort_by(|a,b| a.cost().cmp(&b.cost()));
     

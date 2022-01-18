@@ -2,20 +2,20 @@ use crate::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
 
-type Env<D> = Vec<Val<D>>; // env[i] is the binding for $i
-type Envs<D> = Vec<Env<D>>;
-type EvalResults<D> = Vec<(Env<D>,Val<D>)>;
+pub type Env<D> = Vec<Val<D>>; // env[i] is the binding for $i
+pub type Envs<D> = Vec<Env<D>>;
+pub type EvalResults<D> = Vec<(Env<D>,Val<D>)>;
 
 
 #[derive(Serialize, Deserialize)]
-struct Task<D: Domain> {
+pub struct Task<D: Domain> {
     program: String,
     inputs: Envs<D>,
 }
 
 
 
-fn execution_guided_compression(
+pub fn execution_guided_compression(
     programs_expr: &Expr,
     args: &CompressionArgs,
     out_dir: &str,
