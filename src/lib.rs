@@ -7,6 +7,7 @@ mod domain;
 mod expr;
 mod run_with_timeout;
 mod compression;
+mod sampler;
 mod util;
 
 pub use {
@@ -15,6 +16,7 @@ pub use {
     expr::*,
     compression::*,
     domain::*,
+    sampler::*,
     macros::*,
 };
 

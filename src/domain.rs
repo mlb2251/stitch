@@ -61,8 +61,8 @@ impl<D: Domain> std::str::FromStr for Executable<D> {
 /// notice that all arguments are filled, and return the result).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct CurriedFn<D: Domain> {
-    name: egg::Symbol,
-    arity: usize,
+    pub name: egg::Symbol,
+    pub arity: usize,
     partial_args: Vec<Val<D>>,
 }
 
@@ -85,6 +85,14 @@ impl<D: Domain> CurriedFn<D> {
         } else {
             Ok(Val::PrimFun(new_dslfn))
         }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name.as_str()
+    }
+    
+    pub fn arity(&self) -> &usize {
+        &self.arity
     }
 }
 

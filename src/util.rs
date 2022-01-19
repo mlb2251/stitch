@@ -1,6 +1,8 @@
 use crate::*;
 use sexp::{Sexp,Atom};
 use std::fmt::Debug;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 /// Uncurries an s expression. For example: (app (app foo x) y) -> (foo x y)
 /// panics if sexp is already uncurried.
@@ -50,6 +52,7 @@ pub fn uncurry_sexp(e: &Sexp) -> Sexp {
         Sexp::Atom(atom) => Sexp::Atom(atom.clone())
     }
 }
+
 
 /// Currys an s expression. For example: (foo x y) -> (app (app foo x) y)
 /// panics if sexp is already curried.
@@ -145,4 +148,65 @@ where T: From<Val<D>>+ Debug + PartialEq
 
 pub fn compression_factor(original: &Expr, compressed: &Expr) -> f64 {
     f64::from(original.cost())/f64::from(compressed.cost())
+}
+
+// An imbalanced tree structure with multiple reference counting
+// and interior mutability
+// Used to represent programs within the program sampler
+#[derive(Debug)]
+pub struct Node<'a> {
+    data: Option<String>,
+    children: Vec<Rc<RefCell<Node<'a>>>>,
+    needs_app: bool,  // TODO should really handle this more elegantly
+}
+
+impl<'a> Node<'a> {
+    pub fn new_leaf(data: String) -> Rc<RefCell<Node<'a>>> {
+        Rc::new(RefCell::new(Node {
+            data: Some(data),
+            children: vec![],
+            needs_app: false,
+        }))
+    }
+
+    pub fn new_internal_node(data: String, children: Vec<Rc<RefCell<Node<'a>>>>, needs_app: bool)
+        -> Rc<RefCell<Node<'a>>> {
+        Rc::new(RefCell::new(Node {
+            data: Some(data),
+            children: children,
+            needs_app: needs_app,
+        }))
+    }
+
+    pub fn new_hole() -> Rc<RefCell<Node<'a>>> {
+        Rc::new(RefCell::new(Node {
+            data: None,
+            children: vec![],
+            needs_app: false,
+        }))
+    }
+
+    pub fn insert(&mut self, data: String, children: Vec<Rc<RefCell<Node<'a>>>>, needs_app: bool) {
+        self.data = Some(data);
+        self.children = children;
+        self.needs_app = needs_app;
+    }
+
+    pub fn to_string(&self) -> String {
+        // TODO nest apps for multi-arg fns
+        let mut res = String::from("(");
+        if self.needs_app {
+            res.push_str("app ");
+        }
+        match &self.data {
+            Some(s) => res.push_str(&s.clone()),
+            None    => res.push_str("??")
+        }
+        for i in 0..self.children.len() {
+            res.push_str(" ");
+            res.push_str(&self.children[i].borrow().to_string());
+        }
+        res.push_str(")");
+        return res;
+    }
 }
