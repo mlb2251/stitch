@@ -157,7 +157,6 @@ pub fn compression_factor(original: &Expr, compressed: &Expr) -> f64 {
 pub struct Node<'a> {
     data: Option<String>,
     children: Vec<Rc<RefCell<Node<'a>>>>,
-    needs_app: bool,  // TODO should really handle this more elegantly
 }
 
 impl<'a> Node<'a> {
@@ -165,16 +164,14 @@ impl<'a> Node<'a> {
         Rc::new(RefCell::new(Node {
             data: Some(data),
             children: vec![],
-            needs_app: false,
         }))
     }
 
-    pub fn new_internal_node(data: String, children: Vec<Rc<RefCell<Node<'a>>>>, needs_app: bool)
+    pub fn new_internal_node(data: String, children: Vec<Rc<RefCell<Node<'a>>>>)
         -> Rc<RefCell<Node<'a>>> {
         Rc::new(RefCell::new(Node {
             data: Some(data),
             children: children,
-            needs_app: needs_app,
         }))
     }
 
@@ -182,22 +179,17 @@ impl<'a> Node<'a> {
         Rc::new(RefCell::new(Node {
             data: None,
             children: vec![],
-            needs_app: false,
         }))
     }
 
-    pub fn insert(&mut self, data: String, children: Vec<Rc<RefCell<Node<'a>>>>, needs_app: bool) {
+    pub fn insert(&mut self, data: String, children: Vec<Rc<RefCell<Node<'a>>>>) {
         self.data = Some(data);
         self.children = children;
-        self.needs_app = needs_app;
     }
 
     pub fn to_string(&self) -> String {
         // TODO nest apps for multi-arg fns
         let mut res = String::from("(");
-        if self.needs_app {
-            res.push_str("app ");
-        }
         match &self.data {
             Some(s) => res.push_str(&s.clone()),
             None    => res.push_str("??")

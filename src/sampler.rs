@@ -10,14 +10,14 @@ pub fn sample_program() -> String {
     // Repeatedly sample from this PCFG, until no holes remain.
 
     // These are the NON-TERMINALS of the domain
-    let mut grammar : Vec<(&str, usize, bool)> = domains::simple::PRIMS.values().cloned().filter_map(|nt|
+    let mut grammar : Vec<(&str, usize)> = domains::simple::PRIMS.values().cloned().filter_map(|nt|
         match nt {
-            crate::Val::PrimFun(pf) => Some((pf.name.as_str(), pf.arity, true)),
+            crate::Val::PrimFun(pf) => Some((pf.name.as_str(), pf.arity)),
             // TODO make the above use getters instead of just accessing the fields
             _ => None
         }
     ).collect();
-    grammar.push(("lam", 1 as usize, false));
+    grammar.push(("lam", 1 as usize));
 
     // Now - before sampling or anything, also want to get the _terminals_.
     // There's an issue here with the fact that how many terminals we have depends on how "deep" into
@@ -25,7 +25,7 @@ pub fn sample_program() -> String {
     // generate $0 or $1, etc. To get around this, we have a single "var" terminal, which we then uniformly
     // concretize into a specific, depth-appropriate variable.
     let terms = vec!["_VAR", "-2", "-1", "0", "1", "2"];
-    grammar.extend(terms.into_iter().map(|term| (term, 0 as usize, false)));
+    grammar.extend(terms.into_iter().map(|term| (term, 0 as usize)));
     //grammar.extend::<Vec<(String, usize)>>(terms.into_iter().map(|(s, a) : (&str, usize)| -> (String, usize) {
     //    (String::from(s), a)
     //}).collect());
@@ -38,12 +38,12 @@ pub fn sample_program() -> String {
 
     // Every generated program first looks like (lam ??)
     let first_hole = util::Node::new_hole();
-    let root_node = util::Node::new_internal_node(String::from("lam"), vec![Rc::clone(&first_hole)], false);
+    let root_node = util::Node::new_internal_node(String::from("lam"), vec![Rc::clone(&first_hole)]);
 
     let mut work_stack = vec![(Rc::clone(&first_hole), 0)];
     while !work_stack.is_empty() {
         let (hole, hole_depth) = work_stack.pop().unwrap();
-        let (sampled_nt_or_term, arity, needs_app) = grammar[pcfg_distrib.sample(&mut rng)];
+        let (sampled_nt_or_term, arity) = grammar[pcfg_distrib.sample(&mut rng)];
 
         let mut new_term_data = String::from(sampled_nt_or_term);  // String > &str due to dynamic var names ($0, $1, etc)
         let mut new_term_depth = hole_depth;
@@ -86,12 +86,11 @@ pub fn sample_program() -> String {
 
             // Replace the hole node with the sampled non-terminal
             let mut mh = hole.borrow_mut();
-            mh.insert(new_term_data, new_holes, needs_app);
+            mh.insert(new_term_data, new_holes);
         } else {
             // Replace the hole node with the sampled terminal
-            assert_eq!(needs_app, false);
             let mut mh = hole.borrow_mut();
-            mh.insert(new_term_data, vec![], needs_app);
+            mh.insert(new_term_data, vec![]);
         }
     }
 
