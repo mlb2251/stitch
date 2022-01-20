@@ -25,7 +25,7 @@ pub fn execution_guided_compression<D: Domain>(
     let inputs: Vec<Envs<D>> = tasks.iter().map(|t| t.inputs.clone()).collect();
 
     let roots: Vec<Id> = programs.expr.nodes[usize::from(programs.expr.root())].children().iter().copied().collect();
-    let N: usize = programs.expr.root().into();
+    let N: usize = usize::from(programs.expr.root()) - 1;
 
 
     // execute the programs on their inputs to build up evalresults at each node.
@@ -38,15 +38,8 @@ pub fn execution_guided_compression<D: Domain>(
     let evalresults: Vec<EvalResults<D>> = (0..N).map(|i| programs.evals_of_node(i.into())).collect();
     let free_vars: Vec<HashSet<i32>> = programs.expr.free_vars(false);
 
-    assert!(N == evalresults.len() && N == free_vars.len());
-
-
-    // filter down these evalresults to throw out any variables in the contexts that arent actually FVs in the expr itself (bc we're clearly invariant to these). Freeze these semantic sets.
-    // for (evalresult,fvs) in evalresults.iter_mut().zip(free_vars.iter()) {
-    //     for (env,_res) in evalresult {
-    //         env.retain(|i| fvs.contains(i));
-    //     }
-    // }
+    assert_eq!(N,evalresults.len());
+    assert_eq!(N,free_vars.len());
 
     let mut rewrites: Vec<Vec<Id>> = vec![vec![]; N];
 
