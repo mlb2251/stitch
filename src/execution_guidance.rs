@@ -25,7 +25,7 @@ pub fn execution_guided_compression<D: Domain>(
     let inputs: Vec<Envs<D>> = tasks.iter().map(|t| t.inputs.clone()).collect();
 
     let roots: Vec<Id> = programs.expr.nodes[usize::from(programs.expr.root())].children().iter().copied().collect();
-    let N: usize = usize::from(programs.expr.root()) - 1;
+    let N: usize = programs.expr.nodes.len() - 1; // -1 to ignore Programs node
 
 
     // execute the programs on their inputs to build up evalresults at each node.
@@ -36,7 +36,8 @@ pub fn execution_guided_compression<D: Domain>(
     }
 
     let evalresults: Vec<EvalResults<D>> = (0..N).map(|i| programs.evals_of_node(i.into())).collect();
-    let free_vars: Vec<HashSet<i32>> = programs.expr.free_vars(false);
+    let mut free_vars: Vec<HashSet<i32>> = programs.expr.free_vars(false);
+    free_vars.pop(); // remove the Programs node
 
     assert_eq!(N,evalresults.len());
     assert_eq!(N,free_vars.len());
