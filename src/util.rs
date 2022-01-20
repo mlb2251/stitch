@@ -53,7 +53,6 @@ pub fn uncurry_sexp(e: &Sexp) -> Sexp {
     }
 }
 
-
 /// Currys an s expression. For example: (foo x y) -> (app (app foo x) y)
 /// panics if sexp is already curried.
 pub fn curry_sexp(e: &Sexp) -> Sexp {
