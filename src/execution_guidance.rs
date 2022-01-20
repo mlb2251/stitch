@@ -1,6 +1,7 @@
 use crate::*;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Result;
+use std::collections::{HashMap, HashSet};
 
 pub type Env<D> = Vec<Val<D>>; // env[i] is the binding for $i
 pub type Envs<D> = Vec<Env<D>>;
@@ -32,6 +33,11 @@ pub fn execution_guided_compression<D: Domain>(
     }
 
     let cvecs: Vec<EvalResults<D>> = (0..programs.expr.root().into()).map(|i| programs.evals_of_node(i.into())).collect();
+    let free_vars: Vec<HashSet<i32>> = programs.expr.free_vars(false);
+
+    
+
+
 
 
     /*

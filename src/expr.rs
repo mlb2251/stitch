@@ -3,6 +3,7 @@ use std::fmt::{self, Formatter, Display, Debug};
 use std::hash::Hash;
 use sexp::Sexp;
 use serde::{Serialize, Deserialize};
+use std::collections::{HashMap, HashSet};
 
 /// A node of an untyped lambda calculus expression compatible with `egg` but also used more widely throughout this crate.
 /// Note that there is no domain associated with this object. This makes it easy to run compression on
@@ -337,4 +338,43 @@ impl Expr {
         egraph.add_expr(self.into());
         egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
     }
+
+    /// Returns a vec indexed by child Id that maps to the hashset of free
+    /// vars in the child expr.
+    pub fn free_vars(&self, ivars: bool) -> Vec<HashSet<i32>> {
+        let mut all_free_vars: Vec<HashSet<i32>> = vec![];
+        for node in &self.nodes {
+            let mut free_vars = HashSet::new();
+            match node {
+                Lambda::Var(i) => {
+                    if !ivars {
+                        free_vars.insert(*i);
+                    }
+                },
+                Lambda::IVar(i) => {
+                    if ivars {
+                        free_vars.insert(*i);
+                    }
+                },
+                Lambda::Prim(_) => { },
+                Lambda::App([f,x]) => {
+                    free_vars.extend(all_free_vars[usize::from(*f)].clone());
+                    free_vars.extend(all_free_vars[usize::from(*x)].clone());
+                },
+                Lambda::Lam([b]) => {
+                    free_vars.extend(all_free_vars[usize::from(*b)].iter()
+                        .filter_map(|i| {
+                            if *i == 0 { None } else { Some(i - 1) }
+                        })
+                    );
+                },
+                Lambda::Programs(ps) => {
+                    assert!(ps.iter().all(|p| all_free_vars[usize::from(*p)].is_empty()));
+                },
+            }
+            all_free_vars.push(free_vars);
+        };
+        all_free_vars
+    }
 }
+
