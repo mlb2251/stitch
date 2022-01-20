@@ -103,7 +103,7 @@ pub fn print_task_stats<D:Domain>(tasks: &Vec<Task<D>>) {
     let median_depth = {
         let mut cloned: Vec<_> = (*tasks).clone();
         cloned.sort_by(|a,b| a.program.depth().cmp(&b.program.depth()));
-        cloned[cloned.len() / 2].program.cost()
+        cloned[cloned.len() / 2].program.depth()
     };
     println!("Programs:");
     println!("\t num: {}",tasks.len());

@@ -4,9 +4,10 @@ use std::fmt::{self, Formatter, Display, Debug};
 use std::hash::Hash;
 use std::cell::RefCell;
 use serde::{Serialize, Deserialize};
+use serde::{de::Error, Deserializer};
 
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
 pub enum Val<D: Domain> {
     Dom(D),
     PrimFun(CurriedFn<D>), // function ptr, arity, any args that have been partially filled in
@@ -100,6 +101,17 @@ impl<D: Domain> Val<D> {
 impl<D: Domain> From<D> for Val<D> {
     fn from(d: D) -> Self {
         Val::Dom(d)
+    }
+}
+
+impl<'de, D: Domain> Deserialize<'de> for Val<D> {
+    fn deserialize<De>(deserializer: De) -> Result<Self, De::Error>
+    where
+        De: Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+        //  s.parse().map_err(|e|De::Error::custom(format!("{:?}",e)))
+        D::val_of_prim(s.clone().into()).ok_or_else(|| De::Error::custom(format!("Can't parse as Val: {:?}",s)))
     }
 }
 

@@ -4,6 +4,7 @@ use std::hash::Hash;
 use sexp::Sexp;
 use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
+use serde::{de::Error, Deserializer};
 
 /// A node of an untyped lambda calculus expression compatible with `egg` but also used more widely throughout this crate.
 /// Note that there is no domain associated with this object. This makes it easy to run compression on
@@ -52,9 +53,19 @@ pub enum Lambda {
 /// * Expr::cloned_subexpr(Id) returns the subexpression rooted at the Id. Generally you want to avoid this because
 ///   most methods can get by just fine by taking a parent Expr and a child Id without the need for all this cloning.
 ///   Importantly all Id indexing should be preserved just fine since this is implemented through truncating the underlying vector.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Expr {
     pub nodes: Vec<Lambda>, // just like in a RecExpr but public
+}
+
+impl<'de> Deserialize<'de> for Expr {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+         s.parse().map_err(|e|D::Error::custom(format!("{:?}",e)))
+    }
 }
 
 /// printing a single node prints the operator - this is needed for `egg`.
@@ -378,3 +389,9 @@ impl Expr {
     }
 }
 
+
+/// for use with serde(deserialize_with)
+pub fn deserialize_expr<'de, D>(deserializer: D) -> Result<Expr, D::Error> where D: Deserializer<'de> {
+    let s: String = Deserialize::deserialize(deserializer)?;
+    s.parse().map_err(|e|D::Error::custom(format!("{:?}",e)))
+}

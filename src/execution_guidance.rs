@@ -10,7 +10,9 @@ pub type EvalResults<D> = Vec<(Env<D>,Val<D>)>;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Task<D: Domain> {
+    // #[serde(deserialize_with = "deserialize_expr")]
     pub program: Expr,
+    // #[serde(deserialize_with = "deserialize_envs")]
     pub inputs: Envs<D>,
 }
 
@@ -35,9 +37,6 @@ pub fn execution_guided_compression<D: Domain>(
 
     let evalresults: Vec<EvalResults<D>> = (0..N).map(|i| programs.evals_of_node(i.into())).collect();
     let free_vars: Vec<HashSet<i32>> = programs.expr.free_vars(false);
-    // separate out the two parts of evalresults
-    let envs: Vec<Envs<D>> = evalresults.iter().map(|er| er.iter().map(|(env,_)| env.clone()).collect()).collect();
-    let results: Vec<Vec<Val<D>>> = evalresults.iter().map(|er| er.iter().map(|(_,v)| v.clone()).collect()).collect();
 
     assert!(N == evalresults.len() && N == free_vars.len());
 
@@ -73,18 +72,4 @@ pub fn execution_guided_compression<D: Domain>(
 
     println!("done! found {} rewrites over {} nodes", rewrites.iter().map(|r| r.len()).sum::<usize>(), N);
 
-
-
-
-
-
-    /*
-        1. execute the programs on their inputs to build up a semantic set at each node. We'll store everything in a hashmap keyed by Id (in one big Programs Expr).
-        2. filter down these semantic sets to throw out any variables in the contexts that arent actually FVs in the expr itself (bc we're clearly invariant to these). Freeze these semantic sets.
-        3. Now pairwise (using full N^2 not just handshake) pick i,j ids and decide if `i <- j` as follows:
-            - if i.fvs is not a subset of j.fvs, abort
-            - (in the future possibly ensure ctx match up by types too)
-            - execute `j` in the ctxlist of the semantic set of `i`. This can be done by a map() of the eval function over the ctxlist. Notably we've frozen our semantic sets so we wont be directly trying to access the Executables caches, and theyll just be used simply as caches which should make everything go fast.
-            - if the resulting semantic list is equal to the semantic list of `i`, then `i <- j` is valid and we can add `j` to the Vec in the hashmap keyed by `i`.
-    */
 }
