@@ -1,5 +1,5 @@
 use crate::*;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Result;
 
 pub type Env<D> = Vec<Val<D>>; // env[i] is the binding for $i
@@ -7,21 +7,32 @@ pub type Envs<D> = Vec<Env<D>>;
 pub type EvalResults<D> = Vec<(Env<D>,Val<D>)>;
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Task<D: Domain> {
-    program: String,
-    inputs: Envs<D>,
+    pub program: Expr,
+    pub inputs: Envs<D>,
 }
 
-
-
-pub fn execution_guided_compression(
-    programs_expr: &Expr,
+pub fn execution_guided_compression<D: Domain>(
+    tasks: Vec<Task<D>>,
     args: &CompressionArgs,
     out_dir: &str,
 ) {
+    let programs: Executable<D> = Expr::programs(tasks.iter().map(|t| t.program.clone()).collect()).into();
+    let inputs: Vec<Envs<D>> = tasks.iter().map(|t| t.inputs.clone()).collect();
+
+    let roots: Vec<Id> = programs.expr.nodes[usize::from(programs.expr.root())].children().iter().copied().collect();
+
 
     // execute the programs on their inputs to build up a semantic set at each node.
+    for (root_id,envs) in roots.iter().zip(inputs.iter()) {
+        for env in envs.iter() {
+            programs.eval_child_safe(*root_id, env).unwrap();
+        }
+    }
+
+    let cvecs: Vec<EvalResults<D>> = (0..programs.expr.root().into()).map(|i| programs.evals_of_node(i.into())).collect();
+
 
     /*
         1. execute the programs on their inputs to build up a semantic set at each node. We'll store everything in a hashmap keyed by Id (in one big Programs Expr).

@@ -8,7 +8,7 @@ use std::collections::HashMap;
 /// for your domain so that it's compatible when we add that later. In this case the types
 /// would look like `T := (T -> T) | Int | List(T)` where functions are handled
 /// by dreamegg::domain::Val so they don't appear here.
-#[derive(Clone,Debug, PartialEq, Eq, Hash)]
+#[derive(Clone,Debug, PartialEq, Eq, Hash, serde::Deserialize)]
 pub enum SimpleVal {
     Int(i32),
     List(Vec<Val>),

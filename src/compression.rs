@@ -12,6 +12,10 @@ pub struct CompressionArgs {
     #[clap(short, long, parse(from_os_str), default_value = "data/train_19.json")]
     pub file: PathBuf,
 
+    /// domain that this file uses
+    #[clap(short, long, default_value = "simple")]
+    pub domain: String,
+
     /// Number of iterations to run compression for
     #[clap(short, long, default_value = "3")]
     pub iterations: usize,

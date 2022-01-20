@@ -92,6 +92,27 @@ pub fn programs_info(programs: &Vec<Expr>) {
     println!("\t max depth: {}",max_depth);
 }
 
+pub fn print_task_stats<D:Domain>(tasks: &Vec<Task<D>>) {
+    let max_cost = tasks.iter().map(|t| t.program.cost()).max().unwrap();
+    let max_depth = tasks.iter().map(|t| t.program.depth()).max().unwrap();
+    let median_cost = {
+        let mut cloned: Vec<_> = (*tasks).clone();
+        cloned.sort_by(|a,b| a.program.cost().cmp(&b.program.cost()));
+        cloned[cloned.len() / 2].program.cost()
+    };
+    let median_depth = {
+        let mut cloned: Vec<_> = (*tasks).clone();
+        cloned.sort_by(|a,b| a.program.depth().cmp(&b.program.depth()));
+        cloned[cloned.len() / 2].program.cost()
+    };
+    println!("Programs:");
+    println!("\t num: {}",tasks.len());
+    println!("\t max cost: {}",max_cost);
+    println!("\t max depth: {}",max_depth);
+    println!("\t median cost: {}",median_cost);
+    println!("\t median depth: {}",median_depth);
+}
+
 /// provides a timestamp as a string in a format you can use for file/folder names: YYYY-MM-DD_HH-MM-SS
 pub fn timestamp() -> String {
     format!("{}", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"))

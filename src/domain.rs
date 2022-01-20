@@ -194,14 +194,17 @@ impl<D: Domain> Executable<D> {
     /// we could have people mark their stuff as UnwindSafe and really understand the risks (which are
     /// probably nonexistent in most cases and only ever really introduced by Data)
     pub fn eval(&self, env: &[Val<D>]) -> VResult<D> {
+        self.eval_child_safe(self.expr.root(), env)
+    }
+    pub fn eval_child_safe(&self, child: Id, env: &[Val<D>]) -> VResult<D> {
         match D::TRUST_LEVEL {
             TrustLevel::WontLoopWontPanic => {
-                self.eval_child(self.expr.root(), env)
+                self.eval_child(child, env)
             }
             TrustLevel::WontLoopMayPanic => {
                 std::panic::catch_unwind( // todo note if running in a separate thread eg when parallelizing you dont need catch_unwind i guess
                     std::panic::AssertUnwindSafe( // todo see my notes unsure what to do about this
-                        ||self.eval_child(self.expr.root(), env)
+                        ||self.eval_child(child, env)
                     )
                 ).map_err(|e| format!("panic: {:?}",e))
                  .and_then(|res| res) // flattens Result<Result<T,E>,E> -> Result<T,E>
