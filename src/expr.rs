@@ -303,7 +303,7 @@ impl Expr {
     /// Uncurried: (foo x y)
     /// Curried: (app (app foo x) y)
     pub fn to_string_uncurried(&self, child:Option<Id>) -> String {
-        uncurry_sexp(&self.to_sexp(self.root())).to_string()
+        uncurry_sexp(&self.to_sexp(child.unwrap_or(self.root()))).to_string()
     }
 
     /// convert to an s expression. Useful for printing / parsing purposes
