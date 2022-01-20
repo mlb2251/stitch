@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fmt::{self, Formatter, Display, Debug};
 use std::hash::Hash;
 use std::cell::RefCell;
-
+use rand::distributions::WeightedIndex;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Val<D: Domain> {
@@ -61,8 +61,8 @@ impl<D: Domain> std::str::FromStr for Executable<D> {
 /// notice that all arguments are filled, and return the result).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct CurriedFn<D: Domain> {
-    pub name: egg::Symbol,
-    pub arity: usize,
+    name: egg::Symbol,
+    arity: usize,
     partial_args: Vec<Val<D>>,
 }
 
@@ -91,8 +91,8 @@ impl<D: Domain> CurriedFn<D> {
         &self.name.as_str()
     }
     
-    pub fn arity(&self) -> &usize {
-        &self.arity
+    pub fn arity(&self) -> usize {
+        self.arity
     }
 }
 
@@ -147,6 +147,45 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     // fn type_of_dom_val(_v: &Self) -> Type<Self> {
     //     unimplemented!()
     // }
+
+    // Get a unigram PCFG over this domain, which maps each token to a distribution
+    // over which token to follow it with.
+    fn pcfg() -> HashMap<String, WeightedIndex<usize>> {
+        unimplemented!()
+    }
+
+    // Get all the domain-specific non-terminal tokens (i.e. excluding lam()),
+    // along with their arities
+    fn non_terminal_tokens_with_arities() -> Vec<(&'static str, usize)> {
+        unimplemented!()
+    }
+
+    // Get all the domain-specific terminal tokens, excluding var()
+    fn terminal_tokens() -> Vec<&'static str> {
+        unimplemented!()
+    }
+
+    // Get all the domain's tokens, along with their arities
+    // Of course terminal tokens will always have arity 0, but functions may
+    // have arbitrary arity
+    fn tokens_with_arities() -> Vec<(&'static str, usize)> {
+        let mut tokens = Self::non_terminal_tokens_with_arities();
+        tokens.extend(Self::terminal_tokens().into_iter().map(|token| (token, 0)));
+        tokens.push((Self::lambda(), 1));
+        tokens.push((Self::var(), 0));
+        return tokens;
+    }
+
+    // The special token used by the domain to signify a lambda abstraction
+    fn lambda() -> &'static str {
+        "lam"  // presumably all domains use "lam" for the lambda abstraction
+    }
+
+    // The special token used by the domain to signify a general variable
+    // during synthesis (i.e. one not yet concretized into a DeBruijn index)
+    fn var() -> &'static str {
+        "_VAR" 
+    }
 }
 
 impl<D: Domain> Executable<D> {

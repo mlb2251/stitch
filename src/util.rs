@@ -188,7 +188,6 @@ impl<'a> Node<'a> {
     }
 
     pub fn to_string(&self) -> String {
-        // TODO nest apps for multi-arg fns
         let mut res = String::from("(");
         match &self.data {
             Some(s) => res.push_str(&s.clone()),
