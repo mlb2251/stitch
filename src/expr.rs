@@ -315,7 +315,7 @@ impl Expr {
     /// Uncurried: (foo x y)
     /// Curried: (app (app foo x) y)
     pub fn to_string_uncurried(&self, child:Option<Id>) -> String {
-        uncurry_sexp(&self.to_sexp(self.root())).to_string()
+        uncurry_sexp(&self.to_sexp(child.unwrap_or(self.root()))).to_string()
     }
 
     /// convert to an s expression. Useful for printing / parsing purposes
@@ -389,9 +389,3 @@ impl Expr {
     }
 }
 
-
-/// for use with serde(deserialize_with)
-pub fn deserialize_expr<'de, D>(deserializer: D) -> Result<Expr, D::Error> where D: Deserializer<'de> {
-    let s: String = Deserialize::deserialize(deserializer)?;
-    s.parse().map_err(|e|D::Error::custom(format!("{:?}",e)))
-}

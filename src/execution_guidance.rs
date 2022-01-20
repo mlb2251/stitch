@@ -66,4 +66,15 @@ pub fn execution_guided_compression<D: Domain>(
 
     println!("done! found {} rewrites over {} nodes", rewrites.iter().map(|r| r.len()).sum::<usize>(), N);
 
+    for i in 0..N {
+        if rewrites[i].is_empty() {
+            println!("node {} has no rewrites: {}", i, programs.expr.to_string_uncurried(Some(i.into())));
+        } else {
+            println!("node {} has {} rewrites: {}", i, rewrites[i].len(), programs.expr.to_string_uncurried(Some(i.into())));
+            for j in rewrites[i].iter() {
+                println!("  {} <- {}: {}", i, j, programs.expr.to_string_uncurried(Some(j.clone().into())));
+            }
+        }
+    }
+
 }
