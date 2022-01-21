@@ -21,8 +21,18 @@ pub fn execution_guided_compression<D: Domain>(
     args: &CompressionArgs,
     out_dir: &str,
 ) {
-    let programs: Executable<D> = Expr::programs(tasks.iter().map(|t| t.program.clone()).collect()).into();
     let inputs: Vec<Envs<D>> = tasks.iter().map(|t| t.inputs.clone()).collect();
+    // we strip the toplevel lambdas before entering EGC
+    let programs: Executable<D> = {
+        let mut exprs: Vec<Expr> = tasks.iter().map(|t| t.program.clone()).collect();
+        for (expr,envs) in exprs.iter_mut().zip(inputs.iter()) {
+            let arity = envs[0].len();
+            println!("arity {} solution: {}", arity, expr);
+            assert!(envs.iter().all(|e| e.len() == arity));
+            expr.strip_lambdas(arity);
+        }
+        Expr::programs(exprs).into()
+    };
 
     let roots: Vec<Id> = programs.expr.nodes[usize::from(programs.expr.root())].children().iter().copied().collect();
     let N: usize = programs.expr.nodes.len() - 1; // -1 to ignore Programs node
@@ -36,6 +46,7 @@ pub fn execution_guided_compression<D: Domain>(
     }
 
     let evalresults: Vec<EvalResults<D>> = (0..N).map(|i| programs.evals_of_node(i.into())).collect();
+    println!("{:?}",evalresults);
     let mut free_vars: Vec<HashSet<i32>> = programs.expr.free_vars(false);
     free_vars.pop(); // remove the Programs node
 
@@ -46,6 +57,11 @@ pub fn execution_guided_compression<D: Domain>(
 
     // Now lets go full N^2 (not just N*(N-1)) and pick i,j to see if `i <- j` rewrite is valid
     for i in 0..N {
+        if evalresults[i].is_empty() {
+            println!("Ack, no eval results for node {}: {}", i, programs.expr.to_string_uncurried(Some(i.into())));
+        } else {
+            println!("ayy, ye eval results for node {}: {}", i, programs.expr.to_string_uncurried(Some(i.into())));
+        } 
         for j in 0..N {
             // check if i <- j is valid, so i.fvs must be a subset of j.fvs. Note that
             // it's more precise to use free_vars here than to use the env vecs because much
@@ -54,12 +70,14 @@ pub fn execution_guided_compression<D: Domain>(
                 continue;
             }
             // execute j in each env of i, exiting early if you ever come across a crash or a differing result
+            let mut ok = true;
             for (env,ires) in evalresults[i].iter() {
                 match programs.eval_child_safe(j.into(), env) {
-                    Ok(jres) => if jres != *ires { continue } // if result differs i <- j is not valid
-                    Err(_) => continue, // if error then i <- j is not valid
+                    Ok(jres) => if jres != *ires { ok = false; break } // if result differs i <- j is not valid
+                    Err(_) => {ok = false; break}, // if error then i <- j is not valid
                 }
             }
+            if !ok { continue; }
             rewrites[i].push(j.into()); // successfully found a rewrite that works!
         }
     }

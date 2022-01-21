@@ -283,6 +283,15 @@ impl Expr {
         Self::new(self.nodes.iter().take(child.into()).cloned().collect())
     }
 
+    /// modifies inplace to cut out `num` lambdas from the root, moving the root.
+    pub fn strip_lambdas(&mut self, num: usize) {
+        for _ in 0..num {
+            assert!(matches!(self.nodes.last(), Some(&Lambda::Lam(_))),
+                "Tried to strip lambdas from {}", self);
+            self.nodes.pop();
+        }
+    }
+
     /// Go from a curried string to an Expr
     /// Uncurried: (foo x y)
     /// Curried: (app (app foo x) y)
@@ -379,8 +388,8 @@ impl Expr {
                         })
                     );
                 },
-                Lambda::Programs(ps) => {
-                    assert!(ps.iter().all(|p| all_free_vars[usize::from(*p)].is_empty()));
+                Lambda::Programs(_ps) => {
+                    // assert!(ps.iter().all(|p| all_free_vars[usize::from(*p)].is_empty()));
                 },
             }
             all_free_vars.push(free_vars);
