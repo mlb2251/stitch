@@ -711,18 +711,18 @@ fn build_shift_table(applam_shift: &AppLam, applam_noshift: &AppLam) -> (Vec<i32
 
 /// A node in an Zipper
 /// Ord: Func < Body < Arg
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-enum ZNode {
-    // * order of variants here is important because the derived Ord will use it
-    Func(Id), // zipper went into the function, so Id is the arg
-    Body, 
-    Arg(Id), // zipper went into the arg, so Id is the function
-}
+// #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+// enum ZNode {
+//     // * order of variants here is important because the derived Ord will use it
+//     Func(Id), // zipper went into the function, so Id is the arg
+//     Body, 
+//     Arg(Id), // zipper went into the arg, so Id is the function
+// }
 
 /// A node in an Zipper
 /// Ord: Func < Body < Arg
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-enum BlankZipper {
+enum ZNode {
     // * order of variants here is important because the derived Ord will use it
     Func, // zipper went into the function, so Id is the arg
     Body, 
@@ -731,17 +731,18 @@ enum BlankZipper {
 
 type ZId = usize; // zipper id
 type InvId = usize;
+type ZPath = Vec<ZNode>;
+
+/// a 1 arg invention
+// #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+// struct Zipper {
+//     nodes: Vec<ZNode>
+// }
 
 /// a 1 arg invention
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 struct Zipper {
-    nodes: Vec<ZNode>
-}
-
-/// a 1 arg invention
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-struct ZZipper {
-    blankzipper: BlankZipper,
+    path: ZPath,
     left: Vec<Option<Id>>,
     right: Vec<Option<Id>>,
 }
@@ -783,40 +784,40 @@ struct ZTupleGroup {
 
 
 impl Zipper {
-    fn new(nodes: Vec<ZNode>) -> Zipper {
-        Zipper { nodes }
+    fn new(path: ZPath, left: Vec<Option<Id>>, right: Vec<Option<Id>> ) -> Zipper {
+        Zipper { path, left, right }
     }
-    fn zero(&self) -> Zipper {
-        let mut res = self.clone();
-        for node in &mut res.nodes {
-            match node {
-                ZNode::Func(id) | ZNode::Arg(id) => {
-                    *id = Id::from(0);
-                },
-                ZNode::Body => { },
-            }
-        }
-        res
-    }
+    // fn zero(&self) -> Zipper {
+    //     let mut res = self.clone();
+    //     for node in &mut res.nodes {
+    //         match node {
+    //             ZNode::Func(id) | ZNode::Arg(id) => {
+    //                 *id = Id::from(0);
+    //             },
+    //             ZNode::Body => { },
+    //         }
+    //     }
+    //     res
+    // }
 
 
-    fn free_vars(&self, egraph: &EGraph) -> HashSet<i32> {
-        let mut free_vars: HashSet<i32> = Default::default();
-        let mut depth:i32 = 0;
-        for node in self.nodes.iter() {
-            match node {
-                ZNode::Func(o) | ZNode::Arg(o) => {
-                    free_vars.extend(egraph[*o].data.free_vars.iter()
-                    .filter_map(|fv|
-                        if *fv >= depth {Some(fv-depth)} else {None}));
-                }
-                ZNode::Body => {
-                    depth += 1;
-                }
-            }
-        }
-        free_vars
-    }
+    // fn free_vars(&self, egraph: &EGraph) -> HashSet<i32> {
+    //     let mut free_vars: HashSet<i32> = Default::default();
+    //     let mut depth:i32 = 0;
+    //     for node in self.nodes.iter() {
+    //         match node {
+    //             ZNode::Func(o) | ZNode::Arg(o) => {
+    //                 free_vars.extend(egraph[*o].data.free_vars.iter()
+    //                 .filter_map(|fv|
+    //                     if *fv >= depth {Some(fv-depth)} else {None}));
+    //             }
+    //             ZNode::Body => {
+    //                 depth += 1;
+    //             }
+    //         }
+    //     }
+    //     free_vars
+    // }
 }
 
 impl AppZipper {
@@ -824,9 +825,26 @@ impl AppZipper {
         AppZipper { zipper: zipper, arg: arg }
     }
     #[inline]
-    fn clone_prepend(&self, new: ZNode) -> AppZipper {
+    fn clone_prepend(&self, new: ZNode, id: Option<Id>) -> AppZipper {
         let mut appzipper: AppZipper = self.clone();
-        appzipper.zipper.nodes.insert(0,new);
+        match new {
+            ZNode::Func => {
+                assert!(id.is_some());
+                appzipper.zipper.left.insert(0,None);
+                appzipper.zipper.right.insert(0,id);
+            },
+            ZNode::Arg => {
+                assert!(id.is_some());
+                appzipper.zipper.left.insert(0,id);
+                appzipper.zipper.right.insert(0,None);
+            },
+            ZNode::Body => {
+                assert!(id.is_none());
+                appzipper.zipper.left.insert(0,None);
+                appzipper.zipper.right.insert(0,None);        
+            },
+        }
+        appzipper.zipper.path.insert(0,new);
         appzipper
     }
 }
@@ -1279,7 +1297,7 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (Hash
         let mut appzippers: Vec<AppZipper> = vec![];
         
         // any node can become the identity function (the empty zipper)
-        appzippers.push(AppZipper::new(Zipper::new(vec![]), *treenode));
+        appzippers.push(AppZipper::new(Zipper::new(vec![],vec![],vec![]), *treenode));
 
         match node {
             Lambda::IVar(_) => { panic!("attempted to abstract an IVar") }
@@ -1293,7 +1311,7 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (Hash
                 // note no shifting is needed thanks to IVars
                 for f_appzipper in f_appzippers.iter() {
                     // bubble out of function so zipper should point left so Func
-                    let new: AppZipper = f_appzipper.clone_prepend(ZNode::Func(x));
+                    let new: AppZipper = f_appzipper.clone_prepend(ZNode::Func,Some(x));
                     appzippers.push(new);
                 }
 
@@ -1302,7 +1320,7 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (Hash
                 // note no shifting is needed thanks to IVars
                 for x_appzipper in x_appzippers.iter() {
                     // bubble out of arg so zipper should point right so Arg
-                    let new: AppZipper = x_appzipper.clone_prepend(ZNode::Arg(f));
+                    let new: AppZipper = x_appzipper.clone_prepend(ZNode::Arg,Some(f));
                     appzippers.push(new);
                 }
             },
@@ -1323,7 +1341,7 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (Hash
                         continue;
                     }
 
-                    let mut new: AppZipper = b_appzipper.clone_prepend(ZNode::Body);
+                    let mut new: AppZipper = b_appzipper.clone_prepend(ZNode::Body,None);
                     
                     // downshift the args since the lambda above them moved below them (earlier we made sure none of them had pointers to it)
                     let new_arg: Id = shift(b_appzipper.arg, Shift::ShiftVar(-1), egraph, Some(caches)).unwrap();
@@ -1347,7 +1365,7 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (Hash
     // note that we must be very careful pruning here. Most pruning isnt allowed, for example you cant prune things
     // that have free variables out bc if those free vars are on the leading edge you could still merge them away later
     all_appzippers.iter_mut().for_each(|(_,appzippers)| {
-        appzippers.retain(|appzipper| !appzipper.zipper.nodes.is_empty());
+        appzippers.retain(|appzipper| !appzipper.zipper.path.is_empty());
     });
 
     (all_appzippers,remap)
@@ -1478,28 +1496,28 @@ impl Costs {
 /// checks that two zipper slices are equal on their leading edges, ie
 /// same length, same ZNode variants at each position, and same subtrees
 /// for arguments hanging off of ZNode::Func(arg) variants.
-fn eq_leading(a: &[ZNode], b: &[ZNode]) -> bool {
-    a.len() == b.len() && a.iter().zip(b.iter())
-        .all(|(a,b)|
-        match (a,b) {
-            (ZNode::Func(arg1), ZNode::Func(arg2)) => arg1 == arg2,
-            (ZNode::Arg(_), ZNode::Arg(_)) => true,
-            (ZNode::Body, ZNode::Body) => true,
-            _ => false
-        })
-}
+// fn eq_leading(a: &[ZNode], b: &[ZNode]) -> bool {
+//     a.len() == b.len() && a.iter().zip(b.iter())
+//         .all(|(a,b)|
+//         match (a,b) {
+//             (ZNode::Func(arg1), ZNode::Func(arg2)) => arg1 == arg2,
+//             (ZNode::Arg(_), ZNode::Arg(_)) => true,
+//             (ZNode::Body, ZNode::Body) => true,
+//             _ => false
+//         })
+// }
 
 /// checks that two zipper slices are equal on their trailing edges
-fn eq_trailing(a: &[ZNode], b: &[ZNode]) -> bool {
-    a.len() == b.len() && a.iter().zip(b.iter())
-        .all(|(a,b)|
-        match (a,b) {
-            (ZNode::Func(_), ZNode::Func(_)) => true,
-            (ZNode::Arg(f1), ZNode::Arg(f2)) => f1 == f2,
-            (ZNode::Body, ZNode::Body) => true,
-            _ => false
-        })
-}
+// fn eq_trailing(a: &[ZNode], b: &[ZNode]) -> bool {
+//     a.len() == b.len() && a.iter().zip(b.iter())
+//         .all(|(a,b)|
+//         match (a,b) {
+//             (ZNode::Func(_), ZNode::Func(_)) => true,
+//             (ZNode::Arg(f1), ZNode::Arg(f2)) => f1 == f2,
+//             (ZNode::Body, ZNode::Body) => true,
+//             _ => false
+//         })
+// }
 
 
 /// This is the main workhorse of compression. Takes a child-first ordering of nodes in an EGraph
@@ -1531,6 +1549,8 @@ fn beta_inversions(
     //     println!("{} {:?}", extract(*treenode, egraph), roots);
     // }
 
+    let tstart_total = std::time::Instant::now();
+
     let tstart = std::time::Instant::now();
     let (all_appzippers, remap) = get_appzippers(&treenodes, no_cache, egraph);
     println!("get_appzippers: {:?}ms", tstart.elapsed().as_millis());
@@ -1539,20 +1559,25 @@ fn beta_inversions(
     // from inv1 body to set of roots that it's used under
     let tstart = std::time::Instant::now();
 
-    let mut zero_zippers: Vec<Zipper> = all_appzippers.values().flatten().map(|appzipper| appzipper.zipper.zero()).collect();
-    println!("{} total appzippers (incl dupes)", zero_zippers.len());
-    zero_zippers.sort();
-    zero_zippers.dedup();
-    println!("{} zero zippers", zero_zippers.len());
+    let mut paths: Vec<ZPath> = all_appzippers.values().flatten().map(|appzipper| appzipper.zipper.path.clone()).collect();
+    println!("{} total paths (incl dupes)", paths.len());
+    paths.sort();
+    paths.dedup();
+    println!("{} paths", paths.len());
+
+    println!("collect paths and dedup: {:?}ms", tstart.elapsed().as_millis());
+
 
     let mut appzipper_of_node_zid: HashMap<(Id,ZId),AppZipper> = HashMap::new();
     let mut zids_of_node: Vec<Vec<ZId>> = vec![vec![]; treenodes.len()];
-    let mut nodes_of_zid: Vec<Vec<Id>> = vec![vec![]; zero_zippers.len()];
-    
+    let mut nodes_of_zid: Vec<Vec<Id>> = vec![vec![]; paths.len()];
+
+    let tstart = std::time::Instant::now();
+
 
     for (treenode,appzippers) in all_appzippers {
         for appzipper in appzippers {
-            if let Ok(i) = zero_zippers.binary_search(&appzipper.zipper.zero()) {
+            if let Ok(i) = paths.binary_search(&appzipper.zipper.path) {
                 zids_of_node[usize::from(treenode)].push(i);
                 nodes_of_zid[i].push(treenode);
                 appzipper_of_node_zid.insert((treenode,i),appzipper.clone());
@@ -1560,23 +1585,43 @@ fn beta_inversions(
         }
     }
 
+    println!("binary search to set up data structs: {:?}ms", tstart.elapsed().as_millis());
+
+    let tstart = std::time::Instant::now();
+
     let mut worklist: Vec<ZTupleGroup> = vec![];
 
     for (zid,nodes) in nodes_of_zid.iter().enumerate() {
         let mut nodes: Vec<Id> = nodes.clone();
+        // sort so that all equal elements are adjacent
         nodes.sort_unstable_by_key(|node|
             appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice());
-        let mut curr: ZTupleGroup = ZTupleGroup::new(ZTuple::new(vec![ZTupleElem::new(zid, 0)], vec![], 1), vec![nodes[0]]);
+
+        let mut curr = ZTupleGroup::new(ZTuple::new(vec![ZTupleElem::new(zid, 0)], vec![], 1), vec![nodes[0]]);
         for i in 1..nodes.len() {
+            // group zippers by their left sides being the same
             if appzipper_of_node_zid[&(nodes[i],  zid)].zipper.left.as_slice()
             == appzipper_of_node_zid[&(nodes[i-1],zid)].zipper.left.as_slice() {
+                // add on to old ztuplegroup
                 curr.nodes.push(nodes[i]);
             } else {
-                worklist.push(curr);
+                // start a new ztuplegroup
+                if curr.nodes.len() > 1 {
+                    // todo filter out ones w free vars too
+                    worklist.push(curr);
+                }
                 curr = ZTupleGroup::new(ZTuple::new(vec![ZTupleElem::new(zid, 0)], vec![], 1), vec![nodes[i]]);
             }
         }
+        if curr.nodes.len() > 1 {
+            // todo filter out ones w free vars too
+            worklist.push(curr);
+        }
     }
+
+    println!("initial worklist length: {}", worklist.len());
+    println!("set up the worklist: {:?}ms", tstart.elapsed().as_millis());
+
 
     // todo now you gotta group_by the eq_fold() which in this case is actually just the eq_trailing()
     // todo and dont forget to prune by single use + free vars
@@ -1595,6 +1640,9 @@ fn beta_inversions(
     // lookup from treenode + zipperid to get 
     // todo not certain if nested hashmaps makes more sense but this is what I did to start. Given how
     // todo we might end up iterating the inner hashmap values a lot it certainly could make sense to switch to that (see how it goes first tho)
+
+    println!("total: {:?}ms", tstart_total.elapsed().as_millis());
+
 
     // make sure treenodes is a permutation of the first N numbers
     assert!(*treenodes.iter().max().unwrap() == Id::from(treenodes.len()-1));
