@@ -1519,6 +1519,29 @@ impl Costs {
 //         })
 // }
 
+#[inline]
+fn group_by_key<T: Copy, U: Ord>(mut v: Vec<T>, key: impl Fn(&T)->U) -> Vec<Vec<T>> {
+    // sort so that all equal elements are adjacent
+    v.sort_unstable_by_key(&key);
+
+    let mut group = vec![v[0]];
+    let mut groups = vec![];
+    
+    for i in 1..v.len() {
+        // group zippers by their left sides being the same
+        if key(&v[i]) == key(&v[i-1]) {
+            // add on to old ztuplegroup
+            group.push(v[i]);
+        } else {
+            // start a new ztuplegroup
+            groups.push(group);
+            group = vec![v[i]];
+        }
+    }
+    groups.push(group);
+    groups
+}
+
 
 /// This is the main workhorse of compression. Takes a child-first ordering of nodes in an EGraph
 /// (assumed to be acyclic) and finds all the possible useful inventions up to the given arity.
@@ -1592,31 +1615,16 @@ fn beta_inversions(
     let mut worklist: Vec<ZTupleGroup> = vec![];
 
     for (zid,nodes) in nodes_of_zid.iter().enumerate() {
-        let mut nodes: Vec<Id> = nodes.clone();
-        // sort so that all equal elements are adjacent
-        nodes.sort_unstable_by_key(|node|
+        let groups = group_by_key(nodes.clone(), |node|
             appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice());
-
-        let mut curr = ZTupleGroup::new(ZTuple::new(vec![ZTupleElem::new(zid, 0)], vec![], 1), vec![nodes[0]]);
-        for i in 1..nodes.len() {
-            // group zippers by their left sides being the same
-            if appzipper_of_node_zid[&(nodes[i],  zid)].zipper.left.as_slice()
-            == appzipper_of_node_zid[&(nodes[i-1],zid)].zipper.left.as_slice() {
-                // add on to old ztuplegroup
-                curr.nodes.push(nodes[i]);
-            } else {
-                // start a new ztuplegroup
-                if curr.nodes.len() > 1 {
-                    // todo filter out ones w free vars too
-                    worklist.push(curr);
-                }
-                curr = ZTupleGroup::new(ZTuple::new(vec![ZTupleElem::new(zid, 0)], vec![], 1), vec![nodes[i]]);
+        
+        for group in groups {
+            if group.len() > 1 {
+                // todo filter out ones w free vars too
+                worklist.push(ZTupleGroup::new(ZTuple::new(vec![ZTupleElem::new(zid, 0)], vec![], 1), group));
             }
         }
-        if curr.nodes.len() > 1 {
-            // todo filter out ones w free vars too
-            worklist.push(curr);
-        }
+
     }
 
     println!("initial worklist length: {}", worklist.len());
