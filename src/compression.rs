@@ -777,9 +777,18 @@ struct AppZTuple {
 }
 
 // can add upper bound utility and such here later too
-struct ZTupleGroup {
+struct WorklistItem {
     ztuple: ZTuple,
     nodes: Vec<Id>, // nodes in the group
+    left_utility: i32, // utility of a single usage
+    utility_upper_bound: i32, // upper bound utility over all usages
+}
+
+// can add upper bound utility and such here later too
+struct FinishedItem {
+    ztuple: ZTuple,
+    nodes: Vec<Id>, // nodes in the group
+    utility: i32,
 }
 
 
@@ -871,9 +880,15 @@ impl AppZTuple {
     }
 }
 
-impl ZTupleGroup {
-    fn new(ztuple: ZTuple, nodes: Vec<Id>) -> ZTupleGroup {
-        ZTupleGroup { ztuple: ztuple, nodes: nodes }
+impl WorklistItem {
+    fn new(ztuple: ZTuple, nodes: Vec<Id>, left_utility: i32, utility_upper_bound: i32) -> WorklistItem {
+        WorklistItem { ztuple: ztuple, nodes: nodes, left_utility: left_utility, utility_upper_bound: utility_upper_bound }
+    }
+}
+
+impl FinishedItem {
+    fn new(ztuple: ZTuple, nodes: Vec<Id>, utility: i32) -> FinishedItem {
+        FinishedItem { ztuple, nodes, utility }
     }
 }
 
@@ -1520,9 +1535,8 @@ impl Costs {
 // }
 
 #[inline]
-fn group_by_key<T: Copy, U: Ord>(mut v: Vec<T>, key: impl Fn(&T)->U) -> Vec<Vec<T>> {
+fn group_by_key<T: Copy, U: Ord>(v: Vec<T>, key: impl Fn(&T)->U) -> Vec<Vec<T>> {
     // sort so that all equal elements are adjacent
-    v.sort_unstable_by_key(&key);
 
     let mut group = vec![v[0]];
     let mut groups = vec![];
@@ -1540,6 +1554,36 @@ fn group_by_key<T: Copy, U: Ord>(mut v: Vec<T>, key: impl Fn(&T)->U) -> Vec<Vec<
     }
     groups.push(group);
     groups
+}
+
+
+/// Utility
+/// The utility of an invention is how useful it is at compressing the program.
+/// utility(inv) = (-NONTERMINAL_COST * arity) +  (COST_NONTERMINAL * total_path_len) + (sum of inventionless costs along edges) + (for each arg #i, (num_usages - 1) * arg.inventionless_cost)
+///                ^ cost of Apps to use inv      ^ all these nonterms used to be in the original program, hence they count toward utility
+///                                                 note that in practice we have to be careful not to double-count shared path prefixes
+///                                                 but we can handle this easily through the "fold" and leading/tailing edge setup
+///                                                                                     ^ again all these subtrees used to be in the original program so they count toward utility.
+///                                                                                     and again we must be careful not to double-count shared path prefixes, which will again
+///                                                                                     be naturally handled by the fold setup.
+///                                                                                                                                 ^ this captures multiuse inventions, where for each additional use
+///                                                                                                                                 you gain (+ size_of_arg) utility. Notably this cost is specific to
+///                                                                                                                                 the location that it is used and specific arguments passed in.
+/// implementation: we'll build up this utility as we go. We'll lump the path length
+/// term into the left_edge_utility.
+
+/// utility of a fragment of a zipper, specifically a left edge (the left/right
+/// distinction is just so we can include the nonterminal cost in the left edge)
+#[inline]
+fn left_edge_utility(edge: &[Option<Id>], egraph: &EGraph) -> i32 {
+    edge.len() as i32 * COST_NONTERMINAL +
+    edge.iter().filter_map(|option_id|
+        option_id.map(|id| egraph[id].data.inventionless_cost)).sum::<i32>()
+}
+#[inline]
+fn right_edge_utility(edge: &[Option<Id>], egraph: &EGraph) -> i32 {
+    edge.iter().filter_map(|option_id|
+        option_id.map(|id| egraph[id].data.inventionless_cost)).sum::<i32>()
 }
 
 
@@ -1594,6 +1638,9 @@ fn beta_inversions(
     let mut appzipper_of_node_zid: HashMap<(Id,ZId),AppZipper> = HashMap::new();
     let mut zids_of_node: Vec<Vec<ZId>> = vec![vec![]; treenodes.len()];
     let mut nodes_of_zid: Vec<Vec<Id>> = vec![vec![]; paths.len()];
+    // make sure treenodes is a permutation of the first N numbers so the Vec<Vec<>> is fine to use
+    assert!(*treenodes.iter().max().unwrap() == Id::from(treenodes.len()-1));
+
 
     let tstart = std::time::Instant::now();
 
@@ -1612,49 +1659,65 @@ fn beta_inversions(
 
     let tstart = std::time::Instant::now();
 
-    let mut worklist: Vec<ZTupleGroup> = vec![];
+    // build up the initial worklist
+    let mut worklist: Vec<WorklistItem> = vec![];
+    let mut donelist: Vec<FinishedItem> = vec![];
+    const MAX_DONELIST: usize = 10;
+    let upper_bound_cutoff: i32 = 0; // todo update this later
+    let lowest_donelist_utility = 0; // todo update this later
 
     for (zid,nodes) in nodes_of_zid.iter().enumerate() {
-        let groups = group_by_key(nodes.clone(), |node|
-            appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice());
-        
-        for group in groups {
+        let left_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice();
+        let right_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.right.as_slice();
+        let both_edge_key = |node: &Id| (appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice(),
+                                        appzipper_of_node_zid[&(*node,zid)].zipper.right.as_slice());
+        let mut nodes = nodes.clone();
+
+        // sorting by `both` means elements with the same `both` key will be adjacent, AND
+        // elements with the same `left` key will be contiguous (since the `left` key is a prefix of the `both` key)
+        nodes.sort_unstable_by_key(&both_edge_key);
+
+        let left_groups = group_by_key(nodes.clone(), left_edge_key);
+        let both_groups = group_by_key(nodes, both_edge_key);
+
+        // finish any inventions
+        for group in both_groups {
             if group.len() > 1 {
-                // todo filter out ones w free vars too
-                worklist.push(ZTupleGroup::new(ZTuple::new(vec![ZTupleElem::new(zid, 0)], vec![], 1), group));
+                let left_utility = left_edge_utility(left_edge_key(&group[0]), egraph);
+                let right_utility = right_edge_utility(right_edge_key(&group[0]), egraph);
+                let arity_utility = -COST_NONTERMINAL * 1; // arity is 1
+                let multiuse_utility = 0; // can't have multiuse here
+                let num_uses = group.len() as i32;
+                let utility = num_uses * (left_utility + right_utility + arity_utility) + multiuse_utility;
+                if utility > lowest_donelist_utility {
+                    donelist.push(FinishedItem::new(ZTuple::new(vec![ZTupleElem::new(zid, 0)], vec![], 1), group, utility));
+                }
             }
         }
 
+        // extend the worklist
+        for group in left_groups {
+            if group.len() > 1 {
+                // todo filter out ones w free vars too
+                let left_utility = left_edge_utility(left_edge_key(&group[0]), egraph);
+                let upper_bound = i32::MAX/2; // todo ive temporarily relaxed the upper bound
+                if upper_bound > upper_bound_cutoff {
+                    worklist.push(WorklistItem::new(ZTuple::new(vec![ZTupleElem::new(zid, 0)], vec![], 1), group, left_utility, upper_bound));
+                }
+            }
+        }
     }
 
     println!("initial worklist length: {}", worklist.len());
     println!("set up the worklist: {:?}ms", tstart.elapsed().as_millis());
+    println!("largest ztuple group: {}", worklist.iter().map(|ztg| ztg.nodes.len()).max().unwrap());
+    println!("avg ztuple group: {}", worklist.iter().map(|ztg| ztg.nodes.len()).sum::<usize>() as f64 / worklist.len() as f64);
 
 
-    // todo now you gotta group_by the eq_fold() which in this case is actually just the eq_trailing()
-    // todo and dont forget to prune by single use + free vars
-
-    // let mut worklist: Vec<ZTupleGroup> = zippers.iter().enumerate().map(|(zid,_zipper)| ZTuple::new(vec![ZTupleElem::new(zid,0)], vec![], 1)).collect();
-
-    
-    // zippers.sort();
-
-    // for (i,z) in zippers.iter().enumerate() {
-    //     println!("{}: {:?}",i, z);
-    // }
-
-    // println!("{} zippers post single-use pruning", zippers.len());
-
-    // lookup from treenode + zipperid to get 
-    // todo not certain if nested hashmaps makes more sense but this is what I did to start. Given how
-    // todo we might end up iterating the inner hashmap values a lot it certainly could make sense to switch to that (see how it goes first tho)
+    // todo not sure if its the right move to sort by this see discussion in notes "sort the worklist by upper bound"
+    // worklist.sort_by_key(|wi| wi.utility_upper_bound);
 
     println!("total: {:?}ms", tstart_total.elapsed().as_millis());
-
-
-    // make sure treenodes is a permutation of the first N numbers
-    assert!(*treenodes.iter().max().unwrap() == Id::from(treenodes.len()-1));
-
     
     let tstart = std::time::Instant::now();
     let num_invs = appzipper_of_node_zid.values().map(|appzipper| appzipper.zipper.clone()).collect::<HashSet<Zipper>>().len();
