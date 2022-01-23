@@ -202,11 +202,19 @@ impl BestInventions {
     }
 }
 
-/// convert an egraph Id to an Expr by extracting the expression
+/// convert an egraph Id to an Expr. Assumes one node per class (just picks the first node). Note
+/// that this could cause an infinite loop if the egraph didnt just have a single node in a class
+/// and instead the first node had a self loop.
 fn extract(eclass: Id, egraph: &EGraph) -> Expr {
-    let mut extractor = Extractor::new(&egraph, ProgramCost{});
-    let (_,p) = extractor.find_best(eclass);
-    p.into()
+    debug_assert!(egraph[eclass].nodes.len() == 1);
+    match &egraph[eclass].nodes[0] {
+        Lambda::Prim(p) => Expr::prim(*p),
+        Lambda::Var(i) => Expr::var(*i),
+        Lambda::IVar(i) => Expr::ivar(*i),
+        Lambda::App([f,x]) => Expr::app(extract(*f,egraph), extract(*x,egraph)),
+        Lambda::Lam([b]) => Expr::lam(extract(*b,egraph)),
+        Lambda::Programs(roots) => Expr::programs(roots.iter().map(|r| extract(*r,egraph)).collect()),
+    }
 }
 
 /// like extract() but works on nodes
@@ -799,17 +807,15 @@ impl Zipper {
     fn new(path: ZPath, left: Vec<Option<Id>>, right: Vec<Option<Id>> ) -> Zipper {
         Zipper { path, left, right }
     }
-    // fn zero(&self) -> Zipper {
-    //     let mut res = self.clone();
-    //     for node in &mut res.nodes {
+
+    // fn to_expr(&self, egraph: &EGraph) -> Expr {
+    //     self.path.iter().rev().fold(Expr::ivar(ivar_idx), |acc,node| {
     //         match node {
-    //             ZNode::Func(id) | ZNode::Arg(id) => {
-    //                 *id = Id::from(0);
-    //             },
-    //             ZNode::Body => { },
+    //             ZNode::Func => Expr::app(acc, Expr::prim(HOLE_STR.into())),
+    //             ZNode::Arg => Expr::app(Expr::prim(HOLE_STR.into()), acc),
+    //             ZNode::Body => Expr::lam(acc),
     //         }
-    //     }
-    //     res
+    //     })
     // }
 
 
@@ -872,7 +878,7 @@ impl ZTuple {
         ZTuple { elems, divergence_idxs, multiarg, multiuse, arity }
     }
     fn single(zid: ZId) -> ZTuple {
-        ZTuple::new(vec![ZTupleElem::new(zid, 0)], vec![], vec![0], vec![], 1)
+        ZTuple::new(vec![ZTupleElem::new(zid, 0)], vec![], vec![zid], vec![], 1)
     }
     fn extend(&self, elem: ZTupleElem, div_idx: usize, is_multiuse: bool) -> ZTuple {
         let mut res = self.clone();
@@ -885,6 +891,9 @@ impl ZTuple {
         }
         res.elems.push(elem);
         res
+    }
+    fn to_expr(egraph: &EGraph) -> Expr {
+        unimplemented!()
     }
 }
 
@@ -1787,6 +1796,7 @@ fn beta_inversions(
         MAX_DONELIST,
     );
 
+
     println!("\ndone deriving inventions: {:?}ms\n", tstart.elapsed().as_millis());
 
     println!("total everything: {:?}ms", tstart_total.elapsed().as_millis());
@@ -1795,6 +1805,11 @@ fn beta_inversions(
     //  for (inv, cost) in best_inventions.iter().take(5) {
     //      println!("{} -> {}\n{}", orig_cost, cost, inv.to_expr(egraph)); 
     // }
+
+    for done in donelist.iter() {
+        println!("utility: {} | uses: {}; ztuple: {:?} ", done.utility, done.nodes.len(), done.ztuple);
+    }
+
     unimplemented!();
 }
 #[inline(never)]
@@ -1822,7 +1837,7 @@ fn derive_inventions(
     // let mut node_costs = Costs::new(&treenodes,remap,egraph); // todo except a verison of NodeCosts with OffZTuples and preferably `remap` not duplicated in every time - instead passed by ref somehow at some point
     while let Some(wi) = worklist.pop() {
         num_processed += 1;
-        println!("processing {}", num_processed);
+        // println!("processing {}", num_processed);
 
         // check upper bound
         if wi.utility_upper_bound <= *upper_bound_cutoff {
@@ -1851,9 +1866,6 @@ fn derive_inventions(
                 // add any multiuse
                 let arg = appzipper_of_node_zid[&(*node,*zid)].arg;
                 for (argi,arg_zid) in wi.ztuple.multiarg.iter().enumerate() {
-                    debug_assert!(appzipper_of_node_zid.contains_key(&(*node, *arg_zid)),
-                        "{} {:?}", wi.ztuple.arity, wi.ztuple
-                    ); // todo tmp
                     if arg == appzipper_of_node_zid[&(*node, *arg_zid)].arg {
                         possible_elems.push((ZTupleElem::new(*zid, argi), *node));
                     }
