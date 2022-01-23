@@ -1648,6 +1648,22 @@ fn right_edge_utility(edge: &[Option<Id>], egraph: &EGraph) -> i32 {
 }
 
 #[inline]
+fn edge_has_free_vars(edge: &[Option<Id>], path: &[ZNode], mut depth: i32, egraph: &EGraph) -> bool {
+    for (edge,node) in edge.iter().zip(path.iter()) {
+        if *node == ZNode::Body {
+            depth += 1;
+            continue;
+        }
+        if let Some(id) = edge {
+            if egraph[*id].data.free_vars.iter().any(|i| *i >= depth) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+#[inline]
 fn divergence_idx(left: &[ZNode], right: &[ZNode]) -> usize {
     // find the first index where the two edges diverge
 
@@ -1764,10 +1780,11 @@ fn beta_inversions(
     // build up the initial worklist
     const MAX_DONELIST: usize = 100;
     let mut upper_bound_cutoff: i32 = 0; // todo update this later
-    let mut lowest_donelist_utility = 0; // todo update this later
+    let mut lowest_donelist_utility = 0;
 
     for (zid,nodes) in nodes_of_zid.iter().enumerate() {
         let left_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice();
+        let path_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.path.as_slice();
         let right_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.right.as_slice();
         let both_edge_key = |node: &Id| (appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice(),
                                         appzipper_of_node_zid[&(*node,zid)].zipper.right.as_slice());
@@ -1782,29 +1799,36 @@ fn beta_inversions(
 
         // finish any inventions
         for group in both_groups {
-            if group.len() > 1 {
-                // todo filter out ones w free vars too
-                let left_utility = left_edge_utility(left_edge_key(&group[0]), egraph);
-                let right_utility = right_edge_utility(right_edge_key(&group[0]), egraph);
-                let arity_utility = -COST_NONTERMINAL * 1; // arity is 1
-                let multiuse_utility = 0; // can't have multiuse here
-                let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-                let utility = num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility;
-                if utility > lowest_donelist_utility {
-                    donelist.push(FinishedItem::new(ZTuple::single(zid), group, utility));
-                }
+            // if groups are singletons or contain free variables, skip them
+            if group.len() <= 1 ||
+               edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) ||
+               edge_has_free_vars(right_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
+                continue;
             }
+            // todo filter out ones w free vars too
+            let left_utility = left_edge_utility(left_edge_key(&group[0]), egraph);
+            let right_utility = right_edge_utility(right_edge_key(&group[0]), egraph);
+            let arity_utility = -COST_NONTERMINAL * 1; // arity is 1
+            let multiuse_utility = 0; // can't have multiuse here
+            let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
+            let utility = num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility;
+            if utility > lowest_donelist_utility {
+                donelist.push(FinishedItem::new(ZTuple::single(zid), group, utility));
+            }
+
         }
 
         // extend the worklist
         for group in left_groups {
-            if group.len() > 1 {
-                // todo filter out ones w free vars too
-                let left_utility = left_edge_utility(left_edge_key(&group[0]), egraph);
-                let upper_bound = i32::MAX/2; // todo ive temporarily relaxed the upper bound
-                if upper_bound > upper_bound_cutoff {
-                    worklist.push(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound));
-                }
+            // if groups are singletons or contain free variables on the left edge (which can never be changed), discard them
+            if group.len() <= 1 || edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
+                continue;
+            }
+
+            let left_utility = left_edge_utility(left_edge_key(&group[0]), egraph);
+            let upper_bound = i32::MAX/2; // todo ive temporarily relaxed the upper bound
+            if upper_bound > upper_bound_cutoff {
+                worklist.push(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound));
             }
         }
     }
@@ -1952,17 +1976,23 @@ fn derive_inventions(
             // divergence point doesnt depend on the specific node so we'll just use the first one
             let div_idx = divergence_idx(appzipper_of_node_zid[&(nodes[0],rightmost_zid)].zipper.path.as_slice(),
                                          appzipper_of_node_zid[&(nodes[0],elem.zid)].zipper.path.as_slice());
+            
+            let div_depth = appzipper_of_node_zid[&(nodes[0],rightmost_zid)].zipper.path[..div_idx].iter().filter(|x| **x == ZNode::Body).count() as i32;
 
             let new_ztuple: ZTuple = wi.ztuple.extend(elem.clone(), div_idx, is_multiuse);
 
             // define key functions for grabbing all the slices of zipper we care about
             // left_fold_key is the left inner side of the fold which is rightmost_zid.RIGHT (not LEFT)
             let left_fold_key =  |node: &Id| &appzipper_of_node_zid[&(*node,rightmost_zid)].zipper.right[div_idx+1..];
+            let left_fold_path_key =  |node: &Id| &appzipper_of_node_zid[&(*node,rightmost_zid)].zipper.path[div_idx+1..];
             let right_fold_key = |node: &Id| &appzipper_of_node_zid[&(*node,elem.zid)].zipper.left[div_idx+1..];
+            let right_fold_path_key = |node: &Id| &appzipper_of_node_zid[&(*node,elem.zid)].zipper.path[div_idx+1..];
 
             let fold_key = |node: &Id| (&appzipper_of_node_zid[&(*node,rightmost_zid)].zipper.right[div_idx+1..],
                                         &appzipper_of_node_zid[&(*node,elem.zid)].zipper.left[div_idx+1..]);
             let right_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,elem.zid)].zipper.right.as_slice();
+            let right_path_key = |node: &Id| appzipper_of_node_zid[&(*node,elem.zid)].zipper.path.as_slice();
+
             let both_edge_key = |node: &Id| (&appzipper_of_node_zid[&(*node,rightmost_zid)].zipper.right[div_idx+1..],
                                              &appzipper_of_node_zid[&(*node,elem.zid)].zipper.left[div_idx+1..],
                                              appzipper_of_node_zid[&(*node,elem.zid)].zipper.right.as_slice());
@@ -1975,42 +2005,50 @@ fn derive_inventions(
 
             // finish any inventions
             for group in both_groups {
-                if group.len() > 1 {
-                    // todo filter out ones w free vars too
-                    // the left side of the fold is a RIGHT-facing edge (since it faces into the fold) hence it's right_edge_utility for the left_fold_key
-                    let fold_utility = right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
-                    let left_utility = wi.left_utility + fold_utility;
-                    let right_utility = right_edge_utility(right_edge_key(&group[0]), egraph);
-                    let arity_utility = -COST_NONTERMINAL * new_ztuple.arity as i32; // new arity
-                    // multiuse utility depends on the size of the argument that's being used in multiple places. We can
-                    // look up that argument using appzipper_of_node_zid since ztuple.multiuses gives us the zids for the multiuse
-                    // cases (leaving out the original use)
-                    let multiuse_utility = new_ztuple.multiuse.iter()
-                        .map(|&arg_zid| // for each extra use of a multiuse arg
-                            group.iter().map(|node| // for each node
-                                num_paths_to_node[node] * // account for same node being used in multiple subtrees
-                                egraph[appzipper_of_node_zid[&(*node,arg_zid)].arg].data.inventionless_cost
-                            ).sum::<i32>()
-                        ).sum::<i32>();
-                    
-                    let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-                    let utility = num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility;
-                    if utility > *lowest_donelist_utility {
-                        donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility));
-                    }
+                // if groups are singletons or contain free variables, skip them
+                if group.len() <= 1 ||
+                    edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
+                    edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph) ||
+                    edge_has_free_vars(right_edge_key(&group[0]), right_path_key(&group[0]),  div_depth, &egraph) {
+                    continue;
+                }
+                // the left side of the fold is a RIGHT-facing edge (since it faces into the fold) hence it's right_edge_utility for the left_fold_key
+                let fold_utility = right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
+                let left_utility = wi.left_utility + fold_utility;
+                let right_utility = right_edge_utility(right_edge_key(&group[0]), egraph);
+                let arity_utility = -COST_NONTERMINAL * new_ztuple.arity as i32; // new arity
+                // multiuse utility depends on the size of the argument that's being used in multiple places. We can
+                // look up that argument using appzipper_of_node_zid since ztuple.multiuses gives us the zids for the multiuse
+                // cases (leaving out the original use)
+                let multiuse_utility = new_ztuple.multiuse.iter()
+                    .map(|&arg_zid| // for each extra use of a multiuse arg
+                        group.iter().map(|node| // for each node
+                            num_paths_to_node[node] * // account for same node being used in multiple subtrees
+                            egraph[appzipper_of_node_zid[&(*node,arg_zid)].arg].data.inventionless_cost
+                        ).sum::<i32>()
+                    ).sum::<i32>();
+                
+                let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
+                let utility = num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility;
+                if utility > *lowest_donelist_utility {
+                    donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility));
                 }
             }
     
             // extend the worklist
             for group in fold_groups {
-                if group.len() > 1 {
-                    // todo filter out ones w free vars too
-                    let fold_utility = right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
-                    let left_utility = wi.left_utility + fold_utility;
-                    let upper_bound = i32::MAX/2; // todo ive temporarily relaxed the upper bound
-                    if upper_bound > *upper_bound_cutoff {
-                        worklist.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
-                    }
+                // if groups are singletons or the fold contains free variables, skip them
+                if group.len() <= 1 ||
+                    edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
+                    edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph) {
+                    continue;
+                }
+                // todo filter out ones w free vars too
+                let fold_utility = right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
+                let left_utility = wi.left_utility + fold_utility;
+                let upper_bound = i32::MAX/2; // todo ive temporarily relaxed the upper bound
+                if upper_bound > *upper_bound_cutoff {
+                    worklist.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
                 }
             }
         }
