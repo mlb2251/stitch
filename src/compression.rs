@@ -1620,18 +1620,18 @@ fn group_by_key<T: Copy, U: Ord>(v: Vec<T>, key: impl Fn(&T)->U) -> Vec<Vec<T>> 
 
 /// Utility
 /// The utility of an invention is how useful it is at compressing the program.
-/// utility(inv) = (-NONTERMINAL_COST * arity) +  (COST_NONTERMINAL * total_path_len) + (sum of inventionless costs along edges) + (for each arg #i, (num_usages - 1) * arg.inventionless_cost)
-///                ^ cost of Apps to use inv      ^ all these nonterms used to be in the original program, hence they count toward utility
-///                                                 note that in practice we have to be careful not to double-count shared path prefixes
-///                                                 but we can handle this easily through the "fold" and leading/tailing edge setup
-///                                                                                     ^ again all these subtrees used to be in the original program so they count toward utility.
-///                                                                                     and again we must be careful not to double-count shared path prefixes, which will again
-///                                                                                     be naturally handled by the fold setup.
-///                                                                                                                                 ^ this captures multiuse inventions, where for each additional use
-///                                                                                                                                 you gain (+ size_of_arg) utility. Notably this cost is specific to
-///                                                                                                                                 the location that it is used and specific arguments passed in.
-/// implementation: we'll build up this utility as we go. We'll lump the path length
-/// term into the left_edge_utility.
+/// utility(inv) = { (-NONTERMINAL_COST * arity) +  (COST_NONTERMINAL * total_path_len) + (sum of inventionless costs along edges) + -COST_TERMINAL } (for each arg #i, (num_usages - 1) * arg.inventionless_cost) + (-COST_NONTERMINAL * num_usages)
+///                  ^ cost of Apps to use inv      ^ all these nonterms used to be in the original program, hence they count toward utility
+///                                                   note that in practice we have to be careful not to double-count shared path prefixes
+///                                                   but we can handle this easily through the "fold" and leading/tailing edge setup
+///                                                                                       ^ again all these subtrees used to be in the original program so they count toward utility.
+///                                                                                       and again we must be careful not to double-count shared path prefixes, which will again
+///                                                                                       be naturally handled by the fold setup.
+///                                                                                                                                                       ^ this captures multiuse inventions, where for each additional use
+///                                                                                                                                                       you gain (+ size_of_arg) utility. Notably this cost is specific to
+///                                                                                                                                                       the location that it is used and specific arguments passed in.
+/// implementation: we'll build up this utility as we go. We'll lump the path length                                                  ^ theres a COST_TERMINAL whenever you use an invention for the `inv` primitive itself
+/// term into the left_edge_utility. 
 
 /// utility of a fragment of a zipper, specifically a left edge (the left/right
 /// distinction is just so we can include the nonterminal cost in the left edge)
@@ -1678,9 +1678,9 @@ fn beta_inversions(
 
     let treenodes: Vec<Id> = toplogical_ordering(programs_node,egraph);
     let mut roots: Vec<Id> = egraph[programs_node].nodes[0].children().iter().cloned().collect();
-    if roots.iter().copied().collect::<HashSet<Id>>().len() != roots.len() {
-        panic!("roots are not unique, this will cause issues and just doesnt make sense as an input");
-    }
+    // if roots.iter().copied().collect::<HashSet<Id>>().len() != roots.len() {
+    //     panic!("roots are not unique, this will cause issues and just doesnt make sense as an input");
+    // }
 
     // assert!(roots.iter().collect::<HashSet<_>>().len() == roots.len(), "duplicate programs found");
 
@@ -1773,7 +1773,7 @@ fn beta_inversions(
                 let arity_utility = -COST_NONTERMINAL * 1; // arity is 1
                 let multiuse_utility = 0; // can't have multiuse here
                 let num_uses = group.len() as i32;
-                let utility = num_uses * (left_utility + right_utility + arity_utility) + multiuse_utility;
+                let utility = num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility;
                 if utility > lowest_donelist_utility {
                     donelist.push(FinishedItem::new(ZTuple::single(zid), group, utility));
                 }
@@ -1844,8 +1844,11 @@ fn beta_inversions(
     //      println!("{} -> {}\n{}", orig_cost, cost, inv.to_expr(egraph)); 
     // }
 
+    println!("orig cost: {}", orig_cost);
     for done in donelist.iter() {
-        println!("utility: {} | uses: {}; ztuple: {} ", done.utility, done.nodes.len(), done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, egraph));
+        let final_cost = orig_cost - done.utility;
+        let multiplier = orig_cost as f64 / final_cost as f64;
+        println!("utility: {} (final_cost: {}; {:.2}x) | uses: {}; ztuple: {} ", done.utility, final_cost, multiplier, done.nodes.len(), done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, egraph));
     }
 
     unimplemented!();
@@ -1962,7 +1965,7 @@ fn derive_inventions(
                         ).sum::<i32>();
                     
                     let num_uses = group.len() as i32;
-                    let utility = num_uses * (left_utility + right_utility + arity_utility) + multiuse_utility;
+                    let utility = num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility;
                     if utility > *lowest_donelist_utility {
                         donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility));
                     }
