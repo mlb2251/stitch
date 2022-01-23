@@ -892,8 +892,46 @@ impl ZTuple {
         res.elems.push(elem);
         res
     }
-    fn to_expr(egraph: &EGraph) -> Expr {
-        unimplemented!()
+    fn to_expr(&self, node: Id, appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>, egraph: &EGraph) -> Expr {
+        let mut elem_idx: usize = 0;
+        let mut zipper: &Zipper = &appzipper_of_node_zid[&(node,self.elems[elem_idx].zid)].zipper;
+        let mut depth: usize = zipper.path.len() - 1;
+        let mut expr = Expr::ivar(self.elems[elem_idx].ivar as i32);
+        let mut diverged: Vec<(usize,Expr)> = vec![];
+
+        loop {
+            if elem_idx < self.divergence_idxs.len() && depth == self.divergence_idxs[elem_idx] {
+                // we should diverge to the right
+                assert_eq!(zipper.path[depth], ZNode::Func);
+                diverged.push((depth,expr));
+                elem_idx += 1;
+                zipper = &appzipper_of_node_zid[&(node,self.elems[elem_idx].zid)].zipper;
+                depth = zipper.path.len() - 1;
+                expr = Expr::ivar(self.elems[elem_idx].ivar as i32);
+                continue;
+            }
+            if !diverged.is_empty() && depth == diverged.last().unwrap().0 {
+                // we should ignore our normal Some(f) and instead use the stored diverged expr
+                assert_eq!(zipper.path[depth], ZNode::Arg);
+                expr = Expr::app(diverged.pop().unwrap().1, expr);
+                if depth == 0 { break }
+                depth -= 1;
+                continue;
+            }
+
+            // normal step upward by 1
+            match (&zipper.path[depth], &zipper.left[depth], &zipper.right[depth]) {
+                (ZNode::Arg, Some(f), None) => { expr = Expr::app(extract(*f,egraph), expr); },
+                (ZNode::Func, None, Some(x)) => { expr = Expr::app(expr, extract(*x,egraph)); },
+                (ZNode::Body, None, None) => { expr = Expr::lam(expr); },
+                _ => panic!("malformed zipper"),
+            }
+            if depth == 0 { break }
+            depth -= 1;
+        }
+
+
+        expr
     }
 }
 
@@ -1807,7 +1845,7 @@ fn beta_inversions(
     // }
 
     for done in donelist.iter() {
-        println!("utility: {} | uses: {}; ztuple: {:?} ", done.utility, done.nodes.len(), done.ztuple);
+        println!("utility: {} | uses: {}; ztuple: {} ", done.utility, done.nodes.len(), done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, egraph));
     }
 
     unimplemented!();
