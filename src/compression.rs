@@ -5,6 +5,7 @@ use clap::Parser;
 use std::path::PathBuf;
 use std::hash::Hash;
 use std::cmp::Ordering;
+use itertools::Itertools;
 
 const FHOLE_STR: &str = "_f";
 const XHOLE_STR: &str = "_x";
@@ -766,6 +767,8 @@ struct ZTupleElem {
 struct ZTuple {
     elems: Vec<ZTupleElem>,
     divergence_idxs: Vec<usize>,
+    multiarg: Vec<ZId>, // len=arity, gives the first zid added for each arg
+    multiuse: Vec<ZId>, // gives the 2nd and onward zids added for each arg (not the first, thats in multiarg)
     arity: usize,
 }
 
@@ -865,12 +868,23 @@ impl ZTupleElem {
 }
 
 impl ZTuple {
-    fn new(elems: Vec<ZTupleElem>, divergence_idxs: Vec<usize>, arity: usize) -> ZTuple {
-        ZTuple { elems: elems, divergence_idxs: divergence_idxs, arity: arity }
+    fn new(elems: Vec<ZTupleElem>, divergence_idxs: Vec<usize>, multiarg: Vec<usize>, multiuse: Vec<usize>, arity: usize) -> ZTuple {
+        ZTuple { elems, divergence_idxs, multiarg, multiuse, arity }
     }
-    #[inline]
-    fn zids(&self) -> impl ExactSizeIterator<Item=ZId> + '_ {
-        self.elems.iter().map(|elem| elem.zid)
+    fn single(zid: ZId) -> ZTuple {
+        ZTuple::new(vec![ZTupleElem::new(zid, 0)], vec![], vec![0], vec![], 1)
+    }
+    fn extend(&self, elem: ZTupleElem, div_idx: usize, is_multiuse: bool) -> ZTuple {
+        let mut res = self.clone();
+        res.divergence_idxs.push(div_idx);
+        if is_multiuse {
+            res.multiuse.push(elem.zid);
+        } else {
+            res.multiarg.push(elem.zid);
+            res.arity += 1;
+        }
+        res.elems.push(elem);
+        res
     }
 }
 
@@ -1586,6 +1600,21 @@ fn right_edge_utility(edge: &[Option<Id>], egraph: &EGraph) -> i32 {
         option_id.map(|id| egraph[id].data.inventionless_cost)).sum::<i32>()
 }
 
+#[inline]
+fn divergence_idx(left: &[ZNode], right: &[ZNode]) -> usize {
+    // find the first index where the two edges diverge
+
+    for i in 0..left.len() {
+        debug_assert!(i < right.len(), "right is a prefix of left");
+        if left[i] != right[i] {
+            debug_assert_eq!(left[i], ZNode::Func, "left: {:?}, right: {:?}", left, right);
+            debug_assert_eq!(right[i], ZNode::Arg, "left: {:?}, right: {:?}", left, right);
+            return i;
+        }
+    }
+    panic!("right does not diverge from left")
+}
+
 
 /// This is the main workhorse of compression. Takes a child-first ordering of nodes in an EGraph
 /// (assumed to be acyclic) and finds all the possible useful inventions up to the given arity.
@@ -1638,8 +1667,18 @@ fn beta_inversions(
     let mut appzipper_of_node_zid: HashMap<(Id,ZId),AppZipper> = HashMap::new();
     let mut zids_of_node: Vec<Vec<ZId>> = vec![vec![]; treenodes.len()];
     let mut nodes_of_zid: Vec<Vec<Id>> = vec![vec![]; paths.len()];
+    let mut first_mergeable_zid_of_zid: Vec<ZId> = vec![];
+    let mut worklist: Vec<WorklistItem> = vec![];
+    let mut donelist: Vec<FinishedItem> = vec![];
     // make sure treenodes is a permutation of the first N numbers so the Vec<Vec<>> is fine to use
     assert!(*treenodes.iter().max().unwrap() == Id::from(treenodes.len()-1));
+
+    for (i,path) in paths.iter().enumerate() {
+        // first path after `i` where the path isnt a prefix is the first mergeable one
+        // (note partition_point points to the first elem where the predicate is FALSE assuming the 
+        // vec already starts with all Trues and ends with all Falses)
+        first_mergeable_zid_of_zid.push(paths[i..].partition_point(|p| p.starts_with(path)) + i);
+    }
 
 
     let tstart = std::time::Instant::now();
@@ -1660,11 +1699,9 @@ fn beta_inversions(
     let tstart = std::time::Instant::now();
 
     // build up the initial worklist
-    let mut worklist: Vec<WorklistItem> = vec![];
-    let mut donelist: Vec<FinishedItem> = vec![];
     const MAX_DONELIST: usize = 10;
-    let upper_bound_cutoff: i32 = 0; // todo update this later
-    let lowest_donelist_utility = 0; // todo update this later
+    let mut upper_bound_cutoff: i32 = 0; // todo update this later
+    let mut lowest_donelist_utility = 0; // todo update this later
 
     for (zid,nodes) in nodes_of_zid.iter().enumerate() {
         let left_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice();
@@ -1683,6 +1720,7 @@ fn beta_inversions(
         // finish any inventions
         for group in both_groups {
             if group.len() > 1 {
+                // todo filter out ones w free vars too
                 let left_utility = left_edge_utility(left_edge_key(&group[0]), egraph);
                 let right_utility = right_edge_utility(right_edge_key(&group[0]), egraph);
                 let arity_utility = -COST_NONTERMINAL * 1; // arity is 1
@@ -1690,7 +1728,7 @@ fn beta_inversions(
                 let num_uses = group.len() as i32;
                 let utility = num_uses * (left_utility + right_utility + arity_utility) + multiuse_utility;
                 if utility > lowest_donelist_utility {
-                    donelist.push(FinishedItem::new(ZTuple::new(vec![ZTupleElem::new(zid, 0)], vec![], 1), group, utility));
+                    donelist.push(FinishedItem::new(ZTuple::single(zid), group, utility));
                 }
             }
         }
@@ -1702,11 +1740,15 @@ fn beta_inversions(
                 let left_utility = left_edge_utility(left_edge_key(&group[0]), egraph);
                 let upper_bound = i32::MAX/2; // todo ive temporarily relaxed the upper bound
                 if upper_bound > upper_bound_cutoff {
-                    worklist.push(WorklistItem::new(ZTuple::new(vec![ZTupleElem::new(zid, 0)], vec![], 1), group, left_utility, upper_bound));
+                    worklist.push(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound));
                 }
             }
         }
     }
+
+    donelist.sort_unstable_by_key(|item| -item.utility);
+    donelist.truncate(MAX_DONELIST);
+    lowest_donelist_utility = donelist.last().unwrap().utility;
 
     println!("initial worklist length: {}", worklist.len());
     println!("set up the worklist: {:?}ms", tstart.elapsed().as_millis());
@@ -1717,19 +1759,37 @@ fn beta_inversions(
     // todo not sure if its the right move to sort by this see discussion in notes "sort the worklist by upper bound"
     // worklist.sort_by_key(|wi| wi.utility_upper_bound);
 
-    println!("total: {:?}ms", tstart_total.elapsed().as_millis());
+    println!("total prep: {:?}ms", tstart_total.elapsed().as_millis());
     
-    let tstart = std::time::Instant::now();
-    let num_invs = appzipper_of_node_zid.values().map(|appzipper| appzipper.zipper.clone()).collect::<HashSet<Zipper>>().len();
-    println!("counted inventions: {:?}ms", tstart.elapsed().as_millis());
-    println!("{} single arg invs", num_invs);
+    // let tstart = std::time::Instant::now();
+    // let num_invs = appzipper_of_node_zid.values().map(|appzipper| appzipper.zipper.clone()).collect::<HashSet<Zipper>>().len();
+    // println!("counted inventions: {:?}ms", tstart.elapsed().as_millis());
+    // println!("{} single arg invs", num_invs);
 
     println!("deriving inventions...");
     let tstart = std::time::Instant::now();
 
-    let best_inventions = unimplemented!(); //derive_inventions(programs_node, treenodes, remap, egraph, &zippers, &appzipper_of_node_zid, &zids_of_node, max_arity);
+    derive_inventions(
+        &appzipper_of_node_zid,
+        &zids_of_node,
+        &nodes_of_zid,
+        &first_mergeable_zid_of_zid,
+        &mut worklist,
+        &mut donelist,
+        &paths,
+        max_arity,
+        &egraph,
+        &remap,
+        &treenodes,
+        programs_node,
+        &mut upper_bound_cutoff,
+        &mut lowest_donelist_utility,
+        MAX_DONELIST,
+    );
 
-    println!("\ndone: {:?}ms\n", tstart.elapsed().as_millis());
+    println!("\ndone deriving inventions: {:?}ms\n", tstart.elapsed().as_millis());
+
+    println!("total everything: {:?}ms", tstart_total.elapsed().as_millis());
 
     let orig_cost = extract(programs_node,egraph).cost();
     //  for (inv, cost) in best_inventions.iter().take(5) {
@@ -1738,21 +1798,153 @@ fn beta_inversions(
     unimplemented!();
 }
 #[inline(never)]
-fn derive_inventions(programs_node: Id, treenodes: Vec<Id>, remap: HashMap<Id,Id>, egraph: &EGraph, zippers: &Vec<Zipper>, appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>, zids_of_node: &Vec<Vec<ZId>>, max_arity: usize) -> Vec<(ZTuple,i32)> {
-    unimplemented!();
+fn derive_inventions(
+    appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
+    zids_of_node: &Vec<Vec<ZId>>,
+    nodes_of_zid: &Vec<Vec<Id>>,
+    first_mergeable_zid_of_zid: &Vec<ZId>,
+    worklist: &mut Vec<WorklistItem>,
+    donelist: &mut Vec<FinishedItem>,
+    paths: &Vec<ZPath>,
+    max_arity: usize,
+    egraph: &EGraph,
+    remap: &HashMap<Id,Id>,
+    treenodes: &Vec<Id>,
+    programs_node: Id,
+    upper_bound_cutoff: &mut i32,
+    lowest_donelist_utility: &mut i32,
+    MAX_DONELIST: usize,
+) {
 
-    // let mut worklist: Vec<(ZTuple,Vec<Id>)> = zippers.iter().enumerate().map(|(zid,_zipper)| ZTuple::new(vec![ZTupleElem::new(zid,0)], vec![], 1)).collect();
-    // let mut best_inventions: Vec<(OffZTuple,i32)> = Default::default();
+    let mut num_processed = 0;
 
-    // // todo ofc can parallelize this 
+    // todo ofc can parallelize this 
     // let mut node_costs = Costs::new(&treenodes,remap,egraph); // todo except a verison of NodeCosts with OffZTuples and preferably `remap` not duplicated in every time - instead passed by ref somehow at some point
-    // let mut num_processed = 0;
-    // while let Some(ztuple) = worklist.pop() {
-    //     num_processed += 1;
-    //     // println!("{} {:?}", ztuple.elems.len(), ztuple);
-    //     // for expr in ztuple.elems.iter().map(|elem| zippers[elem.zid].to_expr(elem.arg_idx as i32)) {
-    //     //     println!("\t{}", expr.to_string_curried(None));
-    //     // }
+    while let Some(wi) = worklist.pop() {
+        num_processed += 1;
+        println!("processing {}", num_processed);
+
+        // check upper bound
+        if wi.utility_upper_bound <= *upper_bound_cutoff {
+            continue;
+        }
+
+        let rightmost_zid: ZId = wi.ztuple.elems.last().unwrap().zid;
+        let first_mergeable_zid: ZId = first_mergeable_zid_of_zid[rightmost_zid];
+
+
+        let mut possible_elems: Vec<(ZTupleElem,Id)> = vec![];
+
+        // collect all the possible ztupleelems
+        for node in wi.nodes.iter() {
+            // skip over the zids that are prefixes - partition point will binarysearch for the first case where the predicate is false.
+            // this works nicely since all (unusuable) prefix ones come before all nonprefix ones and first_mergeable_zid tells us the first nonprefix one
+            let zids = &zids_of_node[usize::from(*node)];
+            let start: usize = zids.partition_point(|zid| *zid < first_mergeable_zid);
+            for zid in &zids[start..] {
+                // merging rightmost_zid and zid is possible as long as either arity or multiuse check out
+
+                // add any multiarg
+                if wi.ztuple.arity < max_arity {
+                    possible_elems.push((ZTupleElem::new(*zid, wi.ztuple.arity), *node));
+                }
+                // add any multiuse
+                let arg = appzipper_of_node_zid[&(*node,*zid)].arg;
+                for (argi,arg_zid) in wi.ztuple.multiarg.iter().enumerate() {
+                    debug_assert!(appzipper_of_node_zid.contains_key(&(*node, *arg_zid)),
+                        "{} {:?}", wi.ztuple.arity, wi.ztuple
+                    ); // todo tmp
+                    if arg == appzipper_of_node_zid[&(*node, *arg_zid)].arg {
+                        possible_elems.push((ZTupleElem::new(*zid, argi), *node));
+                    }
+                }
+            }
+        }
+        
+        // sort by zid (and ivar) (and Id though we dont care about that)
+        possible_elems.sort();
+        // Itertools::group_by(key: F)
+        for (elem, subset) in &Itertools::group_by(possible_elems.into_iter(), |(elem, _node)| elem.clone()) {
+            let mut nodes: Vec<Id> = subset.map(|(_elem, node)| node).collect();
+            let is_multiuse = elem.ivar < wi.ztuple.arity; // multiuse means an old index within the old arity range was reused
+
+            // divergence point doesnt depend on the specific node so we'll just use the first one
+            let div_idx = divergence_idx(appzipper_of_node_zid[&(nodes[0],rightmost_zid)].zipper.path.as_slice(),
+                                         appzipper_of_node_zid[&(nodes[0],elem.zid)].zipper.path.as_slice());
+
+            let new_ztuple: ZTuple = wi.ztuple.extend(elem.clone(), div_idx, is_multiuse);
+
+            // define key functions for grabbing all the slices of zipper we care about
+            // left_fold_key is the left inner side of the fold which is rightmost_zid.RIGHT (not LEFT)
+            let left_fold_key =  |node: &Id| &appzipper_of_node_zid[&(*node,rightmost_zid)].zipper.right[div_idx+1..];
+            let right_fold_key = |node: &Id| &appzipper_of_node_zid[&(*node,elem.zid)].zipper.left[div_idx+1..];
+
+            let fold_key = |node: &Id| (&appzipper_of_node_zid[&(*node,rightmost_zid)].zipper.right[div_idx+1..],
+                                        &appzipper_of_node_zid[&(*node,elem.zid)].zipper.left[div_idx+1..]);
+            let right_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,elem.zid)].zipper.right.as_slice();
+            let both_edge_key = |node: &Id| (&appzipper_of_node_zid[&(*node,rightmost_zid)].zipper.right[div_idx+1..],
+                                             &appzipper_of_node_zid[&(*node,elem.zid)].zipper.left[div_idx+1..],
+                                             appzipper_of_node_zid[&(*node,elem.zid)].zipper.right.as_slice());
+
+            // sorting by `both` will also sort by fold_key since the latter is a prefix of the former
+            nodes.sort_unstable_by_key(&both_edge_key);
+
+            let fold_groups = group_by_key(nodes.clone(), fold_key);
+            let both_groups = group_by_key(nodes, both_edge_key);
+
+            // finish any inventions
+            for group in both_groups {
+                if group.len() > 1 {
+                    // todo filter out ones w free vars too
+                    // the left side of the fold is a RIGHT-facing edge (since it faces into the fold) hence it's right_edge_utility for the left_fold_key
+                    let fold_utility = right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
+                    let left_utility = wi.left_utility + fold_utility;
+                    let right_utility = right_edge_utility(right_edge_key(&group[0]), egraph);
+                    let arity_utility = -COST_NONTERMINAL * new_ztuple.arity as i32; // new arity
+                    // multiuse utility depends on the size of the argument that's being used in multiple places. We can
+                    // look up that argument using appzipper_of_node_zid since ztuple.multiuses gives us the zids for the multiuse
+                    // cases (leaving out the original use)
+                    let multiuse_utility = new_ztuple.multiuse.iter()
+                        .map(|&arg_zid| // for each extra use of a multiuse arg
+                            group.iter().map(|node| // for each node
+                                egraph[appzipper_of_node_zid[&(*node,arg_zid)].arg].data.inventionless_cost
+                            ).sum::<i32>()
+                        ).sum::<i32>();
+                    
+                    let num_uses = group.len() as i32;
+                    let utility = num_uses * (left_utility + right_utility + arity_utility) + multiuse_utility;
+                    if utility > *lowest_donelist_utility {
+                        donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility));
+                    }
+                }
+            }
+    
+            // extend the worklist
+            for group in fold_groups {
+                if group.len() > 1 {
+                    // todo filter out ones w free vars too
+                    let fold_utility = right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
+                    let left_utility = wi.left_utility + fold_utility;
+                    let upper_bound = i32::MAX/2; // todo ive temporarily relaxed the upper bound
+                    if upper_bound > *upper_bound_cutoff {
+                        worklist.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
+                    }
+                }
+            }
+        }
+
+        if donelist.len() > std::cmp::max(1000, 4*MAX_DONELIST) {
+            donelist.sort_unstable_by_key(|item| -item.utility);
+            donelist.truncate(MAX_DONELIST);
+            *lowest_donelist_utility = donelist.last().unwrap().utility;
+        }
+
+    }
+
+    donelist.sort_unstable_by_key(|item| -item.utility);
+    donelist.truncate(MAX_DONELIST);
+    *lowest_donelist_utility = donelist.last().unwrap().utility;
+}
 
 
     //     let mut invs: Vec<OffZTuple> = vec![];
@@ -1835,7 +2027,6 @@ fn derive_inventions(programs_node: Id, treenodes: Vec<Id>, remap: HashMap<Id,Id
     // best_inventions.sort_by(|(_,cost1),(_,cost2)| cost1.cmp(cost2));
     // best_inventions.truncate(100);
     // best_inventions
-}
 
 /// sorts v, removes the last copy of every
 /// unique value, and dedups. So this is the same
