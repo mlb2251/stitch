@@ -1746,7 +1746,7 @@ fn beta_inversions(
     let tstart = std::time::Instant::now();
 
     // build up the initial worklist
-    const MAX_DONELIST: usize = 10;
+    const MAX_DONELIST: usize = usize::MAX;
     let mut upper_bound_cutoff: i32 = 0; // todo update this later
     let mut lowest_donelist_utility = 0; // todo update this later
 
@@ -1844,8 +1844,19 @@ fn beta_inversions(
     //      println!("{} -> {}\n{}", orig_cost, cost, inv.to_expr(egraph)); 
     // }
 
-    println!("orig cost: {}", orig_cost);
     for done in donelist.iter() {
+        let s = done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, egraph).to_string();
+        if s == "(logo_forLoop #1 (lam (lam (logo_FWRT (logo_MULL logo_UL #0) (logo_DIVA logo_UA #1) $0))))" ||
+           s == "(logo_forLoop #0 (lam (lam (logo_FWRT (logo_MULL logo_UL #1) (logo_DIVA logo_UA #0) $0))))" {
+            let final_cost = orig_cost - done.utility;
+            let multiplier = orig_cost as f64 / final_cost as f64;    
+            println!("FOUND: utility: {} (final_cost: {}; {:.2}x) | uses: {}; ztuple: {} ", done.utility, final_cost, multiplier, done.nodes.len(), done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, egraph));
+            break;
+           }
+    }
+
+    println!("orig cost: {}", orig_cost);
+    for done in donelist.iter().take(10) {
         let final_cost = orig_cost - done.utility;
         let multiplier = orig_cost as f64 / final_cost as f64;
         println!("utility: {} (final_cost: {}; {:.2}x) | uses: {}; ztuple: {} ", done.utility, final_cost, multiplier, done.nodes.len(), done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, egraph));
@@ -1875,7 +1886,6 @@ fn derive_inventions(
     let mut num_processed = 0;
 
     // todo ofc can parallelize this 
-    // let mut node_costs = Costs::new(&treenodes,remap,egraph); // todo except a verison of NodeCosts with OffZTuples and preferably `remap` not duplicated in every time - instead passed by ref somehow at some point
     while let Some(wi) = worklist.pop() {
         num_processed += 1;
         // println!("processing {}", num_processed);
@@ -1986,7 +1996,7 @@ fn derive_inventions(
             }
         }
 
-        if donelist.len() > std::cmp::max(1000, 4*MAX_DONELIST) {
+        if donelist.len() > std::cmp::max(1000, if MAX_DONELIST != usize::MAX { MAX_DONELIST*4 } else { MAX_DONELIST }) {
             donelist.sort_unstable_by_key(|item| -item.utility);
             donelist.truncate(MAX_DONELIST);
             *lowest_donelist_utility = donelist.last().unwrap().utility;
