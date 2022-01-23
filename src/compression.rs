@@ -1677,7 +1677,8 @@ fn beta_inversions(
     println!("{}", extract(programs_node, egraph));
 
     let treenodes: Vec<Id> = toplogical_ordering(programs_node,egraph);
-    let mut roots: Vec<Id> = egraph[programs_node].nodes[0].children().iter().cloned().collect();
+    assert!(usize::from(*treenodes.iter().max().unwrap()) == treenodes.len() - 1); // ensures we can safely just use Vecs of length treenodes.len() to store various nodewise things
+    // let mut roots: Vec<Id> = egraph[programs_node].nodes[0].children().iter().cloned().collect();
     // if roots.iter().copied().collect::<HashSet<Id>>().len() != roots.len() {
     //     panic!("roots are not unique, this will cause issues and just doesnt make sense as an input");
     // }
@@ -1685,12 +1686,27 @@ fn beta_inversions(
     // assert!(roots.iter().collect::<HashSet<_>>().len() == roots.len(), "duplicate programs found");
 
     // lets you lookup which roots a treenode is a descendent of
-    println!("ROOOOOOTS {:?}", roots);
-    let mut roots_of_node: HashMap<Id,Vec<Id>> = get_treenode_to_roots(&roots, egraph);
-    roots_of_node.insert(programs_node,vec![]); // Programs node has no roots
+    // println!("ROOOOOOTS {:?}", roots);
+    // let mut roots_of_node: HashMap<Id,Vec<Id>> = get_treenode_to_roots(&roots, egraph);
+    // roots_of_node.insert(programs_node,vec![]); // Programs node has no roots
     // for (treenode, roots) in treenode_to_roots.iter() {
     //     println!("{} {:?}", extract(*treenode, egraph), roots);
     // }
+
+    // populate num_paths_to_node so we know how many different parts of the programs tree
+    // a node participates in (ie multiple uses within a single program or among programs)
+    let mut num_paths_to_node: HashMap<Id,i32> = HashMap::new();
+    treenodes.iter().for_each(|treenode| {
+        num_paths_to_node.insert(*treenode, 0);
+    });
+    fn helper(num_paths_to_node: &mut HashMap<Id,i32>, node: &Id, egraph: &EGraph) {
+        // num_paths_to_node.insert(*child, num_paths_to_node[node] + 1);
+        *num_paths_to_node.get_mut(node).unwrap() += 1;
+        for child in egraph[*node].nodes[0].children() {
+            helper(num_paths_to_node, &child, egraph);
+        }
+    }
+    helper(&mut num_paths_to_node, &programs_node, &egraph);
 
     let tstart_total = std::time::Instant::now();
 
@@ -1746,7 +1762,7 @@ fn beta_inversions(
     let tstart = std::time::Instant::now();
 
     // build up the initial worklist
-    const MAX_DONELIST: usize = usize::MAX;
+    const MAX_DONELIST: usize = 100;
     let mut upper_bound_cutoff: i32 = 0; // todo update this later
     let mut lowest_donelist_utility = 0; // todo update this later
 
@@ -1772,7 +1788,7 @@ fn beta_inversions(
                 let right_utility = right_edge_utility(right_edge_key(&group[0]), egraph);
                 let arity_utility = -COST_NONTERMINAL * 1; // arity is 1
                 let multiuse_utility = 0; // can't have multiuse here
-                let num_uses = group.len() as i32;
+                let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
                 let utility = num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility;
                 if utility > lowest_donelist_utility {
                     donelist.push(FinishedItem::new(ZTuple::single(zid), group, utility));
@@ -1832,6 +1848,7 @@ fn beta_inversions(
         &mut upper_bound_cutoff,
         &mut lowest_donelist_utility,
         MAX_DONELIST,
+        &num_paths_to_node,
     );
 
 
@@ -1844,22 +1861,22 @@ fn beta_inversions(
     //      println!("{} -> {}\n{}", orig_cost, cost, inv.to_expr(egraph)); 
     // }
 
-    for done in donelist.iter() {
-        let s = done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, egraph).to_string();
-        if s == "(logo_forLoop #1 (lam (lam (logo_FWRT (logo_MULL logo_UL #0) (logo_DIVA logo_UA #1) $0))))" ||
-           s == "(logo_forLoop #0 (lam (lam (logo_FWRT (logo_MULL logo_UL #1) (logo_DIVA logo_UA #0) $0))))" {
-            let final_cost = orig_cost - done.utility;
-            let multiplier = orig_cost as f64 / final_cost as f64;    
-            println!("FOUND: utility: {} (final_cost: {}; {:.2}x) | uses: {}; ztuple: {} ", done.utility, final_cost, multiplier, done.nodes.len(), done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, egraph));
-            break;
-           }
-    }
+    // for done in donelist.iter() {
+    //     let s = done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, egraph).to_string();
+    //     if s == "(logo_forLoop #1 (lam (lam (logo_FWRT (logo_MULL logo_UL #0) (logo_DIVA logo_UA #1) $0))))" ||
+    //        s == "(logo_forLoop #0 (lam (lam (logo_FWRT (logo_MULL logo_UL #1) (logo_DIVA logo_UA #0) $0))))" {
+    //         let final_cost = orig_cost - done.utility;
+    //         let multiplier = orig_cost as f64 / final_cost as f64;    
+    //         println!("FOUND: utility: {} (final_cost: {}; {:.2}x) | uses: {}; ztuple: {} ", done.utility, final_cost, multiplier, done.nodes.len(), done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, egraph));
+    //         break;
+    //        }
+    // }
 
     println!("orig cost: {}", orig_cost);
     for done in donelist.iter().take(10) {
         let final_cost = orig_cost - done.utility;
         let multiplier = orig_cost as f64 / final_cost as f64;
-        println!("utility: {} (final_cost: {}; {:.2}x) | uses: {}; ztuple: {} ", done.utility, final_cost, multiplier, done.nodes.len(), done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, egraph));
+        println!("utility: {} (final_cost: {}; {:.2}x) | uses: {}; ztuple: {} ", done.utility, final_cost, multiplier, done.nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>(), done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, egraph));
     }
 
     unimplemented!();
@@ -1881,6 +1898,7 @@ fn derive_inventions(
     upper_bound_cutoff: &mut i32,
     lowest_donelist_utility: &mut i32,
     MAX_DONELIST: usize,
+    num_paths_to_node: &HashMap<Id,i32>,
 ) {
 
     let mut num_processed = 0;
@@ -1970,11 +1988,12 @@ fn derive_inventions(
                     let multiuse_utility = new_ztuple.multiuse.iter()
                         .map(|&arg_zid| // for each extra use of a multiuse arg
                             group.iter().map(|node| // for each node
+                                num_paths_to_node[node] * // account for same node being used in multiple subtrees
                                 egraph[appzipper_of_node_zid[&(*node,arg_zid)].arg].data.inventionless_cost
                             ).sum::<i32>()
                         ).sum::<i32>();
                     
-                    let num_uses = group.len() as i32;
+                    let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
                     let utility = num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility;
                     if utility > *lowest_donelist_utility {
                         donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility));
