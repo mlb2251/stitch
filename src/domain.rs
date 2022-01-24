@@ -148,10 +148,26 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     //     unimplemented!()
     // }
 
-    // Get a unigram PCFG over this domain, which maps each token to a distribution
+    // Get a unigram PCFG over the domain, which maps each token to a distribution
     // over which token to follow it with.
+    // The default implementation is simply a constant, uniform distribution.
+    // When implementing a new domain, you may wish to override this function to
+    // bias the sampling towards more realistic programs; for example, to generate longer
+    // programs you may downweight terminal tokens.
+    // Note: the ith element of each distribution (value in the map) must match the
+    // probably of generating the ith element of Self::tokens_with_arities()
+    // TODO should probably guarantee that this holds programmatically somehow...
+    // otherwise, you risk ending up in a scenario where you think you're sampling from
+    // [a: 2/3, b: 1/3, c: 0] but you're actually sampling from [b: 2/3, a: 1/3, c: 0]
+    // for example
     fn pcfg() -> HashMap<String, WeightedIndex<usize>> {
-        unimplemented!()
+        let tokens = Self::tokens_with_arities();
+        let weights = vec![1; tokens.len()];
+        let mut grammar = HashMap::new();
+        tokens.into_iter().for_each(|(token, _)| {
+            grammar.insert(String::from(token), WeightedIndex::new(&weights).unwrap());
+        });
+        return grammar;
     }
 
     // Get all the domain-specific non-terminal tokens (i.e. excluding lam()),

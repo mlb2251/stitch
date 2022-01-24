@@ -2,7 +2,6 @@
 
 use crate::*;
 use std::collections::HashMap;
-use rand::distributions::WeightedIndex;
 
 /// A simple domain with ints and polymorphic lists (allows nested lists).
 /// Generally it's good to be able to imagine the hindley milner type system
@@ -132,26 +131,6 @@ impl Domain for SimpleVal {
     // is the integer [-2, -2] range.
     fn terminal_tokens() -> Vec<&'static str> {
         vec!["-2", "-1", "0", "1", "2"]
-    }
-
-    // pcfg makes a unigram probabilistic context-gree grammar over the set of tokens within this domain.
-    // This lets you bias the sampling of programs over this domain; for example, to generate longer
-    // programs you may downweight terminal tokens.
-    // For now, I will let this example be a simple uniform distribution.
-    // Note: the ith element of each distribution (value in the map) must match the
-    // probably of generating the ith element of Self::tokens_with_arities()
-    // TODO should probably guarantee that this holds programmatically somehow...
-    // otherwise, you risk ending up in a scenario where you think you're sampling from
-    // [a: 2/3, b: 1/3, c: 0] but you're actually sampling from [b: 2/3, a: 1/3, c: 0]
-    // for example
-    fn pcfg() -> HashMap<String, WeightedIndex<usize>> {
-        let tokens = Self::tokens_with_arities();
-        let weights = vec![1; tokens.len()];
-        let mut grammar = HashMap::new();
-        tokens.into_iter().for_each(|(token, _)| {
-            grammar.insert(String::from(token), WeightedIndex::new(&weights).unwrap());
-        });
-        return grammar;
     }
 }
 
