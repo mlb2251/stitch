@@ -187,16 +187,18 @@ impl<'a> Node<'a> {
     }
 
     pub fn to_string(&self) -> String {
-        let mut res = String::from("(");
-        match &self.data {
-            Some(s) => res.push_str(&s.clone()),
-            None    => res.push_str("??")
+        let mut res = match &self.data {
+            Some(s) => String::from(&s.clone()),
+            None    => String::from("??")
+        };
+        if self.children.len() > 0 {
+            res.insert_str(0, "(");
+            for i in 0..self.children.len() {
+                res.push_str(" ");
+                res.push_str(&self.children[i].borrow().to_string());
+            }
+            res.push_str(")");
         }
-        for i in 0..self.children.len() {
-            res.push_str(" ");
-            res.push_str(&self.children[i].borrow().to_string());
-        }
-        res.push_str(")");
         return res;
     }
 }
