@@ -1649,13 +1649,15 @@ fn right_edge_utility(edge: &[Option<Id>], egraph: &EGraph) -> i32 {
 
 #[inline]
 fn edge_has_free_vars(edge: &[Option<Id>], path: &[ZNode], mut depth: i32, egraph: &EGraph) -> bool {
+    // return false;
+    debug_assert_eq!(edge.len(), path.len());
     for (edge,node) in edge.iter().zip(path.iter()) {
         if *node == ZNode::Body {
             depth += 1;
             continue;
         }
         if let Some(id) = edge {
-            if egraph[*id].data.free_vars.iter().any(|i| *i >= depth) {
+            if egraph[*id].data.free_vars.iter().any(|i| *i - depth >= 0) {
                 return true;
             }
         }
@@ -1821,9 +1823,16 @@ fn beta_inversions(
         // extend the worklist
         for group in left_groups {
             // if groups are singletons or contain free variables on the left edge (which can never be changed), discard them
-            if group.len() <= 1 || edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
+            if group.len() <= 1 {
+                println!("rejected bc <= 1: {}", ZTuple::single(zid).to_expr(group[0], &appzipper_of_node_zid, &egraph));
                 continue;
             }
+            if edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
+                panic!("hey");
+                continue;
+            }
+            println!("passed: {}", ZTuple::single(zid).to_expr(group[0], &appzipper_of_node_zid, &egraph));
+
 
             let left_utility = left_edge_utility(left_edge_key(&group[0]), egraph);
             let upper_bound = i32::MAX/2; // todo ive temporarily relaxed the upper bound
@@ -1926,16 +1935,16 @@ fn derive_inventions(
 ) {
 
     let mut num_processed = 0;
+    let mut invs_scored = 0;
 
     // todo ofc can parallelize this 
     while let Some(wi) = worklist.pop() {
-        num_processed += 1;
         // println!("processing {}", num_processed);
-
         // check upper bound
         if wi.utility_upper_bound <= *upper_bound_cutoff {
             continue;
         }
+        num_processed += 1;
 
         let rightmost_zid: ZId = wi.ztuple.elems.last().unwrap().zid;
         let first_mergeable_zid: ZId = first_mergeable_zid_of_zid[rightmost_zid];
@@ -2009,7 +2018,7 @@ fn derive_inventions(
                 if group.len() <= 1 ||
                     edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
                     edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph) ||
-                    edge_has_free_vars(right_edge_key(&group[0]), right_path_key(&group[0]),  div_depth, &egraph) {
+                    edge_has_free_vars(right_edge_key(&group[0]), right_path_key(&group[0]),  0, &egraph) {
                     continue;
                 }
                 // the left side of the fold is a RIGHT-facing edge (since it faces into the fold) hence it's right_edge_utility for the left_fold_key
@@ -2033,6 +2042,7 @@ fn derive_inventions(
                 if utility > *lowest_donelist_utility {
                     donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility));
                 }
+                invs_scored += 1;
             }
     
             // extend the worklist
@@ -2061,9 +2071,14 @@ fn derive_inventions(
 
     }
 
+    assert!(worklist.is_empty());
+
     donelist.sort_unstable_by_key(|item| -item.utility);
     donelist.truncate(MAX_DONELIST);
     *lowest_donelist_utility = donelist.last().unwrap().utility;
+
+    println!("!! num processed: {}", num_processed);
+    println!("!! invs scored: {}", invs_scored);
 }
 
 
