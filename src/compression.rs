@@ -1701,6 +1701,7 @@ struct Stats {
     free_vars_wip_fired: i32,
     single_use_done_fired: i32,
     single_use_wip_fired: i32,
+    force_multiuse_fired: i32,
 }
 
 
@@ -2031,6 +2032,7 @@ fn derive_inventions(
         // Itertools::group_by(key: F)
         for (elem, subset) in &Itertools::group_by(possible_elems.into_iter(), |(elem, _node)| elem.clone()) {
             let mut nodes: Vec<Id> = subset.map(|(_elem, node)| node).collect();
+            let num_nodes = nodes.len();
             let is_multiuse = elem.ivar < wi.ztuple.arity; // multiuse means an old index within the old arity range was reused
 
             // divergence point doesnt depend on the specific node so we'll just use the first one
@@ -2062,6 +2064,7 @@ fn derive_inventions(
 
             let fold_groups = group_by_key(nodes.clone(), fold_key);
             let both_groups = group_by_key(nodes, both_edge_key);
+            let num_offspring = fold_groups.len();
 
             // finish any inventions
             for group in both_groups {
@@ -2143,6 +2146,15 @@ fn derive_inventions(
                 } else {
                     stats.upper_bound_fired += 1;
                 }
+            }
+
+            // a multiuse invention that is present at all the nodes from the original worklist AND
+            // has all the same non-leading-edge so it only has one offspring. It is strictly beneficial (or breakeven
+            // for single leaf nodes) to accept this multiuse, so we can just Break before looking at any higher zid 
+            // merges and instead let this newly pushed multiuse thing be the one that merges with those future things.
+            if is_multiuse && num_nodes == wi.nodes.len() && num_offspring == 1 {
+                stats.force_multiuse_fired += 1;
+                break;
             }
         }
 
