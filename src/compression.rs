@@ -788,11 +788,23 @@ struct AppZTuple {
 }
 
 // can add upper bound utility and such here later too
+#[derive(Debug,Clone, Eq, PartialEq, PartialOrd, Ord)]
 struct WorklistItem {
     ztuple: ZTuple,
     nodes: Vec<Id>, // nodes in the group
     left_utility: i32, // utility of a single usage
     utility_upper_bound: i32, // upper bound utility over all usages
+}
+
+#[derive(Debug,Clone, Eq, PartialEq, PartialOrd, Ord)]
+struct HeapItem {
+    key: i32,
+    item: WorklistItem,
+}
+impl HeapItem {
+    fn new(item: WorklistItem) -> HeapItem {
+        HeapItem { key: item.ztuple.elems.last().unwrap().zid as i32, item: item }
+    }
 }
 
 // can add upper bound utility and such here later too
@@ -1760,7 +1772,8 @@ fn beta_inversions(
     let mut zids_of_node: Vec<Vec<ZId>> = vec![vec![]; treenodes.len()];
     let mut nodes_of_zid: Vec<Vec<Id>> = vec![vec![]; paths.len()];
     let mut first_mergeable_zid_of_zid: Vec<ZId> = vec![];
-    let mut worklist: Vec<WorklistItem> = vec![];
+    let mut worklist: Vec<WorklistItem> = Default::default();
+    // let mut worklist: BinaryHeap<HeapItem> = Default::default();
     let mut donelist: Vec<FinishedItem> = vec![];
     // make sure treenodes is a permutation of the first N numbers so the Vec<Vec<>> is fine to use
     assert!(*treenodes.iter().max().unwrap() == Id::from(treenodes.len()-1));
@@ -1868,6 +1881,8 @@ fn beta_inversions(
             };
             if upper_bound > best_utility {
                 worklist.push(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound));
+                // worklist.push(HeapItem::new(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound)));
+                // worklist.sort_by_key(|wi| -wi.left_utility);
             } else {
                 stats.upper_bound_fired += 1;
             }
@@ -1955,6 +1970,7 @@ fn derive_inventions(
     nodes_of_zid: &Vec<Vec<Id>>,
     first_mergeable_zid_of_zid: &Vec<ZId>,
     worklist: &mut Vec<WorklistItem>,
+    // worklist: &mut BinaryHeap<HeapItem>,
     donelist: &mut Vec<FinishedItem>,
     paths: &Vec<ZPath>,
     max_arity: usize,
@@ -1972,6 +1988,7 @@ fn derive_inventions(
 
     // todo ofc can parallelize this 
     while let Some(wi) = worklist.pop() {
+        // let wi = wi.item;
         // println!("processing {}", num_processed);
         // check upper bound;
         if wi.utility_upper_bound <= *best_utility {
@@ -2120,7 +2137,9 @@ fn derive_inventions(
                     num_uses * (-COST_TERMINAL + left_utility + arity_utility) + multiuse_utility + right_utility_upper_bound
                 };
                 if upper_bound > *best_utility {
+                    // worklist.push(HeapItem::new(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound)));
                     worklist.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
+                    // worklist.sort_by_key(|wi| -wi.left_utility);
                 } else {
                     stats.upper_bound_fired += 1;
                 }
