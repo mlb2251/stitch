@@ -2154,7 +2154,7 @@ fn derive_inventions(
             // merges and instead let this newly pushed multiuse thing be the one that merges with those future things.
             if is_multiuse && num_nodes == wi.nodes.len() && num_offspring == 1 {
                 stats.force_multiuse_fired += 1;
-                break;
+                break; // todo I would be a little careful with this optimization, disable it by commenting this if you suspect its not sound. It should be fine but I wrote it at night.
             }
         }
 
