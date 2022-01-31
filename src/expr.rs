@@ -6,6 +6,9 @@ use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
 use serde::{de::Error, Deserializer};
 
+type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
+
+
 /// A node of an untyped lambda calculus expression compatible with `egg` but also used more widely throughout this crate.
 /// Note that there is no domain associated with this object. This makes it easy to run compression on
 /// domains that don't have semantics yet, makes it easy to add new prims (eg learned functions), etc.
@@ -354,14 +357,14 @@ impl Expr {
     /// write the Expr to a file (includes structural hashing sharing)
     /// writes to `outdir/name.png` (no need to provide the extension)
     pub fn save(&self, name: &str, outdir: &str) {
-        let mut egraph: EGraph<Lambda,()> = Default::default();
+        let mut egraph: EGraph = Default::default();
         egraph.add_expr(self.into());
         egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
     }
 
     /// Returns a vec indexed by child Id that maps to the hashset of free
     /// vars in the child expr.
-    pub fn free_vars(&self, ivars: bool) -> Vec<HashSet<i32>> {
+    pub fn all_free_vars(&self, ivars: bool) -> Vec<HashSet<i32>> {
         let mut all_free_vars: Vec<HashSet<i32>> = vec![];
         for node in &self.nodes {
             let mut free_vars = HashSet::new();
@@ -388,13 +391,61 @@ impl Expr {
                         })
                     );
                 },
-                Lambda::Programs(_ps) => {
+                Lambda::Programs(ps) => {
                     // assert!(ps.iter().all(|p| all_free_vars[usize::from(*p)].is_empty()));
+                    // for p in ps {
+                    //     free_vars.extend(all_free_vars[usize::from(*p)].clone());
+                    // }
                 },
             }
             all_free_vars.push(free_vars);
         };
         all_free_vars
+    }
+    /// Returns a vec indexed by child Id that maps to the hashset of free
+    /// vars in the child expr.
+    pub fn all_costs(&self) -> Vec<i32> {
+        let mut all_costs: Vec<i32> = vec![];
+        for node in &self.nodes {
+            match node {
+                Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => {
+                    // it's a little weird to rate the #i of an IVar as having a cost but just user beware; likely this is never used on ivars
+                    all_costs.push(COST_TERMINAL)
+                },
+                Lambda::App([f,x]) => {
+                    all_costs.push(all_costs[usize::from(*f)] + all_costs[usize::from(*x)] + COST_NONTERMINAL);
+                },
+                Lambda::Lam([b]) => {
+                    all_costs.push(all_costs[usize::from(*b)] + COST_NONTERMINAL);
+                },
+                Lambda::Programs(ps) => {
+                    all_costs.push(ps.iter().map(|p| all_costs[usize::from(*p)]).sum::<i32>());
+                },
+            }
+        };
+        all_costs
+    }
+
+    pub fn add_and_remap(&self, egraph: &mut EGraph) -> Vec<Id> {
+        let mut remap: Vec<Id> = vec![];
+        for node in &self.nodes {
+            match node {
+                Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => {
+                    // it's a little weird to rate the #i of an IVar as having a cost but just user beware; likely this is never used on ivars
+                    remap.push(egraph.add(node.clone()));
+                },
+                Lambda::App([f,x]) => {
+                    remap.push(egraph.add(Lambda::App([remap[usize::from(*f)], remap[usize::from(*x)]])));
+                },
+                Lambda::Lam([b]) => {
+                    remap.push(egraph.add(Lambda::Lam([remap[usize::from(*b)]])));
+                },
+                Lambda::Programs(ps) => {
+                    remap.push(egraph.add(Lambda::Programs(ps.iter().map(|p| remap[usize::from(*p)]).collect())));
+                },
+            }
+        };
+        remap
     }
 }
 

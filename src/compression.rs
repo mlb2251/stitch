@@ -51,17 +51,17 @@ pub struct CompressionArgs {
 
 /// nonterminals ("app" and "lam") cost 1/100th of a terminal ("var", "ivar", "prim"). This is because nonterminals
 /// can be autofilled based on the type of the hole you're filling during most search methods.
-const COST_NONTERMINAL: i32 = 1;
-const COST_TERMINAL: i32 = 100;
+pub const COST_NONTERMINAL: i32 = 1;
+pub const COST_TERMINAL: i32 = 100;
 
 type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
 
 /// The analysis data associated with each Lambda node
 #[derive(Debug)]
 pub struct Data {
-    free_vars: HashSet<i32>, // $i vars. For example (lam $2) has free_vars = {1}.
-    free_ivars: HashSet<i32>, // #i ivars
-    inventionless_cost: i32,
+    pub free_vars: HashSet<i32>, // $i vars. For example (lam $2) has free_vars = {1}.
+    pub free_ivars: HashSet<i32>, // #i ivars
+    pub inventionless_cost: i32,
 }
 
 /// An invention we've found (ie a learned function we can use to compress the program).

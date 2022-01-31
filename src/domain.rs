@@ -129,7 +129,7 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     /// and it was absolutely miserable, see my notes. But this is here if someone finds
     /// a use for it. Ofc be careful not to break function purity with this but otherwise
     /// be creative :)
-    type Data: Debug + Default;
+    type Data: Debug + Default + Clone;
 
     const TRUST_LEVEL: TrustLevel;
 
