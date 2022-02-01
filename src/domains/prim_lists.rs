@@ -194,8 +194,9 @@ fn eq(mut args: Vec<Val>, handle: &Executable) -> VResult {
                 for i in 0..l1_len {
                     let elems_equal = eq(vec![l1[i].clone(), l2[i].clone()], handle);
                     match elems_equal {
-                        VResult::Ok(Dom(Bool(b))) => continue,
+                        VResult::Ok(Dom(Bool(b))) => { all_elems_equal = b; },
                         _       => {
+                            // TODO this will SILENTLY fail if the result is not Ok
                             all_elems_equal = false;
                             break;
                         }
