@@ -84,21 +84,20 @@ impl<T: Into<Val>> Into<Val> for Vec<T> {
     }
 }
 
-fn parse_vec(vec: & Vec<serde_json::value::Value>) -> Option<Vec<Val>> {
-    // TODO this will SILENTLY fail to parse elems of the vector which are not
-    // themselves Vals
-    let valvec: Vec<Val> = vec.into_iter().filter_map(|v| {
+fn parse_vec(vec: & Vec<serde_json::value::Value>) -> Vec<Val> {
+    let valvec: Vec<Val> = vec.into_iter().map(|v| {
         if let Some(i) = v.as_i64() {
-            Some(Dom(Int(i as i32)))
+            Dom(Int(i as i32))
         } else if let Some(b) = v.as_bool() {
-            Some(Dom(Bool(b)))
-        } else if let Some(a) = v.as_array() {
-            Some(Dom(List(parse_vec(a).unwrap())))
+            Dom(Bool(b))
         } else {
-            None
+            // not int, not bool -> must be array. If not, we error.
+            // TODO make this spit out a more useful error than panic
+            let arr = v.as_array().unwrap();
+            Dom(List(parse_vec(arr)))
         }
     }).collect();
-    Some(valvec)
+    return valvec;
 }
 
 impl Domain for ListVal {
@@ -135,7 +134,7 @@ impl Domain for ListVal {
             // Note lists may contain ints, bools, or other lists in this domain
             else if p.as_str().chars().next().unwrap() == '[' {
                 let elems: Vec<serde_json::value::Value> = serde_json::from_str(p.as_str()).ok()?;
-                let valvec: Vec<Val> = parse_vec(&elems).unwrap();
+                let valvec: Vec<Val> = parse_vec(&elems);
                 Some(List(valvec).into())
             } else {
                 None
@@ -183,29 +182,29 @@ fn branch(mut args: Vec<Val>, _handle: &Executable) -> VResult {
 fn eq(mut args: Vec<Val>, handle: &Executable) -> VResult {
     load_args!(args, a:Val, b:Val); 
     match (a, b) {
-        (Dom(Int(i)), Dom(Int(j))) => ok(i==j),
-        (Dom(Bool(b1)), Dom(Bool(b2))) => ok(b1==b2),
+        (Dom(Int(i)), Dom(Int(j))) => { return ok(i==j); },
+        (Dom(Bool(b1)), Dom(Bool(b2))) => { return ok(b1==b2); },
         (Dom(List(l1)), Dom(List(l2))) => {
             let l1_len = l1.len();
             if l1_len != l2.len() {
-                ok(false)
+                return ok(false);
             } else {
                 let mut all_elems_equal = true;
                 for i in 0..l1_len {
                     let elems_equal = eq(vec![l1[i].clone(), l2[i].clone()], handle);
                     match elems_equal {
                         VResult::Ok(Dom(Bool(b))) => { all_elems_equal = b; },
+                        VResult::Err(s) => { return Err(s) }
                         _       => {
-                            // TODO this will SILENTLY fail if the result is not Ok
                             all_elems_equal = false;
                             break;
                         }
                     }
                 }
-                ok(all_elems_equal)
+                return ok(all_elems_equal);
             }
         }
-        _ => ok(false)
+        _ => { return ok(false); }
     }
 }
 
@@ -234,16 +233,24 @@ fn tail(mut args: Vec<Val>, _handle: &Executable) -> VResult {
 
 fn fix(mut args: Vec<Val>, handle: &Executable) -> VResult {
     load_args!(args, x: Val, fn_val: Val);
-    // TODO how to handle the result being either a Val or an Error?
+    println!("Running fix with x={:?}, fn_val={:?}", x, fn_val);
 
-    if let VResult::Ok(fx) = handle.apply(&fn_val, x) {
+    // TODO at what level am I implementing fix here?
+    // Should I replicate the y-combinator, or can I take some shortcuts due to
+    // working in the meta language?
+
+    if let VResult::Ok(fx) = handle.apply(&fn_val, x.clone()) {
         // we successfully applied the fn to x once and got some result fx
-        // try doing it recursively
-        if let VResult::Ok(rfx) = fix(vec![fx, fn_val], handle) {
-            ok(rfx)
-        } else {
-            Err(String::from("recursive call gave error"))
-        }
+        // If x = fx, we have arrived at a fixpoint, so start unwrapping recursion
+        // otherwise, recurse to get f(f(x))
+        ok(fx)
+        //if fx == x {
+        //    ok(fx)
+        //} else if let VResult::Ok(ffx) = fix(vec![fx, fn_val], handle) {
+        //    ok(ffx)
+        //} else {
+        //    Err(String::from("recursive call gave error"))
+        //}
     } else {
         Err(String::from("failed to apply fn to arg"))
     }
@@ -258,22 +265,39 @@ mod tests {
     #[test]
     fn eval_test() {
 
-        assert_execution::<domains::prim_lists::ListVal, i32>("(+ 1 2)", &[], 3);
-        assert_execution::<domains::prim_lists::ListVal, i32>("(- 22 1)", &[], 21);
-        assert_execution::<domains::prim_lists::ListVal, bool>("(> 22 1)", &[], true);
-        assert_execution::<domains::prim_lists::ListVal, bool>("(> 2 11)", &[], false);
-
+        // test cons
         let arg = ListVal::val_of_prim("[1,2,3]".into()).unwrap();
         assert_execution("(cons 0 $0)", &[arg], vec![0,1,2,3]);
-
-        //let arg = ListVal::val_of_prim("[1,2,3]".into()).unwrap();
-        //assert_execution("(sum (map (lam (+ 1 $0)) $0))", &[arg], 9);
-
-        //let arg = ListVal::val_of_prim("[1,2,3]".into()).unwrap();
-        //assert_execution("(map (lam (* $0 $0)) (map (lam (+ 1 $0)) $0))", &[arg], vec![4,9,16]);
-
-        //let arg = ListVal::val_of_prim("[1,2,3]".into()).unwrap();
-        //assert_execution("(map (lam (* $0 $0)) (map (lam (+ (sum $1) $0)) $0))", &[arg], vec![49,64,81]);
-
+        // test +
+        assert_execution::<domains::prim_lists::ListVal, i32>("(+ 1 2)", &[], 3);
+        // test -
+        assert_execution::<domains::prim_lists::ListVal, i32>("(- 22 1)", &[], 21);
+        // test >
+        assert_execution::<domains::prim_lists::ListVal, bool>("(> 22 1)", &[], true);
+        assert_execution::<domains::prim_lists::ListVal, bool>("(> 2 11)", &[], false);
+        // test if
+        assert_execution::<domains::prim_lists::ListVal, i32>("(if true 5 50)", &[], 5);
+        assert_execution::<domains::prim_lists::ListVal, i32>("(if false 5 50)", &[], 50);
+        // test ==
+        assert_execution::<domains::prim_lists::ListVal, bool>("(== 5 5)", &[], true);
+        assert_execution::<domains::prim_lists::ListVal, bool>("(== 5 50)", &[], false);
+        // test is_empty
+        let arg = ListVal::val_of_prim("[[],[3],[4,5]]".into()).unwrap();
+        assert_execution("(is_empty $0)", &[arg], false);
+        let arg = ListVal::val_of_prim("[]".into()).unwrap();
+        assert_execution("(is_empty $0)", &[arg], true);
+        // test head
+        let arg = ListVal::val_of_prim("[[1,2],[3],[4,5]]".into()).unwrap();
+        assert_execution("(head $0)", &[arg], vec![1,2]);
+        // test tail
+        let arg = ListVal::val_of_prim("[[1,2],[3],[4,5]]".into()).unwrap();
+        assert_execution("(tail $0)", &[arg], vec![vec![3], vec![4, 5]]);
+        let arg = ListVal::val_of_prim("[[1,2]]".into()).unwrap();
+        assert_execution::<domains::prim_lists::ListVal, Vec<Val>>("(tail $0)", &[arg], vec![]);
+        // test fix
+        //let arg = ListVal::val_of_prim("[1,2,3,4,5]".into()).unwrap();
+        //assert_execution("(fix $0 (lam (lam (if (is_empty $0) 0 (+ 1 ($1 (tail $0)))))))", &[arg], 5);
+        //let arg = ListVal::val_of_prim("[1,2,3,4,5]".into()).unwrap();
+        //assert_execution("(fix $0 (lam (lam (if (is_empty $0) $0 (cons (+ 1 (head $0)) ($1 (tail $0)))))))", &[arg], vec![2, 3, 4, 5, 6]);
     }
 }
