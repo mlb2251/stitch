@@ -60,6 +60,7 @@ pub fn execution_guided_compression<D: Domain>(
     // let mut free_vars: Vec<HashSet<i32>> = programs.expr.all_free_vars(false);
     // let mut costs: Vec<i32> = programs.expr.all_costs();
     // free_vars.pop(); // remove the Programs node
+    
 
     assert_eq!(num_expids,evalresults.len());
     // assert_eq!(N,free_vars.len());
