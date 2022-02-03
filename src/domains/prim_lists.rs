@@ -193,8 +193,8 @@ fn eq(mut args: Vec<Val>, handle: &Executable) -> VResult {
                 for i in 0..l1_len {
                     let elems_equal = eq(vec![l1[i].clone(), l2[i].clone()], handle);
                     match elems_equal {
-                        VResult::Ok(Dom(Bool(b))) => { all_elems_equal = b; },
                         VResult::Err(s) => { return Err(s) }
+                        VResult::Ok(Dom(Bool(true))) => { continue; },
                         _       => {
                             all_elems_equal = false;
                             break;
@@ -281,6 +281,18 @@ mod tests {
         // test ==
         assert_execution::<domains::prim_lists::ListVal, bool>("(== 5 5)", &[], true);
         assert_execution::<domains::prim_lists::ListVal, bool>("(== 5 50)", &[], false);
+        let arg1 = ListVal::val_of_prim("[[],[3],[4,5]]".into()).unwrap();
+        let arg2 = ListVal::val_of_prim("[[],[3],[4,5]]".into()).unwrap();
+        assert_execution::<domains::prim_lists::ListVal, bool>("(== $0 $1)", &[arg1, arg2], true);
+        let arg1 = ListVal::val_of_prim("[[],[3],[4,5]]".into()).unwrap();
+        let arg2 = ListVal::val_of_prim("[[3],[4,5]]".into()).unwrap();
+        assert_execution::<domains::prim_lists::ListVal, bool>("(== $0 $1)", &[arg1, arg2], false);
+        let arg1 = ListVal::val_of_prim("[[]]".into()).unwrap();
+        let arg2 = ListVal::val_of_prim("[]".into()).unwrap();
+        assert_execution::<domains::prim_lists::ListVal, bool>("(== $0 $1)", &[arg1, arg2], false);
+        let arg1 = ListVal::val_of_prim("[]".into()).unwrap();
+        let arg2 = ListVal::val_of_prim("[]".into()).unwrap();
+        assert_execution::<domains::prim_lists::ListVal, bool>("(== $0 $1)", &[arg1, arg2], true);
         // test is_empty
         let arg = ListVal::val_of_prim("[[],[3],[4,5]]".into()).unwrap();
         assert_execution("(is_empty $0)", &[arg], false);
