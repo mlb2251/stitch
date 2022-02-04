@@ -27,6 +27,10 @@ pub struct CompressionArgs {
     #[clap(short='a', long, default_value = "2")]
     pub max_arity: usize,
 
+    /// whether to render the inventions
+    #[clap(long,short='r')]
+    pub show_rewritten: bool,
+
     /// beam size
     // #[clap(short, long, default_value = "10000000")]
     // beam_size: usize,
@@ -808,10 +812,18 @@ impl HeapItem {
 }
 
 // can add upper bound utility and such here later too
+#[derive(Debug,Clone)]
 struct FinishedItem {
     ztuple: ZTuple,
     nodes: Vec<Id>, // nodes in the group
     utility: i32,
+}
+
+#[derive(Debug,Clone)]
+struct InventionItem {
+    item: FinishedItem,
+    expr: Expr,
+    usages: i32,
 }
 
 
@@ -1348,10 +1360,10 @@ impl AppliedInv {
 
 /// result of beta_inversions(). This struct feels pretty subject to change, it's a bit
 /// of a pain to work with these _of_treenode objects.
-struct InversionResult {
-    applams_of_treenode: HashMap<Id,Vec<AppLam>>,
-    best_inventions_of_treenode: HashMap<Id,BestInventions>
-}
+// struct InversionResult {
+//     applams_of_treenode: HashMap<Id,Vec<AppLam>>,
+//     best_inventions_of_treenode: HashMap<Id,BestInventions>
+// }
 
 fn get_treenode_to_roots(roots: &Vec<Id>, egraph: &EGraph) -> HashMap<Id,Vec<Id>> {
     let mut treenode_to_roots: HashMap<Id,Vec<Id>> = Default::default();
@@ -1705,35 +1717,28 @@ struct Stats {
 }
 
 
-/// This is the main workhorse of compression. Takes a child-first ordering of nodes in an EGraph
-/// (assumed to be acyclic) and finds all the possible useful inventions up to the given arity.
-#[inline(never)] // for flamegraph debugging
-fn beta_inversions(
-    programs_node: Id,
-    max_arity: usize,
-    // beam_size: usize,
-    no_cache: bool,
-    egraph: &mut EGraph
-) -> InversionResult {
+/// takes a (programs ...) expr, returns the best Invention and the Expr rewritten under that invention
+fn compression_step(
+    programs_expr: &Expr,
+    args: &CompressionArgs,
+    out_dir: &str,
+    new_inv_name: &str,
+) -> Option<CompressionResult> {
 
-    println!("{}", extract(programs_node, egraph));
+    // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
+    let mut egraph: EGraph = Default::default();
+    let programs_node = egraph.add_expr(programs_expr.into());
+    egraph.rebuild();
 
-    let treenodes: Vec<Id> = toplogical_ordering(programs_node,egraph);
+    println!("Initial egraph:\n\t{}\n", egraph_info(&egraph));
+    if args.render_initial {
+        save(&egraph, "0_programs", &out_dir);
+    }
+
+    let tstart = std::time::Instant::now();
+
+    let treenodes: Vec<Id> = toplogical_ordering(programs_node,&egraph);
     assert!(usize::from(*treenodes.iter().max().unwrap()) == treenodes.len() - 1); // ensures we can safely just use Vecs of length treenodes.len() to store various nodewise things
-    // let mut roots: Vec<Id> = egraph[programs_node].nodes[0].children().iter().cloned().collect();
-    // if roots.iter().copied().collect::<HashSet<Id>>().len() != roots.len() {
-    //     panic!("roots are not unique, this will cause issues and just doesnt make sense as an input");
-    // }
-
-    // assert!(roots.iter().collect::<HashSet<_>>().len() == roots.len(), "duplicate programs found");
-
-    // lets you lookup which roots a treenode is a descendent of
-    // println!("ROOOOOOTS {:?}", roots);
-    // let mut roots_of_node: HashMap<Id,Vec<Id>> = get_treenode_to_roots(&roots, egraph);
-    // roots_of_node.insert(programs_node,vec![]); // Programs node has no roots
-    // for (treenode, roots) in treenode_to_roots.iter() {
-    //     println!("{} {:?}", extract(*treenode, egraph), roots);
-    // }
 
     // populate num_paths_to_node so we know how many different parts of the programs tree
     // a node participates in (ie multiple uses within a single program or among programs)
@@ -1753,7 +1758,7 @@ fn beta_inversions(
     let tstart_total = std::time::Instant::now();
 
     let tstart = std::time::Instant::now();
-    let (all_appzippers, remap) = get_appzippers(&treenodes, no_cache, egraph);
+    let (all_appzippers, remap) = get_appzippers(&treenodes, args.no_cache, &mut egraph);
     println!("get_appzippers: {:?}ms", tstart.elapsed().as_millis());
 
 
@@ -1768,16 +1773,13 @@ fn beta_inversions(
 
     println!("collect paths and dedup: {:?}ms", tstart.elapsed().as_millis());
 
-
-    let mut appzipper_of_node_zid: HashMap<(Id,ZId),AppZipper> = HashMap::new();
+    let mut appzipper_of_node_zid: HashMap<(Id,ZId),AppZipper> = Default::default();
     let mut zids_of_node: Vec<Vec<ZId>> = vec![vec![]; treenodes.len()];
     let mut nodes_of_zid: Vec<Vec<Id>> = vec![vec![]; paths.len()];
-    let mut first_mergeable_zid_of_zid: Vec<ZId> = vec![];
+    let mut first_mergeable_zid_of_zid: Vec<ZId> = Default::default();
     let mut worklist: Vec<WorklistItem> = Default::default();
     // let mut worklist: BinaryHeap<HeapItem> = Default::default();
-    let mut donelist: Vec<FinishedItem> = vec![];
-    // make sure treenodes is a permutation of the first N numbers so the Vec<Vec<>> is fine to use
-    assert!(*treenodes.iter().max().unwrap() == Id::from(treenodes.len()-1));
+    let mut donelist: Vec<FinishedItem> = Default::default();
 
     for (i,path) in paths.iter().enumerate() {
         // first path after `i` where the path isnt a prefix is the first mergeable one
@@ -1785,7 +1787,6 @@ fn beta_inversions(
         // vec already starts with all Trues and ends with all Falses)
         first_mergeable_zid_of_zid.push(paths[i..].partition_point(|p| p.starts_with(path)) + i);
     }
-
 
     let tstart = std::time::Instant::now();
 
@@ -1812,87 +1813,26 @@ fn beta_inversions(
 
     let mut stats: Stats = Default::default();
 
-    for (zid,nodes) in nodes_of_zid.iter().enumerate() {
-        let left_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice();
-        let path_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.path.as_slice();
-        let right_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.right.as_slice();
-        let both_edge_key = |node: &Id| (appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice(),
-                                        appzipper_of_node_zid[&(*node,zid)].zipper.right.as_slice());
-        let mut nodes = nodes.clone();
-
-        // sorting by `both` means elements with the same `both` key will be adjacent, AND
-        // elements with the same `left` key will be contiguous (since the `left` key is a prefix of the `both` key)
-        nodes.sort_unstable_by_key(&both_edge_key);
-
-        let left_groups = group_by_key(nodes.clone(), left_edge_key);
-        let both_groups = group_by_key(nodes, both_edge_key);
-
-        // finish any inventions
-        for group in both_groups {
-            // if groups are singletons or contain free variables, skip them
-            if group.len() <= 1 {
-                stats.single_use_done_fired += 1;
-                continue;
-            }
-            if edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) ||
-               edge_has_free_vars(right_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
-                stats.free_vars_done_fired += 1;
-                continue;
-            }
-            let utility = {
-                let left_utility = left_edge_utility(left_edge_key(&group[0]), egraph);
-                let right_utility = right_edge_utility(right_edge_key(&group[0]), egraph);
-                let arity_utility = -COST_NONTERMINAL * 1; // arity is 1
-                let multiuse_utility = 0; // can't have multiuse here
-                let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-                num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility
-            };
-            if utility > lowest_donelist_utility {
-                donelist.push(FinishedItem::new(ZTuple::single(zid), group, utility));
-                if utility > best_utility {
-                    best_utility = utility;
-                }
-            }
-            stats.num_done += 1;
-        }
-
-        // extend the worklist
-        for group in left_groups {
-            // if groups are singletons or contain free variables on the left edge (which can never be changed), discard them
-            if group.len() <= 1 {
-                // println!("rejected bc <= 1: {}", ZTuple::single(zid).to_expr(group[0], &appzipper_of_node_zid, &egraph));
-                stats.single_use_wip_fired += 1;
-                continue;
-            }
-            if edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
-                // panic!("hey");
-                stats.free_vars_wip_fired += 1;
-                continue;
-            }
-            // println!("passed: {}", ZTuple::single(zid).to_expr(group[0], &appzipper_of_node_zid, &egraph));
-
-
-            let left_utility = left_edge_utility(left_edge_key(&group[0]), egraph);
-            let upper_bound = {
-                let right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), egraph)).sum::<i32>();
-                let arity_utility = -COST_NONTERMINAL * 1; // arity is 1
-                let multiuse_utility = 0; // can't have multiuse here, and upper bound accounts for future multiuse
-                let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-                num_uses * (-COST_TERMINAL + left_utility + arity_utility) + multiuse_utility + right_utility_upper_bound
-            };
-            if upper_bound > best_utility {
-                worklist.push(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound));
-                // worklist.push(HeapItem::new(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound)));
-                // worklist.sort_by_key(|wi| -wi.left_utility);
-            } else {
-                stats.upper_bound_fired += 1;
-            }
-        }
-    }
-
-    donelist.sort_unstable_by_key(|item| -item.utility);
-    donelist.truncate(MAX_DONELIST);
-    lowest_donelist_utility = donelist.last().unwrap().utility;
+    initial_inventions(
+        &appzipper_of_node_zid,
+        &zids_of_node,
+        &nodes_of_zid,
+        &first_mergeable_zid_of_zid,
+        &mut worklist,
+        &mut donelist,
+        &paths,
+        args.max_arity,
+        &egraph,
+        &remap,
+        &treenodes,
+        programs_node,
+        // &mut upper_bound_cutoff,
+        &mut lowest_donelist_utility,
+        &mut best_utility,
+        MAX_DONELIST,
+        &num_paths_to_node,
+        &mut stats,
+    );
 
     println!("initial worklist length: {}", worklist.len());
     println!("set up the worklist: {:?}ms", tstart.elapsed().as_millis());
@@ -1921,7 +1861,7 @@ fn beta_inversions(
         &mut worklist,
         &mut donelist,
         &paths,
-        max_arity,
+        args.max_arity,
         &egraph,
         &remap,
         &treenodes,
@@ -1939,31 +1879,161 @@ fn beta_inversions(
 
     println!("total everything: {:?}ms", tstart_total.elapsed().as_millis());
 
-    let orig_cost = extract(programs_node,egraph).cost();
-    //  for (inv, cost) in best_inventions.iter().take(5) {
-    //      println!("{} -> {}\n{}", orig_cost, cost, inv.to_expr(egraph)); 
-    // }
+    let elapsed = tstart.elapsed().as_millis();
 
-    // for done in donelist.iter() {
-    //     let s = done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, egraph).to_string();
-    //     if s == "(logo_forLoop #1 (lam (lam (logo_FWRT (logo_MULL logo_UL #0) (logo_DIVA logo_UA #1) $0))))" ||
-    //        s == "(logo_forLoop #0 (lam (lam (logo_FWRT (logo_MULL logo_UL #1) (logo_DIVA logo_UA #0) $0))))" {
-    //         let final_cost = orig_cost - done.utility;
-    //         let multiplier = orig_cost as f64 / final_cost as f64;    
-    //         println!("FOUND: utility: {} (final_cost: {}; {:.2}x) | uses: {}; ztuple: {} ", done.utility, final_cost, multiplier, done.nodes.len(), done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, egraph));
-    //         break;
-    //        }
-    // }
+    let orig_cost = egraph[programs_node].data.inventionless_cost;
 
-    println!("orig cost: {}", orig_cost);
-    for done in donelist.iter().take(10) {
+    println!("Cost before: {}", orig_cost);
+    for (i,done) in donelist.iter().enumerate().take(10) {
         let final_cost = orig_cost - done.utility;
         let multiplier = orig_cost as f64 / final_cost as f64;
-        println!("utility: {} (final_cost: {}; {:.2}x) | uses: {}; ztuple: {} ", done.utility, final_cost, multiplier, done.nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>(), done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, egraph));
+        println!("i) utility: {} (final_cost: {}; {:.2}x) | uses: {}; ztuple: {} ",
+            done.utility, final_cost, multiplier,
+            done.nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>(),
+            done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, &egraph)
+        );
+        // todo also add printing the actual body if --show-rewritten is set
+        // if args.render_inventions {
+        //     inv_expr.save(&format!("inv{}",i), &out_dir);
+        // }
+    }
+    
+
+    println!("Final egraph: {}",egraph_info(&egraph));
+
+    // print out the largest variable we've seen (useful to make sure our egraph isnt exploding due to Vars)
+    // for i in 0..100 {
+    //     if search(format!("(${})",i).as_str(),&egraph).is_empty() {
+    //         println!("Largest variable: ${}",i-1);
+    //         break;
+    //     }
+    // }
+
+    println!("Final donelist length: {}",donelist.len());
+    println!("Core stuff took: {}ms ***\n", elapsed);
+
+    // if donelist.is_empty() {
+    //     return None
+    // }
+
+    // return the top invention
+    // let top_inv = donelist[0].clone();
+    // let top_inv_expr = top_inv.to_expr(&egraph);
+    // let top_inv_rewritten = extract_under_inv(programs_id, top_inv.clone(), new_inv_name, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
+    // Some(CompressionResult {
+    //     inv: top_inv_expr,
+    //     rewritten: top_inv_rewritten,
+    // })
+    unimplemented!()
+}
+
+#[inline(never)]
+fn initial_inventions(
+    appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
+    zids_of_node: &Vec<Vec<ZId>>,
+    nodes_of_zid: &Vec<Vec<Id>>,
+    first_mergeable_zid_of_zid: &Vec<ZId>,
+    worklist: &mut Vec<WorklistItem>,
+    // worklist: &mut BinaryHeap<HeapItem>,
+    donelist: &mut Vec<FinishedItem>,
+    paths: &Vec<ZPath>,
+    max_arity: usize,
+    egraph: &EGraph,
+    remap: &HashMap<Id,Id>,
+    treenodes: &Vec<Id>,
+    programs_node: Id,
+    // upper_bound_cutoff: &mut i32,
+    lowest_donelist_utility: &mut i32,
+    best_utility: &mut i32,
+    MAX_DONELIST: usize,
+    num_paths_to_node: &HashMap<Id,i32>,
+    stats: &mut Stats,
+) {
+    for (zid,nodes) in nodes_of_zid.iter().enumerate() {
+        let left_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice();
+        let path_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.path.as_slice();
+        let right_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.right.as_slice();
+        let both_edge_key = |node: &Id| (appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice(),
+                                         appzipper_of_node_zid[&(*node,zid)].zipper.right.as_slice());
+        let mut nodes = nodes.clone();
+
+        // sorting by `both` means elements with the same `both` key will be adjacent, AND
+        // elements with the same `left` key will be contiguous (since the `left` key is a prefix of the `both` key)
+        nodes.sort_unstable_by_key(&both_edge_key);
+
+        let left_groups = group_by_key(nodes.clone(), left_edge_key);
+        let both_groups = group_by_key(nodes, both_edge_key);
+
+        // finish any inventions
+        for group in both_groups {
+            // if groups are singletons or contain free variables, skip them
+            if group.len() <= 1 {
+                stats.single_use_done_fired += 1;
+                continue;
+            }
+            if edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) ||
+               edge_has_free_vars(right_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
+                stats.free_vars_done_fired += 1;
+                continue;
+            }
+            let utility = {
+                let left_utility = left_edge_utility(left_edge_key(&group[0]), &egraph);
+                let right_utility = right_edge_utility(right_edge_key(&group[0]), &egraph);
+                let arity_utility = -COST_NONTERMINAL * 1; // arity is 1
+                let multiuse_utility = 0; // can't have multiuse here
+                let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
+                num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility
+            };
+            if utility > *lowest_donelist_utility {
+                donelist.push(FinishedItem::new(ZTuple::single(zid), group, utility));
+                if utility > *best_utility {
+                    *best_utility = utility;
+                }
+            }
+            stats.num_done += 1;
+        }
+
+        // extend the worklist
+        for group in left_groups {
+            // if groups are singletons or contain free variables on the left edge (which can never be changed), discard them
+            if group.len() <= 1 {
+                // println!("rejected bc <= 1: {}", ZTuple::single(zid).to_expr(group[0], &appzipper_of_node_zid, &egraph));
+                stats.single_use_wip_fired += 1;
+                continue;
+            }
+            if edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
+                // panic!("hey");
+                stats.free_vars_wip_fired += 1;
+                continue;
+            }
+            // println!("passed: {}", ZTuple::single(zid).to_expr(group[0], &appzipper_of_node_zid, &egraph));
+
+
+            let left_utility = left_edge_utility(left_edge_key(&group[0]), &egraph);
+            let upper_bound = {
+                let right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), &egraph)).sum::<i32>();
+                let arity_utility = -COST_NONTERMINAL * 1; // arity is 1
+                let multiuse_utility = 0; // can't have multiuse here, and upper bound accounts for future multiuse
+                let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
+                num_uses * (-COST_TERMINAL + left_utility + arity_utility) + multiuse_utility + right_utility_upper_bound
+            };
+            if upper_bound > *best_utility {
+                worklist.push(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound));
+                // worklist.push(HeapItem::new(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound)));
+                // worklist.sort_by_key(|wi| -wi.left_utility);
+            } else {
+                stats.upper_bound_fired += 1;
+            }
+        }
     }
 
-    unimplemented!();
+    donelist.sort_unstable_by_key(|item| -item.utility);
+    donelist.truncate(MAX_DONELIST);
+    *lowest_donelist_utility = donelist.last().unwrap().utility;
 }
+
+
+
 #[inline(never)]
 fn derive_inventions(
     appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
@@ -2424,101 +2494,7 @@ struct CompressionResult {
     rewritten: Expr,
 }
 
-/// takes a (programs ...) expr, returns the best Invention and the Expr rewritten under that invention
-fn compression_step(
-    programs_expr: &Expr,
-    args: &CompressionArgs,
-    out_dir: &str,
-    new_inv_name: &str,
-) -> Option<CompressionResult> {
 
-    // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
-    let mut egraph: EGraph = Default::default();
-    let programs_id = egraph.add_expr(programs_expr.into());
-    egraph.rebuild();
-
-    println!("Initial egraph:\n\t{}\n", egraph_info(&egraph));
-    if args.render_initial {
-        save(&egraph, "0_programs", &out_dir);
-    }
-
-    let tstart = std::time::Instant::now();
-
-    let treenodes: Vec<Id> = toplogical_ordering(programs_id, &egraph);
-    // println!("Topological ordering:");
-    // treenodes.iter().for_each(|&id| {
-    //     println!("id={}: {}", id, extract(id,&egraph));
-    // });
-
-    let InversionResult { applams_of_treenode, best_inventions_of_treenode} =
-        beta_inversions(
-            programs_id,
-            args.max_arity,
-            // args.beam_size,
-            args.no_cache,
-            &mut egraph
-        );
-
-    egraph.rebuild(); // hopefully doesnt matter at all anyways if we're just using the egraph as a structurla hasher (not sure if we needed to do this thruout inversions)
-
-    let elapsed = tstart.elapsed().as_millis();
-
-    println!("Inventionless (cost={:?}):\n{}\n",
-        egraph[programs_id].data.inventionless_cost,
-        extract(programs_id, &egraph)
-    );
-
-    let top_invs: Vec<Invention> = best_inventions_of_treenode[&programs_id].top_inventions();
-
-    // print the top args.print_inventions inventions
-    for (i,inv) in top_invs.iter().take(args.print_inventions).enumerate() {
-        let inv_expr = inv.to_expr(&egraph).body;
-        let inv_str = &format!("inv{}_{}",inv.body,inv.arity);
-        let rewritten = extract_under_inv(programs_id, *inv, inv_str, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
-        println!("\nInvention {} {:?} (inv_cost={:?}; rewritten_cost={:?}):\n{}\n Rewritten:\n{}",
-            i,
-            inv,
-            inv_expr.cost(),
-            rewritten.cost(),
-            inv_expr,
-            rewritten,
-        );
-        if args.render_inventions {
-            inv_expr.save(&format!("inv{}",i), &out_dir);
-        }
-    }
-
-    println!("Final egraph: {}",egraph_info(&egraph));
-
-    // print out the largest variable we've seen (useful to make sure our egraph isnt exploding due to Vars)
-    for i in 0..1000 {
-        if search(format!("(${})",i).as_str(),&egraph).is_empty() {
-            println!("Largest variable: ${}",i-1);
-            break;
-        }
-    }
-
-    println!("Cands useful at top level: {}",top_invs.len());
-    println!("Core stuff took: {}ms ***\n", elapsed);
-
-    if args.render_final {
-        println!("Rendering final egraph");
-        save(&egraph, "final", &out_dir);
-    }
-
-    if top_invs.is_empty() {
-        return None
-    }
-
-    // return the top invention
-    let top_inv = top_invs[0].clone();
-    let top_inv_expr = top_inv.to_expr(&egraph);
-    let top_inv_rewritten = extract_under_inv(programs_id, top_inv.clone(), new_inv_name, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
-    Some(CompressionResult {
-        inv: top_inv_expr,
-        rewritten: top_inv_rewritten,
-    })
-}
 
 pub fn compression(
     programs_expr: &Expr,
