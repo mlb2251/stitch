@@ -27,9 +27,17 @@ pub struct CompressionArgs {
     #[clap(short='a', long, default_value = "2")]
     pub max_arity: usize,
 
-    /// whether to render the inventions
+    /// 
     #[clap(long,short='r')]
     pub show_rewritten: bool,
+
+    /// 
+    #[clap(long)]
+    pub shuffle: bool,
+
+    /// 
+    #[clap(long)]
+    pub truncate: Option<usize>,
 
     /// beam size
     // #[clap(short, long, default_value = "10000000")]
@@ -86,6 +94,11 @@ pub struct Invention {
 pub struct InventionExpr {
     body: Expr, // invention body (not wrapped in lambdas)
     arity: usize
+}
+impl InventionExpr {
+    pub fn new(body: Expr, arity: usize) -> Self {
+        Self { body, arity }
+    }
 }
 
 impl Display for InventionExpr {
@@ -1912,19 +1925,20 @@ fn compression_step(
     println!("Final donelist length: {}",donelist.len());
     println!("Core stuff took: {}ms ***\n", elapsed);
 
-    // if donelist.is_empty() {
-    //     return None
-    // }
+    if donelist.is_empty() {
+        return None
+    }
 
     // return the top invention
-    // let top_inv = donelist[0].clone();
-    // let top_inv_expr = top_inv.to_expr(&egraph);
+    let top_inv: FinishedItem = donelist[0].clone();
+    let top_inv_expr: Expr = top_inv.ztuple.to_expr(top_inv.nodes[0], &appzipper_of_node_zid, &egraph);
+    let top_inv_invexpr: InventionExpr = InventionExpr::new(top_inv_expr, top_inv.ztuple.arity);
     // let top_inv_rewritten = extract_under_inv(programs_id, top_inv.clone(), new_inv_name, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
+    unimplemented!();
     // Some(CompressionResult {
-    //     inv: top_inv_expr,
+    //     inv: top_inv_invexpr,
     //     rewritten: top_inv_rewritten,
     // })
-    unimplemented!()
 }
 
 #[inline(never)]
@@ -2246,86 +2260,6 @@ fn derive_inventions(
 }
 
 
-    //     let mut invs: Vec<OffZTuple> = vec![];
-    //     let mut worklist_additions: Vec<ZTuple> = vec![];
-    //     for node in treenodes.iter() {
-
-    //         // 1) inherit useful inventions from children by bubbling up one step of costs from them. In the Programs case
-    //         //    this also will filter out singly-used inventions. Important to do this on all nodes even ones where ztuple doesnt apply!
-    //         node_costs.bubble_up_costs(*node, egraph);
-
-    //         // 2) fail fast if this node doesnt have all the zids the ztuple needs.
-    //         if ztuple.zids().any(|zid| !zids_of_node[usize::from(*node)].contains(&zid)) {
-    //             continue; // this node is missing a necessary zid
-    //         }
-            
-    //         // 3) instantiate an offztuple roughly by mapping zids to zippers
-    //         let appzippers =  ztuple.zids().map(|zid| appzipper_of_node_zid[&(*node,zid)].clone());
-    //         let appoffztuple = AppOffZTuple::from_appzippers(&ztuple, appzippers);
-
-    //         // 4) for efficiency we'll switch to referring to the invention by its location in `invs`
-    //         let inv: InvId = invs.iter().position(|inv| inv == &appoffztuple.offztuple).unwrap_or_else(|| {
-    //             invs.push(appoffztuple.offztuple.clone());
-    //             // println!("new inv: {}", appoffztuple.offztuple.to_string_detailed(egraph));
-    //             invs.len() - 1
-    //         });
-
-    //         // 5) use merge_multiarg and merge_multiuse to extend the worklist (or rather a temp worklist that gets deduped later)
-    //         let largest_zid: ZId = ztuple.zids().last().unwrap();
-    //         for zid in zids_of_node[usize::from(*node)].iter().filter(|zid| **zid > largest_zid) {
-    //             let appzipper: &AppOffZipper = &appzipper_of_node_zid[&(*node,*zid)];
-    //             if appoffztuple.offztuple.arity < max_arity {
-    //                 // arity is low so can attempt to merge
-    //                 if let Some(new_ztuple) = appoffztuple.merge_multiarg(appzipper, *zid, &ztuple) {
-    //                     worklist_additions.push(new_ztuple);
-    //                 }
-    //             }
-    //             if let Some(new_ztuples) = appoffztuple.merge_multiuse(appzipper, *zid, &ztuple) {
-    //                 worklist_additions.extend(new_ztuples);
-    //             }
-    //         }
-
-    //         // 6) get the cost of applying the invention at this node
-    //         let cost: i32 =
-    //             COST_TERMINAL // the new primitive for this invention
-    //             + COST_NONTERMINAL * appoffztuple.args.len() as i32 // the chain of app()s needed to apply the new primitive
-    //             + appoffztuple.args.iter()
-    //                 .map(|arg| node_costs.cost_under_inv(*arg, inv))
-    //                 .sum::<i32>(); // sum costs of actual args
-    //         // println!("COST: {} -> {} at {}", extract(*node,egraph).cost(), cost, extract(*node,egraph));
-    //         // 4) Push invention + cost into NodeCosts
-    //         node_costs.new_cost_under_inv(*node, inv, cost);            
-
-    //     }
-    //     // println!("benefited: {}", !node_costs.best_inventions(programs_node, 1).is_empty());
-    //     // 6) after all nodes are processed, add the best k=1 toplevel inventions to the list, sort/prune it if it's too long
-    //     best_inventions.extend(node_costs.best_inventions(programs_node, 1).into_iter().map(|(inv,cost)| (invs[inv].clone(),cost)));
-    //     if best_inventions.len() > 300 {
-    //         best_inventions.sort_by(|(_,cost1),(_,cost2)| cost1.cmp(cost2));
-    //         best_inventions.truncate(100);
-    //     }
-
-    //     // if ztuple.elems.len() == 3 && ztuple.arity == 1 { panic!("check this out")}
-
-    //     invs.clear();
-
-    //     node_costs.clear(); // wipe caches, but keep allocated memory for reuse
-
-    //     // 7) add worklist additions to the worklist
-    //     // todo ofc one step further of pruning would be checking which roots these correspond to and filtering singles wrt that
-    //     // filter_singles(&mut worklist_additions);
-    //     // note that sadly you cant prune based on what shows up only once bc you actually have to go by roots bc a single node could have multiple roots and thus be totally fine
-    //     worklist_additions.sort();
-    //     worklist_additions.dedup();
-    //     worklist.extend(worklist_additions);
-    //     // worklist.extend(worklist_additions.into_iter().collect::<HashSet<ZTuple>>()); // very important to dedup and no Ord so must use hashset
-    // }
-
-    // println!("processed {} ztuples", num_processed);
-
-    // best_inventions.sort_by(|(_,cost1),(_,cost2)| cost1.cmp(cost2));
-    // best_inventions.truncate(100);
-    // best_inventions
 
 /// sorts v, removes the last copy of every
 /// unique value, and dedups. So this is the same
@@ -2492,6 +2426,11 @@ fn best_inventions(invs_of_node: &HashMap<Id,Vec<AppliedInv>>, remap: &HashMap<I
 struct CompressionResult {
     inv: InventionExpr,
     rewritten: Expr,
+}
+impl CompressionResult {
+    fn new(inv: InventionExpr, rewritten: Expr) -> Self {
+        CompressionResult { inv, rewritten }
+    }
 }
 
 

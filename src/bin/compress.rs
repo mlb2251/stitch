@@ -3,6 +3,8 @@ use std::fs::File;
 use serde_json::de::from_reader;
 // extern crate log;
 use clap::Parser;
+use rand::seq::SliceRandom;
+
 
 
 fn main() {
@@ -17,6 +19,13 @@ fn main() {
     std::fs::create_dir(out_dir_p).unwrap();
 
     let mut programs: Vec<String> = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
+    if args.shuffle {
+        programs.shuffle(&mut rand::thread_rng());
+    }
+    if let Some(n) = args.truncate {
+        programs.truncate(n);
+    }
+    
     // programs.sort();
     // programs.dedup();
     let mut programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
