@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::hash::Hash;
 use std::cmp::Ordering;
 use itertools::Itertools;
+use extraction::extract;
 
 /// Args for compression
 #[derive(Parser, Debug)]
@@ -62,17 +63,26 @@ pub struct CompressionArgs {
 
 /// nonterminals ("app" and "lam") cost 1/100th of a terminal ("var", "ivar", "prim"). This is because nonterminals
 /// can be autofilled based on the type of the hole you're filling during most search methods.
-const COST_NONTERMINAL: i32 = 1;
-const COST_TERMINAL: i32 = 100;
+pub const COST_NONTERMINAL: i32 = 1;
+pub const COST_TERMINAL: i32 = 100;
 
-type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
+pub type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
 
 /// The analysis data associated with each Lambda node
 #[derive(Debug)]
 pub struct Data {
-    free_vars: HashSet<i32>, // $i vars. For example (lam $2) has free_vars = {1}.
-    free_ivars: HashSet<i32>, // #i ivars
-    inventionless_cost: i32,
+    pub free_vars: HashSet<i32>, // $i vars. For example (lam $2) has free_vars = {1}.
+    pub free_ivars: HashSet<i32>, // #i ivars
+    pub inventionless_cost: i32,
+}
+
+
+/// An invention we've found (ie a learned function we can use to compress the program).
+/// Inventions have a body + an arity
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct Invention {
+    pub body:Id, // this will be a subtree which can have IVars
+    pub arity: usize // also equal to max ivar in subtree + 1
 }
 
 /// At the end of the day we convert our Inventions into InventionExprs to make
@@ -80,8 +90,8 @@ pub struct Data {
 /// the body Id points to.
 #[derive(Debug, Clone)]
 pub struct InventionExpr {
-    body: Expr, // invention body (not wrapped in lambdas)
-    arity: usize
+    pub body: Expr, // invention body (not wrapped in lambdas)
+    pub arity: usize
 }
 impl InventionExpr {
     pub fn new(body: Expr, arity: usize) -> Self {
@@ -95,34 +105,6 @@ impl Display for InventionExpr {
     }
 }
 
-
-
-/// convert an egraph Id to an Expr. Assumes one node per class (just picks the first node). Note
-/// that this could cause an infinite loop if the egraph didnt just have a single node in a class
-/// and instead the first node had a self loop.
-fn extract(eclass: Id, egraph: &EGraph) -> Expr {
-    debug_assert!(egraph[eclass].nodes.len() == 1);
-    match &egraph[eclass].nodes[0] {
-        Lambda::Prim(p) => Expr::prim(*p),
-        Lambda::Var(i) => Expr::var(*i),
-        Lambda::IVar(i) => Expr::ivar(*i),
-        Lambda::App([f,x]) => Expr::app(extract(*f,egraph), extract(*x,egraph)),
-        Lambda::Lam([b]) => Expr::lam(extract(*b,egraph)),
-        Lambda::Programs(roots) => Expr::programs(roots.iter().map(|r| extract(*r,egraph)).collect()),
-    }
-}
-
-/// like extract() but works on nodes
-fn extract_enode(enode: &Lambda, egraph: &EGraph) -> Expr {
-    match enode {
-        Lambda::Prim(p) => Expr::prim(*p),
-        Lambda::Var(i) => Expr::var(*i),
-        Lambda::IVar(i) => Expr::ivar(*i),
-        Lambda::App([f,x]) => Expr::app(extract(*f,egraph),extract(*x,egraph)),
-        Lambda::Lam([b]) => Expr::lam(extract(*b,egraph)),
-        _ => {panic!("not rendered")},
-    }
-}
 
 #[derive(Default)]
 pub struct LambdaAnalysis;
@@ -209,7 +191,7 @@ impl Analysis<Lambda> for LambdaAnalysis {
 /// * ShiftIVar(i32) -> increment all ivars by given amount
 /// * TableShiftIVar(Vec<i32>) -> increment ivar #i by the amount given by table[i]
 #[inline] // useful to inline since callsite can usually tell which Shift type is happening allowing further optimization
-fn shift(e: Id, shift: Shift, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
+pub fn shift(e: Id, shift: Shift, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
     let mut empty = HashMap::new();
     let seen = match caches {
         Some(caches) => caches.get(&shift),
@@ -261,7 +243,7 @@ fn shift(e: Id, shift: Shift, egraph: &mut EGraph, caches: Option<&mut CacheGene
 /// This function is fairly efficient. We cache both within and between calls to it, it uses
 /// the enode data that tells us if there are no free variables in a branch (and thus it can be ignored),
 /// it operates on the structurally hashed form of the graph, etc.
-fn recursive_var_mod(
+pub fn recursive_var_mod(
     var_mod: impl Fn(i32, i32, i32, &mut EGraph) -> Option<Id>,
     ivars: bool,
     eclass:Id,
@@ -416,7 +398,7 @@ impl CostFunction<Lambda> for ProgramDepth {
 /// does a child first traversal of the egraph and returns a Vec<Id> in that
 /// order. Notably an Id will never show up twice (if it showed up earlier
 /// it wont show up again). Assumes no cycles in the EGraph.
-fn toplogical_ordering(root: Id, egraph: &EGraph) -> Vec<Id> {
+pub fn toplogical_ordering(root: Id, egraph: &EGraph) -> Vec<Id> {
     let mut vec = Vec::new();
     toplogical_ordering_rec(root, egraph, &mut vec);
     vec
@@ -444,14 +426,14 @@ type RecVarModCache = HashMap<(Id,i32),Option<Id>>;
 /// * ShiftIVar(i32) -> increment all ivars by given amount
 /// * TableShiftIVar(Vec<i32>) -> increment ivar #i by the amount given by table[i]
 #[derive(Debug,Clone,Eq,PartialEq,Hash)]
-enum Shift {
+pub enum Shift {
     ShiftVar(i32), // shift $i to be $(i+incr_by)
     ShiftIVar(i32), // shift #i to be #(i+incr_by)
     TableShiftIVar(Vec<i32>), // shift #i to be #(i+table[#i]) ie look up the shift amount in the table
 }
 
 /// generates caches for shift()
-struct CacheGenerator {
+pub struct CacheGenerator {
     caches: HashMap<Shift,RecVarModCache>,
     enabled: bool,
 }

@@ -8,6 +8,7 @@ mod expr;
 mod run_with_timeout;
 mod compression;
 mod util;
+mod extraction;
 
 pub use {
     egg::*,
@@ -16,6 +17,7 @@ pub use {
     compression::*,
     domain::*,
     macros::*,
+    extraction::*,
 };
 
 pub mod domains;
