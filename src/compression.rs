@@ -686,13 +686,10 @@ impl FinishedItem {
     }
 }
 
-fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (HashMap<Id,Vec<AppZipper>>, HashMap<Id,Id>) {
+fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> HashMap<Id,Vec<AppZipper>> {
     let mut all_appzippers: HashMap<Id,Vec<AppZipper>> = Default::default();
     let caches = &mut CacheGenerator::new(!no_cache);
     
-    // keys are shifted treenodes values are original treenodes. Useful since shifted ones can use same inventions as originals
-    let mut remap: HashMap<Id,Id> = Default::default();
-
     for treenode in treenodes.iter() {
         // println!("processing id={}: {}", treenode, extract(*treenode, egraph) );
 
@@ -757,10 +754,6 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (Hash
                     let new_arg: Id = shift(b_appzipper.arg, Shift::ShiftVar(-1), egraph, Some(caches)).unwrap();
                     new.arg = new_arg;
 
-                    // to keep track of the fact that this shifted treenode can use the same inventions as the original
-                    // todo note once you allow threading it's unclear if this remapping still holds or if there are new ways to remap
-                    remap.insert(new_arg, b_appzipper.arg);
-
                     // println!("Bubbled over lam:\n\t{}\n{}", extract(*treenode,egraph), new.to_string(egraph));
 
                     appzippers.push(new);
@@ -778,7 +771,7 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> (Hash
         appzippers.retain(|appzipper| !appzipper.zipper.path.is_empty());
     });
 
-    (all_appzippers,remap)
+    all_appzippers
 }
 
 #[inline]
@@ -920,7 +913,7 @@ fn compression_step(
     let tstart_total = std::time::Instant::now();
 
     let tstart = std::time::Instant::now();
-    let (all_appzippers, remap) = get_appzippers(&treenodes, args.no_cache, &mut egraph);
+    let all_appzippers = get_appzippers(&treenodes, args.no_cache, &mut egraph);
     println!("get_appzippers: {:?}ms", tstart.elapsed().as_millis());
 
 
@@ -968,7 +961,7 @@ fn compression_step(
     let tstart = std::time::Instant::now();
 
     // build up the initial worklist
-    const MAX_DONELIST: usize = 100;
+    const max_donelist: usize = 100;
     // let mut upper_bound_cutoff: i32 = 0;
     let mut lowest_donelist_utility = 0;
     let mut best_utility = 0;
@@ -977,21 +970,13 @@ fn compression_step(
 
     initial_inventions(
         &appzipper_of_node_zid,
-        &zids_of_node,
         &nodes_of_zid,
-        &first_mergeable_zid_of_zid,
         &mut worklist,
         &mut donelist,
-        &paths,
-        args.max_arity,
         &egraph,
-        &remap,
-        &treenodes,
-        programs_node,
-        // &mut upper_bound_cutoff,
         &mut lowest_donelist_utility,
         &mut best_utility,
-        MAX_DONELIST,
+        max_donelist,
         &num_paths_to_node,
         &mut stats,
     );
@@ -1018,20 +1003,14 @@ fn compression_step(
     derive_inventions(
         &appzipper_of_node_zid,
         &zids_of_node,
-        &nodes_of_zid,
         &first_mergeable_zid_of_zid,
         &mut worklist,
         &mut donelist,
-        &paths,
         args.max_arity,
         &egraph,
-        &remap,
-        &treenodes,
-        programs_node,
-        // &mut upper_bound_cutoff,
         &mut lowest_donelist_utility,
         &mut best_utility,
-        MAX_DONELIST,
+        max_donelist,
         &num_paths_to_node,
         &mut stats,
     );
@@ -1086,22 +1065,14 @@ fn compression_step(
 #[inline(never)]
 fn initial_inventions(
     appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
-    zids_of_node: &Vec<Vec<ZId>>,
     nodes_of_zid: &Vec<Vec<Id>>,
-    first_mergeable_zid_of_zid: &Vec<ZId>,
     worklist: &mut Vec<WorklistItem>,
     // worklist: &mut BinaryHeap<HeapItem>,
     donelist: &mut Vec<FinishedItem>,
-    paths: &Vec<ZPath>,
-    max_arity: usize,
     egraph: &EGraph,
-    remap: &HashMap<Id,Id>,
-    treenodes: &Vec<Id>,
-    programs_node: Id,
-    // upper_bound_cutoff: &mut i32,
     lowest_donelist_utility: &mut i32,
     best_utility: &mut i32,
-    MAX_DONELIST: usize,
+    max_donelist: usize,
     num_paths_to_node: &HashMap<Id,i32>,
     stats: &mut Stats,
 ) {
@@ -1184,7 +1155,7 @@ fn initial_inventions(
     }
 
     donelist.sort_unstable_by_key(|item| -item.utility);
-    donelist.truncate(MAX_DONELIST);
+    donelist.truncate(max_donelist);
     if !donelist.is_empty() { *lowest_donelist_utility = donelist.last().unwrap().utility; }
 }
 
@@ -1194,21 +1165,16 @@ fn initial_inventions(
 fn derive_inventions(
     appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
     zids_of_node: &Vec<Vec<ZId>>,
-    nodes_of_zid: &Vec<Vec<Id>>,
     first_mergeable_zid_of_zid: &Vec<ZId>,
     worklist: &mut Vec<WorklistItem>,
     // worklist: &mut BinaryHeap<HeapItem>,
     donelist: &mut Vec<FinishedItem>,
-    paths: &Vec<ZPath>,
     max_arity: usize,
     egraph: &EGraph,
-    remap: &HashMap<Id,Id>,
-    treenodes: &Vec<Id>,
-    programs_node: Id,
     // upper_bound_cutoff: &mut i32,
     lowest_donelist_utility: &mut i32,
     best_utility: &mut i32,
-    MAX_DONELIST: usize,
+    max_donelist: usize,
     num_paths_to_node: &HashMap<Id,i32>,
     stats: &mut Stats,
 ) {
@@ -1384,9 +1350,9 @@ fn derive_inventions(
             }
         }
 
-        if donelist.len() > std::cmp::max(1000, if MAX_DONELIST != usize::MAX { MAX_DONELIST*4 } else { MAX_DONELIST }) {
+        if donelist.len() > std::cmp::max(1000, if max_donelist != usize::MAX { max_donelist*4 } else { max_donelist }) {
             donelist.sort_unstable_by_key(|item| -item.utility);
-            donelist.truncate(MAX_DONELIST);
+            donelist.truncate(max_donelist);
             *lowest_donelist_utility = donelist.last().unwrap().utility;
         }
 
@@ -1395,7 +1361,7 @@ fn derive_inventions(
     assert!(worklist.is_empty());
 
     donelist.sort_unstable_by_key(|item| -item.utility);
-    donelist.truncate(MAX_DONELIST);
+    donelist.truncate(max_donelist);
     if !donelist.is_empty() { *lowest_donelist_utility = donelist.last().unwrap().utility; }
 
     println!("{:?}", stats);
