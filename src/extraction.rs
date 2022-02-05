@@ -31,18 +31,17 @@ pub fn extract_enode(enode: &Lambda, egraph: &EGraph) -> Expr {
     }
 }
 
-
 /// Rewrite `root` using an invention `inv`. This will use inventions everywhere
 /// as long as it decreases the cost. It will account for the fact that using an invention
 /// in a child could prevent the use of the invention in the parent - it will always do whatever
 /// gives the lowest cost.
-fn rewrite_with_inventions(
+pub fn rewrite_with_inventions(
     root: Id,
-    invs: &[Invention],
+    invs: &[&InventionExpr],
     replace_invs_with: &[&str],
     egraph: &mut EGraph,
 ) -> Expr {
-    let root = egraph.find(root);
+    let invs: Vec<Invention> = invs.into_iter().map(|inv| Invention::new(egraph.add_expr(&inv.body.clone().into()), inv.arity)).collect();
 
     let treenodes = toplogical_ordering(root, egraph);
 
@@ -64,7 +63,7 @@ fn rewrite_with_inventions(
                     + COST_NONTERMINAL * inv.arity as i32 // the chain of app()s needed to apply the new primitive
                     + args.iter()
                         .map(|id| nodecost_of_treenode[&id]
-                            .cost_under_invs(invs)) // cost under ANY of the invs since we allow multiple to be used!
+                            .cost_under_invs(invs.as_slice())) // cost under ANY of the invs since we allow multiple to be used!
                         .sum::<i32>(); // sum costs of actual args
                         nodecost.new_cost_under_inv(*inv, cost, Some(args));
             }
@@ -110,7 +109,7 @@ fn rewrite_with_inventions(
     }
 
     // Now that we've calculated all the costs, we can extract the cheapest one
-    extract_from_nodecosts(root, invs, &nodecost_of_treenode, replace_invs_with, egraph)
+    extract_from_nodecosts(root, invs.as_slice(), &nodecost_of_treenode, replace_invs_with, egraph)
 }
 
 fn extract_from_nodecosts(

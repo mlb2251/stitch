@@ -84,6 +84,14 @@ pub struct Invention {
     pub body:Id, // this will be a subtree which can have IVars
     pub arity: usize // also equal to max ivar in subtree + 1
 }
+impl Invention {
+    pub fn new(body:Id, arity: usize) -> Self {
+        Invention {
+            body,
+            arity
+        }
+    }
+}
 
 /// At the end of the day we convert our Inventions into InventionExprs to make
 /// them standalone without needing to carry the EGraph around to figure out what
@@ -877,7 +885,7 @@ fn compression_step(
     args: &CompressionArgs,
     out_dir: &str,
     new_inv_name: &str,
-) -> Option<CompressionResult> {
+) -> Vec<CompressionStepResult> {
 
     // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
     let mut egraph: EGraph = Default::default();
@@ -1037,15 +1045,17 @@ fn compression_step(
 
     let orig_cost = egraph[programs_node].data.inventionless_cost;
 
+    let mut results: Vec<CompressionStepResult> = vec![];
+
     println!("Cost before: {}", orig_cost);
     for (i,done) in donelist.iter().enumerate().take(10) {
-        let final_cost = orig_cost - done.utility;
-        let multiplier = orig_cost as f64 / final_cost as f64;
-        println!("{}: utility: {} (final_cost: {}; {:.2}x) | uses: {} | body: {} ",
-            i, done.utility, final_cost, multiplier,
-            done.nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>(),
-            done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, &egraph)
-        );
+        let res = CompressionStepResult::new(done.clone(), programs_node, new_inv_name, &mut appzipper_of_node_zid, &num_paths_to_node, &mut egraph);
+
+        println!("{}: {}", i, res);
+        if args.show_rewritten {
+            println!("rewritten: {}", res.rewritten);
+        }
+        results.push(res);
         // todo also add printing the actual body if --show-rewritten is set
         // if args.render_inventions {
         //     inv_expr.save(&format!("inv{}",i), &out_dir);
@@ -1053,7 +1063,7 @@ fn compression_step(
     }
     
 
-    println!("Final egraph: {}",egraph_info(&egraph));
+    // println!("Final egraph: {}",egraph_info(&egraph));
 
     // print out the largest variable we've seen (useful to make sure our egraph isnt exploding due to Vars)
     // for i in 0..100 {
@@ -1066,20 +1076,8 @@ fn compression_step(
     println!("Final donelist length: {}",donelist.len());
     println!("Core stuff took: {}ms ***\n", elapsed);
 
-    if donelist.is_empty() {
-        return None
-    }
 
-    // return the top invention
-    let top_inv: FinishedItem = donelist[0].clone();
-    let top_inv_expr: Expr = top_inv.ztuple.to_expr(top_inv.nodes[0], &appzipper_of_node_zid, &egraph);
-    let top_inv_invexpr: InventionExpr = InventionExpr::new(top_inv_expr, top_inv.ztuple.arity);
-    // let top_inv_rewritten = extract_under_inv(programs_id, top_inv.clone(), new_inv_name, &applams_of_treenode, &best_inventions_of_treenode, &egraph);
-    unimplemented!();
-    // Some(CompressionResult {
-    //     inv: top_inv_invexpr,
-    //     rewritten: top_inv_rewritten,
-    // })
+    results
 }
 
 #[inline(never)]
@@ -1400,36 +1398,61 @@ fn derive_inventions(
     println!("{:?}", stats);
 }
 
-struct CompressionResult {
+#[derive(Debug, Clone)]
+pub struct CompressionStepResult {
     inv: InventionExpr,
+    inv_name: String,
     rewritten: Expr,
+    done: FinishedItem,
+    final_cost: i32,
+    multiplier: f64,
+    final_cost_rewritten: i32,
+    multiplier_rewritten: f64,
+    uses: i32
 }
-impl CompressionResult {
-    fn new(inv: InventionExpr, rewritten: Expr) -> Self {
-        CompressionResult { inv, rewritten }
+
+impl CompressionStepResult {
+    fn new(done: FinishedItem, programs_node: Id, inv_name: &str, appzipper_of_node_zid: &mut HashMap<(Id,ZId),AppZipper>,  num_paths_to_node: &HashMap<Id,i32>, egraph: &mut EGraph) -> Self {
+        let orig_cost = egraph[programs_node].data.inventionless_cost;
+
+        let inv = InventionExpr::new(done.ztuple.to_expr(done.nodes[0], appzipper_of_node_zid, egraph), done.ztuple.arity);
+        let rewritten: Expr = rewrite_with_inventions(programs_node, &[&inv], &[inv_name], egraph);
+        let final_cost = orig_cost - done.utility;
+        let multiplier = orig_cost as f64 / final_cost as f64;
+        let final_cost_rewritten = rewritten.cost();
+        let multiplier_rewritten = orig_cost as f64 / final_cost_rewritten as f64;
+        let uses = done.nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
+        CompressionStepResult { inv, inv_name: String::from(inv_name), rewritten, done, final_cost, multiplier, final_cost_rewritten, multiplier_rewritten, uses }
     }
 }
+
+impl fmt::Display for CompressionStepResult {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "utility: {} (final_cost: ({},{}); ({:.2}x,{:.2}x)) | uses: {} | body: {}",
+            self.done.utility, self.final_cost, self.final_cost_rewritten, self.multiplier, self.multiplier_rewritten, self.uses, self.inv)
+    }
+}
+
 
 pub fn compression(
     programs_expr: &Expr,
     args: &CompressionArgs,
     out_dir: &str,
-) -> (Vec<(InventionExpr,String)>,Expr) {
+) -> Vec<CompressionStepResult> {
     let mut rewritten: Expr = programs_expr.clone();
-    let mut invs: Vec<(InventionExpr,String)> = Default::default();
-    let mut rewrittens: Vec<Expr> = Default::default();
-    let mut cost_improvement: Vec<i32> = Default::default();
+    let mut invs: Vec<CompressionStepResult> = Default::default();
 
     let tstart = std::time::Instant::now();
 
     for i in 0..args.iterations {
         println!("\n=======Iteration {}=======",i);
         let inv_name = format!("inv{}",invs.len());
-        if let Some(res) = compression_step(&rewritten, args, out_dir, &inv_name) {
+        let res: Vec<CompressionStepResult> = compression_step(&rewritten, args, out_dir, &inv_name);
+        if !res.is_empty() {
+            let res: CompressionStepResult = res[0].clone();
             rewritten = res.rewritten.clone();
-            println!("Chose Invention {}: {}\nRewritten (cost={})\n{}", inv_name, res.inv, res.rewritten.cost(), res.rewritten);
-            invs.push((res.inv,inv_name));
-            rewrittens.push(res.rewritten);
+            println!("Chose Invention {}: {}\n{}", res.inv_name, res, res.rewritten);
+            invs.push(res);
         } else {
             println!("No inventions found at iteration {}",i);
             break;
@@ -1440,15 +1463,10 @@ pub fn compression(
     println!("\n=======Compression Summary=======");
     println!("Found {} inventions", invs.len());
     println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(programs_expr,&rewritten), programs_expr.cost(), rewritten.cost());
-    let mut prev_rewritten = programs_expr;
     for i in 0..invs.len() {
-        let (inv,inv_name) = &invs[i];
-        let rewritten = &rewrittens[i];
-        println!("({:.2}x wrt prev; {:.2}x wrt orig) {}: {}", compression_factor(prev_rewritten, &rewritten), compression_factor(programs_expr, &rewritten), inv_name, inv);
-        prev_rewritten = &rewritten;
+        let inv = &invs[i];
+        println!("{} ({:.2}x wrt orig): {}" ,inv.inv_name, compression_factor(programs_expr, &inv.rewritten), inv);
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
-
-
-    (invs,rewritten)
+    invs
 }
