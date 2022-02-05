@@ -734,6 +734,9 @@ fn build_shift_table(applam_shift: &AppLam, applam_noshift: &AppLam) -> (Vec<i32
 
 
 
+// fn rewrite_with_finisheditem()
+
+
 
 /// A node in an Zipper
 /// Ord: Func < Body < Arg
@@ -1900,8 +1903,8 @@ fn compression_step(
     for (i,done) in donelist.iter().enumerate().take(10) {
         let final_cost = orig_cost - done.utility;
         let multiplier = orig_cost as f64 / final_cost as f64;
-        println!("i) utility: {} (final_cost: {}; {:.2}x) | uses: {}; ztuple: {} ",
-            done.utility, final_cost, multiplier,
+        println!("{}: utility: {} (final_cost: {}; {:.2}x) | uses: {} | body: {} ",
+            i, done.utility, final_cost, multiplier,
             done.nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>(),
             done.ztuple.to_expr(done.nodes[0], &mut appzipper_of_node_zid, &egraph)
         );
