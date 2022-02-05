@@ -1061,6 +1061,9 @@ fn compression_step(
         //     inv_expr.save(&format!("inv{}",i), &out_dir);
         // }
     }
+
+    // sort now that we have the exact costs by rewriting
+    results.sort_by_key(|res| res.final_cost_rewritten);
     
 
     // println!("Final egraph: {}",egraph_info(&egraph));
