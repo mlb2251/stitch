@@ -1185,7 +1185,7 @@ fn initial_inventions(
 
     donelist.sort_unstable_by_key(|item| -item.utility);
     donelist.truncate(MAX_DONELIST);
-    *lowest_donelist_utility = donelist.last().unwrap().utility;
+    if !donelist.is_empty() { *lowest_donelist_utility = donelist.last().unwrap().utility; }
 }
 
 
@@ -1396,7 +1396,7 @@ fn derive_inventions(
 
     donelist.sort_unstable_by_key(|item| -item.utility);
     donelist.truncate(MAX_DONELIST);
-    *lowest_donelist_utility = donelist.last().unwrap().utility;
+    if !donelist.is_empty() { *lowest_donelist_utility = donelist.last().unwrap().utility; }
 
     println!("{:?}", stats);
 }
