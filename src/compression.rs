@@ -487,14 +487,7 @@ enum ZNode {
 }
 
 type ZId = usize; // zipper id
-type InvId = usize;
 type ZPath = Vec<ZNode>;
-
-/// a 1 arg invention
-// #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-// struct Zipper {
-//     nodes: Vec<ZNode>
-// }
 
 /// a 1 arg invention
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -751,8 +744,18 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> HashM
                     let mut new: AppZipper = b_appzipper.clone_prepend(ZNode::Body,None);
                     
                     // downshift the args since the lambda above them moved below them (earlier we made sure none of them had pointers to it)
-                    let new_arg: Id = shift(b_appzipper.arg, Shift::ShiftVar(-1), egraph, Some(caches)).unwrap();
-                    new.arg = new_arg;
+                    
+
+                    if egraph[b_appzipper.arg].data.free_vars.contains(&0) {
+                        // context threading
+                        // todo currently this branch will never be taken thanks to the `continue;` above. However when you do remove that continue
+                        // todo you want to modify this to also change the zipper in some way to indicate that this is context threaded.
+                        new.arg = egraph.add(Lambda::Lam([b_appzipper.arg]));
+                    } else {
+                        // no threading
+                        new.arg = shift(b_appzipper.arg, Shift::ShiftVar(-1), egraph, Some(caches)).unwrap();
+                    }
+
 
                     // println!("Bubbled over lam:\n\t{}\n{}", extract(*treenode,egraph), new.to_string(egraph));
 
@@ -925,7 +928,6 @@ fn compression_step(
     paths.sort();
     paths.dedup();
     println!("{} paths", paths.len());
-
     println!("collect paths and dedup: {:?}ms", tstart.elapsed().as_millis());
 
     let mut appzipper_of_node_zid: HashMap<(Id,ZId),AppZipper> = Default::default();
@@ -961,7 +963,7 @@ fn compression_step(
     let tstart = std::time::Instant::now();
 
     // build up the initial worklist
-    const max_donelist: usize = 100;
+    let max_donelist: usize = 100;
     // let mut upper_bound_cutoff: i32 = 0;
     let mut lowest_donelist_utility = 0;
     let mut best_utility = 0;
