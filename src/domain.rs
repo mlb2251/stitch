@@ -75,6 +75,13 @@ impl<D: Domain> CurriedFn<D> {
             partial_args: Vec::new(),
         }
     }
+    pub fn new_force_args(name: egg::Symbol, arity: usize, partial_args: Vec<Val<D>>) -> Self {
+        Self {
+            name,
+            arity,
+            partial_args,
+        }
+    }
     /// Feed one more argument into the function, returning a new CurriedFn if
     /// still not all the arguments have been received. Evaluate the function
     /// if all arguments have been received. Does not mutate the original.

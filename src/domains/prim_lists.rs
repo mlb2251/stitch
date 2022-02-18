@@ -180,18 +180,18 @@ fn branch(mut args: Vec<Val>, _handle: &Executable) -> VResult {
 }
 
 fn eq(mut args: Vec<Val>, handle: &Executable) -> VResult {
-    load_args!(args, a:Val, b:Val); 
-    match (a, b) {
-        (Dom(Int(i)), Dom(Int(j))) => { return ok(i==j); },
-        (Dom(Bool(b1)), Dom(Bool(b2))) => { return ok(b1==b2); },
-        (Dom(List(l1)), Dom(List(l2))) => {
-            let l1_len = l1.len();
-            if l1_len != l2.len() {
+    load_args!(args, x:Val, y:Val); 
+    match (x, y) {
+        (Dom(Int(i)),  Dom(Int(j)))  => { return ok(i==j); },
+        (Dom(Bool(a)), Dom(Bool(b))) => { return ok(a==b); },
+        (Dom(List(l)), Dom(List(k))) => {
+            let l_len = l.len();
+            if l_len != k.len() {
                 return ok(false);
             } else {
                 let mut all_elems_equal = true;
-                for i in 0..l1_len {
-                    let elems_equal = eq(vec![l1[i].clone(), l2[i].clone()], handle);
+                for i in 0..l_len {
+                    let elems_equal = eq(vec![l[i].clone(), k[i].clone()], handle);
                     match elems_equal {
                         VResult::Err(s) => { return Err(s) }
                         VResult::Ok(Dom(Bool(true))) => { continue; },
@@ -204,7 +204,7 @@ fn eq(mut args: Vec<Val>, handle: &Executable) -> VResult {
                 return ok(all_elems_equal);
             }
         }
-        _ => { return ok(false); }
+        _                              => { return ok(false); }
     }
 }
 
@@ -232,27 +232,15 @@ fn tail(mut args: Vec<Val>, _handle: &Executable) -> VResult {
 }
 
 fn fix(mut args: Vec<Val>, handle: &Executable) -> VResult {
-    load_args!(args, x: Val, fn_val: Val);
+    load_args!(args, fn_val: Val, x: Val);
     println!("Running fix with x={:?}, fn_val={:?}", x, fn_val);
 
-    // TODO at what level am I implementing fix here?
-    // Should I replicate the y-combinator, or can I take some shortcuts due to
-    // working in the meta language?
-
-    if let VResult::Ok(fx) = handle.apply(&fn_val, x.clone()) {
-        // we successfully applied the fn to x once and got some result fx
-        // If x = fx, we have arrived at a fixpoint, so start unwrapping recursion
-        // otherwise, recurse to get f(f(x))
-        ok(fx)
-        //if fx == x {
-        //    ok(fx)
-        //} else if let VResult::Ok(ffx) = fix(vec![fx, fn_val], handle) {
-        //    ok(ffx)
-        //} else {
-        //    Err(String::from("recursive call gave error"))
-        //}
+    // fix f x = f(fix f)(x)
+    let fixf = PrimFun(CurriedFn::new_force_args(Symbol::from("fix"), 2, vec![fn_val.clone()]));
+    if let VResult::Ok(ffixf) = handle.apply(&fn_val, fixf) {
+        handle.apply(&ffixf, x)
     } else {
-        Err(String::from("failed to apply fn to arg"))
+        Err(String::from("Could not apply fixf to f"))
     }
 }
 
@@ -307,8 +295,12 @@ mod tests {
         let arg = ListVal::val_of_prim("[[1,2]]".into()).unwrap();
         assert_execution::<domains::prim_lists::ListVal, Vec<Val>>("(tail $0)", &[arg], vec![]);
         // test fix
-        //let arg = ListVal::val_of_prim("[1,2,3,4,5]".into()).unwrap();
-        //assert_execution("(fix $0 (lam (lam (if (is_empty $0) 0 (+ 1 ($1 (tail $0)))))))", &[arg], 5);
+        let arg = ListVal::val_of_prim("[]".into()).unwrap();
+        assert_execution("(fix (lam (lam (if (is_empty $0) 0 (+ 1 ($1 (tail $0)))))) $0)", &[arg], 1);
+        let arg = ListVal::val_of_prim("[]".into()).unwrap();
+        assert_execution("(fix (lam (lam (if (is_empty $0) 0 (+ 1 0)))) $0)", &[arg], 1);
+        let arg = ListVal::val_of_prim("[1,2,3,2,1]".into()).unwrap();
+        assert_execution("(fix (lam (lam (if (is_empty $0) 0 (+ 1 ($1 (tail $0)))))) $0)", &[arg], 5);
         //let arg = ListVal::val_of_prim("[1,2,3,4,5]".into()).unwrap();
         //assert_execution("(fix $0 (lam (lam (if (is_empty $0) $0 (cons (+ 1 (head $0)) ($1 (tail $0)))))))", &[arg], vec![2, 3, 4, 5, 6]);
     }
