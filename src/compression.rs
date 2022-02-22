@@ -7,14 +7,20 @@ use std::hash::Hash;
 use std::cmp::Ordering;
 use itertools::Itertools;
 use extraction::extract;
+use serde_json::json;
+use serde::Serialize;
 
 /// Args for compression
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Serialize)]
 #[clap(name = "Stitch")]
 pub struct CompressionArgs {
     /// json file to read compression input programs from
     #[clap(short, long, parse(from_os_str), default_value = "data/train_19.json")]
     pub file: PathBuf,
+
+    /// output file
+    #[clap(short, long, parse(from_os_str), default_value = "out/out.json")]
+    pub out: PathBuf,
 
     /// Number of iterations to run compression for
     #[clap(short, long, default_value = "3")]
@@ -881,6 +887,7 @@ fn compression_step(
     args: &CompressionArgs,
     out_dir: &str,
     new_inv_name: &str,
+    very_first_cost: i32,
 ) -> Vec<CompressionStepResult> {
 
     // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
@@ -1030,7 +1037,7 @@ fn compression_step(
 
     println!("Cost before: {}", orig_cost);
     for (i,done) in donelist.iter().enumerate().take(10) {
-        let res = CompressionStepResult::new(done.clone(), programs_node, new_inv_name, &mut appzipper_of_node_zid, &num_paths_to_node, &mut egraph);
+        let res = CompressionStepResult::new(done.clone(), programs_node, very_first_cost, new_inv_name, &mut appzipper_of_node_zid, &num_paths_to_node, &mut egraph);
 
         println!("{}: {}", i, res);
         if args.show_rewritten {
@@ -1379,11 +1386,14 @@ pub struct CompressionStepResult {
     multiplier: f64,
     final_cost_rewritten: i32,
     multiplier_rewritten: f64,
-    uses: i32
+    multiplier_wrt_orig: f64,
+    uses: i32,
+    use_exprs: Vec<Expr>,
+    very_first_cost: i32,
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedItem, programs_node: Id, inv_name: &str, appzipper_of_node_zid: &mut HashMap<(Id,ZId),AppZipper>,  num_paths_to_node: &HashMap<Id,i32>, egraph: &mut EGraph) -> Self {
+    fn new(done: FinishedItem, programs_node: Id, very_first_cost: i32, inv_name: &str, appzipper_of_node_zid: &mut HashMap<(Id,ZId),AppZipper>,  num_paths_to_node: &HashMap<Id,i32>, egraph: &mut EGraph) -> Self {
         let orig_cost = egraph[programs_node].data.inventionless_cost;
 
         let inv = InventionExpr::new(done.ztuple.to_expr(done.nodes[0], appzipper_of_node_zid, egraph), done.ztuple.arity);
@@ -1392,8 +1402,26 @@ impl CompressionStepResult {
         let multiplier = orig_cost as f64 / final_cost as f64;
         let final_cost_rewritten = rewritten.cost();
         let multiplier_rewritten = orig_cost as f64 / final_cost_rewritten as f64;
+        let multiplier_wrt_orig = very_first_cost as f64 / final_cost_rewritten as f64;
         let uses = done.nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-        CompressionStepResult { inv, inv_name: String::from(inv_name), rewritten, done, final_cost, multiplier, final_cost_rewritten, multiplier_rewritten, uses }
+        let use_exprs: Vec<Expr> = done.nodes.iter().map(|node| extract(*node, egraph)).collect();
+        CompressionStepResult { inv, inv_name: String::from(inv_name), rewritten, done, final_cost, multiplier, final_cost_rewritten, multiplier_rewritten, multiplier_wrt_orig, uses, use_exprs, very_first_cost }
+    }
+    fn json(&self) -> serde_json::Value {
+        json!({            
+            "body": self.inv.body.to_string(),
+            "arity": self.inv.arity,
+            "name": self.inv_name,
+            "rewritten": self.rewritten.to_string(),
+            "utility": self.done.utility,
+            "final_cost": self.final_cost,
+            "multiplier": self.multiplier,
+            "final_cost_rewritten": self.final_cost_rewritten,
+            "multiplier_rewritten": self.multiplier_rewritten,
+            "multiplier_wrt_orig": self.multiplier_wrt_orig,
+            "uses": self.uses,
+            "use_exprs": self.use_exprs.iter().map(|expr| expr.to_string()).collect::<Vec<String>>(),
+        })
     }
 }
 
@@ -1418,7 +1446,7 @@ pub fn compression(
     for i in 0..args.iterations {
         println!("\n=======Iteration {}=======",i);
         let inv_name = format!("inv{}",invs.len());
-        let res: Vec<CompressionStepResult> = compression_step(&rewritten, args, out_dir, &inv_name);
+        let res: Vec<CompressionStepResult> = compression_step(&rewritten, args, out_dir, &inv_name, programs_expr.cost());
         if !res.is_empty() {
             let res: CompressionStepResult = res[0].clone();
             rewritten = res.rewritten.clone();
@@ -1428,7 +1456,6 @@ pub fn compression(
             println!("No inventions found at iteration {}",i);
             break;
         }
-        
     }
 
     println!("\n=======Compression Summary=======");
@@ -1439,5 +1466,18 @@ pub fn compression(
         println!("{} ({:.2}x wrt orig): {}" ,inv.inv_name, compression_factor(programs_expr, &inv.rewritten), inv);
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
+
+    let out = json!({
+        "cmd": std::env::args().join(" "),
+        "args": args,
+        "original_cost": programs_expr.cost(),
+        "original": programs_expr.to_string(),
+        "invs": invs.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
+    });
+
+    std::fs::write(&args.out, serde_json::to_string_pretty(&out).unwrap()).unwrap();
+
+    // serde_json::to_writer(&std::fs::File::create(&args.out).unwrap(), &out).unwrap();
+    println!("Wrote to {:?}",args.out);
     invs
 }
