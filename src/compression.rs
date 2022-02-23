@@ -111,11 +111,27 @@ impl InventionExpr {
     pub fn new(body: Expr, arity: usize) -> Self {
         Self { body, arity }
     }
+    pub fn apply(&self, args: &[Expr]) -> Expr {
+        assert_eq!(args.len(), self.arity);
+        let map: HashMap<i32, Expr> = args.iter().enumerate().map(|(i,e)| (i as i32, e.clone())).collect();
+        ivar_replace(&self.body, self.body.root(), &map)
+    }
 }
 
 impl Display for InventionExpr {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "(arity={}: {})", self.arity, self.body)
+    }
+}
+
+/// Replace the ivars in an expr based on an i32->Expr map
+fn ivar_replace(e: &Expr, child: Id, map: &HashMap<i32, Expr>) -> Expr {
+    match e.get(child) {
+        Lambda::IVar(i) => map.get(&i).unwrap_or(&e).clone(),
+        Lambda::Var(_) | Lambda::Prim(_) => e.clone(),
+        Lambda::App([f,x]) => Expr::app(ivar_replace(e, *f, map), ivar_replace(e, *x, map)),
+        Lambda::Lam([b]) => Expr::lam(ivar_replace(e, *b, map)),
+        Lambda::Programs(_) => panic!("why would you do this")
     }
 }
 
@@ -1411,7 +1427,7 @@ impl CompressionStepResult {
             ).collect()).collect();
         CompressionStepResult { inv, inv_name: String::from(inv_name), rewritten, done, final_cost, multiplier, final_cost_rewritten, multiplier_rewritten, multiplier_wrt_orig, uses, use_exprs, use_args }
     }
-    fn json(&self) -> serde_json::Value {
+    fn json(&self) -> serde_json::Value {        
         let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| expr.to_string()).collect();
         let use_args: Vec<String> = self.use_args.iter().map(|args| format!("{} {}", self.inv_name, args.iter().map(|expr| expr.to_string()).collect::<Vec<String>>().join(" "))).collect();
         let all_uses: Vec<serde_json::Value> = use_exprs.iter().zip(use_args.iter()).map(|(expr,args)| json!({args: expr})).collect();
