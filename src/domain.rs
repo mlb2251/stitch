@@ -273,8 +273,8 @@ impl<D: Domain> Executable<D> {
             }
             Lambda::App([f,x]) => {
                 let f_val = self.eval_child(f, env)?;
-                let x_val = self.eval_child(x, env)?;
-                self.apply(&f_val, x_val)?
+                let x_val = LazyVal::new_lazy(x, env.to_vec());
+                self.apply_lazy(&f_val, x_val)?
             }
             Lambda::Prim(p) => {
                 match D::val_of_prim(p) {
