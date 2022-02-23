@@ -11,6 +11,10 @@ pub enum ListVal {
     List(Vec<Val>),
 }
 
+// In this domain, we limit how many times "fix" can be invoked.
+// This is a crude way of finding infinitely looping programs.
+const MAX_FIX_INVOCATIONS: u32 = 100;
+
 type Val = domain::Val<ListVal>;
 type LazyVal = domain::LazyVal<ListVal>;
 type Executable = domain::Executable<ListVal>;
@@ -102,9 +106,8 @@ fn parse_vec(vec: & Vec<serde_json::value::Value>) -> Vec<Val> {
 }
 
 impl Domain for ListVal {
-    // we dont use Data here
-    // TODO ask Matt why this is
-    type Data = ();
+
+    type Data = u32;  // Use Data as fix-point invocation counter
 
     const TRUST_LEVEL: TrustLevel = TrustLevel::WontLoopMayPanic;
 
@@ -176,15 +179,11 @@ fn gt(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
 }
 
 fn branch(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
-    println!("Loading b");
     load_args!(handle, args, b: bool);
-    println!("Loading lazies");
     load_args_lazy!(args, tbranch: LazyVal, fbranch: LazyVal); 
     if b { 
-        println!("Branch True");
         tbranch.eval(&handle)
     } else { 
-        println!("Branch False");
         fbranch.eval(&handle)
     }
 }
@@ -235,7 +234,6 @@ fn head(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
 fn tail(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     load_args!(handle, args, xs: Vec<Val>);
     if xs.is_empty() {
-        panic!("tail called on empty list");
         Err(String::from("tail called on empty list"))
     } else {
         ok(xs[1..].to_vec())
@@ -243,14 +241,15 @@ fn tail(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
 }
 
 fn fix(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+    *handle.data.borrow_mut() += 1;
+    if *handle.data.borrow() > MAX_FIX_INVOCATIONS {
+        return Err(format!("Exceeded max number of fix invocations. Max was {}", MAX_FIX_INVOCATIONS));
+    }
     load_args!(handle, args, fn_val: Val, x: Val);
-    println!("Running fix with x={:?}, fn_val={:?}", x, fn_val);
 
     // fix f x = f(fix f)(x)
     let fixf = PrimFun(CurriedFn::new_force_args(Symbol::from("fix"), 2, vec![LazyVal::new_strict(fn_val.clone())]));
-    println!("fixf constructed");
     if let VResult::Ok(ffixf) = handle.apply(&fn_val, fixf) {
-        println!("ffixf constructed");
         handle.apply(&ffixf, x)
     } else {
         Err(String::from("Could not apply fixf to f"))
@@ -266,22 +265,27 @@ mod tests {
     #[test]
     fn eval_test() {
 
-        println!("Starting eval_test");
         let arg = ListVal::val_of_prim("[]".into()).unwrap();
         assert_execution::<domains::prim_lists::ListVal, Vec<Val>>("(if (is_empty $0) $0 (tail $0))", &[arg], vec![]);
+
         // test cons
         let arg = ListVal::val_of_prim("[1,2,3]".into()).unwrap();
         assert_execution("(cons 0 $0)", &[arg], vec![0,1,2,3]);
+
         // test +
         assert_execution::<domains::prim_lists::ListVal, i32>("(+ 1 2)", &[], 3);
+
         // test -
         assert_execution::<domains::prim_lists::ListVal, i32>("(- 22 1)", &[], 21);
+
         // test >
         assert_execution::<domains::prim_lists::ListVal, bool>("(> 22 1)", &[], true);
         assert_execution::<domains::prim_lists::ListVal, bool>("(> 2 11)", &[], false);
+
         // test if
         assert_execution::<domains::prim_lists::ListVal, i32>("(if true 5 50)", &[], 5);
         assert_execution::<domains::prim_lists::ListVal, i32>("(if false 5 50)", &[], 50);
+
         // test ==
         assert_execution::<domains::prim_lists::ListVal, bool>("(== 5 5)", &[], true);
         assert_execution::<domains::prim_lists::ListVal, bool>("(== 5 50)", &[], false);
@@ -297,30 +301,31 @@ mod tests {
         let arg1 = ListVal::val_of_prim("[]".into()).unwrap();
         let arg2 = ListVal::val_of_prim("[]".into()).unwrap();
         assert_execution::<domains::prim_lists::ListVal, bool>("(== $0 $1)", &[arg1, arg2], true);
+
         // test is_empty
         let arg = ListVal::val_of_prim("[[],[3],[4,5]]".into()).unwrap();
         assert_execution("(is_empty $0)", &[arg], false);
         let arg = ListVal::val_of_prim("[]".into()).unwrap();
         assert_execution("(is_empty $0)", &[arg], true);
+
         // test head
         let arg = ListVal::val_of_prim("[[1,2],[3],[4,5]]".into()).unwrap();
         assert_execution("(head $0)", &[arg], vec![1,2]);
+
         // test tail
-        println!("Hi dad");
         let arg = ListVal::val_of_prim("[[1,2],[3],[4,5]]".into()).unwrap();
         assert_execution("(tail $0)", &[arg], vec![vec![3], vec![4, 5]]);
-        println!("Hi mom");
         let arg = ListVal::val_of_prim("[[1,2]]".into()).unwrap();
         assert_execution::<domains::prim_lists::ListVal, Vec<Val>>("(tail $0)", &[arg], vec![]);
-        println!("Hi alice");
+
         // test fix
         let arg = ListVal::val_of_prim("[]".into()).unwrap();
-        println!("arg loaded");
         assert_execution("(fix (lam (lam (if (is_empty $0) 0 (+ 1 ($1 (tail $0)))))) $0)", &[arg], 0);
-        println!("Hi matt");
         let arg = ListVal::val_of_prim("[1,2,3,2,1]".into()).unwrap();
         assert_execution("(fix (lam (lam (if (is_empty $0) 0 (+ 1 ($1 (tail $0)))))) $0)", &[arg], 5);
         let arg = ListVal::val_of_prim("[1,2,3,4,5]".into()).unwrap();
         assert_execution("(fix (lam (lam (if (is_empty $0) $0 (cons (+ 1 (head $0)) ($1 (tail $0)))))) $0)", &[arg], vec![2, 3, 4, 5, 6]);
+        //let arg = ListVal::val_of_prim("[1,2,3,4,5]".into()).unwrap();
+        //assert_execution("(fix (lam (lam (if (is_empty $0) $0 (cons (+ 1 (head $0)) ($1 $0))))) $0)", &[arg], vec![2, 3, 4, 5, 6]);
     }
 }
