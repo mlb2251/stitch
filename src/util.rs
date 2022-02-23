@@ -139,7 +139,8 @@ pub fn assert_execution<D: Domain, T>(expr: &str, args: &[Val<D>], expected: T)
 where T: From<Val<D>>+ Debug + PartialEq
 {
     let e: Executable<D> = expr.parse().unwrap();
-    let res = e.eval(&args).unwrap();
+    let mut args: Vec<LazyVal<D>> = args.iter().map(|arg|LazyVal::new_strict(arg.clone())).collect();
+    let res = e.eval(&mut args).unwrap();
     assert_eq_val(&res,expected);
 }
 

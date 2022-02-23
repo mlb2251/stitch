@@ -10,12 +10,52 @@ use serde::{Serialize, Deserialize};
 pub enum Val<D: Domain> {
     Dom(D),
     PrimFun(CurriedFn<D>), // function ptr, arity, any args that have been partially filled in
-    LamClosure(Id, Vec<Val<D>>) // body, captured env
+    LamClosure(Id, Vec<LazyVal<D>>) // body, captured env
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum LazyValSource<D: Domain> {
+    Lazy(Id, Vec<LazyVal<D>>),
+    Strict(Val<D>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct LazyVal<D: Domain> {
+    pub val: Option<Val<D>>,
+    pub source: LazyValSource<D>
+}
+
+impl<D: Domain> LazyVal<D> {
+    pub fn new_lazy(child: Id, env: Vec<LazyVal<D>>) -> Self {
+        LazyVal {
+            val: None,
+            source: LazyValSource::Lazy(child, env)
+        }
+    }
+    pub fn new_strict(val: Val<D>) -> Self {
+        LazyVal {
+            val: None,
+            source: LazyValSource::Strict(val)
+        }
+    }
+    pub fn eval(&mut self, handle: &Executable<D>) -> VResult<D> {
+        if self.val.is_none() {
+            match &mut self.source {
+                LazyValSource::Lazy(child, env) => {
+                    self.val = Some(handle.eval_child(*child, env.as_mut_slice())?)
+                }
+                LazyValSource::Strict(val) => {
+                    self.val = Some(val.clone());
+                }
+            }
+        }
+        Ok(self.val.clone().unwrap())
+    }
 }
 
 pub type VResult<D> = Result<Val<D>,VError>;
 pub type VError = String;
-pub type DSLFn<D> = fn(Vec<Val<D>>, &Executable<D>) -> VResult<D>;
+pub type DSLFn<D> = fn(Vec<LazyVal<D>>, &Executable<D>) -> VResult<D>;
 
 pub enum TrustLevel {
     MayLoopMayPanic,
@@ -26,7 +66,7 @@ pub enum TrustLevel {
 #[derive(Debug, Clone)]
 pub struct Executable<D: Domain> {
     pub expr: Expr,
-    pub evals: RefCell<HashMap<(Id,Vec<Val<D>>), Val<D>>>, // from (node,env) to result
+    pub evals: RefCell<HashMap<(Id,Vec<LazyVal<D>>), Val<D>>>, // from (node,env) to result
     pub data: RefCell<D::Data>,
 }
 
@@ -64,7 +104,7 @@ impl<D: Domain> std::str::FromStr for Executable<D> {
 pub struct CurriedFn<D: Domain> {
     name: egg::Symbol,
     arity: usize,
-    partial_args: Vec<Val<D>>,
+    partial_args: Vec<LazyVal<D>>,
 }
 
 impl<D: Domain> CurriedFn<D> {
@@ -85,7 +125,7 @@ impl<D: Domain> CurriedFn<D> {
     /// Feed one more argument into the function, returning a new CurriedFn if
     /// still not all the arguments have been received. Evaluate the function
     /// if all arguments have been received. Does not mutate the original.
-    pub fn apply(&self, arg: Val<D>, handle: &Executable<D>) -> VResult<D> {
+    pub fn apply(&self, arg: LazyVal<D>, handle: &Executable<D>) -> VResult<D> {
         let mut new_dslfn = self.clone();
         new_dslfn.partial_args.push(arg);
         if new_dslfn.partial_args.len() == new_dslfn.arity {
@@ -166,20 +206,25 @@ impl<D: Domain> Executable<D> {
 
     /// gets vec of (env,result) pairs for all the envs this node has been evaluated under
     pub fn evals_of_node(&self, node: Id) -> Vec<(Vec<Val<D>>,Val<D>)> {
-        self.evals.borrow().iter()
-            .filter(|((id,_env),_res)| *id == node)
-            .map(|((_id,env),res)| (env.clone(),(*res).clone()))
-            .collect()
+        unimplemented!()
+        // self.evals.borrow().iter()
+        //     .filter(|((id,_env),_res)| *id == node)
+        //     .map(|((_id,env),res)| (env.clone(),(*res).clone()))
+        //     .collect()
     }
 
     /// apply a function (Val) to an argument (Val)
     pub fn apply(&self, f: &Val<D>, x: Val<D>) -> VResult<D> {
+        self.apply_lazy(f, LazyVal::new_strict(x))
+    }
+    // apply a function (Val) to an argument (LazyVal)
+    pub fn apply_lazy(&self, f: &Val<D>, x: LazyVal<D>) -> VResult<D> {
         match f {
             Val::PrimFun(f) => f.apply(x.clone(), self),
             Val::LamClosure(f, env) => {
                 let mut new_env = vec![x.clone()];
                 new_env.extend(env.iter().cloned());
-                self.eval_child(*f, &new_env)
+                self.eval_child(*f, &mut new_env)
             }
             _ => panic!("Expected function or closure"),
         }
@@ -200,7 +245,7 @@ impl<D: Domain> Executable<D> {
     /// todo I can probably add some refcell bool flag that gets flipped when a panic is caught. Or
     /// we could have people mark their stuff as UnwindSafe and really understand the risks (which are
     /// probably nonexistent in most cases and only ever really introduced by Data)
-    pub fn eval(&self, env: &[Val<D>]) -> VResult<D> {
+    pub fn eval(&self, env: &mut [LazyVal<D>]) -> VResult<D> {
         match D::TRUST_LEVEL {
             TrustLevel::WontLoopWontPanic => {
                 self.eval_child(self.expr.root(), env)
@@ -221,14 +266,14 @@ impl<D: Domain> Executable<D> {
     }
 
     /// eval a subexpression in an environment
-    pub fn eval_child(&self, child: Id, env: &[Val<D>]) -> VResult<D> {
+    pub fn eval_child(&self, child: Id, env: &mut [LazyVal<D>]) -> VResult<D> {
         let key = (child, env.to_vec());
         if let Some(val) = self.evals.borrow().get(&key).cloned() {
             return Ok(val);
         }
         let val = match self.expr.nodes[usize::from(child)] {
             Lambda::Var(i) => {
-                env[i as usize].clone()
+                env[i as usize].eval(self)?
             }
             Lambda::IVar(_) => {
                 panic!("attempting to execute a #i ivar")
