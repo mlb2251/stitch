@@ -1389,7 +1389,7 @@ pub struct CompressionStepResult {
     multiplier_wrt_orig: f64,
     uses: i32,
     use_exprs: Vec<Expr>,
-    very_first_cost: i32,
+    use_args: Vec<Vec<Expr>>
 }
 
 impl CompressionStepResult {
@@ -1405,9 +1405,17 @@ impl CompressionStepResult {
         let multiplier_wrt_orig = very_first_cost as f64 / final_cost_rewritten as f64;
         let uses = done.nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
         let use_exprs: Vec<Expr> = done.nodes.iter().map(|node| extract(*node, egraph)).collect();
-        CompressionStepResult { inv, inv_name: String::from(inv_name), rewritten, done, final_cost, multiplier, final_cost_rewritten, multiplier_rewritten, multiplier_wrt_orig, uses, use_exprs, very_first_cost }
+        let use_args: Vec<Vec<Expr>> = done.nodes.iter().map(|node|
+            done.ztuple.multiarg.iter().map(|zid|
+                extract(appzipper_of_node_zid[&(*node,*zid)].arg, egraph)
+            ).collect()).collect();
+        CompressionStepResult { inv, inv_name: String::from(inv_name), rewritten, done, final_cost, multiplier, final_cost_rewritten, multiplier_rewritten, multiplier_wrt_orig, uses, use_exprs, use_args }
     }
     fn json(&self) -> serde_json::Value {
+        let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| expr.to_string()).collect();
+        let use_args: Vec<String> = self.use_args.iter().map(|args| format!("{} {}", self.inv_name, args.iter().map(|expr| expr.to_string()).collect::<Vec<String>>().join(" "))).collect();
+        let all_uses: Vec<serde_json::Value> = use_exprs.iter().zip(use_args.iter()).map(|(expr,args)| json!({args: expr})).collect();
+
         json!({            
             "body": self.inv.body.to_string(),
             "arity": self.inv.arity,
@@ -1419,8 +1427,8 @@ impl CompressionStepResult {
             "final_cost_rewritten": self.final_cost_rewritten,
             "multiplier_rewritten": self.multiplier_rewritten,
             "multiplier_wrt_orig": self.multiplier_wrt_orig,
-            "uses": self.uses,
-            "use_exprs": self.use_exprs.iter().map(|expr| expr.to_string()).collect::<Vec<String>>(),
+            "num_uses": self.uses,
+            "uses": all_uses,
         })
     }
 }
