@@ -12,6 +12,7 @@ pub enum ListVal {
 }
 
 type Val = domain::Val<ListVal>;
+type LazyVal = domain::LazyVal<ListVal>;
 type Executable = domain::Executable<ListVal>;
 type VResult = domain::VResult<ListVal>;
 type DSLFn = domain::DSLFn<ListVal>;
@@ -152,35 +153,44 @@ impl Domain for ListVal {
 
 // *** DSL FUNCTIONS ***
 
-fn cons(mut args: Vec<Val>, _handle: &Executable) -> VResult {
-    load_args!(args, x:Val, xs:Vec<Val>); 
+fn cons(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+    load_args!(handle, args, x:Val, xs:Vec<Val>); 
     let mut rxs = xs.clone();
     rxs.insert(0, x);
     ok(rxs)
 }
 
-fn add(mut args: Vec<Val>, _handle: &Executable) -> VResult {
-    load_args!(args, x:i32, y:i32); 
+fn add(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+    load_args!(handle, args, x:i32, y:i32); 
     ok(x+y)
 }
 
-fn sub(mut args: Vec<Val>, _handle: &Executable) -> VResult {
-    load_args!(args, x:i32, y:i32); 
+fn sub(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+    load_args!(handle, args, x:i32, y:i32); 
     ok(x-y)
 }
 
-fn gt(mut args: Vec<Val>, _handle: &Executable) -> VResult {
-    load_args!(args, x:i32, y:i32); 
+fn gt(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+    load_args!(handle, args, x:i32, y:i32); 
     ok(x>y)
 }
 
-fn branch(mut args: Vec<Val>, _handle: &Executable) -> VResult {
-    load_args!(args, b: bool, tbranch: Val, fbranch: Val); 
-    ok(if b { tbranch } else { fbranch })
+fn branch(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+    println!("Loading b");
+    load_args!(handle, args, b: bool);
+    println!("Loading lazies");
+    load_args_lazy!(args, tbranch: LazyVal, fbranch: LazyVal); 
+    if b { 
+        println!("Branch True");
+        tbranch.eval(&handle)
+    } else { 
+        println!("Branch False");
+        fbranch.eval(&handle)
+    }
 }
 
-fn eq(mut args: Vec<Val>, handle: &Executable) -> VResult {
-    load_args!(args, x:Val, y:Val); 
+fn eq(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+    load_args!(handle, args, x:Val, y:Val); 
     match (x, y) {
         (Dom(Int(i)),  Dom(Int(j)))  => { return ok(i==j); },
         (Dom(Bool(a)), Dom(Bool(b))) => { return ok(a==b); },
@@ -191,7 +201,7 @@ fn eq(mut args: Vec<Val>, handle: &Executable) -> VResult {
             } else {
                 let mut all_elems_equal = true;
                 for i in 0..l_len {
-                    let elems_equal = eq(vec![l[i].clone(), k[i].clone()], handle);
+                    let elems_equal = eq(vec![LazyVal::new_strict(l[i].clone()), LazyVal::new_strict(k[i].clone())], handle);
                     match elems_equal {
                         VResult::Err(s) => { return Err(s) }
                         VResult::Ok(Dom(Bool(true))) => { continue; },
@@ -208,13 +218,13 @@ fn eq(mut args: Vec<Val>, handle: &Executable) -> VResult {
     }
 }
 
-fn is_empty(mut args: Vec<Val>, _handle: &Executable) -> VResult {
-    load_args!(args, xs: Vec<Val>);
+fn is_empty(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+    load_args!(handle, args, xs: Vec<Val>);
     ok(xs.is_empty())
 }
 
-fn head(mut args: Vec<Val>, _handle: &Executable) -> VResult {
-    load_args!(args, xs: Vec<Val>);
+fn head(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+    load_args!(handle, args, xs: Vec<Val>);
     if xs.is_empty() {
         Err(String::from("head called on empty list"))
     } else {
@@ -222,22 +232,25 @@ fn head(mut args: Vec<Val>, _handle: &Executable) -> VResult {
     }
 }
 
-fn tail(mut args: Vec<Val>, _handle: &Executable) -> VResult {
-    load_args!(args, xs: Vec<Val>);
+fn tail(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+    load_args!(handle, args, xs: Vec<Val>);
     if xs.is_empty() {
+        panic!("tail called on empty list");
         Err(String::from("tail called on empty list"))
     } else {
         ok(xs[1..].to_vec())
     }
 }
 
-fn fix(mut args: Vec<Val>, handle: &Executable) -> VResult {
-    load_args!(args, fn_val: Val, x: Val);
+fn fix(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+    load_args!(handle, args, fn_val: Val, x: Val);
     println!("Running fix with x={:?}, fn_val={:?}", x, fn_val);
 
     // fix f x = f(fix f)(x)
-    let fixf = PrimFun(CurriedFn::new_force_args(Symbol::from("fix"), 2, vec![fn_val.clone()]));
+    let fixf = PrimFun(CurriedFn::new_force_args(Symbol::from("fix"), 2, vec![LazyVal::new_strict(fn_val.clone())]));
+    println!("fixf constructed");
     if let VResult::Ok(ffixf) = handle.apply(&fn_val, fixf) {
+        println!("ffixf constructed");
         handle.apply(&ffixf, x)
     } else {
         Err(String::from("Could not apply fixf to f"))
@@ -253,6 +266,9 @@ mod tests {
     #[test]
     fn eval_test() {
 
+        println!("Starting eval_test");
+        let arg = ListVal::val_of_prim("[]".into()).unwrap();
+        assert_execution::<domains::prim_lists::ListVal, Vec<Val>>("(if (is_empty $0) $0 (tail $0))", &[arg], vec![]);
         // test cons
         let arg = ListVal::val_of_prim("[1,2,3]".into()).unwrap();
         assert_execution("(cons 0 $0)", &[arg], vec![0,1,2,3]);
@@ -290,18 +306,21 @@ mod tests {
         let arg = ListVal::val_of_prim("[[1,2],[3],[4,5]]".into()).unwrap();
         assert_execution("(head $0)", &[arg], vec![1,2]);
         // test tail
+        println!("Hi dad");
         let arg = ListVal::val_of_prim("[[1,2],[3],[4,5]]".into()).unwrap();
         assert_execution("(tail $0)", &[arg], vec![vec![3], vec![4, 5]]);
+        println!("Hi mom");
         let arg = ListVal::val_of_prim("[[1,2]]".into()).unwrap();
         assert_execution::<domains::prim_lists::ListVal, Vec<Val>>("(tail $0)", &[arg], vec![]);
+        println!("Hi alice");
         // test fix
         let arg = ListVal::val_of_prim("[]".into()).unwrap();
-        assert_execution("(fix (lam (lam (if (is_empty $0) 0 (+ 1 ($1 (tail $0)))))) $0)", &[arg], 1);
-        let arg = ListVal::val_of_prim("[]".into()).unwrap();
-        assert_execution("(fix (lam (lam (if (is_empty $0) 0 (+ 1 0)))) $0)", &[arg], 1);
+        println!("arg loaded");
+        assert_execution("(fix (lam (lam (if (is_empty $0) 0 (+ 1 ($1 (tail $0)))))) $0)", &[arg], 0);
+        println!("Hi matt");
         let arg = ListVal::val_of_prim("[1,2,3,2,1]".into()).unwrap();
         assert_execution("(fix (lam (lam (if (is_empty $0) 0 (+ 1 ($1 (tail $0)))))) $0)", &[arg], 5);
-        //let arg = ListVal::val_of_prim("[1,2,3,4,5]".into()).unwrap();
-        //assert_execution("(fix $0 (lam (lam (if (is_empty $0) $0 (cons (+ 1 (head $0)) ($1 (tail $0)))))))", &[arg], vec![2, 3, 4, 5, 6]);
+        let arg = ListVal::val_of_prim("[1,2,3,4,5]".into()).unwrap();
+        assert_execution("(fix (lam (lam (if (is_empty $0) $0 (cons (+ 1 (head $0)) ($1 (tail $0)))))) $0)", &[arg], vec![2, 3, 4, 5, 6]);
     }
 }
