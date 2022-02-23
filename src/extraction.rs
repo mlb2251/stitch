@@ -129,7 +129,7 @@ fn extract_from_nodecosts(
             let mut expr = Expr::prim(prim.into());
             // wrap the new primitive in app() calls. Note that you pass in the $0 args LAST given how appapplamlam works
             // todo perhaps this shouldnt be a .rev() - related to what theo found
-            for arg in args.iter().rev() {
+            for arg in args.iter() {
                 let arg_expr = extract_from_nodecosts(*arg, invs, nodecost_of_treenode, replace_invs_with, egraph);
                 expr = Expr::app(expr,arg_expr);
             }
