@@ -21,6 +21,17 @@ macro_rules! define_semantics {
 /// this macro is used at the start of a DSL function to load arguments out of their args vec
 #[macro_export]
 macro_rules! load_args {
+    (   $handle: expr,
+        $args:expr,
+        $($name:ident : $type:ty ),*
+    ) => { 
+        $(let $name:$type = $args.remove(0).eval($handle)?.into();)*
+    }
+}
+
+/// this macro is used at the start of a DSL function to load arguments out of their args vec
+#[macro_export]
+macro_rules! load_args_lazy {
     (   $args:expr,
         $($name:ident : $type:ty ),*
     ) => { 
