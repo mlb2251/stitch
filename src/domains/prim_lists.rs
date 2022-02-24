@@ -325,7 +325,10 @@ mod tests {
         assert_execution("(fix (lam (lam (if (is_empty $0) 0 (+ 1 ($1 (tail $0)))))) $0)", &[arg], 5);
         let arg = ListVal::val_of_prim("[1,2,3,4,5]".into()).unwrap();
         assert_execution("(fix (lam (lam (if (is_empty $0) $0 (cons (+ 1 (head $0)) ($1 (tail $0)))))) $0)", &[arg], vec![2, 3, 4, 5, 6]);
-        //let arg = ListVal::val_of_prim("[1,2,3,4,5]".into()).unwrap();
-        //assert_execution("(fix (lam (lam (if (is_empty $0) $0 (cons (+ 1 (head $0)) ($1 $0))))) $0)", &[arg], vec![2, 3, 4, 5, 6]);
+        let arg = ListVal::val_of_prim("[1,2,3,4,5]".into()).unwrap();
+        assert_error::<domains::prim_lists::ListVal, Val>(
+            "(fix (lam (lam (if (is_empty $0) $0 (cons (+ 1 (head $0)) ($1 $0))))) $0)",
+            &[arg],
+            format!("Exceeded max number of fix invocations. Max was {}", MAX_FIX_INVOCATIONS));
     }
 }
