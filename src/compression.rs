@@ -1392,6 +1392,15 @@ fn derive_inventions(
     println!("{:?}", stats);
 }
 
+pub fn pretty_programs(programs: &Expr) -> Vec<String> {
+    match programs.get_root() {
+        Lambda::Programs(roots) => {
+            roots.iter().map(|root| programs.to_string_uncurried(Some(*root))).collect()
+        },
+        _ => unreachable!()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct CompressionStepResult {
     inv: InventionExpr,
@@ -1436,7 +1445,7 @@ impl CompressionStepResult {
             "body": self.inv.body.to_string(),
             "arity": self.inv.arity,
             "name": self.inv_name,
-            "rewritten": self.rewritten.to_string(),
+            "rewritten": pretty_programs(&self.rewritten),
             "utility": self.done.utility,
             "final_cost": self.final_cost,
             "multiplier": self.multiplier,
@@ -1495,7 +1504,7 @@ pub fn compression(
         "cmd": std::env::args().join(" "),
         "args": args,
         "original_cost": programs_expr.cost(),
-        "original": programs_expr.to_string(),
+        "original": pretty_programs(programs_expr),
         "invs": invs.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
     });
 
