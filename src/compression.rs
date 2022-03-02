@@ -124,16 +124,6 @@ impl Display for InventionExpr {
     }
 }
 
-/// Replace the ivars in an expr based on an i32->Expr map
-fn ivar_replace(e: &Expr, child: Id, map: &HashMap<i32, Expr>) -> Expr {
-    match e.get(child) {
-        Lambda::IVar(i) => map.get(&i).unwrap_or(&e).clone(),
-        Lambda::Var(_) | Lambda::Prim(_) => e.clone(),
-        Lambda::App([f,x]) => Expr::app(ivar_replace(e, *f, map), ivar_replace(e, *x, map)),
-        Lambda::Lam([b]) => Expr::lam(ivar_replace(e, *b, map)),
-        Lambda::Programs(_) => panic!("why would you do this")
-    }
-}
 
 
 #[derive(Default)]
@@ -572,7 +562,7 @@ impl HeapItem {
 
 // can add upper bound utility and such here later too
 #[derive(Debug,Clone)]
-struct FinishedItem {
+pub struct FinishedItem {
     ztuple: ZTuple,
     nodes: Vec<Id>, // nodes in the group
     utility: i32,
@@ -904,6 +894,7 @@ fn compression_step(
     out_dir: &str,
     new_inv_name: &str,
     very_first_cost: i32,
+    past_invs: &Vec<CompressionStepResult>,
 ) -> Vec<CompressionStepResult> {
 
     // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
@@ -1053,7 +1044,7 @@ fn compression_step(
 
     println!("Cost before: {}", orig_cost);
     for (i,done) in donelist.iter().enumerate().take(10) {
-        let res = CompressionStepResult::new(done.clone(), programs_node, very_first_cost, new_inv_name, &mut appzipper_of_node_zid, &num_paths_to_node, &mut egraph);
+        let res = CompressionStepResult::new(done.clone(), programs_node, very_first_cost, new_inv_name, &mut appzipper_of_node_zid, &num_paths_to_node, &mut egraph, past_invs);
 
         println!("{}: {}", i, res);
         if args.show_rewritten {
@@ -1403,22 +1394,23 @@ pub fn pretty_programs(programs: &Expr) -> Vec<String> {
 
 #[derive(Debug, Clone)]
 pub struct CompressionStepResult {
-    inv: InventionExpr,
-    inv_name: String,
-    rewritten: Expr,
-    done: FinishedItem,
-    final_cost: i32,
-    multiplier: f64,
-    final_cost_rewritten: i32,
-    multiplier_rewritten: f64,
-    multiplier_wrt_orig: f64,
-    uses: i32,
-    use_exprs: Vec<Expr>,
-    use_args: Vec<Vec<Expr>>
+    pub inv: InventionExpr,
+    pub inv_name: String,
+    pub rewritten: Expr,
+    pub done: FinishedItem,
+    pub final_cost: i32,
+    pub multiplier: f64,
+    pub final_cost_rewritten: i32,
+    pub multiplier_rewritten: f64,
+    pub multiplier_wrt_orig: f64,
+    pub uses: i32,
+    pub use_exprs: Vec<Expr>,
+    pub use_args: Vec<Vec<Expr>>,
+    pub dc_inv_str: String,
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedItem, programs_node: Id, very_first_cost: i32, inv_name: &str, appzipper_of_node_zid: &mut HashMap<(Id,ZId),AppZipper>,  num_paths_to_node: &HashMap<Id,i32>, egraph: &mut EGraph) -> Self {
+    fn new(done: FinishedItem, programs_node: Id, very_first_cost: i32, inv_name: &str, appzipper_of_node_zid: &mut HashMap<(Id,ZId),AppZipper>,  num_paths_to_node: &HashMap<Id,i32>, egraph: &mut EGraph, past_invs: &Vec<CompressionStepResult>) -> Self {
         let orig_cost = egraph[programs_node].data.inventionless_cost;
 
         let inv = InventionExpr::new(done.ztuple.to_expr(done.nodes[0], appzipper_of_node_zid, egraph), done.ztuple.arity);
@@ -1434,7 +1426,10 @@ impl CompressionStepResult {
             done.ztuple.multiarg.iter().map(|zid|
                 extract(appzipper_of_node_zid[&(*node,*zid)].arg, egraph)
             ).collect()).collect();
-        CompressionStepResult { inv, inv_name: String::from(inv_name), rewritten, done, final_cost, multiplier, final_cost_rewritten, multiplier_rewritten, multiplier_wrt_orig, uses, use_exprs, use_args }
+        
+        // dreamcoder compatability
+        let dc_inv_str: String = dc_inv_str(&inv, past_invs);
+        CompressionStepResult { inv, inv_name: String::from(inv_name), rewritten, done, final_cost, multiplier, final_cost_rewritten, multiplier_rewritten, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str }
     }
     fn json(&self) -> serde_json::Value {        
         let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| expr.to_string()).collect();
@@ -1443,6 +1438,7 @@ impl CompressionStepResult {
 
         json!({            
             "body": self.inv.body.to_string(),
+            "dreamcoder": self.dc_inv_str,
             "arity": self.inv.arity,
             "name": self.inv_name,
             "rewritten": pretty_programs(&self.rewritten),
@@ -1479,7 +1475,7 @@ pub fn compression(
     for i in 0..args.iterations {
         println!("\n=======Iteration {}=======",i);
         let inv_name = format!("inv{}",invs.len());
-        let res: Vec<CompressionStepResult> = compression_step(&rewritten, args, out_dir, &inv_name, programs_expr.cost());
+        let res: Vec<CompressionStepResult> = compression_step(&rewritten, args, out_dir, &inv_name, programs_expr.cost(), &invs);
         if !res.is_empty() {
             let res: CompressionStepResult = res[0].clone();
             rewritten = res.rewritten.clone();

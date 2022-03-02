@@ -1,6 +1,7 @@
 use crate::*;
 use sexp::{Sexp,Atom};
 use std::fmt::Debug;
+use std::collections::HashMap;
 
 /// Uncurries an s expression. For example: (app (app foo x) y) -> (foo x y)
 /// panics if sexp is already uncurried.
@@ -146,3 +147,45 @@ where T: From<Val<D>>+ Debug + PartialEq
 pub fn compression_factor(original: &Expr, compressed: &Expr) -> f64 {
     f64::from(original.cost())/f64::from(compressed.cost())
 }
+
+/// Replace the ivars in an expr based on an i32->Expr map
+pub fn ivar_replace(e: &Expr, child: Id, map: &HashMap<i32, Expr>) -> Expr {
+    match e.get(child) {
+        Lambda::IVar(i) => map.get(&i).unwrap_or(&e).clone(),
+        Lambda::Var(v) => Expr::var(*v),
+        Lambda::Prim(p) => Expr::prim(*p),
+        Lambda::App([f,x]) => Expr::app(ivar_replace(e, *f, map), ivar_replace(e, *x, map)),
+        Lambda::Lam([b]) => Expr::lam(ivar_replace(e, *b, map)),
+        Lambda::Programs(_) => panic!("why would you do this")
+    }
+}
+
+/// Replace the ivars in an expr based on an i32->Expr map
+pub fn ivar_to_dc(e: &Expr, child: Id, depth: i32, arity: i32) -> Expr {
+    match e.get(child) {
+        Lambda::IVar(i) => Expr::var(depth + (arity - 1 - i)),
+        Lambda::Var(v) => Expr::var(*v),
+        Lambda::Prim(p) => Expr::prim(*p),
+        Lambda::App([f,x]) => Expr::app(ivar_to_dc(e, *f, depth, arity), ivar_to_dc(e, *x, depth, arity)),
+        Lambda::Lam([b]) => Expr::lam(ivar_to_dc(e, *b, depth+1, arity)),
+        Lambda::Programs(_) => panic!("why would you do this")
+    }
+}
+
+pub fn dc_inv_str(inv: &InventionExpr, past_invs: &Vec<CompressionStepResult>) -> String {
+    let mut body: Expr = ivar_to_dc(&inv.body, inv.body.root(), 0, inv.arity as i32);
+    // wrap in lambdas for dremacoder
+    for _ in 0..inv.arity {
+        body = Expr::lam(body);
+    }
+    // add the "#" that dreamcoder wants and change lam -> lambda
+    let mut res: String = format!("#{}", body);
+    res = res.replace("(lam ", "(lambda ");
+    // inline any past inventions using their dc_inv_str
+    for past_inv in past_invs.iter() {
+        res = res.replace(past_inv.inv_name.as_str(), past_inv.dc_inv_str.as_str());
+    }
+    res
+}
+
+
