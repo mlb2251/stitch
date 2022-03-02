@@ -35,6 +35,6 @@ macro_rules! load_args_lazy {
     (   $args:expr,
         $($name:ident : $type:ty ),*
     ) => { 
-        $(let $name:$type = $args.remove(0).into();)*
+        $(let mut $name:$type = $args.remove(0).into();)*
     }
 }
