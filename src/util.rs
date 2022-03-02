@@ -144,6 +144,16 @@ where T: From<Val<D>>+ Debug + PartialEq
     assert_eq_val(&res,expected);
 }
 
+pub fn assert_error<D: Domain, T>(expr: &str, args: &[Val<D>], expected_error_msg: String)
+where T: From<Val<D>>+ Debug + PartialEq
+{
+    let e: Executable<D> = expr.parse().unwrap();
+    let mut args: Vec<LazyVal<D>> = args.iter().map(|arg|LazyVal::new_strict(arg.clone())).collect();
+    let res = e.eval(&mut args);
+    assert!(res.is_err());
+    assert_eq!(expected_error_msg, res.err().unwrap());
+}
+
 pub fn compression_factor(original: &Expr, compressed: &Expr) -> f64 {
     f64::from(original.cost())/f64::from(compressed.cost())
 }
