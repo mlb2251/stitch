@@ -248,7 +248,7 @@ fn fix(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     load_args!(handle, args, fn_val: Val, x: Val);
 
     // fix f x = f(fix f)(x)
-    let fixf = PrimFun(CurriedFn::new_force_args(Symbol::from("fix"), 2, vec![LazyVal::new_strict(fn_val.clone())]));
+    let fixf = PrimFun(CurriedFn::new_with_args(Symbol::from("fix"), 2, vec![LazyVal::new_strict(fn_val.clone())]));
     if let VResult::Ok(ffixf) = handle.apply(&fn_val, fixf) {
         handle.apply(&ffixf, x)
     } else {
