@@ -115,7 +115,7 @@ impl<D: Domain> CurriedFn<D> {
             partial_args: Vec::new(),
         }
     }
-    pub fn new_force_args(name: egg::Symbol, arity: usize, partial_args: Vec<LazyVal<D>>) -> Self {
+    pub fn new_with_args(name: egg::Symbol, arity: usize, partial_args: Vec<LazyVal<D>>) -> Self {
         Self {
             name,
             arity,
