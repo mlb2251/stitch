@@ -1,6 +1,6 @@
 use crate::*;
 use std::collections::{HashMap, HashSet};
-use compression::{*,EGraph};
+use compression::*;
 
 
 
@@ -277,7 +277,7 @@ fn match_expr_with_inv_rec(
                         // protect $0 before continuing with the shift
                         arg = egraph.add(Lambda::Lam([arg]));
                     }
-                    arg = shift(arg, Shift::ShiftVar(-1), egraph, None).unwrap();
+                    arg = shift(arg, -1, egraph, &mut None).unwrap();
                 }
 
                 // now copy over the best_inventions
@@ -324,7 +324,7 @@ fn match_expr_with_inv_rec(
                 root
             } else if egraph[root].data.free_vars.iter().min().unwrap() - depth >= 0 {
                 // 2. `root` has free variables but they all point outside the invention so are safe to decrement
-                let shifted_root = shift(root, Shift::ShiftVar(-depth), egraph, None).unwrap();
+                let shifted_root = shift(root, -depth, egraph, &mut None).unwrap();
                 // copy the cost of the unshifted node to the shifted node (see PR#1 comments for why this is safe)
                 if !best_inventions_of_treenode.contains_key(&shifted_root) {
                     let cloned = best_inventions_of_treenode[&root].clone();

@@ -10,6 +10,7 @@ use extraction::extract;
 use serde_json::json;
 use serde::Serialize;
 
+
 /// Args for compression
 #[derive(Parser, Debug, Serialize)]
 #[clap(name = "Stitch")]
@@ -18,61 +19,48 @@ pub struct CompressionArgs {
     #[clap(short, long, parse(from_os_str), default_value = "data/train_19.json")]
     pub file: PathBuf,
 
-    /// output file
+    /// json output file
     #[clap(short, long, parse(from_os_str), default_value = "out/out.json")]
     pub out: PathBuf,
 
-    /// Number of iterations to run compression for
+    /// Number of iterations to run compression for (number of inventions to find)
     #[clap(short, long, default_value = "3")]
     pub iterations: usize,
 
-    /// max arity of inventions
+    /// max arity of inventions to find
     #[clap(short='a', long, default_value = "2")]
     pub max_arity: usize,
 
-    /// 
+    /// print out programs rewritten under invention
     #[clap(long,short='r')]
     pub show_rewritten: bool,
 
-    /// 
+    /// shuffle order of set of inventions 
     #[clap(long)]
     pub shuffle: bool,
 
-    /// 
+    /// truncate set of inventions to include only this many (happens after shuffle if shuffle is also specified)
     #[clap(long)]
     pub truncate: Option<usize>,
 
-    /// beam size
-    // #[clap(short, long, default_value = "10000000")]
-    // beam_size: usize,
-
-    /// disable caching
+    /// disable caching (though caching isn't used for much currently)
     #[clap(long)]
     pub no_cache: bool,
 
-    /// whether to render the inventions
+    /// (WIP) render inventions into images
     #[clap(long)]
     pub render_inventions: bool,
 
-    /// render the final egraph
+    /// (WIP) render final set of programs into image
     #[clap(long)]
     pub render_final: bool,
 
-    /// render initial egraph
+    /// (WIP) render initial set of programs into image
     #[clap(long)]
     pub render_initial: bool,
-
-    /// number of inventions to print - set to 0 if you dont want to print inventions at all
-    #[clap(long, default_value="0")]
-    pub print_inventions: usize,
 }
 
-/// nonterminals ("app" and "lam") cost 1/100th of a terminal ("var", "ivar", "prim"). This is because nonterminals
-/// can be autofilled based on the type of the hole you're filling during most search methods.
-pub const COST_NONTERMINAL: i32 = 1;
-pub const COST_TERMINAL: i32 = 100;
 
-pub type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
 
 /// The analysis data associated with each Lambda node
 #[derive(Debug)]
@@ -81,7 +69,6 @@ pub struct Data {
     pub free_ivars: HashSet<i32>, // #i ivars
     pub inventionless_cost: i32,
 }
-
 
 /// An invention we've found (ie a learned function we can use to compress the program).
 /// Inventions have a body + an arity
@@ -111,6 +98,7 @@ impl InventionExpr {
     pub fn new(body: Expr, arity: usize) -> Self {
         Self { body, arity }
     }
+    /// replace any #i with args[i], returning a new expression
     pub fn apply(&self, args: &[Expr]) -> Expr {
         assert_eq!(args.len(), self.arity);
         let map: HashMap<i32, Expr> = args.iter().enumerate().map(|(i,e)| (i as i32, e.clone())).collect();
@@ -125,370 +113,22 @@ impl Display for InventionExpr {
 }
 
 
-
-#[derive(Default)]
-pub struct LambdaAnalysis;
-
-impl Analysis<Lambda> for LambdaAnalysis {
-    type Data = Data;
-    fn merge(&self, to: &mut Data, from: Data) -> bool {
-        // we really shouldnt be merging anyone ever rn I think.
-        panic!("shouldn't be merging");
-
-        assert_eq!(to.free_vars,from.free_vars);
-        assert_eq!(to.free_ivars,from.free_ivars);
-        assert_eq!(to.inventionless_cost,from.inventionless_cost);
-
-        // keep the lowest inventionless cost
-        // modified |= merge_inventionless(&mut to.inventionless_cost_any, &from.inventionless_cost_any);
-        
-        false // didnt modify anything
-    }
-
-    fn make(egraph: &EGraph, enode: &Lambda) -> Data {
-        let mut free_vars: HashSet<i32> = HashSet::new();
-        let mut free_ivars: HashSet<i32> = HashSet::new();
-        match enode {
-            Lambda::Var(i) => {
-                free_vars.insert(*i);
-            }
-            Lambda::IVar(i) => {
-                free_ivars.insert(*i);
-            }
-            Lambda::Prim(_) => {
-            }
-            Lambda::App([f, x]) => {
-                // union of f and x
-                free_vars.extend(egraph[*f].data.free_vars.iter());
-                free_vars.extend(egraph[*x].data.free_vars.iter());
-                free_ivars.extend(egraph[*f].data.free_ivars.iter());
-                free_ivars.extend(egraph[*x].data.free_ivars.iter());
-            }
-            Lambda::Lam([b]) => {
-                // body, subtract 1 from all values, remove the -1 if its in there
-                free_vars.extend(egraph[*b].data.free_vars.iter()
-                    .map(|x| x-1)
-                    .filter(|x| *x >= 0));
-                free_ivars.extend(egraph[*b].data.free_ivars.iter());
-            }
-            Lambda::Programs(programs) => {
-                // assert no free variables in programs
-                assert!(programs.iter().all(|p| egraph[*p].data.free_vars.is_empty()));
-                assert!(programs.iter().all(|p| egraph[*p].data.free_ivars.is_empty()));
-            }
-        }
-        let inventionless_cost = match enode {
-            Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => COST_TERMINAL,
-            Lambda::App([f,x]) => {
-                    COST_NONTERMINAL
-                    + egraph[*f].data.inventionless_cost
-                    + egraph[*x].data.inventionless_cost
-                }
-            Lambda::Lam([b]) => {
-                COST_NONTERMINAL + egraph[*b].data.inventionless_cost
-            }
-            Lambda::Programs(ps) => {
-                ps.iter().map(|p| egraph[*p].data.inventionless_cost).sum()
-            }
-        };
-        Data {
-               free_vars: free_vars,
-               free_ivars: free_ivars,
-               inventionless_cost: inventionless_cost
-            }
-    }
-
-    fn modify(_egraph: &mut EGraph, _id: Id) {
-    }
-}
-
-
-/// Does debruijn index shifting of a subtree. Note that the type of shifting is specified by
-/// the `shift` argument.
-/// 
-/// Shift variants:
-/// * ShiftVar(i32) -> increment all free variables by the given amount
-/// * ShiftIVar(i32) -> increment all ivars by given amount
-/// * TableShiftIVar(Vec<i32>) -> increment ivar #i by the amount given by table[i]
+/// Does debruijn index shifting of a subtree, incrementing all Vars by the given amount
 #[inline] // useful to inline since callsite can usually tell which Shift type is happening allowing further optimization
-pub fn shift(e: Id, shift: Shift, egraph: &mut EGraph, caches: Option<&mut CacheGenerator>) -> Option<Id> {
-    let mut empty = HashMap::new();
-    let seen = match caches {
-        Some(caches) => caches.get(&shift),
-        None => &mut empty,
-    };
-    match shift {
-        Shift::ShiftVar(incr_by) => recursive_var_mod(
-            |actual_idx, _depth, _which_upward_ref, egraph| {
-                Some(egraph.add(Lambda::Var(actual_idx + incr_by)))
-            },
-            false, // operate on Vars
-            e,egraph,seen
-        ),
-        Shift::ShiftIVar(incr_by) => recursive_var_mod(
-            |actual_idx, _depth, _which_upward_ref, egraph| {
-                // note this is IVars so depth and which_upward_ref are meaningless to us
-                Some(egraph.add(Lambda::IVar(actual_idx + incr_by)))
-            },
-            true, // operate on IVars
-            e,egraph,seen
-        ),
-        Shift::TableShiftIVar(shift_table) => recursive_var_mod(
-            |actual_idx, _depth, _which_upward_ref, egraph| {
-                // shift variable up or down whatever the shift table says it should be
-                // note this is IVars so depth and which_upward_ref are meaningless to us
-                Some(egraph.add(Lambda::IVar(actual_idx + shift_table[actual_idx as usize])))
-            },
-            true, // operate on IVars
-            e,egraph,seen
-        )
-    }
+pub fn shift(e: Id, incr_by: i32, egraph: &mut EGraph, cache: &mut Option<RecVarModCache>) -> Option<Id> {
+    let empty = &mut RecVarModCache::new();
+    let seen: &mut RecVarModCache = cache.as_mut().unwrap_or(empty);
+
+    recursive_var_mod(
+        |actual_idx, _depth, _which_upward_ref, egraph| {
+            Some(egraph.add(Lambda::Var(actual_idx + incr_by)))
+        },
+        false, // operate on Vars not IVars
+        e,egraph,seen
+    )
 }
 
-/// This is a helper function for implementing various recursive operations that only
-/// modify Var or IVar constructs (use `ivars=true` to run this on all ivars). Just provide
-/// a function that you want to call on each Var to determine what to replace it with. The function
-/// signature should be `(actual_idx, depth, which_upward_ref, egraph) -> Option<Id>`.
-/// 
-/// We recurse over the full graph rooted at `eclass` and replace any `Var` (or `IVar` if `ivars=true`)
-/// with the result of calling the function with:
-/// * `actual_idx`: if we're matching on Var(i) this is i
-/// * `depth`: how many Lamdas are between this Var and the original toplevel eclass this was called on
-/// * `which_upward_ref`: this is just actual_idx-depth
-/// * `egraph`: the EGraph we're operating on
-/// 
-/// Note that we wont touch any branches of the tree that dont have free variables with respect to the toplevel,
-/// so this will never be called on some Var(i) if it is not considered a free variable in `eclass` as a whole.
-/// 
-/// This function is fairly efficient. We cache both within and between calls to it, it uses
-/// the enode data that tells us if there are no free variables in a branch (and thus it can be ignored),
-/// it operates on the structurally hashed form of the graph, etc.
-pub fn recursive_var_mod(
-    var_mod: impl Fn(i32, i32, i32, &mut EGraph) -> Option<Id>,
-    ivars: bool,
-    eclass:Id,
-    egraph: &mut EGraph,
-    seen: &mut RecVarModCache
-    ) -> Option<Id>
-    {
-        recursive_var_mod_helper(
-            &var_mod,
-            ivars,
-            eclass,
-            0,
-            egraph,
-            seen,
-        )
-}
-
-/// see `recursive_var_mod`
-fn recursive_var_mod_helper(
-    var_mod: &impl Fn(i32, i32, i32, &mut EGraph) -> Option<Id>,
-    ivars: bool, // whether to run this on vars or ivars
-    eclass:Id,
-    depth: i32,
-    egraph: &mut EGraph,
-    seen : &mut RecVarModCache,
-    ) -> Option<Id>
-    {
-        // important invariant for ivars=false case: a $i with i==depth would be a $0 pointer at the top level
-        // meaning i<depth is an internal pointer that doesnt break the top level
-        let eclass = egraph.find(eclass);
-        let key = (eclass,depth);
-
-        if seen.contains_key(&key) {
-            return seen[&key];
-        }
-
-        if  (ivars && egraph[eclass].data.free_ivars.is_empty())
-        || (!ivars && egraph[eclass].data.free_vars.iter().all(|i| *i < depth)) {
-            // if we're replacing ivars and theres no ivars in this subtree, we can return early
-            // if we're replacing vars, from our invariant (above) we know i<depth is an internal pointer that doesnt point out of the top level so again we can return early
-            seen.insert(key, Some(eclass));
-            return Some(eclass)
-        }
-
-        // this is for loop breaking (though there shouldnt be loops in my new DAG setup anyways)
-        seen.insert(key, None);
-        
-        // if you want a multiple-node-per-eclass version of this that unions together the stuff from diff branches, see my old code!
-        assert!(egraph[eclass].nodes.len() == 1);
-        // clone to appease the borrow checker
-        let enode = egraph[eclass].nodes[0].clone();
-
-        let new_eclass = match enode {
-            Lambda::Var(i) => {
-                if ivars {
-                    panic!("unreachable, Var doesnt have free IVars")
-                }
-                assert!(i >= depth); // otherwise we should have returned earlier
-                // by our invariant be have i-depth as the toplevel version of this index
-                var_mod(i, depth, i-depth, egraph)
-            }
-            Lambda::IVar(i) => {
-                if !ivars {
-                    panic!("unreachable, IVar doesnt have free Vars")
-                }
-                var_mod(i, depth, i-depth, egraph)
-            }
-            Lambda::Prim(_) => {
-                panic!("unreachable, Prim never has free vars/ivars")
-            }
-            Lambda::App([f, x]) => {
-                // recurse in each (class shift will return early if no shifting is needed) and build a new App
-                let fnew_opt = recursive_var_mod_helper(var_mod, ivars, f, depth, egraph, seen);
-                let xnew_opt = recursive_var_mod_helper(var_mod, ivars, x, depth, egraph, seen);
-                match (fnew_opt,xnew_opt) {
-                    (Some(fnew),Some(xnew)) => Some(egraph.add(Lambda::App([fnew, xnew]))),
-                    _ => None,
-                }
-            }
-            Lambda::Lam([b]) => {
-                // increment depth
-                recursive_var_mod_helper(var_mod, ivars, b, depth+1, egraph, seen)
-                .map(|bnew| egraph.add(Lambda::Lam([bnew])))
-            }
-            Lambda::Programs(_) => {
-                panic!("attempted to shift a Programs node")
-            }
-        };
-
-        if let Some(new_eclass) = new_eclass {
-            let new_eclass = egraph.find(new_eclass);
-            seen.insert(key, Some(new_eclass));
-            Some(new_eclass)
-        } else {
-            None
-        }
-}
-
-
-/// the cost of a program, where `app` and `lam` cost 1, `programs` costs nothing,
-/// `ivar` and `var` and `prim` cost 100.
-pub struct ProgramCost {}
-impl CostFunction<Lambda> for ProgramCost {
-    type Cost = i32;
-    fn cost<C>(&mut self, enode: &Lambda, mut costs: C) -> Self::Cost
-    where
-        C: FnMut(Id) -> Self::Cost
-    {
-        match enode {
-            Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => COST_TERMINAL,
-            Lambda::App([f, x]) => {
-                COST_NONTERMINAL + costs(*f) + costs(*x)
-            }
-            Lambda::Lam([b]) => {
-                COST_NONTERMINAL + costs(*b)
-            }
-            Lambda::Programs(ps) => {
-                ps.iter()
-                .map(|p|costs(*p))
-                .sum()
-            }
-        }
-    }
-}
-
-/// depth of a program. For example a leaf is depth 1.
-pub struct ProgramDepth {}
-impl CostFunction<Lambda> for ProgramDepth {
-    type Cost = i32;
-    fn cost<C>(&mut self, enode: &Lambda, mut costs: C) -> Self::Cost
-    where
-        C: FnMut(Id) -> Self::Cost
-    {
-        match enode {
-            Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => 1,
-            Lambda::App([f, x]) => {
-                1 + std::cmp::max(costs(*f), costs(*x))
-            }
-            Lambda::Lam([b]) => {
-                1 + costs(*b)
-            }
-            Lambda::Programs(ps) => {
-                ps.iter()
-                .map(|p|costs(*p))
-                .max().unwrap()
-            }
-        }
-    }
-}
-
-
-/// does a child first traversal of the egraph and returns a Vec<Id> in that
-/// order. Notably an Id will never show up twice (if it showed up earlier
-/// it wont show up again). Assumes no cycles in the EGraph.
-pub fn toplogical_ordering(root: Id, egraph: &EGraph) -> Vec<Id> {
-    let mut vec = Vec::new();
-    toplogical_ordering_rec(root, egraph, &mut vec);
-    vec
-}
-
-/// see `toplogical_ordering`
-fn toplogical_ordering_rec(root: Id, egraph: &EGraph, vec: &mut Vec<Id>) {
-    // assumes no cycles.
-    // we require at this point that all eclasses only have ONE enode
-    assert!(egraph[root].nodes.len() == 1);
-    for child in egraph[root].nodes[0].children(){
-        toplogical_ordering_rec(*child, egraph, vec);
-    }
-    if !vec.contains(&root) {
-        // if we're already a child of someone else earlier we dont need to be readded
-        vec.push(root);
-    }
-}
-
-/// cache for shift()
-type RecVarModCache = HashMap<(Id,i32),Option<Id>>;
-
-/// types of debruijn index shifts.
-/// * ShiftVar(i32) -> increment all free variables by the given amount
-/// * ShiftIVar(i32) -> increment all ivars by given amount
-/// * TableShiftIVar(Vec<i32>) -> increment ivar #i by the amount given by table[i]
-#[derive(Debug,Clone,Eq,PartialEq,Hash)]
-pub enum Shift {
-    ShiftVar(i32), // shift $i to be $(i+incr_by)
-    ShiftIVar(i32), // shift #i to be #(i+incr_by)
-    TableShiftIVar(Vec<i32>), // shift #i to be #(i+table[#i]) ie look up the shift amount in the table
-}
-
-/// generates caches for shift()
-pub struct CacheGenerator {
-    caches: HashMap<Shift,RecVarModCache>,
-    enabled: bool,
-}
-impl CacheGenerator {
-    fn new(enabled: bool) -> CacheGenerator {
-        CacheGenerator { caches: Default::default(), enabled: enabled }
-    }
-    fn get(&mut self, context: &Shift) -> &mut RecVarModCache {
-        if !self.enabled {
-            // wipe the cache before returning it
-            self.caches.insert(context.clone(),Default::default());
-         }
-        if !self.caches.contains_key(&context) {
-            self.caches.insert(context.clone(),Default::default());
-        } 
-        self.caches.get_mut(&context).unwrap()
-    }
-}
-
-
-// fn rewrite_with_finisheditem()
-
-
-
-/// A node in an Zipper
-/// Ord: Func < Body < Arg
-// #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-// enum ZNode {
-//     // * order of variants here is important because the derived Ord will use it
-//     Func(Id), // zipper went into the function, so Id is the arg
-//     Body, 
-//     Arg(Id), // zipper went into the arg, so Id is the function
-// }
-
-/// A node in an Zipper
+/// A node in an ZPath
 /// Ord: Func < Body < Arg
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 enum ZNode {
@@ -498,10 +138,30 @@ enum ZNode {
     Arg, // zipper went into the arg, so Id is the function
 }
 
-type ZId = usize; // zipper id
+/// "zipper id" each unique zipper gets referred to by its zipper id
+type ZId = usize;
+/// "zipper path" this is a path like "Func Body Arg Body Arg Arg"
 type ZPath = Vec<ZNode>;
 
-/// a 1 arg invention
+/// A Zipper is a single-argument single-use invention, so it's a subtree from the
+/// original program with exactly one invention variable #0 used in exactly one place.
+/// 
+/// A Zipper has a `.path` specifying the path it takes through an expression
+/// eg "Func Body Arg Body Arg Arg", along with a `.left` and `.right` specifying
+/// the off-zipper elements. For example when the zipper goes to the left (ie path has
+/// an `Arg`) the off-zipper element is whatever the Function was in the `app(func,arg)`.
+/// This is stored as a Some(Id) referencing the subtree from the original program. Nones are
+/// used in cases where an off element doesnt exist. The lengths of all 3 of these fields are the same.
+/// 
+/// Illustration of the 3 vectors side by side:
+/// ```
+/// left     | path | right
+/// -------------------
+/// None     | Func |  Some(23)
+/// None     | Body |  None
+/// Some(33) | Arg  |  None
+/// None     | Func |  Some(45)
+/// ```
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 struct Zipper {
     path: ZPath,
@@ -509,38 +169,37 @@ struct Zipper {
     right: Vec<Option<Id>>,
 }
 
-
-/// a 1 arg applied invention
+/// A zipper (single-arg single-use invention) applied to an argument
 #[derive(Debug,Clone, Eq, PartialEq, Hash)]
 struct AppZipper {
     zipper: Zipper,
     arg: Id,
 }
 
+/// a zid referencing a specific ZPath and a #i index
 #[derive(Debug,Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-struct ZTupleElem {
+struct LabelledZId {
     zid: ZId,
     ivar: usize // which #i argument this is, which also corresponds to args[i] ofc
 }
 
-/// a multiarg multiuse invention
+/// A Zipper Tuple. This is a multiarg multiuse invention consisting of a list of zippers. This is the core data structure
+/// representing a partially or completely constructed invention. Zippers get merged into it, extending
+/// the `elems` field by one, `divergence_idxs` by one, and either `multiarg` or `multiuse` by one depending
+/// on whether the newly added zipper is reusing an existing argument. Only zippers that are larger than the rightmost zipper can be
+/// added to a ztuple
 #[derive(Debug,Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 struct ZTuple {
-    elems: Vec<ZTupleElem>,
-    divergence_idxs: Vec<usize>,
+    elems: Vec<LabelledZId>, // list of zids labelled with #is
+    divergence_idxs: Vec<usize>, // locations where the zippers diverge from each other (lengths is 1 less than the number of zippers)
     multiarg: Vec<ZId>, // len=arity, gives the first zid added for each arg
     multiuse: Vec<ZId>, // gives the 2nd and onward zids added for each arg (not the first, thats in multiarg)
     arity: usize,
 }
 
-/// a multiarg multiuse invention applied
-#[derive(Debug,Clone, Eq, PartialEq, Hash)]
-struct AppZTuple {
-    ztuple: ZTuple,
-    args: Vec<Id>,
-}
-
-// can add upper bound utility and such here later too
+/// A partially constructed invention (`.ztuple`) along with the nodes where it is usable (`.nodes`),
+/// the utility of the concrete part of the invention for a single usage (`.left_utility`) and an upper
+/// bound on the total utility over all usages (`.utility_upper_bound`),
 #[derive(Debug,Clone, Eq, PartialEq, PartialOrd, Ord)]
 struct WorklistItem {
     ztuple: ZTuple,
@@ -549,18 +208,8 @@ struct WorklistItem {
     utility_upper_bound: i32, // upper bound utility over all usages
 }
 
-#[derive(Debug,Clone, Eq, PartialEq, PartialOrd, Ord)]
-struct HeapItem {
-    key: i32,
-    item: WorklistItem,
-}
-impl HeapItem {
-    fn new(item: WorklistItem) -> HeapItem {
-        HeapItem { key: item.ztuple.elems.last().unwrap().zid as i32, item: item }
-    }
-}
-
-// can add upper bound utility and such here later too
+/// A completely finished invention (`.ztuple`) along with the nodes where it is used (`.nodes`)
+/// and the total utility of it over all usages.
 #[derive(Debug,Clone)]
 pub struct FinishedItem {
     ztuple: ZTuple,
@@ -568,13 +217,30 @@ pub struct FinishedItem {
     utility: i32,
 }
 
-#[derive(Debug,Clone)]
-struct InventionItem {
-    item: FinishedItem,
-    expr: Expr,
-    usages: i32,
+/// The heap item used for heap-based worklists
+#[derive(Debug,Clone, Eq, PartialEq, PartialOrd, Ord)]
+struct HeapItem {
+    key: i32,
+    item: WorklistItem,
 }
 
+impl WorklistItem {
+    fn new(ztuple: ZTuple, nodes: Vec<Id>, left_utility: i32, utility_upper_bound: i32) -> WorklistItem {
+        WorklistItem { ztuple: ztuple, nodes: nodes, left_utility: left_utility, utility_upper_bound: utility_upper_bound }
+    }
+}
+
+impl FinishedItem {
+    fn new(ztuple: ZTuple, nodes: Vec<Id>, utility: i32) -> FinishedItem {
+        FinishedItem { ztuple, nodes, utility }
+    }
+}
+
+impl HeapItem {
+    fn new(item: WorklistItem) -> HeapItem {
+        HeapItem { key: item.ztuple.elems.last().unwrap().zid as i32, item: item }
+    }
+}
 
 impl Zipper {
     fn new(path: ZPath, left: Vec<Option<Id>>, right: Vec<Option<Id>> ) -> Zipper {
@@ -586,6 +252,8 @@ impl AppZipper {
     fn new(zipper: Zipper, arg: Id) -> AppZipper {
         AppZipper { zipper: zipper, arg: arg }
     }
+    /// clone this applied single-arg single-use invention and extend the zipper by 1 at the top
+    /// of the zipper. This is used when constructing the appzippers in a bottom up way
     #[inline]
     fn clone_prepend(&self, new: ZNode, id: Option<Id>) -> AppZipper {
         let mut appzipper: AppZipper = self.clone();
@@ -611,20 +279,19 @@ impl AppZipper {
     }
 }
 
-impl ZTupleElem {
-    fn new(zid: ZId, ivar: usize) -> ZTupleElem {
-        ZTupleElem { zid: zid, ivar: ivar }
+impl LabelledZId {
+    fn new(zid: ZId, ivar: usize) -> LabelledZId {
+        LabelledZId { zid: zid, ivar: ivar }
     }
 }
 
 impl ZTuple {
-    fn new(elems: Vec<ZTupleElem>, divergence_idxs: Vec<usize>, multiarg: Vec<usize>, multiuse: Vec<usize>, arity: usize) -> ZTuple {
-        ZTuple { elems, divergence_idxs, multiarg, multiuse, arity }
-    }
+    /// make a new single-zipper ztuple
     fn single(zid: ZId) -> ZTuple {
-        ZTuple::new(vec![ZTupleElem::new(zid, 0)], vec![], vec![zid], vec![], 1)
+        ZTuple { elems: vec![LabelledZId::new(zid, 0)], divergence_idxs: vec![], multiarg: vec![zid], multiuse: vec![], arity: 1 }
     }
-    fn extend(&self, elem: ZTupleElem, div_idx: usize, is_multiuse: bool) -> ZTuple {
+    /// extend ztuple, returning a new ztuple with one extra argument (original is unchanged)
+    fn extend(&self, elem: LabelledZId, div_idx: usize, is_multiuse: bool) -> ZTuple {
         let mut res = self.clone();
         res.divergence_idxs.push(div_idx);
         if is_multiuse {
@@ -636,6 +303,8 @@ impl ZTuple {
         res.elems.push(elem);
         res
     }
+    /// convert a ztuple to an Expr. This is for extracting out the final complete inventions at the very end so that
+    /// there are no more ZIds or Ids and everything is self contained without references to shared data structures.
     fn to_expr(&self, node: Id, appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>, egraph: &EGraph) -> Expr {
         let mut elem_idx: usize = 0;
         let mut zipper: &Zipper = &appzipper_of_node_zid[&(node,self.elems[elem_idx].zid)].zipper;
@@ -643,7 +312,11 @@ impl ZTuple {
         let mut expr = Expr::ivar(self.elems[elem_idx].ivar as i32);
         let mut diverged: Vec<(usize,Expr)> = vec![];
 
+        // we do this by a loop where we start at the bottom of the leftmost zipper and gradually extract the Expr bottom up,
+        // and whenever we hit a divergence point we store the Expr and jump to the bottom of the next zipper and repeat, being
+        // careful to pop and merge our stored expressions as we pass the divergence point a second time from the righthand side.
         loop {
+            // encounter divergence point to our right
             if elem_idx < self.divergence_idxs.len() && depth == self.divergence_idxs[elem_idx] {
                 // we should diverge to the right
                 assert_eq!(zipper.path[depth], ZNode::Func);
@@ -654,6 +327,7 @@ impl ZTuple {
                 expr = Expr::ivar(self.elems[elem_idx].ivar as i32);
                 continue;
             }
+            // pass a divergence point to our left that we stored something for
             if !diverged.is_empty() && depth == diverged.last().unwrap().0 {
                 // we should ignore our normal Some(f) and instead use the stored diverged expr
                 assert_eq!(zipper.path[depth], ZNode::Arg);
@@ -674,26 +348,17 @@ impl ZTuple {
             depth -= 1;
         }
 
-
         expr
     }
 }
 
-impl WorklistItem {
-    fn new(ztuple: ZTuple, nodes: Vec<Id>, left_utility: i32, utility_upper_bound: i32) -> WorklistItem {
-        WorklistItem { ztuple: ztuple, nodes: nodes, left_utility: left_utility, utility_upper_bound: utility_upper_bound }
-    }
-}
-
-impl FinishedItem {
-    fn new(ztuple: ZTuple, nodes: Vec<Id>, utility: i32) -> FinishedItem {
-        FinishedItem { ztuple, nodes, utility }
-    }
-}
-
+/// Construct all single-argument single-usage inventions in a bottom up manner. This returns around O(N^2) inventions
+/// since it's any O(N) choice of a parent to be the root of the invention, and any choice of a single descendent of that
+/// parent to be the abstracted #0. Returns a map from nodes to the list of single-arg single-use inventions that can be
+/// used at that node.
 fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> HashMap<Id,Vec<AppZipper>> {
     let mut all_appzippers: HashMap<Id,Vec<AppZipper>> = Default::default();
-    let caches = &mut CacheGenerator::new(!no_cache);
+    let cache: &mut Option<RecVarModCache> = &mut if no_cache { None } else { Some(HashMap::new()) };
     
     for treenode in treenodes.iter() {
         // println!("processing id={}: {}", treenode, extract(*treenode, egraph) );
@@ -756,7 +421,6 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> HashM
                     let mut new: AppZipper = b_appzipper.clone_prepend(ZNode::Body,None);
                     
                     // downshift the args since the lambda above them moved below them (earlier we made sure none of them had pointers to it)
-                    
 
                     if egraph[b_appzipper.arg].data.free_vars.contains(&0) {
                         // context threading
@@ -765,17 +429,13 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> HashM
                         new.arg = egraph.add(Lambda::Lam([b_appzipper.arg]));
                     } else {
                         // no threading
-                        new.arg = shift(b_appzipper.arg, Shift::ShiftVar(-1), egraph, Some(caches)).unwrap();
+                        new.arg = shift(b_appzipper.arg, -1, egraph, cache).unwrap();
                     }
-
-
                     // println!("Bubbled over lam:\n\t{}\n{}", extract(*treenode,egraph), new.to_string(egraph));
-
                     appzippers.push(new);
                 }
             },
         }
-
         all_appzippers.insert(*treenode, appzippers);
     }
 
@@ -789,58 +449,22 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> HashM
     all_appzippers
 }
 
-#[inline]
-fn group_by_key<T: Copy, U: Ord>(v: Vec<T>, key: impl Fn(&T)->U) -> Vec<Vec<T>> {
-    // sort so that all equal elements are adjacent
-
-    let mut group = vec![v[0]];
-    let mut groups = vec![];
-    
-    for i in 1..v.len() {
-        // group zippers by their left sides being the same
-        if key(&v[i]) == key(&v[i-1]) {
-            // add on to old ztuplegroup
-            group.push(v[i]);
-        } else {
-            // start a new ztuplegroup
-            groups.push(group);
-            group = vec![v[i]];
-        }
-    }
-    groups.push(group);
-    groups
-}
-
-
-/// Utility
-/// The utility of an invention is how useful it is at compressing the program.
-/// utility(inv) = { (-NONTERMINAL_COST * arity) +  (COST_NONTERMINAL * total_path_len) + (sum of inventionless costs along edges) + -COST_TERMINAL } (for each arg #i, (num_usages - 1) * arg.inventionless_cost) + (-COST_NONTERMINAL * num_usages)
-///                  ^ cost of Apps to use inv      ^ all these nonterms used to be in the original program, hence they count toward utility
-///                                                   note that in practice we have to be careful not to double-count shared path prefixes
-///                                                   but we can handle this easily through the "fold" and leading/tailing edge setup
-///                                                                                       ^ again all these subtrees used to be in the original program so they count toward utility.
-///                                                                                       and again we must be careful not to double-count shared path prefixes, which will again
-///                                                                                       be naturally handled by the fold setup.
-///                                                                                                                                                       ^ this captures multiuse inventions, where for each additional use
-///                                                                                                                                                       you gain (+ size_of_arg) utility. Notably this cost is specific to
-///                                                                                                                                                       the location that it is used and specific arguments passed in.
-/// implementation: we'll build up this utility as we go. We'll lump the path length                                                  ^ theres a COST_TERMINAL whenever you use an invention for the `inv` primitive itself
-/// term into the left_edge_utility. 
-
 /// utility of a fragment of a zipper, specifically a left edge (the left/right
 /// distinction is just so we can include the nonterminal cost in the left edge)
 #[inline]
 fn left_edge_utility(edge: &[Option<Id>], egraph: &EGraph) -> i32 {
-    edge.len() as i32 * COST_NONTERMINAL +
+    edge.len() as i32 * COST_NONTERMINAL + // there is 1 nonterminal used at each node of the zipper of course (it's either an App or a Lam)
     edge.iter().filter_map(|option_id|
         option_id.map(|id| egraph[id].data.inventionless_cost)).sum::<i32>()
 }
+/// utility of the right a fragment of a zipper
 #[inline]
 fn right_edge_utility(edge: &[Option<Id>], egraph: &EGraph) -> i32 {
     edge.iter().filter_map(|option_id|
         option_id.map(|id| egraph[id].data.inventionless_cost)).sum::<i32>()
 }
 
+/// check if the edge has free variables
 #[inline]
 fn edge_has_free_vars(edge: &[Option<Id>], path: &[ZNode], mut depth: i32, egraph: &EGraph) -> bool {
     // return false;
@@ -859,10 +483,9 @@ fn edge_has_free_vars(edge: &[Option<Id>], path: &[ZNode], mut depth: i32, egrap
     return false;
 }
 
+/// Returns the first index where the two edges diverge
 #[inline]
 fn divergence_idx(left: &[ZNode], right: &[ZNode]) -> usize {
-    // find the first index where the two edges diverge
-
     for i in 0..left.len() {
         debug_assert!(i < right.len(), "right is a prefix of left");
         if left[i] != right[i] {
@@ -874,6 +497,7 @@ fn divergence_idx(left: &[ZNode], right: &[ZNode]) -> usize {
     panic!("right does not diverge from left")
 }
 
+/// Various tracking stats
 #[derive(Clone,Default, Debug)]
 struct Stats {
     num_wip: i32,
@@ -885,16 +509,15 @@ struct Stats {
     single_use_wip_fired: i32,
     force_multiuse_fired: i32,
 }
-
-
-/// takes a (programs ...) expr, returns the best Invention and the Expr rewritten under that invention
+/// takes a set of programs as an Expr with Programs at its root, and does one full step of compresison.
+/// Returns the top Inventions and the Expr rewritten under that invention along with other useful info in CompressionStepResult
 fn compression_step(
     programs_expr: &Expr,
     args: &CompressionArgs,
-    out_dir: &str,
-    new_inv_name: &str,
-    very_first_cost: i32,
-    past_invs: &Vec<CompressionStepResult>,
+    out_dir: &str, // output directory
+    new_inv_name: &str, // name of the new invention, like "inv4"
+    very_first_cost: i32, // original cost before any inventions were ever found (for bookkeeping)
+    past_invs: &Vec<CompressionStepResult>, // past inventions we've found
 ) -> Vec<CompressionStepResult> {
 
     // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
@@ -907,25 +530,12 @@ fn compression_step(
         save(&egraph, "0_programs", &out_dir);
     }
 
-    let tstart = std::time::Instant::now();
-
     let treenodes: Vec<Id> = toplogical_ordering(programs_node,&egraph);
     assert!(usize::from(*treenodes.iter().max().unwrap()) == treenodes.len() - 1); // ensures we can safely just use Vecs of length treenodes.len() to store various nodewise things
 
     // populate num_paths_to_node so we know how many different parts of the programs tree
     // a node participates in (ie multiple uses within a single program or among programs)
-    let mut num_paths_to_node: HashMap<Id,i32> = HashMap::new();
-    treenodes.iter().for_each(|treenode| {
-        num_paths_to_node.insert(*treenode, 0);
-    });
-    fn helper(num_paths_to_node: &mut HashMap<Id,i32>, node: &Id, egraph: &EGraph) {
-        // num_paths_to_node.insert(*child, num_paths_to_node[node] + 1);
-        *num_paths_to_node.get_mut(node).unwrap() += 1;
-        for child in egraph[*node].nodes[0].children() {
-            helper(num_paths_to_node, &child, egraph);
-        }
-    }
-    helper(&mut num_paths_to_node, &programs_node, &egraph);
+    let num_paths_to_node: HashMap<Id,i32> = num_paths_to_node(programs_node, &treenodes, &egraph);
 
     let tstart_total = std::time::Instant::now();
 
@@ -933,10 +543,9 @@ fn compression_step(
     let all_appzippers = get_appzippers(&treenodes, args.no_cache, &mut egraph);
     println!("get_appzippers: {:?}ms", tstart.elapsed().as_millis());
 
-
-    // from inv1 body to set of roots that it's used under
     let tstart = std::time::Instant::now();
 
+    // flatten all the appzippers (single arg single use inventions) to get the list of zipper paths, then sort/dedup.
     let mut paths: Vec<ZPath> = all_appzippers.values().flatten().map(|appzipper| appzipper.zipper.path.clone()).collect();
     println!("{} total paths (incl dupes)", paths.len());
     paths.sort();
@@ -944,14 +553,16 @@ fn compression_step(
     println!("{} paths", paths.len());
     println!("collect paths and dedup: {:?}ms", tstart.elapsed().as_millis());
 
-    let mut appzipper_of_node_zid: HashMap<(Id,ZId),AppZipper> = Default::default();
-    let mut zids_of_node: Vec<Vec<ZId>> = vec![vec![]; treenodes.len()];
-    let mut nodes_of_zid: Vec<Vec<Id>> = vec![vec![]; paths.len()];
-    let mut first_mergeable_zid_of_zid: Vec<ZId> = Default::default();
-    let mut worklist: Vec<WorklistItem> = Default::default();
+    // define all the important data structures for compression
+    let mut appzipper_of_node_zid: HashMap<(Id,ZId),AppZipper> = Default::default(); // lookup an appzipper from a node and zid
+    let mut zids_of_node: Vec<Vec<ZId>> = vec![vec![]; treenodes.len()]; // lookup all zids that a node can use
+    let mut nodes_of_zid: Vec<Vec<Id>> = vec![vec![]; paths.len()]; // look up all nodes that a zid can be used at
+    let mut first_mergeable_zid_of_zid: Vec<ZId> = Default::default(); // used for speed; lets you quickly lookup the smallest mergable (non-suffix) zid larger than your current zid
+    let mut worklist: Vec<WorklistItem> = Default::default(); // worklist that holds partially constructed inventions
     // let mut worklist: BinaryHeap<HeapItem> = Default::default();
-    let mut donelist: Vec<FinishedItem> = Default::default();
+    let mut donelist: Vec<FinishedItem> = Default::default(); // completed inventions will go here
 
+    // populate first_mergeable_zid_of_zid
     for (i,path) in paths.iter().enumerate() {
         // first path after `i` where the path isnt a prefix is the first mergeable one
         // (note partition_point points to the first elem where the predicate is FALSE assuming the 
@@ -961,7 +572,7 @@ fn compression_step(
 
     let tstart = std::time::Instant::now();
 
-
+    // populate zids_of_node, nodes_of_zid, and appzipper_of_node_zid
     for (treenode,appzippers) in all_appzippers {
         for appzipper in appzippers {
             if let Ok(i) = paths.binary_search(&appzipper.zipper.path) {
@@ -976,14 +587,12 @@ fn compression_step(
 
     let tstart = std::time::Instant::now();
 
-    // build up the initial worklist
-    let max_donelist: usize = 100;
-    // let mut upper_bound_cutoff: i32 = 0;
+    let max_donelist: usize = 100; // todo revisit
     let mut lowest_donelist_utility = 0;
-    let mut best_utility = 0;
-
+    let mut utility_pruning_cutoff = 0;
     let mut stats: Stats = Default::default();
 
+    // put together the initial set of single-arg single-use inventions from the appzippers
     initial_inventions(
         &appzipper_of_node_zid,
         &nodes_of_zid,
@@ -991,31 +600,26 @@ fn compression_step(
         &mut donelist,
         &egraph,
         &mut lowest_donelist_utility,
-        &mut best_utility,
+        &mut utility_pruning_cutoff,
         max_donelist,
         &num_paths_to_node,
         &mut stats,
     );
 
+    println!("initial_inventions(): {:?}ms", tstart.elapsed().as_millis());
     println!("initial worklist length: {}", worklist.len());
-    println!("set up the worklist: {:?}ms", tstart.elapsed().as_millis());
     println!("largest ztuple group: {}", worklist.iter().map(|ztg| ztg.nodes.len()).max().unwrap());
     println!("avg ztuple group: {}", worklist.iter().map(|ztg| ztg.nodes.len()).sum::<usize>() as f64 / worklist.len() as f64);
-
 
     // todo not sure if its the right move to sort by this see discussion in notes "sort the worklist by upper bound"
     // worklist.sort_by_key(|wi| wi.utility_upper_bound);
 
     println!("total prep: {:?}ms", tstart_total.elapsed().as_millis());
-    
-    // let tstart = std::time::Instant::now();
-    // let num_invs = appzipper_of_node_zid.values().map(|appzipper| appzipper.zipper.clone()).collect::<HashSet<Zipper>>().len();
-    // println!("counted inventions: {:?}ms", tstart.elapsed().as_millis());
-    // println!("{} single arg invs", num_invs);
 
     println!("deriving inventions...");
     let tstart = std::time::Instant::now();
 
+    // derive inventions by merging
     derive_inventions(
         &appzipper_of_node_zid,
         &zids_of_node,
@@ -1025,23 +629,24 @@ fn compression_step(
         args.max_arity,
         &egraph,
         &mut lowest_donelist_utility,
-        &mut best_utility,
+        &mut utility_pruning_cutoff,
         max_donelist,
         &num_paths_to_node,
         &mut stats,
     );
 
+    let elapsed_derive_inventions = tstart.elapsed().as_millis();
 
-    println!("\ndone deriving inventions: {:?}ms\n", tstart.elapsed().as_millis());
-
+    println!("\nderive_inventions() done: {:?}ms\n", elapsed_derive_inventions);
     println!("total everything: {:?}ms", tstart_total.elapsed().as_millis());
 
-    let elapsed = tstart.elapsed().as_millis();
+    
 
     let orig_cost = egraph[programs_node].data.inventionless_cost;
 
     let mut results: Vec<CompressionStepResult> = vec![];
 
+    // construct CompressionStepResults and print some info about them
     println!("Cost before: {}", orig_cost);
     for (i,done) in donelist.iter().enumerate().take(10) {
         let res = CompressionStepResult::new(done.clone(), programs_node, very_first_cost, new_inv_name, &mut appzipper_of_node_zid, &num_paths_to_node, &mut egraph, past_invs);
@@ -1051,13 +656,14 @@ fn compression_step(
             println!("rewritten: {}", res.rewritten);
         }
         results.push(res);
-        // todo also add printing the actual body if --show-rewritten is set
         // if args.render_inventions {
         //     inv_expr.save(&format!("inv{}",i), &out_dir);
         // }
     }
 
-    // sort now that we have the exact costs by rewriting
+    // we sort again here because technically the costs might not be quite right if the rewrite_with_invention actually gives
+    // a slightly different utility than the normal utility. This would indicate a bug and shouldn't happen often, but in case
+    // there are small justifiable reasons for the mismatch we do this.
     results.sort_by_key(|res| res.final_cost_rewritten);
     
 
@@ -1072,8 +678,7 @@ fn compression_step(
     // }
 
     println!("Final donelist length: {}",donelist.len());
-    println!("Core stuff took: {}ms ***\n", elapsed);
-
+    println!("derive_inventions() took: {}ms ***\n", elapsed_derive_inventions);
 
     results
 }
@@ -1087,7 +692,7 @@ fn initial_inventions(
     donelist: &mut Vec<FinishedItem>,
     egraph: &EGraph,
     lowest_donelist_utility: &mut i32,
-    best_utility: &mut i32,
+    utility_pruning_cutoff: &mut i32,
     max_donelist: usize,
     num_paths_to_node: &HashMap<Id,i32>,
     stats: &mut Stats,
@@ -1129,8 +734,8 @@ fn initial_inventions(
             };
             if utility > *lowest_donelist_utility {
                 donelist.push(FinishedItem::new(ZTuple::single(zid), group, utility));
-                if utility > *best_utility {
-                    *best_utility = utility;
+                if utility > *utility_pruning_cutoff {
+                    *utility_pruning_cutoff = utility;
                 }
             }
             stats.num_done += 1;
@@ -1160,7 +765,7 @@ fn initial_inventions(
                 let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
                 num_uses * (-COST_TERMINAL + left_utility + arity_utility) + multiuse_utility + right_utility_upper_bound
             };
-            if upper_bound > *best_utility {
+            if upper_bound > *utility_pruning_cutoff {
                 worklist.push(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound));
                 // worklist.push(HeapItem::new(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound)));
                 // worklist.sort_by_key(|wi| -wi.left_utility);
@@ -1189,7 +794,7 @@ fn derive_inventions(
     egraph: &EGraph,
     // upper_bound_cutoff: &mut i32,
     lowest_donelist_utility: &mut i32,
-    best_utility: &mut i32,
+    utility_pruning_cutoff: &mut i32,
     max_donelist: usize,
     num_paths_to_node: &HashMap<Id,i32>,
     stats: &mut Stats,
@@ -1200,7 +805,7 @@ fn derive_inventions(
         // let wi = wi.item;
         // println!("processing {}", num_processed);
         // check upper bound;
-        if wi.utility_upper_bound <= *best_utility {
+        if wi.utility_upper_bound <= *utility_pruning_cutoff {
             stats.upper_bound_fired += 1;
             continue;
         }
@@ -1210,9 +815,9 @@ fn derive_inventions(
         let first_mergeable_zid: ZId = first_mergeable_zid_of_zid[rightmost_zid];
 
 
-        let mut possible_elems: Vec<(ZTupleElem,Id)> = vec![];
+        let mut possible_elems: Vec<(LabelledZId,Id)> = vec![];
 
-        // collect all the possible ztupleelems
+        // collect all the possible LabelledZIds
         for node in wi.nodes.iter() {
             // skip over the zids that are prefixes - partition point will binarysearch for the first case where the predicate is false.
             // this works nicely since all (unusuable) prefix ones come before all nonprefix ones and first_mergeable_zid tells us the first nonprefix one
@@ -1223,13 +828,13 @@ fn derive_inventions(
 
                 // add any multiarg
                 if wi.ztuple.arity < max_arity {
-                    possible_elems.push((ZTupleElem::new(*zid, wi.ztuple.arity), *node));
+                    possible_elems.push((LabelledZId::new(*zid, wi.ztuple.arity), *node));
                 }
                 // add any multiuse
                 let arg = appzipper_of_node_zid[&(*node,*zid)].arg;
                 for (argi,arg_zid) in wi.ztuple.multiarg.iter().enumerate() {
                     if arg == appzipper_of_node_zid[&(*node, *arg_zid)].arg {
-                        possible_elems.push((ZTupleElem::new(*zid, argi), *node));
+                        possible_elems.push((LabelledZId::new(*zid, argi), *node));
                     }
                 }
             }
@@ -1307,8 +912,8 @@ fn derive_inventions(
                 let utility = num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility;
                 if utility > *lowest_donelist_utility {
                     donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility));
-                    if utility > *best_utility {
-                        *best_utility = utility;
+                    if utility > *utility_pruning_cutoff {
+                        *utility_pruning_cutoff = utility;
                     }
                 }
                 stats.num_done += 1;
@@ -1347,7 +952,7 @@ fn derive_inventions(
                     let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
                     num_uses * (-COST_TERMINAL + left_utility + arity_utility) + multiuse_utility + right_utility_upper_bound
                 };
-                if upper_bound > *best_utility {
+                if upper_bound > *utility_pruning_cutoff {
                     // worklist.push(HeapItem::new(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound)));
                     worklist.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
                     // worklist.sort_by_key(|wi| -wi.left_utility);

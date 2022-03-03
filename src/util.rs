@@ -98,27 +98,18 @@ pub fn timestamp() -> String {
     format!("{}", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"))
 }
 
-pub fn search<L,A>(pat: &str, egraph: &EGraph<L,A>) -> Vec<SearchMatches>
-where 
-    L: Language,
-    A: Analysis<L>
+pub fn search(pat: &str, egraph: &EGraph) -> Vec<SearchMatches>
 {
-    let applam:Pattern<L> = pat.parse().unwrap();
+    let applam:Pattern<Lambda> = pat.parse().unwrap();
     applam.search(&egraph)
 }
 
-pub fn save<L,A>(egraph: &EGraph<L,A>, name: &str, outdir: &str) 
-where 
-    L: Language,
-    A: Analysis<L>
+pub fn save(egraph: &EGraph, name: &str, outdir: &str) 
 {
     egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
 }
 
-pub fn egraph_info<L,A>(egraph: &EGraph<L,A>) -> String 
-where 
-    L: Language,
-    A: Analysis<L>
+pub fn egraph_info(egraph: &EGraph) -> String 
 {
     format!("{} nodes, {} classes, {} memo", egraph.total_number_of_nodes(), egraph.number_of_classes(), egraph.total_size())
 }
@@ -188,4 +179,163 @@ pub fn dc_inv_str(inv: &InventionExpr, past_invs: &Vec<CompressionStepResult>) -
     res
 }
 
+/// cache for shift()
+pub type RecVarModCache = HashMap<(Id,i32),Option<Id>>;
 
+
+/// This is a helper function for implementing various recursive operations that only
+/// modify Var or IVar constructs (use `ivars=true` to run this on all ivars). Just provide
+/// a function that you want to call on each Var to determine what to replace it with. The function
+/// signature should be `(actual_idx, depth, which_upward_ref, egraph) -> Option<Id>`.
+/// 
+/// We recurse over the full graph rooted at `eclass` and replace any `Var` (or `IVar` if `ivars=true`)
+/// with the result of calling the function with:
+/// * `actual_idx`: if we're matching on Var(i) this is i
+/// * `depth`: how many Lamdas are between this Var and the original toplevel eclass this was called on
+/// * `which_upward_ref`: this is just actual_idx-depth
+/// * `egraph`: the EGraph we're operating on
+/// 
+/// Note that we wont touch any branches of the tree that dont have free variables with respect to the toplevel,
+/// so this will never be called on some Var(i) if it is not considered a free variable in `eclass` as a whole.
+/// 
+/// This function is fairly efficient. We cache both within and between calls to it, it uses
+/// the enode data that tells us if there are no free variables in a branch (and thus it can be ignored),
+/// it operates on the structurally hashed form of the graph, etc.
+pub fn recursive_var_mod(
+    var_mod: impl Fn(i32, i32, i32, &mut EGraph) -> Option<Id>,
+    ivars: bool,
+    eclass:Id,
+    egraph: &mut EGraph,
+    seen: &mut RecVarModCache
+    ) -> Option<Id>
+    {
+        recursive_var_mod_helper(
+            &var_mod,
+            ivars,
+            eclass,
+            0,
+            egraph,
+            seen,
+        )
+}
+
+/// see `recursive_var_mod`
+fn recursive_var_mod_helper(
+    var_mod: &impl Fn(i32, i32, i32, &mut EGraph) -> Option<Id>,
+    ivars: bool, // whether to run this on vars or ivars
+    eclass:Id,
+    depth: i32,
+    egraph: &mut EGraph,
+    seen : &mut RecVarModCache,
+    ) -> Option<Id>
+    {
+        // important invariant for ivars=false case: a $i with i==depth would be a $0 pointer at the top level
+        // meaning i<depth is an internal pointer that doesnt break the top level
+        let eclass = egraph.find(eclass);
+        let key = (eclass,depth);
+
+        if seen.contains_key(&key) {
+            return seen[&key];
+        }
+
+        if  (ivars && egraph[eclass].data.free_ivars.is_empty())
+        || (!ivars && egraph[eclass].data.free_vars.iter().all(|i| *i < depth)) {
+            // if we're replacing ivars and theres no ivars in this subtree, we can return early
+            // if we're replacing vars, from our invariant (above) we know i<depth is an internal pointer that doesnt point out of the top level so again we can return early
+            seen.insert(key, Some(eclass));
+            return Some(eclass)
+        }
+
+        // this is for loop breaking (though there shouldnt be loops in my new DAG setup anyways)
+        seen.insert(key, None);
+        
+        // if you want a multiple-node-per-eclass version of this that unions together the stuff from diff branches, see my old code!
+        assert!(egraph[eclass].nodes.len() == 1);
+        // clone to appease the borrow checker
+        let enode = egraph[eclass].nodes[0].clone();
+
+        let new_eclass = match enode {
+            Lambda::Var(i) => {
+                if ivars {
+                    panic!("unreachable, Var doesnt have free IVars")
+                }
+                assert!(i >= depth); // otherwise we should have returned earlier
+                // by our invariant be have i-depth as the toplevel version of this index
+                var_mod(i, depth, i-depth, egraph)
+            }
+            Lambda::IVar(i) => {
+                if !ivars {
+                    panic!("unreachable, IVar doesnt have free Vars")
+                }
+                var_mod(i, depth, i-depth, egraph)
+            }
+            Lambda::Prim(_) => {
+                panic!("unreachable, Prim never has free vars/ivars")
+            }
+            Lambda::App([f, x]) => {
+                // recurse in each (class shift will return early if no shifting is needed) and build a new App
+                let fnew_opt = recursive_var_mod_helper(var_mod, ivars, f, depth, egraph, seen);
+                let xnew_opt = recursive_var_mod_helper(var_mod, ivars, x, depth, egraph, seen);
+                match (fnew_opt,xnew_opt) {
+                    (Some(fnew),Some(xnew)) => Some(egraph.add(Lambda::App([fnew, xnew]))),
+                    _ => None,
+                }
+            }
+            Lambda::Lam([b]) => {
+                // increment depth
+                recursive_var_mod_helper(var_mod, ivars, b, depth+1, egraph, seen)
+                .map(|bnew| egraph.add(Lambda::Lam([bnew])))
+            }
+            Lambda::Programs(_) => {
+                panic!("attempted to shift a Programs node")
+            }
+        };
+
+        if let Some(new_eclass) = new_eclass {
+            let new_eclass = egraph.find(new_eclass);
+            seen.insert(key, Some(new_eclass));
+            Some(new_eclass)
+        } else {
+            None
+        }
+}
+
+#[inline]
+/// Takes a SORTED vector of copyable items and a key function and groups adjacent equal-key items
+/// into subvectors, returning the vector of these subvectors.
+pub fn group_by_key<T: Copy, U: Ord>(v: Vec<T>, key: impl Fn(&T)->U) -> Vec<Vec<T>> {
+    let mut group = vec![v[0]];
+    let mut groups = vec![];
+    
+    for i in 1..v.len() {
+        // group zippers by their left sides being the same
+        if key(&v[i]) == key(&v[i-1]) {
+            // add on to old ztuplegroup
+            group.push(v[i]);
+        } else {
+            // start a new ztuplegroup
+            groups.push(group);
+            group = vec![v[i]];
+        }
+    }
+    groups.push(group);
+    groups
+}
+
+/// Returns a hashmap from node id to number of places that node is used in the tree. Essentially this just
+/// follows all paths down from the root and logs how many times it encounters each node
+pub fn num_paths_to_node(programs_node: Id, treenodes: &Vec<Id>, egraph: &EGraph) -> HashMap<Id,i32> {
+    let mut num_paths_to_node: HashMap<Id,i32> = HashMap::new();
+    treenodes.iter().for_each(|treenode| {
+        num_paths_to_node.insert(*treenode, 0);
+    });
+    fn helper(num_paths_to_node: &mut HashMap<Id,i32>, node: &Id, egraph: &EGraph) {
+        // num_paths_to_node.insert(*child, num_paths_to_node[node] + 1);
+        *num_paths_to_node.get_mut(node).unwrap() += 1;
+        for child in egraph[*node].nodes[0].children() {
+            helper(num_paths_to_node, &child, egraph);
+        }
+    }
+    helper(&mut num_paths_to_node, &programs_node, &egraph);
+    num_paths_to_node
+}

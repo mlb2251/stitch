@@ -346,7 +346,7 @@ impl Expr {
     /// write the Expr to a file (includes structural hashing sharing)
     /// writes to `outdir/name.png` (no need to provide the extension)
     pub fn save(&self, name: &str, outdir: &str) {
-        let mut egraph: EGraph<Lambda,()> = Default::default();
+        let mut egraph: EGraph = Default::default();
         egraph.add_expr(self.into());
         egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
     }
