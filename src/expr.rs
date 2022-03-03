@@ -268,7 +268,7 @@ impl Expr {
     /// Importantly all Id indexing should be preserved just fine since this is implemented through truncating the underlying vector.
     pub fn cloned_subexpr(&self, child:Id) -> Self {
         assert!(self.nodes.len() > child.into());
-        Self::new(self.nodes.iter().take(child.into()).cloned().collect())
+        Self::new(self.nodes.iter().take(usize::from(child)+1).cloned().collect())
     }
 
     /// Go from a curried string to an Expr
