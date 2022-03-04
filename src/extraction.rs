@@ -50,10 +50,15 @@ impl PtrInvention {
 
 pub fn rewrite_with_inventions(
     root: Id,
-    invs: &[&Invention],
+    invs: &[Invention],
     egraph: &mut EGraph,
 ) -> Expr {
-    unimplemented!()
+    let mut root = root;
+    for inv in invs.iter() {
+        let expr = rewrite_with_invention(root, inv, egraph);
+        root = egraph.add_expr(&expr.into());
+    }
+    extract(root,egraph)
 }
 
 /// Rewrite `root` using an invention `inv`. This will use inventions everywhere
