@@ -1,64 +1,14 @@
 use crate::*;
 use std::collections::{HashSet,HashMap,BinaryHeap};
 use std::fmt::{self, Formatter, Display};
-use clap::Parser;
-use std::path::PathBuf;
 use std::hash::Hash;
 use itertools::Itertools;
 use extraction::extract;
 use serde_json::json;
+
+use clap::Parser;
 use serde::Serialize;
-
-
-/// Args for compression
-#[derive(Parser, Debug, Serialize)]
-#[clap(name = "Stitch")]
-pub struct CompressionArgs {
-    /// json file to read compression input programs from
-    #[clap(short, long, parse(from_os_str), default_value = "data/train_19.json")]
-    pub file: PathBuf,
-
-    /// json output file
-    #[clap(short, long, parse(from_os_str), default_value = "out/out.json")]
-    pub out: PathBuf,
-
-    /// Number of iterations to run compression for (number of inventions to find)
-    #[clap(short, long, default_value = "3")]
-    pub iterations: usize,
-
-    /// max arity of inventions to find
-    #[clap(short='a', long, default_value = "2")]
-    pub max_arity: usize,
-
-    /// print out programs rewritten under invention
-    #[clap(long,short='r')]
-    pub show_rewritten: bool,
-
-    /// shuffle order of set of inventions 
-    #[clap(long)]
-    pub shuffle: bool,
-
-    /// truncate set of inventions to include only this many (happens after shuffle if shuffle is also specified)
-    #[clap(long)]
-    pub truncate: Option<usize>,
-
-    /// disable caching (though caching isn't used for much currently)
-    #[clap(long)]
-    pub no_cache: bool,
-
-    /// (WIP) render inventions into images
-    #[clap(long)]
-    pub render_inventions: bool,
-
-    /// (WIP) render final set of programs into image
-    #[clap(long)]
-    pub render_final: bool,
-
-    /// (WIP) render initial set of programs into image
-    #[clap(long)]
-    pub render_initial: bool,
-}
-
+use std::path::PathBuf;
 
 
 /// The analysis data associated with each Lambda node
@@ -501,10 +451,9 @@ struct Stats {
 /// Returns the top Inventions and the Expr rewritten under that invention along with other useful info in CompressionStepResult
 fn compression_step(
     programs_expr: &Expr,
-    args: &CompressionArgs,
-    out_dir: &str, // output directory
     new_inv_name: &str, // name of the new invention, like "inv4"
     very_first_cost: i32, // original cost before any inventions were ever found (for bookkeeping)
+    cfg: &CompressionStepConfig,
     past_invs: &Vec<CompressionStepResult>, // past inventions we've found
 ) -> Vec<CompressionStepResult> {
 
@@ -513,10 +462,10 @@ fn compression_step(
     let programs_node = egraph.add_expr(programs_expr.into());
     egraph.rebuild();
 
-    println!("Initial egraph:\n\t{}\n", egraph_info(&egraph));
-    if args.render_initial {
-        save(&egraph, "0_programs", &out_dir);
-    }
+    // println!("Initial egraph:\n\t{}\n", egraph_info(&egraph));
+    // if args.render_initial {
+    //     save(&egraph, "0_programs", &out_dir);
+    // }
 
     let treenodes: Vec<Id> = toplogical_ordering(programs_node,&egraph);
     assert!(usize::from(*treenodes.iter().max().unwrap()) == treenodes.len() - 1); // ensures we can safely just use Vecs of length treenodes.len() to store various nodewise things
@@ -528,7 +477,7 @@ fn compression_step(
     let tstart_total = std::time::Instant::now();
 
     let tstart = std::time::Instant::now();
-    let all_appzippers = get_appzippers(&treenodes, args.no_cache, &mut egraph);
+    let all_appzippers = get_appzippers(&treenodes, cfg.no_cache, &mut egraph);
     println!("get_appzippers: {:?}ms", tstart.elapsed().as_millis());
 
     let tstart = std::time::Instant::now();
@@ -614,7 +563,7 @@ fn compression_step(
         &first_mergeable_zid_of_zid,
         &mut worklist,
         &mut donelist,
-        args.max_arity,
+        cfg.max_arity,
         &egraph,
         &mut lowest_donelist_utility,
         &mut utility_pruning_cutoff,
@@ -637,10 +586,10 @@ fn compression_step(
     // construct CompressionStepResults and print some info about them
     println!("Cost before: {}", orig_cost);
     for (i,done) in donelist.iter().enumerate().take(10) {
-        let res = CompressionStepResult::new(done.clone(), programs_node, very_first_cost, new_inv_name, &mut appzipper_of_node_zid, &num_paths_to_node, &mut egraph, past_invs);
+        let res = CompressionStepResult::new(done.clone(), programs_node, new_inv_name, &mut appzipper_of_node_zid, &num_paths_to_node, &mut egraph, past_invs);
 
         println!("{}: {}", i, res);
-        if args.show_rewritten {
+        if cfg.show_rewritten {
             println!("rewritten: {}", res.rewritten);
         }
         results.push(res);
@@ -1006,18 +955,22 @@ pub struct CompressionStepResult {
     pub use_exprs: Vec<Expr>,
     pub use_args: Vec<Vec<Expr>>,
     pub dc_inv_str: String,
+    pub initial_cost: i32,
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedItem, programs_node: Id, very_first_cost: i32, inv_name: &str, appzipper_of_node_zid: &mut HashMap<(Id,ZId),AppZipper>,  num_paths_to_node: &HashMap<Id,i32>, egraph: &mut EGraph, past_invs: &Vec<CompressionStepResult>) -> Self {
-        let orig_cost = egraph[programs_node].data.inventionless_cost;
+    fn new(done: FinishedItem, programs_node: Id, inv_name: &str, appzipper_of_node_zid: &mut HashMap<(Id,ZId),AppZipper>,  num_paths_to_node: &HashMap<Id,i32>, egraph: &mut EGraph, past_invs: &Vec<CompressionStepResult>) -> Self {
+        let initial_cost = egraph[programs_node].data.inventionless_cost;
+
+        // cost of the very first initial program before any inventions
+        let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { initial_cost };
 
         let inv = done.to_invention(inv_name, appzipper_of_node_zid, egraph);
         let rewritten: Expr = rewrite_with_inventions(programs_node, &[&inv], &[inv_name], egraph);
-        let final_cost = orig_cost - done.utility;
-        let multiplier = orig_cost as f64 / final_cost as f64;
+        let final_cost = initial_cost - done.utility;
+        let multiplier = initial_cost as f64 / final_cost as f64;
         let final_cost_rewritten = rewritten.cost();
-        let multiplier_rewritten = orig_cost as f64 / final_cost_rewritten as f64;
+        let multiplier_rewritten = initial_cost as f64 / final_cost_rewritten as f64;
         let multiplier_wrt_orig = very_first_cost as f64 / final_cost_rewritten as f64;
         let uses = done.nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
         let use_exprs: Vec<Expr> = done.nodes.iter().map(|node| extract(*node, egraph)).collect();
@@ -1028,7 +981,7 @@ impl CompressionStepResult {
         
         // dreamcoder compatability
         let dc_inv_str: String = dc_inv_str(&inv, past_invs);
-        CompressionStepResult { inv, rewritten, done, final_cost, multiplier, final_cost_rewritten, multiplier_rewritten, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str }
+        CompressionStepResult { inv, rewritten, done, final_cost, multiplier, final_cost_rewritten, multiplier_rewritten, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost }
     }
     fn json(&self) -> serde_json::Value {        
         let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| expr.to_string()).collect();
@@ -1061,20 +1014,49 @@ impl fmt::Display for CompressionStepResult {
 }
 
 
+/// Args for compression step
+#[derive(Parser, Debug, Serialize)]
+#[clap(name = "Stitch")]
+pub struct CompressionStepConfig {
+    /// max arity of inventions to find
+    #[clap(short='a', long, default_value = "2")]
+    pub compress_max_arity: usize,
+    
+    /// disable caching (though caching isn't used for much currently)
+    #[clap(long)]
+    pub compress_no_cache: bool,
+
+    /// print out programs rewritten under invention
+    #[clap(long,short='r')]
+    pub compress_show_rewritten: bool,
+}
+
+// impl CompressionStepConfig {
+//     pub fn new(max_arity: usize, out_dir: &str, no_cache: bool, show_rewritten: bool) -> Self {
+//         CompressionStepConfig { max_arity, out_dir: String::from(out_dir), no_cache, show_rewritten }
+//     }
+// }
+
 pub fn compression(
     programs_expr: &Expr,
-    args: &CompressionArgs,
-    out_dir: &str,
+    iterations: usize,
+    out_file: &str,
+    cfg: &CompressionStepConfig,
 ) -> Vec<CompressionStepResult> {
     let mut rewritten: Expr = programs_expr.clone();
     let mut step_results: Vec<CompressionStepResult> = Default::default();
 
     let tstart = std::time::Instant::now();
 
-    for i in 0..args.iterations {
+    for i in 0..iterations {
         println!("\n=======Iteration {}=======",i);
         let inv_name = format!("inv{}",step_results.len());
-        let res: Vec<CompressionStepResult> = compression_step(&rewritten, args, out_dir, &inv_name, programs_expr.cost(), &step_results);
+        let res: Vec<CompressionStepResult> = compression_step(
+            &rewritten,
+            &inv_name,
+            programs_expr.cost(),
+            cfg,
+            &step_results);
         if !res.is_empty() {
             let res: CompressionStepResult = res[0].clone();
             rewritten = res.rewritten.clone();
@@ -1097,15 +1079,13 @@ pub fn compression(
 
     let out = json!({
         "cmd": std::env::args().join(" "),
-        "args": args,
+        // "args": args,
         "original_cost": programs_expr.cost(),
         "original": programs_expr.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
         "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
     });
 
-    std::fs::write(&args.out, serde_json::to_string_pretty(&out).unwrap()).unwrap();
-
-    // serde_json::to_writer(&std::fs::File::create(&args.out).unwrap(), &out).unwrap();
-    println!("Wrote to {:?}",args.out);
+    std::fs::write(out_file, serde_json::to_string_pretty(&out).unwrap()).unwrap();
+    println!("Wrote to {:?}",out_file);
     step_results
 }
