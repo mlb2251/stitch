@@ -48,6 +48,15 @@ impl PtrInvention {
     }
 }
 
+
+
+/// Rewrite `root` in order one at a time with each of the inventions in `invs`. This will use inventions everywhere
+/// as long as it decreases the cost. It will account for the fact that using an invention
+/// in a child could prevent the use of the invention in the parent - it will always do whatever
+/// gives the lowest cost.
+/// 
+/// For the `EGraph` argument here you can either pass in a fresh egraph constructed by `let mut egraph = EGraph::new(); egraph.add_expr(expr.into())`
+/// or if you make repeated calls to this function feel free to pass in the same egraph over and over. It doesn't matter what is in the EGraph already.
 pub fn rewrite_with_inventions(
     root: Id,
     invs: &[Invention],

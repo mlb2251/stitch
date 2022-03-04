@@ -71,33 +71,26 @@ fn main() {
         println!("Normal dreamcoder programs never have unapplied lambdas in them! Who knows what might happen if you run this. Probably it will be fine");
     }
 
-    compression(
-        &programs,
-        args.iterations,
-        args.out.to_str().unwrap(),
-        &args.step,
-    );
+    compression(&programs, &args);
 }
 
 fn compression(
     programs_expr: &Expr,
-    iterations: usize,
-    out_file: &str,
-    cfg: &CompressionStepConfig,
+    args: &Args,
 ) -> Vec<CompressionStepResult> {
     let mut rewritten: Expr = programs_expr.clone();
     let mut step_results: Vec<CompressionStepResult> = Default::default();
 
     let tstart = std::time::Instant::now();
 
-    for i in 0..iterations {
+    for i in 0..args.iterations {
         println!("\n=======Iteration {}=======",i);
         let inv_name = format!("inv{}",step_results.len());
         let res: Vec<CompressionStepResult> = compression_step(
             &rewritten,
             &inv_name,
             programs_expr.cost(),
-            cfg,
+            &args.step,
             &step_results);
         if !res.is_empty() {
             let res: CompressionStepResult = res[0].clone();
@@ -121,13 +114,13 @@ fn compression(
 
     let out = json!({
         "cmd": std::env::args().join(" "),
-        // "args": args,
+        "args": args,
         "original_cost": programs_expr.cost(),
         "original": programs_expr.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
         "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
     });
 
-    std::fs::write(out_file, serde_json::to_string_pretty(&out).unwrap()).unwrap();
-    println!("Wrote to {:?}",out_file);
+    std::fs::write(&args.out, serde_json::to_string_pretty(&out).unwrap()).unwrap();
+    println!("Wrote to {:?}",args.out);
     step_results
 }
