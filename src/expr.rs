@@ -248,6 +248,29 @@ impl Expr {
         Self::new(nodes)
     }
 
+    /// split a Programs node into a vector of the programs.
+    /// (This does not consume `self` because you cant split a single Vec allocation
+    /// into multiple (allocator restriction) so we need to make clones anyways)
+    pub fn split_programs(&self) -> Vec<Expr> {
+        match self.get_root() {
+            Lambda::Programs(roots) => {
+                // we know the separate programs are in non-overlapping contiguous
+                // chunks so this is all safe
+                let mut res: Vec<Expr> = vec![];
+                let mut start: usize = 0;
+                for root in roots.iter() {
+                    let end = usize::from(*root);
+                    let e = Expr::new(self.nodes[start..end].to_vec());
+                    res.push(e);
+                    start = end;
+                }
+                res
+                // roots.iter().map(|root| self.to_string_uncurried(Some(*root)).parse().unwrap()).collect()
+            },
+            _ => unreachable!()
+        }
+    }
+
     /// helper fn to shift add the Ids by a certain amount
     pub fn shift_nodes(&mut self, shift: usize) {
         for node in &mut self.nodes {
