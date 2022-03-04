@@ -671,6 +671,9 @@ fn compression_step(
     results
 }
 
+/// Finds the initial set of single-arg single-use inventions from the appzippers. This updates `donelist` with the
+/// discovered inventions and pushes all the partial inventions to `worklist`. No stitching is done at this point, that
+/// will all be done during `derive_inventions`. This just gets the worklist in its initial state!
 #[inline(never)]
 fn initial_inventions(
     appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
@@ -686,32 +689,37 @@ fn initial_inventions(
     stats: &mut Stats,
 ) {
     for (zid,nodes) in nodes_of_zid.iter().enumerate() {
+        // 1) Define keys that we will use to index into our zippers
         let left_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice();
         let path_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.path.as_slice();
         let right_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.right.as_slice();
         let both_edge_key = |node: &Id| (appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice(),
                                          appzipper_of_node_zid[&(*node,zid)].zipper.right.as_slice());
+
+
+        // 2) Sort our nodes by their both_edge_key (which also sorts them by their left_edge_key since `left` is a prefix of `both`)
+        //    and then group adjacent nodes that are equal in terms of `left` or `both` keys, creating two sets of groups.
         let mut nodes = nodes.clone();
-
-        // sorting by `both` means elements with the same `both` key will be adjacent, AND
-        // elements with the same `left` key will be contiguous (since the `left` key is a prefix of the `both` key)
         nodes.sort_unstable_by_key(&both_edge_key);
-
         let left_groups = group_by_key(nodes.clone(), left_edge_key);
         let both_groups = group_by_key(nodes, both_edge_key);
 
-        // finish any inventions
+        // *******************
+        // * ADD TO DONELIST *
+        // *******************
         for group in both_groups {
-            // if groups are singletons or contain free variables, skip them
+            // prune finished inventions that are only useful at one node
             if group.len() <= 1 {
                 stats.single_use_done_fired += 1;
                 continue;
             }
+            // prune finished inventions that have free variables in them
             if edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) ||
                edge_has_free_vars(right_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
                 stats.free_vars_done_fired += 1;
                 continue;
             }
+            // calculate utility of this single-arg single-use invention
             let utility = {
                 let left_utility = left_edge_utility(left_edge_key(&group[0]), &egraph);
                 let right_utility = right_edge_utility(right_edge_key(&group[0]), &egraph);
@@ -720,6 +728,7 @@ fn initial_inventions(
                 let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
                 num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility
             };
+            // push to donelist if utility is good enough
             if utility > *lowest_donelist_utility {
                 donelist.push(FinishedItem::new(ZTuple::single(zid), group, utility));
                 if utility > *utility_pruning_cutoff {
@@ -729,14 +738,17 @@ fn initial_inventions(
             stats.num_done += 1;
         }
 
-        // extend the worklist
+        // *******************
+        // * ADD TO WORKLIST *
+        // *******************
         for group in left_groups {
-            // if groups are singletons or contain free variables on the left edge (which can never be changed), discard them
+            // prune partial inventions that are only useful at one node
             if group.len() <= 1 {
                 // println!("rejected bc <= 1: {}", ZTuple::single(zid).to_expr(group[0], &appzipper_of_node_zid, &egraph));
                 stats.single_use_wip_fired += 1;
                 continue;
             }
+            // prune partial inentions that contain free variables in their concrete part
             if edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
                 // panic!("hey");
                 stats.free_vars_wip_fired += 1;
@@ -744,7 +756,7 @@ fn initial_inventions(
             }
             // println!("passed: {}", ZTuple::single(zid).to_expr(group[0], &appzipper_of_node_zid, &egraph));
 
-
+            // upper bound the utility of the partial invention
             let left_utility = left_edge_utility(left_edge_key(&group[0]), &egraph);
             let upper_bound = {
                 let right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), &egraph)).sum::<i32>();
@@ -753,6 +765,7 @@ fn initial_inventions(
                 let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
                 num_uses * (-COST_TERMINAL + left_utility + arity_utility) + multiuse_utility + right_utility_upper_bound
             };
+            // push to worklist if utility upper bound is good enough
             if upper_bound > *utility_pruning_cutoff {
                 worklist.push(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound));
                 // worklist.push(HeapItem::new(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound)));
@@ -763,6 +776,7 @@ fn initial_inventions(
         }
     }
 
+    // sort + truncate donelist; update lowest_donelist_utility
     donelist.sort_unstable_by_key(|item| -item.utility);
     donelist.truncate(max_donelist);
     if !donelist.is_empty() { *lowest_donelist_utility = donelist.last().unwrap().utility; }
@@ -787,12 +801,12 @@ fn derive_inventions(
     num_paths_to_node: &HashMap<Id,i32>,
     stats: &mut Stats,
 ) {
-
-    // todo ofc can parallelize this 
+    // todo could parallelize 
     while let Some(wi) = worklist.pop() {
         // let wi = wi.item;
         // println!("processing {}", num_processed);
-        // check upper bound;
+        
+        // prune if upper bound is too low (cutoff may have increased in the time since this was added to the worklist)
         if wi.utility_upper_bound <= *utility_pruning_cutoff {
             stats.upper_bound_fired += 1;
             continue;
@@ -801,8 +815,6 @@ fn derive_inventions(
 
         let rightmost_zid: ZId = wi.ztuple.elems.last().unwrap().zid;
         let first_mergeable_zid: ZId = first_mergeable_zid_of_zid[rightmost_zid];
-
-
         let mut possible_elems: Vec<(LabelledZId,Id)> = vec![];
 
         // collect all the possible LabelledZIds
@@ -867,7 +879,9 @@ fn derive_inventions(
             let both_groups = group_by_key(nodes, both_edge_key);
             let num_offspring = fold_groups.len();
 
-            // finish any inventions
+            // *******************
+            // * ADD TO DONELIST *
+            // *******************
             for group in both_groups {
                 // if groups are singletons or contain free variables, skip them
                 if group.len() <= 1 {
@@ -907,7 +921,9 @@ fn derive_inventions(
                 stats.num_done += 1;
             }
     
-            // extend the worklist
+            // *******************
+            // * ADD TO WORKLIST *
+            // *******************
             for group in fold_groups {
                 // if groups are singletons or the fold contains free variables, skip them
                 if group.len() <= 1 {
