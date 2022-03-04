@@ -992,15 +992,6 @@ fn derive_inventions(
     println!("{:?}", stats);
 }
 
-pub fn pretty_programs(programs: &Expr) -> Vec<String> {
-    match programs.get_root() {
-        Lambda::Programs(roots) => {
-            roots.iter().map(|root| programs.to_string_uncurried(Some(*root))).collect()
-        },
-        _ => unreachable!()
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct CompressionStepResult {
     pub inv: Invention,
@@ -1044,12 +1035,13 @@ impl CompressionStepResult {
         let use_args: Vec<String> = self.use_args.iter().map(|args| format!("{} {}", self.inv.name, args.iter().map(|expr| expr.to_string()).collect::<Vec<String>>().join(" "))).collect();
         let all_uses: Vec<serde_json::Value> = use_exprs.iter().zip(use_args.iter()).map(|(expr,args)| json!({args: expr})).collect();
 
+        println!("hell yeah");
         json!({            
             "body": self.inv.body.to_string(),
             "dreamcoder": self.dc_inv_str,
             "arity": self.inv.arity,
             "name": self.inv.name,
-            "rewritten": pretty_programs(&self.rewritten),
+            "rewritten": self.rewritten.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
             "utility": self.done.utility,
             "final_cost": self.final_cost,
             "multiplier": self.multiplier,
@@ -1108,7 +1100,7 @@ pub fn compression(
         "cmd": std::env::args().join(" "),
         "args": args,
         "original_cost": programs_expr.cost(),
-        "original": pretty_programs(programs_expr),
+        "original": programs_expr.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
         "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
     });
 

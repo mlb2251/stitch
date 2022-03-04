@@ -222,7 +222,7 @@ impl Expr {
     pub fn app(f: Expr, mut x: Expr) -> Self {
         let mut nodes = f.nodes;
         let f_id = Id::from(nodes.len()-1);
-        x.shift_nodes(nodes.len());
+        x.shift_nodes(nodes.len() as i32);
         nodes.extend(x.nodes);
         let x_id = Id::from(nodes.len()-1);
         nodes.push(Lambda::App([f_id, x_id]));
@@ -240,7 +240,7 @@ impl Expr {
         let mut nodes = vec![];
         let mut root_ids = vec![];
         for mut p in programs.into_iter() {
-            p.shift_nodes(nodes.len());
+            p.shift_nodes(nodes.len() as i32);
             nodes.extend(p.nodes);
             root_ids.push(Id::from(nodes.len() - 1));
         }
@@ -259,8 +259,9 @@ impl Expr {
                 let mut res: Vec<Expr> = vec![];
                 let mut start: usize = 0;
                 for root in roots.iter() {
-                    let end = usize::from(*root);
-                    let e = Expr::new(self.nodes[start..end].to_vec());
+                    let end = usize::from(*root)+1;
+                    let mut e = Expr::new(self.nodes[start..end].to_vec());
+                    e.shift_nodes(-(start as i32));
                     res.push(e);
                     start = end;
                 }
@@ -272,9 +273,9 @@ impl Expr {
     }
 
     /// helper fn to shift add the Ids by a certain amount
-    pub fn shift_nodes(&mut self, shift: usize) {
+    pub fn shift_nodes(&mut self, shift: i32) {
         for node in &mut self.nodes {
-            node.update_children(|id| Id::from(usize::from(id) + shift))
+            node.update_children(|id| Id::from((usize::from(id) as i32 + shift) as usize));
         }
     }
 
