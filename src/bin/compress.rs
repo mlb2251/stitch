@@ -6,6 +6,9 @@ use clap::Parser;
 use rand::seq::SliceRandom;
 use serde::Serialize;
 use std::path::PathBuf;
+use serde_json::json;
+use itertools::Itertools;
+
 
 /// Args for compression
 #[derive(Parser, Debug, Serialize)]
@@ -74,4 +77,57 @@ fn main() {
         args.out.to_str().unwrap(),
         &args.step,
     );
+}
+
+fn compression(
+    programs_expr: &Expr,
+    iterations: usize,
+    out_file: &str,
+    cfg: &CompressionStepConfig,
+) -> Vec<CompressionStepResult> {
+    let mut rewritten: Expr = programs_expr.clone();
+    let mut step_results: Vec<CompressionStepResult> = Default::default();
+
+    let tstart = std::time::Instant::now();
+
+    for i in 0..iterations {
+        println!("\n=======Iteration {}=======",i);
+        let inv_name = format!("inv{}",step_results.len());
+        let res: Vec<CompressionStepResult> = compression_step(
+            &rewritten,
+            &inv_name,
+            programs_expr.cost(),
+            cfg,
+            &step_results);
+        if !res.is_empty() {
+            let res: CompressionStepResult = res[0].clone();
+            rewritten = res.rewritten.clone();
+            println!("Chose Invention {}: {}\n{}", res.inv.name, res, res.rewritten);
+            step_results.push(res);
+        } else {
+            println!("No inventions found at iteration {}",i);
+            break;
+        }
+    }
+
+    println!("\n=======Compression Summary=======");
+    println!("Found {} inventions", step_results.len());
+    println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(programs_expr,&rewritten), programs_expr.cost(), rewritten.cost());
+    for i in 0..step_results.len() {
+        let res = &step_results[i];
+        println!("{} ({:.2}x wrt orig): {}" ,res.inv.name, compression_factor(programs_expr, &res.rewritten), res);
+    }
+    println!("Time: {}ms", tstart.elapsed().as_millis());
+
+    let out = json!({
+        "cmd": std::env::args().join(" "),
+        // "args": args,
+        "original_cost": programs_expr.cost(),
+        "original": programs_expr.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+        "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
+    });
+
+    std::fs::write(out_file, serde_json::to_string_pretty(&out).unwrap()).unwrap();
+    println!("Wrote to {:?}",out_file);
+    step_results
 }
