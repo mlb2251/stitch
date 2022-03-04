@@ -1035,7 +1035,6 @@ impl CompressionStepResult {
         let use_args: Vec<String> = self.use_args.iter().map(|args| format!("{} {}", self.inv.name, args.iter().map(|expr| expr.to_string()).collect::<Vec<String>>().join(" "))).collect();
         let all_uses: Vec<serde_json::Value> = use_exprs.iter().zip(use_args.iter()).map(|(expr,args)| json!({args: expr})).collect();
 
-        println!("hell yeah");
         json!({            
             "body": self.inv.body.to_string(),
             "dreamcoder": self.dc_inv_str,
