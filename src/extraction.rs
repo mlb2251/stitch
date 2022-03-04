@@ -31,17 +31,32 @@ pub fn extract_enode(enode: &Lambda, egraph: &EGraph) -> Expr {
     }
 }
 
+/// These are like Inventions but with a pointer to the body instead of an Expr
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, PartialOrd, Ord)]
+struct PtrInvention {
+    pub body:Id, // this will be a subtree which can have IVars
+    pub arity: usize // also equal to max ivar in subtree + 1
+}
+impl PtrInvention {
+    pub fn new(body:Id, arity: usize) -> Self {
+        PtrInvention {
+            body,
+            arity
+        }
+    }
+}
+
 /// Rewrite `root` using an invention `inv`. This will use inventions everywhere
 /// as long as it decreases the cost. It will account for the fact that using an invention
 /// in a child could prevent the use of the invention in the parent - it will always do whatever
 /// gives the lowest cost.
 pub fn rewrite_with_inventions(
     root: Id,
-    invs: &[&InventionExpr],
+    invs: &[&Invention],
     replace_invs_with: &[&str],
     egraph: &mut EGraph,
 ) -> Expr {
-    let invs: Vec<Invention> = invs.into_iter().map(|inv| Invention::new(egraph.add_expr(&inv.body.clone().into()), inv.arity)).collect();
+    let invs: Vec<PtrInvention> = invs.into_iter().map(|inv| PtrInvention::new(egraph.add_expr(&inv.body.clone().into()), inv.arity)).collect();
 
     let treenodes = toplogical_ordering(root, egraph);
 
@@ -114,7 +129,7 @@ pub fn rewrite_with_inventions(
 
 fn extract_from_nodecosts(
     root: Id,
-    invs: &[Invention],
+    invs: &[PtrInvention],
     nodecost_of_treenode: &HashMap<Id,NodeCost>,
     replace_invs_with: &[&str],
     egraph: &EGraph,
@@ -171,7 +186,7 @@ fn extract_from_nodecosts(
 #[derive(Debug,Clone)]
 struct NodeCost {
     inventionless_cost: i32,
-    inventionful_cost: HashMap<Invention, (i32,Option<Vec<Id>>)>, // i32 = cost; and Some(args) gives the arguments if the invention is used at this node
+    inventionful_cost: HashMap<PtrInvention, (i32,Option<Vec<Id>>)>, // i32 = cost; and Some(args) gives the arguments if the invention is used at this node
 }
 
 impl NodeCost {
@@ -182,16 +197,16 @@ impl NodeCost {
         }
     }
     /// cost under an invention if it's useful for this node, else inventionless cost
-    fn cost_under_inv(&self, inv: &Invention) -> i32 {
+    fn cost_under_inv(&self, inv: &PtrInvention) -> i32 {
         self.inventionful_cost.get(inv).map(|x|x.0).unwrap_or(self.inventionless_cost)
     }
     /// min cost under any of a list of invs
-    fn cost_under_invs(&self, invs: &[Invention]) -> i32 {
+    fn cost_under_invs(&self, invs: &[PtrInvention]) -> i32 {
         invs.iter().map(|inv| self.cost_under_inv(inv)).min().unwrap()
     }
     /// improve the cost using a new invention, or do nothing if we've already seen
     /// a better cost for this invention. Also skip if inventionless cost is better.
-    fn new_cost_under_inv(&mut self, inv: Invention, cost:i32, args: Option<Vec<Id>>) {
+    fn new_cost_under_inv(&mut self, inv: PtrInvention, cost:i32, args: Option<Vec<Id>>) {
         if cost < self.inventionless_cost {
             if !self.inventionful_cost.contains_key(&inv)
                || cost < self.inventionful_cost[&inv].0  {
@@ -200,13 +215,13 @@ impl NodeCost {
         }
     }
     /// Get the top inventions in decreasing order of cost
-    fn top_inventions(&self) -> Vec<Invention> {
-        let mut top_inventions: Vec<Invention> = self.inventionful_cost.keys().cloned().collect();
+    fn top_inventions(&self) -> Vec<PtrInvention> {
+        let mut top_inventions: Vec<PtrInvention> = self.inventionful_cost.keys().cloned().collect();
         top_inventions.sort_by(|a,b| self.inventionful_cost[a].0.cmp(&self.inventionful_cost[b].0));
         top_inventions
     }
     /// Get the top inventions in decreasing order of cost
-    fn top_invention(&self) -> Option<(Invention,i32,Option<Vec<Id>>)> {
+    fn top_invention(&self) -> Option<(PtrInvention,i32,Option<Vec<Id>>)> {
         self.inventionful_cost.iter().min_by_key(|(_k,v)| v.0).map(|(k,v)| (*k,v.0,v.1.clone()))
     }
 }
@@ -214,7 +229,7 @@ impl NodeCost {
 
 fn match_expr_with_inv(
     root: Id,
-    inv: &Invention,
+    inv: &PtrInvention,
     best_inventions_of_treenode: &mut HashMap<Id, NodeCost>,
     egraph: &mut EGraph,
 ) -> Option<Vec<Id>> {
@@ -347,7 +362,7 @@ fn match_expr_with_inv_rec(
     }
 }
 
-fn threadables_of_inv(inv: Invention, egraph: &EGraph) -> HashSet<Id> {
+fn threadables_of_inv(inv: PtrInvention, egraph: &EGraph) -> HashSet<Id> {
     // a threadable is a (app #i $j) or (app <threadable> $j)
     // assert j > k sanity check
     // println!("Invention: {}", inv.to_expr(egraph));

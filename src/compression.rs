@@ -4,7 +4,6 @@ use std::fmt::{self, Formatter, Display};
 use clap::Parser;
 use std::path::PathBuf;
 use std::hash::Hash;
-use std::cmp::Ordering;
 use itertools::Itertools;
 use extraction::extract;
 use serde_json::json;
@@ -70,33 +69,18 @@ pub struct Data {
     pub inventionless_cost: i32,
 }
 
-/// An invention we've found (ie a learned function we can use to compress the program).
-/// Inventions have a body + an arity
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Invention {
-    pub body:Id, // this will be a subtree which can have IVars
-    pub arity: usize // also equal to max ivar in subtree + 1
-}
-impl Invention {
-    pub fn new(body:Id, arity: usize) -> Self {
-        Invention {
-            body,
-            arity
-        }
-    }
-}
-
 /// At the end of the day we convert our Inventions into InventionExprs to make
 /// them standalone without needing to carry the EGraph around to figure out what
 /// the body Id points to.
 #[derive(Debug, Clone)]
-pub struct InventionExpr {
+pub struct Invention {
     pub body: Expr, // invention body (not wrapped in lambdas)
-    pub arity: usize
+    pub arity: usize,
+    pub name: String,
 }
-impl InventionExpr {
-    pub fn new(body: Expr, arity: usize) -> Self {
-        Self { body, arity }
+impl Invention {
+    pub fn new(body: Expr, arity: usize, name: &str) -> Self {
+        Self { body, arity, name: String::from(name) }
     }
     /// replace any #i with args[i], returning a new expression
     pub fn apply(&self, args: &[Expr]) -> Expr {
@@ -106,9 +90,9 @@ impl InventionExpr {
     }
 }
 
-impl Display for InventionExpr {
+impl Display for Invention {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "(arity={}: {})", self.arity, self.body)
+        write!(f, "[{} arity={}: {}]", self.name, self.arity, self.body)
     }
 }
 
@@ -233,6 +217,9 @@ impl WorklistItem {
 impl FinishedItem {
     fn new(ztuple: ZTuple, nodes: Vec<Id>, utility: i32) -> FinishedItem {
         FinishedItem { ztuple, nodes, utility }
+    }
+    fn to_invention(&self, name: &str, appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>, egraph: &EGraph ) -> Invention {
+        Invention::new(self.ztuple.to_expr(self.nodes[0], appzipper_of_node_zid, egraph), self.ztuple.arity, name)
     }
 }
 
@@ -509,6 +496,7 @@ struct Stats {
     single_use_wip_fired: i32,
     force_multiuse_fired: i32,
 }
+
 /// takes a set of programs as an Expr with Programs at its root, and does one full step of compresison.
 /// Returns the top Inventions and the Expr rewritten under that invention along with other useful info in CompressionStepResult
 fn compression_step(
@@ -999,8 +987,7 @@ pub fn pretty_programs(programs: &Expr) -> Vec<String> {
 
 #[derive(Debug, Clone)]
 pub struct CompressionStepResult {
-    pub inv: InventionExpr,
-    pub inv_name: String,
+    pub inv: Invention,
     pub rewritten: Expr,
     pub done: FinishedItem,
     pub final_cost: i32,
@@ -1018,7 +1005,7 @@ impl CompressionStepResult {
     fn new(done: FinishedItem, programs_node: Id, very_first_cost: i32, inv_name: &str, appzipper_of_node_zid: &mut HashMap<(Id,ZId),AppZipper>,  num_paths_to_node: &HashMap<Id,i32>, egraph: &mut EGraph, past_invs: &Vec<CompressionStepResult>) -> Self {
         let orig_cost = egraph[programs_node].data.inventionless_cost;
 
-        let inv = InventionExpr::new(done.ztuple.to_expr(done.nodes[0], appzipper_of_node_zid, egraph), done.ztuple.arity);
+        let inv = done.to_invention(inv_name, appzipper_of_node_zid, egraph);
         let rewritten: Expr = rewrite_with_inventions(programs_node, &[&inv], &[inv_name], egraph);
         let final_cost = orig_cost - done.utility;
         let multiplier = orig_cost as f64 / final_cost as f64;
@@ -1034,18 +1021,18 @@ impl CompressionStepResult {
         
         // dreamcoder compatability
         let dc_inv_str: String = dc_inv_str(&inv, past_invs);
-        CompressionStepResult { inv, inv_name: String::from(inv_name), rewritten, done, final_cost, multiplier, final_cost_rewritten, multiplier_rewritten, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str }
+        CompressionStepResult { inv, rewritten, done, final_cost, multiplier, final_cost_rewritten, multiplier_rewritten, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str }
     }
     fn json(&self) -> serde_json::Value {        
         let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| expr.to_string()).collect();
-        let use_args: Vec<String> = self.use_args.iter().map(|args| format!("{} {}", self.inv_name, args.iter().map(|expr| expr.to_string()).collect::<Vec<String>>().join(" "))).collect();
+        let use_args: Vec<String> = self.use_args.iter().map(|args| format!("{} {}", self.inv.name, args.iter().map(|expr| expr.to_string()).collect::<Vec<String>>().join(" "))).collect();
         let all_uses: Vec<serde_json::Value> = use_exprs.iter().zip(use_args.iter()).map(|(expr,args)| json!({args: expr})).collect();
 
         json!({            
             "body": self.inv.body.to_string(),
             "dreamcoder": self.dc_inv_str,
             "arity": self.inv.arity,
-            "name": self.inv_name,
+            "name": self.inv.name,
             "rewritten": pretty_programs(&self.rewritten),
             "utility": self.done.utility,
             "final_cost": self.final_cost,
@@ -1073,19 +1060,19 @@ pub fn compression(
     out_dir: &str,
 ) -> Vec<CompressionStepResult> {
     let mut rewritten: Expr = programs_expr.clone();
-    let mut invs: Vec<CompressionStepResult> = Default::default();
+    let mut step_results: Vec<CompressionStepResult> = Default::default();
 
     let tstart = std::time::Instant::now();
 
     for i in 0..args.iterations {
         println!("\n=======Iteration {}=======",i);
-        let inv_name = format!("inv{}",invs.len());
-        let res: Vec<CompressionStepResult> = compression_step(&rewritten, args, out_dir, &inv_name, programs_expr.cost(), &invs);
+        let inv_name = format!("inv{}",step_results.len());
+        let res: Vec<CompressionStepResult> = compression_step(&rewritten, args, out_dir, &inv_name, programs_expr.cost(), &step_results);
         if !res.is_empty() {
             let res: CompressionStepResult = res[0].clone();
             rewritten = res.rewritten.clone();
-            println!("Chose Invention {}: {}\n{}", res.inv_name, res, res.rewritten);
-            invs.push(res);
+            println!("Chose Invention {}: {}\n{}", res.inv.name, res, res.rewritten);
+            step_results.push(res);
         } else {
             println!("No inventions found at iteration {}",i);
             break;
@@ -1093,11 +1080,11 @@ pub fn compression(
     }
 
     println!("\n=======Compression Summary=======");
-    println!("Found {} inventions", invs.len());
+    println!("Found {} inventions", step_results.len());
     println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(programs_expr,&rewritten), programs_expr.cost(), rewritten.cost());
-    for i in 0..invs.len() {
-        let inv = &invs[i];
-        println!("{} ({:.2}x wrt orig): {}" ,inv.inv_name, compression_factor(programs_expr, &inv.rewritten), inv);
+    for i in 0..step_results.len() {
+        let res = &step_results[i];
+        println!("{} ({:.2}x wrt orig): {}" ,res.inv.name, compression_factor(programs_expr, &res.rewritten), res);
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
 
@@ -1106,12 +1093,12 @@ pub fn compression(
         "args": args,
         "original_cost": programs_expr.cost(),
         "original": pretty_programs(programs_expr),
-        "invs": invs.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
+        "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
     });
 
     std::fs::write(&args.out, serde_json::to_string_pretty(&out).unwrap()).unwrap();
 
     // serde_json::to_writer(&std::fs::File::create(&args.out).unwrap(), &out).unwrap();
     println!("Wrote to {:?}",args.out);
-    invs
+    step_results
 }

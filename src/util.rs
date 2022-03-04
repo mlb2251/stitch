@@ -163,7 +163,7 @@ pub fn ivar_to_dc(e: &Expr, child: Id, depth: i32, arity: i32) -> Expr {
     }
 }
 
-pub fn dc_inv_str(inv: &InventionExpr, past_invs: &Vec<CompressionStepResult>) -> String {
+pub fn dc_inv_str(inv: &Invention, past_step_results: &Vec<CompressionStepResult>) -> String {
     let mut body: Expr = ivar_to_dc(&inv.body, inv.body.root(), 0, inv.arity as i32);
     // wrap in lambdas for dremacoder
     for _ in 0..inv.arity {
@@ -173,8 +173,8 @@ pub fn dc_inv_str(inv: &InventionExpr, past_invs: &Vec<CompressionStepResult>) -
     let mut res: String = format!("#{}", body);
     res = res.replace("(lam ", "(lambda ");
     // inline any past inventions using their dc_inv_str
-    for past_inv in past_invs.iter() {
-        res = res.replace(past_inv.inv_name.as_str(), past_inv.dc_inv_str.as_str());
+    for past_step_result in past_step_results.iter() {
+        res = res.replace(past_step_result.inv.name.as_str(), past_step_result.dc_inv_str.as_str());
     }
     res
 }
