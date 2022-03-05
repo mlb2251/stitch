@@ -48,26 +48,14 @@ impl PtrInvention {
     }
 }
 
-
-
-/// Rewrite `root` in order one at a time with each of the inventions in `invs`. This will use inventions everywhere
-/// as long as it decreases the cost. It will account for the fact that using an invention
-/// in a child could prevent the use of the invention in the parent - it will always do whatever
-/// gives the lowest cost.
-/// 
-/// For the `EGraph` argument here you can either pass in a fresh egraph constructed by `let mut egraph = EGraph::new(); egraph.add_expr(expr.into())`
-/// or if you make repeated calls to this function feel free to pass in the same egraph over and over. It doesn't matter what is in the EGraph already.
+/// Same as `rewrite_with_invention` but for multiple inventions, rewriting with one after another in order, compounding on each other
 pub fn rewrite_with_inventions(
-    root: Id,
-    invs: &[Invention],
-    egraph: &mut EGraph,
+    e: Expr,
+    invs: &[Invention]
 ) -> Expr {
-    let mut root = root;
-    for inv in invs.iter() {
-        let expr = rewrite_with_invention(root, inv, egraph);
-        root = egraph.add_expr(&expr.into());
-    }
-    extract(root,egraph)
+    let mut egraph = EGraph::default();
+    let root = egraph.add_expr(&e.into());
+    rewrite_with_inventions_egraph(root, invs, &mut egraph)
 }
 
 /// Rewrite `root` using an invention `inv`. This will use inventions everywhere
@@ -77,7 +65,36 @@ pub fn rewrite_with_inventions(
 /// 
 /// For the `EGraph` argument here you can either pass in a fresh egraph constructed by `let mut egraph = EGraph::new(); egraph.add_expr(expr.into())`
 /// or if you make repeated calls to this function feel free to pass in the same egraph over and over. It doesn't matter what is in the EGraph already.
+
 pub fn rewrite_with_invention(
+    e: Expr,
+    inv: &Invention,
+) -> Expr {
+    let mut egraph = EGraph::default();
+    let root = egraph.add_expr(&e.into());
+    rewrite_with_invention_egraph(root, inv, &mut egraph)
+}
+
+/// Same as `rewrite_with_invention_egraph` but for multiple inventions, rewriting with one after another in order, compounding on each other
+pub fn rewrite_with_inventions_egraph(
+    root: Id,
+    invs: &[Invention],
+    egraph: &mut EGraph,
+) -> Expr {
+    let mut root = root;
+    for inv in invs.iter() {
+        let expr = rewrite_with_invention_egraph(root, inv, egraph);
+        root = egraph.add_expr(&expr.into());
+    }
+    extract(root,egraph)
+}
+
+/// Same as `rewrite_with_invention` but operates on an egraph instead of an Expr.
+/// 
+/// For the `EGraph` argument here you can either pass in a fresh egraph constructed by `let mut egraph = EGraph::new(); egraph.add_expr(expr.into())`
+/// or if you make repeated calls to this function feel free to pass in the same egraph over and over. It doesn't matter what is in the EGraph already
+/// as long as `root` is in it.
+pub fn rewrite_with_invention_egraph(
     root: Id,
     inv: &Invention,
     egraph: &mut EGraph,

@@ -515,7 +515,7 @@ impl CompressionStepResult {
         let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { initial_cost };
 
         let inv = done.to_invention(inv_name, appzipper_of_node_zid, egraph);
-        let rewritten: Expr = rewrite_with_invention(programs_node, &inv, egraph);
+        let rewritten: Expr = rewrite_with_invention_egraph(programs_node, &inv, egraph);
         let final_cost = initial_cost - done.utility;
         let multiplier = initial_cost as f64 / final_cost as f64;
         let final_cost_rewritten = rewritten.cost();
