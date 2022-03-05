@@ -149,6 +149,7 @@ pub struct FinishedItem {
     ztuple: ZTuple,
     nodes: Vec<Id>, // nodes in the group
     utility: i32,
+    compressive_utility: i32,
 }
 
 /// The heap item used for heap-based worklists
@@ -165,8 +166,8 @@ impl WorklistItem {
 }
 
 impl FinishedItem {
-    fn new(ztuple: ZTuple, nodes: Vec<Id>, utility: i32) -> FinishedItem {
-        FinishedItem { ztuple, nodes, utility }
+    fn new(ztuple: ZTuple, nodes: Vec<Id>, utility: i32, compressive_utility: i32) -> FinishedItem {
+        FinishedItem { ztuple, nodes, utility, compressive_utility }
     }
     fn to_invention(&self, name: &str, appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>, egraph: &EGraph ) -> Invention {
         Invention::new(self.ztuple.to_expr(self.nodes[0], appzipper_of_node_zid, egraph), self.ztuple.arity, name)
@@ -580,6 +581,39 @@ fn update_donelist(donelist: &mut Vec<FinishedItem>, cfg: &CompressionStepConfig
     *utility_pruning_cutoff = if cfg.lossy_candidates { donelist.first().map(|x|x.utility).unwrap_or(0) } else { donelist.last().map(|x|x.utility).unwrap_or(0) };
 }
 
+fn other_utility(
+    left_utility: i32,
+    right_utility: i32
+) -> i32 {
+    let structure_penalty = - (left_utility + right_utility) * 3 / 2;
+    structure_penalty
+}
+
+fn compressive_utility(
+    left_utility: i32,
+    right_utility: i32,
+    ztuple: &ZTuple,
+    nodes: &Vec<Id>,
+    num_paths_to_node: &HashMap<Id,i32>,
+    egraph: &EGraph,
+    appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
+) -> i32 {
+    let arity_utility = -COST_NONTERMINAL * ztuple.arity as i32;
+
+    // multiuse utility depends on the size of the argument that's being used in multiple places. We can
+    // look up that argument using appzipper_of_node_zid since ztuple.multiuses gives us the zids for the multiuse
+    // cases (leaving out the original use)
+    let multiuse_utility = ztuple.multiuse.iter()
+        .map(|&arg_zid| // for each extra use of a multiuse arg
+            nodes.iter().map(|node| // for each node
+                num_paths_to_node[node] * // account for same node being used in multiple subtrees
+                egraph[appzipper_of_node_zid[&(*node,arg_zid)].arg].data.inventionless_cost
+            ).sum::<i32>()
+        ).sum::<i32>();
+    let num_uses = nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
+    num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility
+}
+
 /// Takes a set of programs as an Expr with Programs as its root, and does one full step of compresison.
 /// Returns the top Inventions and the Expr rewritten under that invention along with other useful info in CompressionStepResult
 /// The number of inventions returned is based on cfg.inv_candidates
@@ -661,11 +695,16 @@ pub fn compression_step(
     for node in treenodes.iter() {
         if *node == programs_node { continue; }
         if !egraph[*node].data.free_vars.is_empty() { continue; }
-        // utility is just size * usages and then -COST_TERMINAL for the `inv` primitive
-        let structure_penalty = - egraph[*node].data.inventionless_cost * 3 / 2;
-        let utility = num_paths_to_node[&node] * (egraph[*node].data.inventionless_cost - COST_TERMINAL) + structure_penalty;
+        
+        let ztuple = ZTuple::empty();
+        let nodes = vec![*node];
+        let left_utility = 0;
+        let right_utility = egraph[*node].data.inventionless_cost;
+        let compressive_utility = compressive_utility(left_utility, right_utility, &ztuple, &nodes, &num_paths_to_node, &egraph, &appzipper_of_node_zid);
+        let utility = compressive_utility + other_utility(left_utility, right_utility);
         if utility == 0 { continue; }
-        donelist.push(FinishedItem::new(ZTuple::empty(),vec![*node], utility));
+
+        donelist.push(FinishedItem::new(ztuple,nodes, utility, compressive_utility));
     }
     println!("got {} arity zero inventions ({:?}ms)", donelist.len(), tstart.elapsed().as_millis());
 
@@ -821,19 +860,15 @@ fn initial_inventions(
                 stats.free_vars_done_fired += 1;
                 continue;
             }
+            let ztuple = ZTuple::single(zid);
             // calculate utility of this single-arg single-use invention
-            let utility = {
-                let left_utility = left_edge_utility(left_edge_key(&group[0]), &egraph);
-                let right_utility = right_edge_utility(right_edge_key(&group[0]), &egraph);
-                let arity_utility = -COST_NONTERMINAL * 1; // arity is 1
-                let structure_penalty = - (left_utility + right_utility) * 3 / 2;
-                let multiuse_utility = 0; // can't have multiuse here
-                let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-                num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility + structure_penalty
-            };
+            let left_utility = left_edge_utility(left_edge_key(&group[0]), &egraph);
+            let right_utility = right_edge_utility(right_edge_key(&group[0]), &egraph);
+            let compressive_utility = compressive_utility(left_utility, right_utility, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
+            let utility = compressive_utility + other_utility(left_utility, right_utility);
             // push to donelist if utility is good enough
             if utility > *lowest_donelist_utility {
-                donelist.push(FinishedItem::new(ZTuple::single(zid), group, utility));
+                donelist.push(FinishedItem::new(ztuple, group, utility, compressive_utility));
                 if utility > *utility_pruning_cutoff {
                     *utility_pruning_cutoff = utility;
                 }
@@ -1002,32 +1037,15 @@ fn derive_inventions(
                     stats.free_vars_done_fired += 1;
                     continue;
                 }
+
                 // the left side of the fold is a RIGHT-facing edge (since it faces into the fold) hence it's right_edge_utility for the left_fold_key
-                let fold_utility = right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
-                let left_utility = wi.left_utility + fold_utility;
+                let left_utility = wi.left_utility + right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
                 let right_utility = right_edge_utility(right_edge_key(&group[0]), egraph);
-                let arity_utility = -COST_NONTERMINAL * new_ztuple.arity as i32; // new arity
-                // let arity_penalty = - (new_ztuple.arity as i32); // extra penalty for higher arity to break ties in rare cases
-                // arity penalty case: arity=2 (#0 (foo #1)) is the same utility as arity=1 (foo #0) or something like that, so we need to break the tie
+                let compressive_utility = compressive_utility(left_utility, right_utility, &new_ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
+                let utility = compressive_utility + other_utility(left_utility, right_utility);
 
-                // a bit like the DC structure penalty
-                let structure_penalty = - (left_utility + right_utility) * 3 / 2;
-
-                // multiuse utility depends on the size of the argument that's being used in multiple places. We can
-                // look up that argument using appzipper_of_node_zid since ztuple.multiuses gives us the zids for the multiuse
-                // cases (leaving out the original use)
-                let multiuse_utility = new_ztuple.multiuse.iter()
-                    .map(|&arg_zid| // for each extra use of a multiuse arg
-                        group.iter().map(|node| // for each node
-                            num_paths_to_node[node] * // account for same node being used in multiple subtrees
-                            egraph[appzipper_of_node_zid[&(*node,arg_zid)].arg].data.inventionless_cost
-                        ).sum::<i32>()
-                    ).sum::<i32>();
-                
-                let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-                let utility = num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility + structure_penalty;
                 if utility > *lowest_donelist_utility {
-                    donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility));
+                    donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility));
                     if utility > *utility_pruning_cutoff {
                         *utility_pruning_cutoff = utility;
                     }
@@ -1050,9 +1068,7 @@ fn derive_inventions(
                     stats.free_vars_wip_fired += 1;
                     continue;
                 }
-                // todo filter out ones w free vars too
-                let fold_utility = right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
-                let left_utility = wi.left_utility + fold_utility;
+                let left_utility = wi.left_utility + right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
                 let upper_bound = {
                     let right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), egraph)).sum::<i32>();
                     
