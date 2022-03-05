@@ -1,27 +1,24 @@
-# <img src="dream_egg.png" alt="egg of dreams" height="40" align="left"> DreamEgg
+<!-- # <img src="dream_egg.png" alt="egg of dreams" height="40" align="left"> DreamEgg -->
+
+# Stitch
 
 # Quickstart
 
-Run `cargo run --bin=compress --release -- -f data/train_19.json --max-arity=2 --iterations=3`
+Run `cargo run --release --bin=compress data/cogsci/nuts-bolts.json --compress-max-arity=2 --iterations=3`
 
-This will run compression on 19 programs from the dreamcoder logo graphics domain. The largest is depth ~11 and has ~10 leaf nodes, and there is a LOT of obvious shared structure if you look at the file. The command should have pulled out the n-sided polygon function first:
+In around 10 seconds this should produce an output like
 
-`Chose Invention inv0: ([arity=2]: (lam (logo_forLoop #0 (lam (lam (logo_FWRT (logo_MULL logo_UL #1) (logo_DIVA logo_UA #0) $0))) $0)))`
+```
+=======Compression Summary=======
+Found 3 inventions
+Cost Improvement: (3.92x better) 1919558 -> 489600
+inv0 (1.78x wrt orig): utility: 840320 (final_cost: (1079238,1079238); (1.78x,1.78x)) | uses: 320 | body: [inv0 arity=2: (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #0))))) #0 (M 1 (/ (* 2 pi) #0) 0 0)) (M #1 0 0 0))]
+inv1 (2.84x wrt orig): utility: 402990 (final_cost: (676248,676248); (1.60x,1.60x)) | uses: 190 | body: [inv1 arity=2: (repeat (T (T #0 (M 0.5 0 0 0)) (M 1 0 (* #1 (cos (/ pi 4))) (* #1 (sin (/ pi 4))))))]
+inv2 (3.92x wrt orig): utility: 186648 (final_cost: (489600,489600); (1.38x,1.38x)) | uses: 168 | body: [inv2 arity=2: (#0 (T (T c (M 2 0 0 0)) (M #1 0 0 0)))]
+Time: 9175ms
+Wrote to "out/out.json"
+```
 
-Note that `#i` is used for invention args and `$i` for original program args (this avoids many index shifting woes!).
+Note that in these inventions `#i` is used for invention variables and `$i` for original program variables.
 
-Change `--iterations` to alter how many inventions will be greedily found. Change `--max-arity` to alter the maximum allowed arity of inventions. Arity scaling is very exponential. It should be roughly linear with number of programs but exponential with number of leaf nodes. There are many other data files in the repo, including for example `data/train_200.json` which has 200 programs from the logo domain, the largest being depth ~23 and ~50 leaf nodes.
-
-JSON files should hold a list of strings. The strings can be in curried format like `(app (app + 3) 4)` or uncurried like `(+ 3 4)` it'll handle either seamlessly.
-
-Some relevant files in `src/`
-* `bin/compress.rs` the executable that runs when you do `cargo run --bin=compress`
-* `domains/` domain semantics implementations go here! You don't need this if you are just doing compression without execution/semantics.
-* `compression.rs` the core code for compression
-* `domain.rs` all about giving semantics to your programs!
-* `lib.rs` the parent dreamegg library file
-* `expr.rs` all about expressions / nodes
-* `macros.rs` some macros to make life easier
-* `run_with_timeout.rs` lets you run a closure with a timeout in a separate process
-* `old/old_egg.rs` the old egg based implementation if you're curious
-
+To see a full list of command line options run `cargo run --release --bin=compress -- --help`
