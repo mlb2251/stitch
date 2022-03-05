@@ -40,14 +40,12 @@ pub struct Args {
 
 fn main() {
     procspawn::init();
-
     let args = Args::parse();
-
     // create a new directory for logging outputs
-    let out_dir: String = format!("target/{}",timestamp());
-    let out_dir_p = std::path::Path::new(out_dir.as_str());
-    assert!(!out_dir_p.exists());
-    std::fs::create_dir(out_dir_p).unwrap();
+    // let out_dir: String = format!("target/{}",timestamp());
+    // let out_dir_p = std::path::Path::new(out_dir.as_str());
+    // assert!(!out_dir_p.exists());
+    // std::fs::create_dir(out_dir_p).unwrap();
 
     let mut programs: Vec<String> = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
     if args.shuffle {
@@ -61,7 +59,7 @@ fn main() {
 
     for prog in programs.iter() {
         println!("{}", prog);
-    }    
+    }
 
     programs_info(&programs);
 
