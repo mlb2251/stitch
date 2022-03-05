@@ -459,9 +459,20 @@ struct Stats {
 #[derive(Parser, Debug, Serialize)]
 #[clap(name = "Stitch")]
 pub struct CompressionStepConfig {
-    /// max arity of inventions to find
+    /// max arity of inventions to find (will find all from 0 to this number inclusive)
     #[clap(short='a', long, default_value = "2")]
     pub max_arity: usize,
+
+    /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
+    /// unless --lossy-candidates is enabled.
+    #[clap(short='a', long, default_value = "1")]
+    pub inv_candidates: usize,
+
+    /// Turning this on means that only the top invention will be guaranteed to be the best invention,
+    /// and the 2nd best invention may not be the actual second best invention. Basically, this just enables
+    /// pruning of everything that's worse than the best invention which could cause speedups depending on the domain.
+    #[clap(long)]
+    pub lossy_candidates: bool,
 
     /// disable caching (though caching isn't used for much currently)
     #[clap(long)]
@@ -560,8 +571,18 @@ impl fmt::Display for CompressionStepResult {
     }
 }
 
-/// takes a set of programs as an Expr with Programs at its root, and does one full step of compresison.
+/// sort the donelist by utility, truncate to cfg.inv_candidates, update the lowest_donelist_utility to be the lowest utility,
+/// update utility_pruning_cutoff to be the highest utility if --lossy-candidates is set else the lowest utility
+fn update_donelist(donelist: &mut Vec<FinishedItem>, cfg: &CompressionStepConfig, lowest_donelist_utility: &mut i32, utility_pruning_cutoff: &mut i32) {
+    donelist.sort_unstable_by_key(|item| -item.utility);
+    donelist.truncate(cfg.inv_candidates);
+    *lowest_donelist_utility = donelist.last().map(|x|x.utility).unwrap_or(0);
+    *utility_pruning_cutoff = if cfg.lossy_candidates { donelist.first().map(|x|x.utility).unwrap_or(0) } else { donelist.last().map(|x|x.utility).unwrap_or(0) };
+}
+
+/// Takes a set of programs as an Expr with Programs as its root, and does one full step of compresison.
 /// Returns the top Inventions and the Expr rewritten under that invention along with other useful info in CompressionStepResult
+/// The number of inventions returned is based on cfg.inv_candidates
 pub fn compression_step(
     programs_expr: &Expr,
     new_inv_name: &str, // name of the new invention, like "inv4"
@@ -648,15 +669,12 @@ pub fn compression_step(
     }
     println!("got {} arity zero inventions ({:?}ms)", donelist.len(), tstart.elapsed().as_millis());
 
+    let mut lowest_donelist_utility = 0;
+    let mut utility_pruning_cutoff = 0;
 
-    let max_donelist: usize = 100; // todo revisit
+    // sort and truncate
+    update_donelist(&mut donelist, &cfg, &mut lowest_donelist_utility, &mut utility_pruning_cutoff);
 
-    // sort + truncate donelist; update lowest_donelist_utility
-    donelist.sort_unstable_by_key(|item| -item.utility);
-    donelist.truncate(max_donelist);
-
-    let mut lowest_donelist_utility = donelist.last().map(|x|x.utility).unwrap_or(0);
-    let mut utility_pruning_cutoff = donelist.first().map(|x|x.utility).unwrap_or(0); // todo adjust
     let mut stats: Stats = Default::default();
 
 
@@ -671,7 +689,6 @@ pub fn compression_step(
         &egraph,
         &mut lowest_donelist_utility,
         &mut utility_pruning_cutoff,
-        max_donelist,
         &num_paths_to_node,
         &mut stats,
         cfg,
@@ -703,7 +720,6 @@ pub fn compression_step(
         &egraph,
         &mut lowest_donelist_utility,
         &mut utility_pruning_cutoff,
-        max_donelist,
         &num_paths_to_node,
         &mut stats,
         cfg,
@@ -722,7 +738,7 @@ pub fn compression_step(
 
     // construct CompressionStepResults and print some info about them)
     println!("Cost before: {}", orig_cost);
-    for (i,done) in donelist.iter().enumerate().take(10) {
+    for (i,done) in donelist.iter().enumerate() {
         let res = CompressionStepResult::new(done.clone(), programs_node, new_inv_name, &mut appzipper_of_node_zid, &num_paths_to_node, &mut egraph, past_invs);
 
         println!("{}: {}", i, res);
@@ -770,7 +786,6 @@ fn initial_inventions(
     egraph: &EGraph,
     lowest_donelist_utility: &mut i32,
     utility_pruning_cutoff: &mut i32,
-    max_donelist: usize,
     num_paths_to_node: &HashMap<Id,i32>,
     stats: &mut Stats,
     cfg: &CompressionStepConfig,
@@ -864,10 +879,7 @@ fn initial_inventions(
         }
     }
 
-    // sort + truncate donelist; update lowest_donelist_utility
-    donelist.sort_unstable_by_key(|item| -item.utility);
-    donelist.truncate(max_donelist);
-    if !donelist.is_empty() { *lowest_donelist_utility = donelist.last().unwrap().utility; }
+    update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
 }
 
 
@@ -885,7 +897,6 @@ fn derive_inventions(
     // upper_bound_cutoff: &mut i32,
     lowest_donelist_utility: &mut i32,
     utility_pruning_cutoff: &mut i32,
-    max_donelist: usize,
     num_paths_to_node: &HashMap<Id,i32>,
     stats: &mut Stats,
     cfg: &CompressionStepConfig,
@@ -1079,20 +1090,16 @@ fn derive_inventions(
             }
         }
 
-        if donelist.len() > std::cmp::max(1000, if max_donelist != usize::MAX { max_donelist*4 } else { max_donelist }) {
-            donelist.sort_unstable_by_key(|item| -item.utility);
-            donelist.truncate(max_donelist);
-            *lowest_donelist_utility = donelist.last().unwrap().utility;
+        // truncate the donelist if is 4x larger than its max size (min of 1000)
+        if donelist.len() > std::cmp::max(1000, if cfg.inv_candidates != usize::MAX { cfg.inv_candidates*4 } else { cfg.inv_candidates }) {
+            update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
         }
 
     }
 
     assert!(worklist.is_empty());
 
-    donelist.sort_unstable_by_key(|item| -item.utility);
-    donelist.truncate(max_donelist);
-    if !donelist.is_empty() { *lowest_donelist_utility = donelist.last().unwrap().utility; }
-
+    update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
     println!("{:?}", stats);
 }
 
