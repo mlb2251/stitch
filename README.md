@@ -4,7 +4,7 @@
 
 # Quickstart
 
-Run `cargo run --release --bin=compress data/cogsci/nuts-bolts.json --compress-max-arity=2 --iterations=3`
+Run `cargo run --release --bin=compress data/cogsci/nuts-bolts.json --max-arity=2 --iterations=3`
 
 In around 10 seconds this should produce an output like
 

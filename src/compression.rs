@@ -461,15 +461,15 @@ struct Stats {
 pub struct CompressionStepConfig {
     /// max arity of inventions to find
     #[clap(short='a', long, default_value = "2")]
-    pub compress_max_arity: usize,
+    pub max_arity: usize,
 
     /// disable caching (though caching isn't used for much currently)
     #[clap(long)]
-    pub compress_no_cache: bool,
+    pub no_cache: bool,
 
     /// print out programs rewritten under invention
     #[clap(long,short='r')]
-    pub compress_show_rewritten: bool,
+    pub show_rewritten: bool,
 
     /// disable the free variable pruning optimization
     #[clap(long)]
@@ -589,7 +589,7 @@ pub fn compression_step(
     let tstart_total = std::time::Instant::now();
 
     let tstart = std::time::Instant::now();
-    let all_appzippers = get_appzippers(&treenodes, cfg.compress_no_cache, &mut egraph);
+    let all_appzippers = get_appzippers(&treenodes, cfg.no_cache, &mut egraph);
     println!("get_appzippers: {:?}ms", tstart.elapsed().as_millis());
 
     let tstart = std::time::Instant::now();
@@ -699,7 +699,7 @@ pub fn compression_step(
         &first_mergeable_zid_of_zid,
         &mut worklist,
         &mut donelist,
-        cfg.compress_max_arity,
+        cfg.max_arity,
         &egraph,
         &mut lowest_donelist_utility,
         &mut utility_pruning_cutoff,
@@ -720,13 +720,13 @@ pub fn compression_step(
 
     let mut results: Vec<CompressionStepResult> = vec![];
 
-    // construct CompressionStepResults and print some info about them
+    // construct CompressionStepResults and print some info about them)
     println!("Cost before: {}", orig_cost);
     for (i,done) in donelist.iter().enumerate().take(10) {
         let res = CompressionStepResult::new(done.clone(), programs_node, new_inv_name, &mut appzipper_of_node_zid, &num_paths_to_node, &mut egraph, past_invs);
 
         println!("{}: {}", i, res);
-        if cfg.compress_show_rewritten {
+        if cfg.show_rewritten {
             println!("rewritten: {}", res.rewritten);
         }
         results.push(res);
