@@ -5,6 +5,8 @@ use std::hash::Hash;
 use itertools::Itertools;
 use extraction::extract;
 use serde_json::json;
+use rand::seq::SliceRandom;
+
 
 use clap::Parser;
 use serde::Serialize;
@@ -890,6 +892,8 @@ fn derive_inventions(
     stats: &mut Stats,
     cfg: &CompressionStepConfig,
 ) {
+
+    // let mut till_shuffle = 100;
     // todo could parallelize 
     while let Some(wi) = worklist.pop() {
         // let wi = wi.item;
@@ -901,6 +905,12 @@ fn derive_inventions(
             continue;
         }
         stats.num_wip += 1;
+
+        // till_shuffle -= 1;
+        // if till_shuffle == 0 {
+        //     till_shuffle = 1000;
+        //     worklist.shuffle(&mut rand::thread_rng());
+        // }
 
         let rightmost_zid: ZId = wi.ztuple.elems.last().unwrap().zid;
         let first_mergeable_zid: ZId = first_mergeable_zid_of_zid[rightmost_zid];

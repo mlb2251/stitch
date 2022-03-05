@@ -34,9 +34,39 @@ pub struct Args {
     #[clap(long)]
     pub truncate: Option<usize>,
 
+    /// use dreamcoder format
+    #[clap(long)]
+    pub dc_fmt: bool,
+
     #[clap(flatten)]
     pub step: CompressionStepConfig,
 }
+
+// struct DreamcoderConfig {
+// CPUs: usize,
+// arity: usize,
+// verbose: bool,
+// collect_data: bool,
+// bs: usize,
+// aic: i32,
+// structurePenalty: i32,
+// topK: usize,
+// DSL: DreamcoderDSL,
+// frontiers: 
+// pseudoCounts: i32,
+// topI: usize,
+// }
+
+// struct DreamcoderDSL {
+//     logVariable: f32,
+//     productions: Vec<DreamcoderProduction>,
+// }
+
+// struct DreamcoderProduction {
+//     logProbability: f32,
+//     expression: String,
+// }
+
 
 fn main() {
     procspawn::init();
@@ -47,7 +77,18 @@ fn main() {
     // assert!(!out_dir_p.exists());
     // std::fs::create_dir(out_dir_p).unwrap();
 
-    let mut programs: Vec<String> = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
+    
+    let mut programs: Vec<String> = if args.dc_fmt {
+        // read dreamcoder format
+        let json: serde_json::Value = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
+        let mut programs: Vec<String> = json["frontiers"].as_array().unwrap().iter().map(|f| f["programs"].as_array().unwrap().iter().map(|p|p["program"].as_str().unwrap().to_string())).flatten().collect();
+        programs = programs.iter().map(|p| p.replace("(lambda ","(lam ")).collect();
+        programs
+    } else {
+        from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error")
+    };
+    
+    
     if args.shuffle {
         programs.shuffle(&mut rand::thread_rng());
     }
