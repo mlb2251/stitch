@@ -470,6 +470,22 @@ pub struct CompressionStepConfig {
     /// print out programs rewritten under invention
     #[clap(long,short='r')]
     pub compress_show_rewritten: bool,
+
+    /// disable the free variable pruning optimization
+    #[clap(long)]
+    pub no_opt_free_vars: bool,
+
+    /// disable the single usage pruning optimization
+    #[clap(long)]
+    pub no_opt_single_use: bool,
+
+    /// disable the upper bound pruning optimization
+    #[clap(long)]
+    pub no_opt_upper_bound: bool,
+
+    /// disable the force multiuse pruning optimization
+    #[clap(long)]
+    pub no_opt_force_multiuse: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -657,6 +673,7 @@ pub fn compression_step(
         max_donelist,
         &num_paths_to_node,
         &mut stats,
+        cfg,
     );
 
     println!("initial_inventions(): {:?}ms", tstart.elapsed().as_millis());
@@ -688,6 +705,7 @@ pub fn compression_step(
         max_donelist,
         &num_paths_to_node,
         &mut stats,
+        cfg,
     );
 
     let elapsed_derive_inventions = tstart.elapsed().as_millis();
@@ -754,6 +772,7 @@ fn initial_inventions(
     max_donelist: usize,
     num_paths_to_node: &HashMap<Id,i32>,
     stats: &mut Stats,
+    cfg: &CompressionStepConfig,
 ) {
     for (zid,nodes) in nodes_of_zid.iter().enumerate() {
         // 1) Define keys that we will use to index into our zippers
@@ -776,13 +795,14 @@ fn initial_inventions(
         // *******************
         for group in both_groups {
             // prune finished inventions that are only useful at one node
-            if group.len() <= 1 {
+            if !cfg.no_opt_single_use && group.len() <= 1 {
                 stats.single_use_done_fired += 1;
                 continue;
             }
             // prune finished inventions that have free variables in them
-            if edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) ||
-               edge_has_free_vars(right_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
+            if !cfg.no_opt_free_vars && 
+               (edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) ||
+                edge_has_free_vars(right_edge_key(&group[0]), path_key(&group[0]),  0, &egraph)) {
                 stats.free_vars_done_fired += 1;
                 continue;
             }
@@ -811,13 +831,13 @@ fn initial_inventions(
         // *******************
         for group in left_groups {
             // prune partial inventions that are only useful at one node
-            if group.len() <= 1 {
+            if !cfg.no_opt_single_use && group.len() <= 1 {
                 // println!("rejected bc <= 1: {}", ZTuple::single(zid).to_expr(group[0], &appzipper_of_node_zid, &egraph));
                 stats.single_use_wip_fired += 1;
                 continue;
             }
             // prune partial inentions that contain free variables in their concrete part
-            if edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
+            if !cfg.no_opt_free_vars && edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
                 // panic!("hey");
                 stats.free_vars_wip_fired += 1;
                 continue;
@@ -834,7 +854,7 @@ fn initial_inventions(
                 num_uses * (-COST_TERMINAL + left_utility + arity_utility) + multiuse_utility + right_utility_upper_bound
             };
             // push to worklist if utility upper bound is good enough
-            if upper_bound > *utility_pruning_cutoff {
+            if !cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
                 worklist.push(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound));
                 // worklist.push(HeapItem::new(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound)));
                 // worklist.sort_by_key(|wi| -wi.left_utility);
@@ -868,6 +888,7 @@ fn derive_inventions(
     max_donelist: usize,
     num_paths_to_node: &HashMap<Id,i32>,
     stats: &mut Stats,
+    cfg: &CompressionStepConfig,
 ) {
     // todo could parallelize 
     while let Some(wi) = worklist.pop() {
@@ -875,7 +896,7 @@ fn derive_inventions(
         // println!("processing {}", num_processed);
         
         // prune if upper bound is too low (cutoff may have increased in the time since this was added to the worklist)
-        if wi.utility_upper_bound <= *utility_pruning_cutoff {
+        if !cfg.no_opt_upper_bound && wi.utility_upper_bound <= *utility_pruning_cutoff {
             stats.upper_bound_fired += 1;
             continue;
         }
@@ -952,13 +973,14 @@ fn derive_inventions(
             // *******************
             for group in both_groups {
                 // if groups are singletons or contain free variables, skip them
-                if group.len() <= 1 {
+                if !cfg.no_opt_single_use && group.len() <= 1 {
                     stats.single_use_done_fired += 1;
                     continue;
                 }
-                if  edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
+                if  !cfg.no_opt_free_vars &&
+                   (edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
                     edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph) ||
-                    edge_has_free_vars(right_edge_key(&group[0]), right_path_key(&group[0]),  0, &egraph) {
+                    edge_has_free_vars(right_edge_key(&group[0]), right_path_key(&group[0]),  0, &egraph)) {
                     stats.free_vars_done_fired += 1;
                     continue;
                 }
@@ -1000,12 +1022,13 @@ fn derive_inventions(
             // *******************
             for group in fold_groups {
                 // if groups are singletons or the fold contains free variables, skip them
-                if group.len() <= 1 {
+                if !cfg.no_opt_single_use && group.len() <= 1 {
                     stats.single_use_wip_fired += 1;
                     continue;
                 }
-                if edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
-                    edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph) {
+                if !cfg.no_opt_free_vars && 
+                   (edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
+                    edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph)) {
                     stats.free_vars_wip_fired += 1;
                     continue;
                 }
@@ -1030,7 +1053,7 @@ fn derive_inventions(
                     let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
                     num_uses * (-COST_TERMINAL + left_utility + arity_utility) + multiuse_utility + right_utility_upper_bound
                 };
-                if upper_bound > *utility_pruning_cutoff {
+                if !cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
                     // worklist.push(HeapItem::new(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound)));
                     worklist.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
                     // worklist.sort_by_key(|wi| -wi.left_utility);
@@ -1043,7 +1066,7 @@ fn derive_inventions(
             // has all the same non-leading-edge so it only has one offspring. It is strictly beneficial (or breakeven
             // for single leaf nodes) to accept this multiuse, so we can just Break before looking at any higher zid 
             // merges and instead let this newly pushed multiuse thing be the one that merges with those future things.
-            if is_multiuse && num_nodes == wi.nodes.len() && num_offspring == 1 {
+            if !cfg.no_opt_force_multiuse && is_multiuse && num_nodes == wi.nodes.len() && num_offspring == 1 {
                 stats.force_multiuse_fired += 1;
                 break; // todo I would be a little careful with this optimization, disable it by commenting this if you suspect its not sound. It should be fine but I wrote it at night.
             }

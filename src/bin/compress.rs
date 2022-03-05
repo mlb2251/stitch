@@ -92,7 +92,7 @@ fn compression(
         if !res.is_empty() {
             let res: CompressionStepResult = res[0].clone();
             rewritten = res.rewritten.clone();
-            println!("Chose Invention {}: {}\n{}", res.inv.name, res, res.rewritten);
+            println!("Chose Invention {}: {}", res.inv.name, res);
             step_results.push(res);
         } else {
             println!("No inventions found at iteration {}",i);
