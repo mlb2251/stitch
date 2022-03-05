@@ -15,7 +15,7 @@ use itertools::Itertools;
 #[clap(name = "Stitch")]
 pub struct Args {
     /// json file to read compression input programs from
-    #[clap(short, long, parse(from_os_str), default_value = "data/train_19.json")]
+    #[clap(parse(from_os_str), default_value = "data/train_19.json")]
     pub file: PathBuf,
 
     /// json output file
