@@ -624,7 +624,8 @@ pub fn compression_step(
     for node in treenodes.iter() {
         if *node == programs_node { continue; }
         // utility is just size * usages and then -COST_TERMINAL for the `inv` primitive
-        let utility = num_paths_to_node[&node] * (egraph[*node].data.inventionless_cost - COST_TERMINAL);
+        let structure_penalty = - egraph[*node].data.inventionless_cost * 3 / 2;
+        let utility = num_paths_to_node[&node] * (egraph[*node].data.inventionless_cost - COST_TERMINAL) + structure_penalty;
         if utility == 0 { continue; }
         donelist.push(FinishedItem::new(ZTuple::empty(),vec![*node], utility));
     }
@@ -790,9 +791,10 @@ fn initial_inventions(
                 let left_utility = left_edge_utility(left_edge_key(&group[0]), &egraph);
                 let right_utility = right_edge_utility(right_edge_key(&group[0]), &egraph);
                 let arity_utility = -COST_NONTERMINAL * 1; // arity is 1
+                let structure_penalty = - (left_utility + right_utility) * 3 / 2;
                 let multiuse_utility = 0; // can't have multiuse here
                 let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-                num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility
+                num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility + structure_penalty
             };
             // push to donelist if utility is good enough
             if utility > *lowest_donelist_utility {
@@ -965,6 +967,12 @@ fn derive_inventions(
                 let left_utility = wi.left_utility + fold_utility;
                 let right_utility = right_edge_utility(right_edge_key(&group[0]), egraph);
                 let arity_utility = -COST_NONTERMINAL * new_ztuple.arity as i32; // new arity
+                // let arity_penalty = - (new_ztuple.arity as i32); // extra penalty for higher arity to break ties in rare cases
+                // arity penalty case: arity=2 (#0 (foo #1)) is the same utility as arity=1 (foo #0) or something like that, so we need to break the tie
+
+                // a bit like the DC structure penalty
+                let structure_penalty = - (left_utility + right_utility) * 3 / 2;
+
                 // multiuse utility depends on the size of the argument that's being used in multiple places. We can
                 // look up that argument using appzipper_of_node_zid since ztuple.multiuses gives us the zids for the multiuse
                 // cases (leaving out the original use)
@@ -977,7 +985,7 @@ fn derive_inventions(
                     ).sum::<i32>();
                 
                 let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-                let utility = num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility;
+                let utility = num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility + structure_penalty;
                 if utility > *lowest_donelist_utility {
                     donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility));
                     if utility > *utility_pruning_cutoff {
