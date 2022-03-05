@@ -84,7 +84,7 @@ pub fn rewrite_with_invention(
 ) -> Expr {
     let inv: PtrInvention = PtrInvention::new(egraph.add_expr(&inv.body.clone().into()), inv.arity, inv.name.clone());
 
-    let treenodes = toplogical_ordering(root, egraph);
+    let treenodes = topological_ordering(root, egraph);
 
     let mut nodecost_of_treenode: HashMap<Id,NodeCost> = Default::default();
     
@@ -384,7 +384,7 @@ fn threadables_of_inv(inv: PtrInvention, egraph: &EGraph) -> HashSet<Id> {
     // assert j > k sanity check
     // println!("Invention: {}", inv.to_expr(egraph));
     let mut threadables: HashSet<Id> = Default::default();
-    let nodes = toplogical_ordering(inv.body, egraph);
+    let nodes = topological_ordering(inv.body, egraph);
     for node in nodes {
         if let Lambda::App([f,x]) = egraph[node].nodes[0] {
             if matches!(egraph[x].nodes[0], Lambda::Var(_)) {

@@ -581,7 +581,7 @@ pub fn compression_step(
     //     save(&egraph, "0_programs", &out_dir);
     // }
 
-    let treenodes: Vec<Id> = toplogical_ordering(programs_node,&egraph);
+    let treenodes: Vec<Id> = topological_ordering(programs_node,&egraph);
     assert!(usize::from(*treenodes.iter().max().unwrap()) == treenodes.len() - 1); // ensures we can safely just use Vecs of length treenodes.len() to store various nodewise things
 
     // populate num_paths_to_node so we know how many different parts of the programs tree
