@@ -634,7 +634,9 @@ pub fn compression_step(
 
     println!("initial_inventions(): {:?}ms", tstart.elapsed().as_millis());
     println!("initial worklist length: {}", worklist.len());
-    println!("largest ztuple group: {}", worklist.iter().map(|ztg| ztg.nodes.len()).max().unwrap());
+    if let Some(size) = worklist.iter().map(|ztg| ztg.nodes.len()).max() {
+        println!("largest ztuple group: {}", size);
+    }
     println!("avg ztuple group: {}", worklist.iter().map(|ztg| ztg.nodes.len()).sum::<usize>() as f64 / worklist.len() as f64);
 
     // todo not sure if its the right move to sort by this see discussion in notes "sort the worklist by upper bound"
