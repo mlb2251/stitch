@@ -1,5 +1,5 @@
 use crate::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashSet};
 
 pub type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
 
@@ -8,13 +8,13 @@ pub struct LambdaAnalysis;
 
 impl Analysis<Lambda> for LambdaAnalysis {
     type Data = Data;
-    fn merge(&self, to: &mut Data, from: Data) -> bool {
+    fn merge(&self, _to: &mut Data, _from: Data) -> bool {
         // we really shouldnt be merging anyone ever
         panic!("EClasses should never be merged because EGraph is only used as a structural hasher in Stitch");
         // assert_eq!(to.free_vars,from.free_vars);
         // assert_eq!(to.free_ivars,from.free_ivars);
         // assert_eq!(to.inventionless_cost,from.inventionless_cost);        
-        false // didnt modify anything
+        // false // didnt modify anything
     }
     fn make(egraph: &EGraph, enode: &Lambda) -> Data {
         let mut free_vars: HashSet<i32> = HashSet::new();

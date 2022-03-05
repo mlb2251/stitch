@@ -172,7 +172,7 @@ fn extract_from_nodecosts(
 
     let target_cost = nodecost_of_treenode[&root].cost_under_inv(&inv);
 
-    if let Some((inv,cost,args)) = nodecost_of_treenode[&root].top_invention() {
+    if let Some((inv,_cost,args)) = nodecost_of_treenode[&root].top_invention() {
         if let Some(args) = args {
             // invention was used here
             let mut expr = Expr::prim(inv.name.clone().into());
@@ -234,10 +234,6 @@ impl NodeCost {
     fn cost_under_inv(&self, inv: &PtrInvention) -> i32 {
         self.inventionful_cost.get(inv).map(|x|x.0).unwrap_or(self.inventionless_cost)
     }
-    /// min cost under any of a list of invs
-    fn cost_under_invs(&self, invs: &[PtrInvention]) -> i32 {
-        invs.iter().map(|inv| self.cost_under_inv(inv)).min().unwrap()
-    }
     /// improve the cost using a new invention, or do nothing if we've already seen
     /// a better cost for this invention. Also skip if inventionless cost is better.
     fn new_cost_under_inv(&mut self, inv: PtrInvention, cost:i32, args: Option<Vec<Id>>) {
@@ -249,6 +245,7 @@ impl NodeCost {
         }
     }
     /// Get the top inventions in decreasing order of cost
+    #[allow(dead_code)] // todo at some point add tests for this
     fn top_inventions(&self) -> Vec<PtrInvention> {
         let mut top_inventions: Vec<PtrInvention> = self.inventionful_cost.keys().cloned().collect();
         top_inventions.sort_by(|a,b| self.inventionful_cost[a].0.cmp(&self.inventionful_cost[b].0));

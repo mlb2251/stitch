@@ -1,16 +1,14 @@
 use crate::*;
-use std::collections::{HashSet,HashMap,BinaryHeap};
+use std::collections::{HashSet,HashMap};
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
 use extraction::extract;
 use serde_json::json;
-use rand::seq::SliceRandom;
 
 
 use clap::Parser;
 use serde::Serialize;
-use std::path::PathBuf;
 
 
 /// The analysis data associated with each Lambda node
@@ -175,11 +173,11 @@ impl FinishedItem {
     }
 }
 
-impl HeapItem {
-    fn new(item: WorklistItem) -> HeapItem {
-        HeapItem { key: item.ztuple.elems.last().unwrap().zid as i32, item: item }
-    }
-}
+// impl HeapItem {
+//     fn new(item: WorklistItem) -> HeapItem {
+//         HeapItem { key: item.ztuple.elems.last().unwrap().zid as i32, item: item }
+//     }
+// }
 
 impl Zipper {
     fn new(path: ZPath, left: Vec<Option<Id>>, right: Vec<Option<Id>> ) -> Zipper {
@@ -803,8 +801,8 @@ fn initial_inventions(
                 continue;
             }
             // prune finished inventions that have free variables in them
-            if  (edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) ||
-                edge_has_free_vars(right_edge_key(&group[0]), path_key(&group[0]),  0, &egraph)) {
+            if  edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) ||
+                edge_has_free_vars(right_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
                 stats.free_vars_done_fired += 1;
                 continue;
             }
@@ -987,9 +985,9 @@ fn derive_inventions(
                     stats.single_use_done_fired += 1;
                     continue;
                 }
-                if (edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
+                if edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
                     edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph) ||
-                    edge_has_free_vars(right_edge_key(&group[0]), right_path_key(&group[0]),  0, &egraph)) {
+                    edge_has_free_vars(right_edge_key(&group[0]), right_path_key(&group[0]),  0, &egraph) {
                     stats.free_vars_done_fired += 1;
                     continue;
                 }

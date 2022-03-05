@@ -15,6 +15,7 @@ use procspawn::SpawnError;
 ///       shouldn't affect the main process so no need to unset it.
 /// todo there's a tiny race condition that could technically attempt to kill a random process.
 /// todo That's ok for my purposes but not if this becomes a real public library
+#[allow(dead_code)] // todo at some point add tests for this
 pub fn run_with_timeout<T,A>(f: fn(A) -> T, args:A, timeout:Duration) -> Result<T,SpawnError>
 where
     T: Serialize + DeserializeOwned,
