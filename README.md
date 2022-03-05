@@ -26,4 +26,15 @@ Brief guide to reading this:
 - `uses: 320` the invention was useful in 320 places in the set of programs
 - Note that in these inventions `#i` is used for invention variables and `$i` for original program variables.
 
+## Command line arguments
+
 To see a full list of command line options run `cargo run --release --bin=compress -- --help`
+
+## Disabling optimizations
+`cargo run --release --bin=compress data/cogsci/nuts-bolts.json -i3 --no-opt-free-vars --no-opt-upper-bound --no-opt-single-use --no-opt-force-multiuse`
+
+## Flamegraph
+
+`cargo build --release && sudo cargo flamegraph --root --output=out/flamegraph.svg --bin=compress data/cogsci/nuts-bolts.json`
+
+
