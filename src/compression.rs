@@ -641,6 +641,7 @@ pub fn compression_step(
     // arity 0 inventions
     for node in treenodes.iter() {
         if *node == programs_node { continue; }
+        if !egraph[*node].data.free_vars.is_empty() { continue; }
         // utility is just size * usages and then -COST_TERMINAL for the `inv` primitive
         let structure_penalty = - egraph[*node].data.inventionless_cost * 3 / 2;
         let utility = num_paths_to_node[&node] * (egraph[*node].data.inventionless_cost - COST_TERMINAL) + structure_penalty;
@@ -802,8 +803,7 @@ fn initial_inventions(
                 continue;
             }
             // prune finished inventions that have free variables in them
-            if !cfg.no_opt_free_vars && 
-               (edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) ||
+            if  (edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) ||
                 edge_has_free_vars(right_edge_key(&group[0]), path_key(&group[0]),  0, &egraph)) {
                 stats.free_vars_done_fired += 1;
                 continue;
@@ -987,8 +987,7 @@ fn derive_inventions(
                     stats.single_use_done_fired += 1;
                     continue;
                 }
-                if  !cfg.no_opt_free_vars &&
-                   (edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
+                if (edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
                     edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph) ||
                     edge_has_free_vars(right_edge_key(&group[0]), right_path_key(&group[0]),  0, &egraph)) {
                     stats.free_vars_done_fired += 1;
