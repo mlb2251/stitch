@@ -87,7 +87,6 @@ fn compression(
         let res: Vec<CompressionStepResult> = compression_step(
             &rewritten,
             &inv_name,
-            programs_expr.cost(),
             &args.step,
             &step_results);
         if !res.is_empty() {

@@ -223,6 +223,10 @@ impl LabelledZId {
 }
 
 impl ZTuple {
+    /// make an arity 0 ztuple 
+    fn empty() -> ZTuple {
+        ZTuple { elems: vec![], divergence_idxs: vec![], multiarg: vec![], multiuse: vec![], arity: 0}
+    }
     /// make a new single-zipper ztuple
     fn single(zid: ZId) -> ZTuple {
         ZTuple { elems: vec![LabelledZId::new(zid, 0)], divergence_idxs: vec![], multiarg: vec![zid], multiuse: vec![], arity: 1 }
@@ -243,6 +247,10 @@ impl ZTuple {
     /// convert a ztuple to an Expr. This is for extracting out the final complete inventions at the very end so that
     /// there are no more ZIds or Ids and everything is self contained without references to shared data structures.
     fn to_expr(&self, node: Id, appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>, egraph: &EGraph) -> Expr {
+        if self.elems.is_empty() {
+            return extract(node, egraph);  // arity 0
+        }
+
         let mut elem_idx: usize = 0;
         let mut zipper: &Zipper = &appzipper_of_node_zid[&(node,self.elems[elem_idx].zid)].zipper;
         let mut depth: usize = zipper.path.len() - 1;
@@ -541,7 +549,6 @@ impl fmt::Display for CompressionStepResult {
 pub fn compression_step(
     programs_expr: &Expr,
     new_inv_name: &str, // name of the new invention, like "inv4"
-    very_first_cost: i32, // original cost before any inventions were ever found (for bookkeeping)
     cfg: &CompressionStepConfig,
     past_invs: &Vec<CompressionStepResult>, // past inventions we've found
 ) -> Vec<CompressionStepResult> {
@@ -613,10 +620,29 @@ pub fn compression_step(
 
     let tstart = std::time::Instant::now();
 
+    // arity 0 inventions
+    for node in treenodes.iter() {
+        if *node == programs_node { continue; }
+        // utility is just size * usages and then -COST_TERMINAL for the `inv` primitive
+        let utility = num_paths_to_node[&node] * (egraph[*node].data.inventionless_cost - COST_TERMINAL);
+        if utility == 0 { continue; }
+        donelist.push(FinishedItem::new(ZTuple::empty(),vec![*node], utility));
+    }
+    println!("got {} arity zero inventions ({:?}ms)", donelist.len(), tstart.elapsed().as_millis());
+
+
     let max_donelist: usize = 100; // todo revisit
-    let mut lowest_donelist_utility = 0;
-    let mut utility_pruning_cutoff = 0;
+
+    // sort + truncate donelist; update lowest_donelist_utility
+    donelist.sort_unstable_by_key(|item| -item.utility);
+    donelist.truncate(max_donelist);
+
+    let mut lowest_donelist_utility = donelist.last().map(|x|x.utility).unwrap_or(0);
+    let mut utility_pruning_cutoff = donelist.first().map(|x|x.utility).unwrap_or(0); // todo adjust
     let mut stats: Stats = Default::default();
+
+
+    let tstart = std::time::Instant::now();
 
     // put together the initial set of single-arg single-use inventions from the appzippers
     initial_inventions(
