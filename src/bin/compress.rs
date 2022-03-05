@@ -10,12 +10,12 @@ use serde_json::json;
 use itertools::Itertools;
 
 
-/// Args for compression
+/// Compression
 #[derive(Parser, Debug, Serialize)]
 #[clap(name = "Stitch")]
 pub struct Args {
     /// json file to read compression input programs from
-    #[clap(parse(from_os_str), default_value = "data/train_19.json")]
+    #[clap(parse(from_os_str))]
     pub file: PathBuf,
 
     /// json output file
