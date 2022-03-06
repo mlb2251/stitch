@@ -5,19 +5,8 @@ use std::hash::Hash;
 use itertools::Itertools;
 use extraction::extract;
 use serde_json::json;
-
-
 use clap::Parser;
 use serde::Serialize;
-
-
-/// The analysis data associated with each Lambda node
-#[derive(Debug)]
-pub struct Data {
-    pub free_vars: HashSet<i32>, // $i vars. For example (lam $2) has free_vars = {1}.
-    pub free_ivars: HashSet<i32>, // #i ivars
-    pub inventionless_cost: i32,
-}
 
 /// At the end of the day we convert our Inventions into InventionExprs to make
 /// them standalone without needing to carry the EGraph around to figure out what
