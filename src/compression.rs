@@ -1,5 +1,5 @@
 use crate::*;
-use std::collections::{HashMap};
+use std::collections::{HashMap, VecDeque};
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
@@ -7,6 +7,9 @@ use extraction::extract;
 use serde_json::json;
 use clap::Parser;
 use serde::Serialize;
+// import slicerandom
+use rand::seq::SliceRandom;
+
 
 /// At the end of the day we convert our Inventions into InventionExprs to make
 /// them standalone without needing to carry the EGraph around to figure out what
@@ -458,6 +461,14 @@ pub struct CompressionStepConfig {
     #[clap(short='a', long, default_value = "1")]
     pub inv_candidates: usize,
 
+    /// By default we use a FIFO worklist because it was empirically found to be 30% faster on our initial testing domain,
+    /// however the choice of the worklist search order might actually be really important and vary between domains. Turning
+    /// this on will make it a LIFO worklist (ie, choosing to immediately deal with the offspring of an invention after processing
+    /// it). So by default we do a sort of breadth-first search, and this flag makes it depth-first. Breadth likely uses more memory
+    /// but also can find some easy wins early on. I think there's a lot more innovation to be done with search order!
+    #[clap(long)]
+    pub lifo_worklist: bool,
+
     /// Turning this on means that only the top invention will be guaranteed to be the best invention,
     /// and the 2nd best invention may not be the actual second best invention. Basically, this just enables
     /// pruning of everything that's worse than the best invention which could cause speedups depending on the domain.
@@ -713,7 +724,7 @@ pub fn compression_step(
     let mut zids_of_node: Vec<Vec<ZId>> = vec![vec![]; treenodes.len()]; // lookup all zids that a node can use
     let mut nodes_of_zid: Vec<Vec<Id>> = vec![vec![]; paths.len()]; // look up all nodes that a zid can be used at
     let mut first_mergeable_zid_of_zid: Vec<ZId> = Default::default(); // used for speed; lets you quickly lookup the smallest mergable (non-suffix) zid larger than your current zid
-    let mut worklist: Vec<WorklistItem> = Default::default(); // worklist that holds partially constructed inventions
+    let mut worklist: VecDeque<WorklistItem> = Default::default(); // worklist that holds partially constructed inventions
     // let mut worklist: BinaryHeap<HeapItem> = Default::default();
     let mut donelist: Vec<FinishedItem> = Default::default(); // completed inventions will go here
 
@@ -869,7 +880,7 @@ pub fn compression_step(
 fn initial_inventions(
     appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
     nodes_of_zid: &Vec<Vec<Id>>,
-    worklist: &mut Vec<WorklistItem>,
+    worklist: &mut VecDeque<WorklistItem>,
     // worklist: &mut BinaryHeap<HeapItem>,
     donelist: &mut Vec<FinishedItem>,
     egraph: &EGraph,
@@ -950,8 +961,8 @@ fn initial_inventions(
             let global_right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), &egraph)).sum::<i32>();
             let upper_bound = other_utility_upper_bound(left_utility) + compressive_utility_upper_bound(left_utility, global_right_utility_upper_bound, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
             // push to worklist if utility upper bound is good enough
-            if !cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
-                worklist.push(WorklistItem::new(ztuple.clone(), group, left_utility, upper_bound));
+            if cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
+                worklist.push_back(WorklistItem::new(ztuple.clone(), group, left_utility, upper_bound));
                 // worklist.push(HeapItem::new(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound)));
                 // worklist.sort_by_key(|wi| -wi.left_utility);
             } else {
@@ -969,7 +980,7 @@ fn derive_inventions(
     appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
     zids_of_node: &Vec<Vec<ZId>>,
     first_mergeable_zid_of_zid: &Vec<ZId>,
-    worklist: &mut Vec<WorklistItem>,
+    worklist: &mut VecDeque<WorklistItem>,
     // worklist: &mut BinaryHeap<HeapItem>,
     donelist: &mut Vec<FinishedItem>,
     max_arity: usize,
@@ -984,11 +995,12 @@ fn derive_inventions(
 
     // let mut till_shuffle = 100;
     // todo could parallelize 
-    while let Some(wi) = worklist.pop() {
+    while let Some(wi) = if cfg.lifo_worklist { worklist.pop_back() } else { worklist.pop_front() } {
         // let wi = wi.item;
         // println!("processing {}", num_processed);
         
         // prune if upper bound is too low (cutoff may have increased in the time since this was added to the worklist)
+        // note that pop_front() off the worklist is better than pop_back() for this reason - if you do LIFO you never get extra pruning from this
         if !cfg.no_opt_upper_bound && wi.utility_upper_bound <= *utility_pruning_cutoff {
             stats.upper_bound_fired += 1;
             continue;
@@ -1128,9 +1140,9 @@ fn derive_inventions(
                 let left_utility = wi.left_utility + right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
                 let global_right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), egraph)).sum::<i32>();
                 let upper_bound = other_utility_upper_bound(left_utility) + compressive_utility_upper_bound(left_utility, global_right_utility_upper_bound, &new_ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
-                if !cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
+                if cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
                     // worklist.push(HeapItem::new(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound)));
-                    worklist.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
+                    worklist.push_back(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
                     // worklist.sort_by_key(|wi| -wi.left_utility);
                 } else {
                     stats.upper_bound_fired += 1;
