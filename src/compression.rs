@@ -1016,7 +1016,8 @@ fn derive_inventions(
         let first_mergeable_zid: ZId = first_mergeable_zid_of_zid[rightmost_zid];
         let mut possible_elems: Vec<(LabelledZId,Id)> = vec![];
 
-        // collect all the possible LabelledZIds
+        // collect all the possible LabelledZIds; these essentially correspond to the different zippers (labelled with #i variables) that
+        // we could choose to merge in. We collect these from each of the nodes in the group.
         for node in wi.nodes.iter() {
             // skip over the zids that are prefixes - partition point will binarysearch for the first case where the predicate is false.
             // this works nicely since all (unusuable) prefix ones come before all nonprefix ones and first_mergeable_zid tells us the first nonprefix one
@@ -1040,11 +1041,16 @@ fn derive_inventions(
         }
         
         // sort by zid (and ivar) (and Id though we dont care about that)
-        possible_elems.sort();
+        possible_elems.sort(); // sorting is important!
         // Itertools::group_by(key: F)
         for (elem, subset) in &Itertools::group_by(possible_elems.into_iter(), |(elem, _node)| elem.clone()) {
             let mut nodes: Vec<Id> = subset.map(|(_elem, node)| node).collect();
             let num_nodes = nodes.len();
+            if !cfg.no_opt_single_use && num_nodes == 1 {
+                // might as well prune at this point too!
+                stats.single_use_wip_fired += 1;
+                continue;
+            }
             let is_multiuse = elem.ivar < wi.ztuple.arity; // multiuse means an old index within the old arity range was reused
 
             // divergence point doesnt depend on the specific node so we'll just use the first one
@@ -1087,13 +1093,14 @@ fn derive_inventions(
                     stats.single_use_done_fired += 1;
                     continue;
                 }
+                // prune inventions that contain free variables
                 if edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
                     edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph) ||
                     edge_has_free_vars(right_edge_key(&group[0]), right_path_key(&group[0]),  0, &egraph) {
                     stats.free_vars_done_fired += 1;
                     continue;
                 }
-
+                // Calculate utility
                 // the left side of the fold is a RIGHT-facing edge (since it faces into the fold) hence it's right_edge_utility for the left_fold_key
                 let left_utility = wi.left_utility + right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
                 let right_utility = right_edge_utility(right_edge_key(&group[0]), egraph);
@@ -1115,17 +1122,20 @@ fn derive_inventions(
             // * ADD TO WORKLIST *
             // *******************
             for group in fold_groups {
-                // if groups are singletons or the fold contains free variables, skip them
+                // prune partial inventions that are only useful at one node
                 if !cfg.no_opt_single_use && group.len() <= 1 {
                     stats.single_use_wip_fired += 1;
                     continue;
                 }
+                // prune partial inventions that contain free variables in their concrete part
                 if !cfg.no_opt_free_vars && 
                    (edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
                     edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph)) {
                     stats.free_vars_wip_fired += 1;
                     continue;
                 }
+
+                // Calculate utility
                 let left_utility = wi.left_utility + right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
                 let global_right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), egraph)).sum::<i32>();
                 let upper_bound = other_utility_upper_bound(left_utility) + compressive_utility_upper_bound(left_utility, global_right_utility_upper_bound, &new_ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
@@ -1156,7 +1166,6 @@ fn derive_inventions(
     }
 
     assert!(worklist.is_empty());
-
     update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
     println!("{:?}", stats);
 }
