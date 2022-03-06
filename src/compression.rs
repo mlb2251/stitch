@@ -538,6 +538,15 @@ pub struct CompressionStepConfig {
     pub no_opt_force_multiuse: bool,
 }
 
+impl CompressionStepConfig {
+    pub fn no_opt(&mut self) {
+        self.no_opt_free_vars = true;
+        self.no_opt_single_use = true;
+        self.no_opt_upper_bound = true;
+        self.no_opt_force_multiuse = true;
+    }
+}
+
 // #[derive(ArgEnum, Clone, Debug, Serialize, Parser)]
 // enum WorklistType {
 //     #[clap(arg_enum, long = "foobaar")]

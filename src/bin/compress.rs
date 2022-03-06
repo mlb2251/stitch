@@ -38,13 +38,21 @@ pub struct Args {
     #[clap(long)]
     pub dc_fmt: bool,
 
+    /// disable all optimizations
+    #[clap(long)]
+    pub no_opt: bool,
+
     #[clap(flatten)]
     pub step: CompressionStepConfig,
+
 }
 
 fn main() {
     // procspawn::init();
-    let args = Args::parse();
+    let mut args = Args::parse();
+    if args.no_opt {
+        args.step.no_opt();
+    }
     // create a new directory for logging outputs
     // let out_dir: String = format!("target/{}",timestamp());
     // let out_dir_p = std::path::Path::new(out_dir.as_str());
