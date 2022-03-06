@@ -928,11 +928,12 @@ fn initial_inventions(
             let right_utility = right_edge_utility(right_edge_key(&group[0]), &egraph);
             let compressive_utility = compressive_utility(left_utility + right_utility, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
             let utility = compressive_utility + other_utility(left_utility + right_utility);
-            // push to donelist if utility is good enough
+            // push to donelist if better than worst thing on donelist
             if utility > *lowest_donelist_utility {
                 donelist.push(FinishedItem::new(ztuple.clone(), group, utility, compressive_utility));
+                // if you beat the cutoff, we need to update the cutoff (regardless of whether its --lossy-candidates or not)
                 if utility > *utility_pruning_cutoff {
-                    *utility_pruning_cutoff = utility;
+                    update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
                 }
             }
             stats.num_done += 1;
@@ -969,7 +970,6 @@ fn initial_inventions(
             }
         }
     }
-
     update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
 }
 
@@ -1100,10 +1100,12 @@ fn derive_inventions(
                 let compressive_utility = compressive_utility(left_utility + right_utility, &new_ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
                 let utility = compressive_utility + other_utility(left_utility + right_utility);
 
+                // if you beat the worst thing on the donelist, you get pushed on the donelist
                 if utility > *lowest_donelist_utility {
                     donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility));
+                    // if you beat the cutoff, we should adjust the cutoff now (regardless of whether it's --lossy-candidates or not)
                     if utility > *utility_pruning_cutoff {
-                        *utility_pruning_cutoff = utility;
+                        update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
                     }
                 }
                 stats.num_done += 1;
