@@ -5,7 +5,7 @@ use std::hash::Hash;
 use itertools::Itertools;
 use extraction::extract;
 use serde_json::json;
-use clap::Parser;
+use clap::{Parser,ArgEnum};
 use serde::Serialize;
 // import slicerandom
 use rand::seq::SliceRandom;
@@ -461,13 +461,21 @@ pub struct CompressionStepConfig {
     #[clap(short='a', long, default_value = "1")]
     pub inv_candidates: usize,
 
-    /// By default we use a FIFO worklist because it was empirically found to be 30% faster on our initial testing domain,
-    /// however the choice of the worklist search order might actually be really important and vary between domains. Turning
-    /// this on will make it a LIFO worklist (ie, choosing to immediately deal with the offspring of an invention after processing
-    /// it). So by default we do a sort of breadth-first search, and this flag makes it depth-first. Breadth likely uses more memory
-    /// but also can find some easy wins early on. I think there's a lot more innovation to be done with search order!
+    /// By default we use a LIFO worklist but this is certainly something to explore more
+    /// and this flag makes it fifo https://github.com/mlb2251/stitch/issues/31
     #[clap(long)]
-    pub lifo_worklist: bool,
+    pub fifo_worklist: bool,
+
+    /// By default we sort the worklist in decreasing zipper order before starting to process it,
+    /// but this swaps it to increasing order. https://github.com/mlb2251/stitch/issues/31
+    #[clap(long)]
+    pub ascending_worklist: bool,
+
+
+    // pub worklist_type: WorklistType,
+
+    // #[clap(long)]
+    // pub worklist_sort: WorklistSort,
 
     /// Turning this on means that only the top invention will be guaranteed to be the best invention,
     /// and the 2nd best invention may not be the actual second best invention. Basically, this just enables
@@ -499,6 +507,24 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_opt_force_multiuse: bool,
 }
+
+// #[derive(ArgEnum, Clone, Debug, Serialize, Parser)]
+// enum WorklistType {
+//     #[clap(arg_enum, long = "foobaar")]
+//     Fifo,
+//     #[clap(arg_enum, long = "foofbar")]
+//     Lifo
+// }
+
+// #[derive(ArgEnum,Clone, Debug, Serialize, Parser)]
+// enum WorklistSort {
+//     Forward,
+//     #[clap(arg_enum, long = "foodbar")]
+//     Reverse,
+//     #[clap(arg_enum, long = "fzoobar")]
+//     Shuffle,
+// }
+
 
 #[derive(Debug, Clone)]
 pub struct CompressionStepResult {
@@ -992,10 +1018,16 @@ fn derive_inventions(
     stats: &mut Stats,
     cfg: &CompressionStepConfig,
 ) {
+    // worklist.make_contiguous().shuffle(&mut rand::thread_rng()); // shuffle
+    if cfg.ascending_worklist {
+        worklist.make_contiguous().sort(); // ascending sort order
+    } else {
+        worklist.make_contiguous().sort_by(|a, b| b.cmp(a)); // reverse sort order
+    }
 
     // let mut till_shuffle = 100;
     // todo could parallelize 
-    while let Some(wi) = if cfg.lifo_worklist { worklist.pop_back() } else { worklist.pop_front() } {
+    while let Some(wi) = if cfg.fifo_worklist { worklist.pop_front() } else { worklist.pop_back() } {
         // let wi = wi.item;
         // println!("processing {}", num_processed);
         
