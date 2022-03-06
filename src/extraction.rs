@@ -31,19 +31,77 @@ pub fn extract_enode(enode: &Lambda, egraph: &EGraph) -> Expr {
     }
 }
 
+/// These are like Inventions but with a pointer to the body instead of an Expr
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+struct PtrInvention {
+    pub body:Id, // this will be a subtree which can have IVars
+    pub arity: usize, // also equal to max ivar in subtree + 1
+    pub name: String
+}
+impl PtrInvention {
+    pub fn new(body:Id, arity: usize, name: String) -> Self {
+        PtrInvention {
+            body,
+            arity,
+            name
+        }
+    }
+}
+
+/// Same as `rewrite_with_invention` but for multiple inventions, rewriting with one after another in order, compounding on each other
+pub fn rewrite_with_inventions(
+    e: Expr,
+    invs: &[Invention]
+) -> Expr {
+    let mut egraph = EGraph::default();
+    let root = egraph.add_expr(&e.into());
+    rewrite_with_inventions_egraph(root, invs, &mut egraph)
+}
+
 /// Rewrite `root` using an invention `inv`. This will use inventions everywhere
 /// as long as it decreases the cost. It will account for the fact that using an invention
 /// in a child could prevent the use of the invention in the parent - it will always do whatever
 /// gives the lowest cost.
-pub fn rewrite_with_inventions(
+/// 
+/// For the `EGraph` argument here you can either pass in a fresh egraph constructed by `let mut egraph = EGraph::new(); egraph.add_expr(expr.into())`
+/// or if you make repeated calls to this function feel free to pass in the same egraph over and over. It doesn't matter what is in the EGraph already.
+
+pub fn rewrite_with_invention(
+    e: Expr,
+    inv: &Invention,
+) -> Expr {
+    let mut egraph = EGraph::default();
+    let root = egraph.add_expr(&e.into());
+    rewrite_with_invention_egraph(root, inv, &mut egraph)
+}
+
+/// Same as `rewrite_with_invention_egraph` but for multiple inventions, rewriting with one after another in order, compounding on each other
+pub fn rewrite_with_inventions_egraph(
     root: Id,
-    invs: &[&InventionExpr],
-    replace_invs_with: &[&str],
+    invs: &[Invention],
     egraph: &mut EGraph,
 ) -> Expr {
-    let invs: Vec<Invention> = invs.into_iter().map(|inv| Invention::new(egraph.add_expr(&inv.body.clone().into()), inv.arity)).collect();
+    let mut root = root;
+    for inv in invs.iter() {
+        let expr = rewrite_with_invention_egraph(root, inv, egraph);
+        root = egraph.add_expr(&expr.into());
+    }
+    extract(root,egraph)
+}
 
-    let treenodes = toplogical_ordering(root, egraph);
+/// Same as `rewrite_with_invention` but operates on an egraph instead of an Expr.
+/// 
+/// For the `EGraph` argument here you can either pass in a fresh egraph constructed by `let mut egraph = EGraph::new(); egraph.add_expr(expr.into())`
+/// or if you make repeated calls to this function feel free to pass in the same egraph over and over. It doesn't matter what is in the EGraph already
+/// as long as `root` is in it.
+pub fn rewrite_with_invention_egraph(
+    root: Id,
+    inv: &Invention,
+    egraph: &mut EGraph,
+) -> Expr {
+    let inv: PtrInvention = PtrInvention::new(egraph.add_expr(&inv.body.clone().into()), inv.arity, inv.name.clone());
+
+    let treenodes = topological_ordering(root, egraph);
 
     let mut nodecost_of_treenode: HashMap<Id,NodeCost> = Default::default();
     
@@ -56,18 +114,17 @@ pub fn rewrite_with_inventions(
         let mut nodecost = NodeCost::new(egraph[*treenode].data.inventionless_cost);
 
         // trying to use the invs at this node
-        for inv in invs.iter() {
-            if let Some(args) = match_expr_with_inv(*treenode, inv, &mut nodecost_of_treenode, egraph) {
-                let cost: i32 =
-                    COST_TERMINAL // the new primitive for this invention
-                    + COST_NONTERMINAL * inv.arity as i32 // the chain of app()s needed to apply the new primitive
-                    + args.iter()
-                        .map(|id| nodecost_of_treenode[&id]
-                            .cost_under_invs(invs.as_slice())) // cost under ANY of the invs since we allow multiple to be used!
-                        .sum::<i32>(); // sum costs of actual args
-                        nodecost.new_cost_under_inv(*inv, cost, Some(args));
-            }
+        if let Some(args) = match_expr_with_inv(*treenode, &inv, &mut nodecost_of_treenode, egraph) {
+            let cost: i32 =
+                COST_TERMINAL // the new primitive for this invention
+                + COST_NONTERMINAL * inv.arity as i32 // the chain of app()s needed to apply the new primitive
+                + args.iter()
+                    .map(|id| nodecost_of_treenode[&id]
+                        .cost_under_inv(&inv)) // cost under ANY of the invs since we allow multiple to be used!
+                    .sum::<i32>(); // sum costs of actual args
+                    nodecost.new_cost_under_inv(inv.clone(), cost, Some(args));
         }
+
 
         // inventions based on specific node type
         match node {
@@ -79,29 +136,23 @@ pub fn rewrite_with_inventions(
                                 
                 // costs with inventions as 1 + fcost + xcost. Use inventionless cost as a default.
                 // if either fcost or xcost is None (ie infinite)
-                for inv in invs.iter() {
-                    let fcost = f_nodecost.cost_under_inv(inv);
-                    let xcost = x_nodecost.cost_under_inv(inv);
-                    let cost = COST_NONTERMINAL+fcost+xcost;
-                    nodecost.new_cost_under_inv(*inv, cost, None);
-                }
+                let fcost = f_nodecost.cost_under_inv(&inv);
+                let xcost = x_nodecost.cost_under_inv(&inv);
+                let cost = COST_NONTERMINAL+fcost+xcost;
+                nodecost.new_cost_under_inv(inv.clone(), cost, None);
             }
             Lambda::Lam([b]) => {
                 // just map +1 over the costs
                 let ref b_nodecost = nodecost_of_treenode[&b];
-                for inv in invs.iter() {
-                    let bcost = b_nodecost.cost_under_inv(inv);
-                    nodecost.new_cost_under_inv(*inv, bcost + COST_NONTERMINAL, None);
-                }
+                let bcost = b_nodecost.cost_under_inv(&inv);
+                nodecost.new_cost_under_inv(inv.clone(), bcost + COST_NONTERMINAL, None);
             }
             Lambda::Programs(roots) => {
                 // no filtering for 2+ uses because we're just doing rewriting here
-                for inv in invs.iter() {
-                    let cost = roots.iter().map(|root| {
-                            nodecost_of_treenode[root].cost_under_inv(inv)
-                        }).sum();
-                        nodecost.new_cost_under_inv(*inv, cost, None);
-                }
+                let cost = roots.iter().map(|root| {
+                        nodecost_of_treenode[root].cost_under_inv(&inv)
+                    }).sum();
+                    nodecost.new_cost_under_inv(inv.clone(), cost, None);
             }
         }
 
@@ -109,28 +160,26 @@ pub fn rewrite_with_inventions(
     }
 
     // Now that we've calculated all the costs, we can extract the cheapest one
-    extract_from_nodecosts(root, invs.as_slice(), &nodecost_of_treenode, replace_invs_with, egraph)
+    extract_from_nodecosts(root, &inv, &nodecost_of_treenode, egraph)
 }
 
 fn extract_from_nodecosts(
     root: Id,
-    invs: &[Invention],
+    inv: &PtrInvention,
     nodecost_of_treenode: &HashMap<Id,NodeCost>,
-    replace_invs_with: &[&str],
     egraph: &EGraph,
 ) -> Expr {
 
-    let target_cost = nodecost_of_treenode[&root].cost_under_invs(invs);
+    let target_cost = nodecost_of_treenode[&root].cost_under_inv(&inv);
 
-    if let Some((inv,cost,args)) = nodecost_of_treenode[&root].top_invention() {
+    if let Some((inv,_cost,args)) = nodecost_of_treenode[&root].top_invention() {
         if let Some(args) = args {
             // invention was used here
-            let prim: &str = replace_invs_with[invs.iter().position(|x| *x == inv).unwrap()];
-            let mut expr = Expr::prim(prim.into());
+            let mut expr = Expr::prim(inv.name.clone().into());
             // wrap the new primitive in app() calls. Note that you pass in the $0 args LAST given how appapplamlam works
             // todo perhaps this shouldnt be a .rev() - related to what theo found
             for arg in args.iter() {
-                let arg_expr = extract_from_nodecosts(*arg, invs, nodecost_of_treenode, replace_invs_with, egraph);
+                let arg_expr = extract_from_nodecosts(*arg, &inv, nodecost_of_treenode, egraph);
                 expr = Expr::app(expr,arg_expr);
             }
             assert_eq!(target_cost,expr.cost());
@@ -140,17 +189,17 @@ fn extract_from_nodecosts(
             let expr: Expr = match &egraph[root].nodes[0] {
                 Lambda::Prim(_) | Lambda::Var(_) | Lambda::IVar(_) => {unreachable!()},
                 Lambda::App([f,x]) => {
-                    let f_expr = extract_from_nodecosts(*f, invs, nodecost_of_treenode, replace_invs_with, egraph);
-                    let x_expr = extract_from_nodecosts(*x, invs, nodecost_of_treenode, replace_invs_with, egraph);
+                    let f_expr = extract_from_nodecosts(*f, &inv, nodecost_of_treenode, egraph);
+                    let x_expr = extract_from_nodecosts(*x, &inv, nodecost_of_treenode, egraph);
                     Expr::app(f_expr,x_expr)
                 },
                 Lambda::Lam([b]) => {
-                    let b_expr = extract_from_nodecosts(*b, invs, nodecost_of_treenode, replace_invs_with, egraph);
+                    let b_expr = extract_from_nodecosts(*b, &inv, nodecost_of_treenode, egraph);
                     Expr::lam(b_expr)
                 }
                 Lambda::Programs(roots) => {
                     let root_exprs: Vec<Expr> = roots.iter()
-                        .map(|r| extract_from_nodecosts(*r, invs, nodecost_of_treenode, replace_invs_with, egraph))
+                        .map(|r| extract_from_nodecosts(*r, &inv, nodecost_of_treenode, egraph))
                         .collect();
                     Expr::programs(root_exprs)
                 }
@@ -171,7 +220,7 @@ fn extract_from_nodecosts(
 #[derive(Debug,Clone)]
 struct NodeCost {
     inventionless_cost: i32,
-    inventionful_cost: HashMap<Invention, (i32,Option<Vec<Id>>)>, // i32 = cost; and Some(args) gives the arguments if the invention is used at this node
+    inventionful_cost: HashMap<PtrInvention, (i32,Option<Vec<Id>>)>, // i32 = cost; and Some(args) gives the arguments if the invention is used at this node
 }
 
 impl NodeCost {
@@ -182,16 +231,12 @@ impl NodeCost {
         }
     }
     /// cost under an invention if it's useful for this node, else inventionless cost
-    fn cost_under_inv(&self, inv: &Invention) -> i32 {
+    fn cost_under_inv(&self, inv: &PtrInvention) -> i32 {
         self.inventionful_cost.get(inv).map(|x|x.0).unwrap_or(self.inventionless_cost)
-    }
-    /// min cost under any of a list of invs
-    fn cost_under_invs(&self, invs: &[Invention]) -> i32 {
-        invs.iter().map(|inv| self.cost_under_inv(inv)).min().unwrap()
     }
     /// improve the cost using a new invention, or do nothing if we've already seen
     /// a better cost for this invention. Also skip if inventionless cost is better.
-    fn new_cost_under_inv(&mut self, inv: Invention, cost:i32, args: Option<Vec<Id>>) {
+    fn new_cost_under_inv(&mut self, inv: PtrInvention, cost:i32, args: Option<Vec<Id>>) {
         if cost < self.inventionless_cost {
             if !self.inventionful_cost.contains_key(&inv)
                || cost < self.inventionful_cost[&inv].0  {
@@ -200,26 +245,27 @@ impl NodeCost {
         }
     }
     /// Get the top inventions in decreasing order of cost
-    fn top_inventions(&self) -> Vec<Invention> {
-        let mut top_inventions: Vec<Invention> = self.inventionful_cost.keys().cloned().collect();
+    #[allow(dead_code)] // todo at some point add tests for this
+    fn top_inventions(&self) -> Vec<PtrInvention> {
+        let mut top_inventions: Vec<PtrInvention> = self.inventionful_cost.keys().cloned().collect();
         top_inventions.sort_by(|a,b| self.inventionful_cost[a].0.cmp(&self.inventionful_cost[b].0));
         top_inventions
     }
     /// Get the top inventions in decreasing order of cost
-    fn top_invention(&self) -> Option<(Invention,i32,Option<Vec<Id>>)> {
-        self.inventionful_cost.iter().min_by_key(|(_k,v)| v.0).map(|(k,v)| (*k,v.0,v.1.clone()))
+    fn top_invention(&self) -> Option<(PtrInvention,i32,Option<Vec<Id>>)> {
+        self.inventionful_cost.iter().min_by_key(|(_k,v)| v.0).map(|(k,v)| (k.clone(),v.0,v.1.clone()))
     }
 }
 
 
 fn match_expr_with_inv(
     root: Id,
-    inv: &Invention,
+    inv: &PtrInvention,
     best_inventions_of_treenode: &mut HashMap<Id, NodeCost>,
     egraph: &mut EGraph,
 ) -> Option<Vec<Id>> {
     let mut args: Vec<Option<Id>> = vec![None;inv.arity];
-    let threadables = threadables_of_inv(*inv, egraph);
+    let threadables = threadables_of_inv(inv.clone(), egraph);
     if match_expr_with_inv_rec(root, inv.body, 0, &mut args, &threadables, best_inventions_of_treenode, egraph) {
         assert!(args.iter().all(|x| x.is_some()), "{:?}\n{}\n{}", args, extract(root,egraph), extract(inv.body,egraph)); // if any didnt unwrap() fine that would mean some variable wasnt used at all in the invention body
         Some(args.iter().map(|arg| arg.unwrap()).collect()) 
@@ -347,12 +393,12 @@ fn match_expr_with_inv_rec(
     }
 }
 
-fn threadables_of_inv(inv: Invention, egraph: &EGraph) -> HashSet<Id> {
+fn threadables_of_inv(inv: PtrInvention, egraph: &EGraph) -> HashSet<Id> {
     // a threadable is a (app #i $j) or (app <threadable> $j)
     // assert j > k sanity check
     // println!("Invention: {}", inv.to_expr(egraph));
     let mut threadables: HashSet<Id> = Default::default();
-    let nodes = toplogical_ordering(inv.body, egraph);
+    let nodes = topological_ordering(inv.body, egraph);
     for node in nodes {
         if let Lambda::App([f,x]) = egraph[node].nodes[0] {
             if matches!(egraph[x].nodes[0], Lambda::Var(_)) {

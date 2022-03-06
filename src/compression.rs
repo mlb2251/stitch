@@ -1,102 +1,25 @@
 use crate::*;
-use std::collections::{HashSet,HashMap,BinaryHeap};
+use std::collections::{HashSet,HashMap};
 use std::fmt::{self, Formatter, Display};
-use clap::Parser;
-use std::path::PathBuf;
 use std::hash::Hash;
-use std::cmp::Ordering;
 use itertools::Itertools;
 use extraction::extract;
 use serde_json::json;
+use clap::Parser;
 use serde::Serialize;
-
-
-/// Args for compression
-#[derive(Parser, Debug, Serialize)]
-#[clap(name = "Stitch")]
-pub struct CompressionArgs {
-    /// json file to read compression input programs from
-    #[clap(short, long, parse(from_os_str), default_value = "data/train_19.json")]
-    pub file: PathBuf,
-
-    /// json output file
-    #[clap(short, long, parse(from_os_str), default_value = "out/out.json")]
-    pub out: PathBuf,
-
-    /// Number of iterations to run compression for (number of inventions to find)
-    #[clap(short, long, default_value = "3")]
-    pub iterations: usize,
-
-    /// max arity of inventions to find
-    #[clap(short='a', long, default_value = "2")]
-    pub max_arity: usize,
-
-    /// print out programs rewritten under invention
-    #[clap(long,short='r')]
-    pub show_rewritten: bool,
-
-    /// shuffle order of set of inventions 
-    #[clap(long)]
-    pub shuffle: bool,
-
-    /// truncate set of inventions to include only this many (happens after shuffle if shuffle is also specified)
-    #[clap(long)]
-    pub truncate: Option<usize>,
-
-    /// disable caching (though caching isn't used for much currently)
-    #[clap(long)]
-    pub no_cache: bool,
-
-    /// (WIP) render inventions into images
-    #[clap(long)]
-    pub render_inventions: bool,
-
-    /// (WIP) render final set of programs into image
-    #[clap(long)]
-    pub render_final: bool,
-
-    /// (WIP) render initial set of programs into image
-    #[clap(long)]
-    pub render_initial: bool,
-}
-
-
-
-/// The analysis data associated with each Lambda node
-#[derive(Debug)]
-pub struct Data {
-    pub free_vars: HashSet<i32>, // $i vars. For example (lam $2) has free_vars = {1}.
-    pub free_ivars: HashSet<i32>, // #i ivars
-    pub inventionless_cost: i32,
-}
-
-/// An invention we've found (ie a learned function we can use to compress the program).
-/// Inventions have a body + an arity
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Invention {
-    pub body:Id, // this will be a subtree which can have IVars
-    pub arity: usize // also equal to max ivar in subtree + 1
-}
-impl Invention {
-    pub fn new(body:Id, arity: usize) -> Self {
-        Invention {
-            body,
-            arity
-        }
-    }
-}
 
 /// At the end of the day we convert our Inventions into InventionExprs to make
 /// them standalone without needing to carry the EGraph around to figure out what
 /// the body Id points to.
 #[derive(Debug, Clone)]
-pub struct InventionExpr {
+pub struct Invention {
     pub body: Expr, // invention body (not wrapped in lambdas)
-    pub arity: usize
+    pub arity: usize,
+    pub name: String,
 }
-impl InventionExpr {
-    pub fn new(body: Expr, arity: usize) -> Self {
-        Self { body, arity }
+impl Invention {
+    pub fn new(body: Expr, arity: usize, name: &str) -> Self {
+        Self { body, arity, name: String::from(name) }
     }
     /// replace any #i with args[i], returning a new expression
     pub fn apply(&self, args: &[Expr]) -> Expr {
@@ -106,9 +29,9 @@ impl InventionExpr {
     }
 }
 
-impl Display for InventionExpr {
+impl Display for Invention {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "(arity={}: {})", self.arity, self.body)
+        write!(f, "[{} arity={}: {}]", self.name, self.arity, self.body)
     }
 }
 
@@ -215,6 +138,7 @@ pub struct FinishedItem {
     ztuple: ZTuple,
     nodes: Vec<Id>, // nodes in the group
     utility: i32,
+    compressive_utility: i32,
 }
 
 /// The heap item used for heap-based worklists
@@ -231,16 +155,19 @@ impl WorklistItem {
 }
 
 impl FinishedItem {
-    fn new(ztuple: ZTuple, nodes: Vec<Id>, utility: i32) -> FinishedItem {
-        FinishedItem { ztuple, nodes, utility }
+    fn new(ztuple: ZTuple, nodes: Vec<Id>, utility: i32, compressive_utility: i32) -> FinishedItem {
+        FinishedItem { ztuple, nodes, utility, compressive_utility }
+    }
+    fn to_invention(&self, name: &str, appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>, egraph: &EGraph ) -> Invention {
+        Invention::new(self.ztuple.to_expr(self.nodes[0], appzipper_of_node_zid, egraph), self.ztuple.arity, name)
     }
 }
 
-impl HeapItem {
-    fn new(item: WorklistItem) -> HeapItem {
-        HeapItem { key: item.ztuple.elems.last().unwrap().zid as i32, item: item }
-    }
-}
+// impl HeapItem {
+//     fn new(item: WorklistItem) -> HeapItem {
+//         HeapItem { key: item.ztuple.elems.last().unwrap().zid as i32, item: item }
+//     }
+// }
 
 impl Zipper {
     fn new(path: ZPath, left: Vec<Option<Id>>, right: Vec<Option<Id>> ) -> Zipper {
@@ -286,6 +213,10 @@ impl LabelledZId {
 }
 
 impl ZTuple {
+    /// make an arity 0 ztuple 
+    fn empty() -> ZTuple {
+        ZTuple { elems: vec![], divergence_idxs: vec![], multiarg: vec![], multiuse: vec![], arity: 0}
+    }
     /// make a new single-zipper ztuple
     fn single(zid: ZId) -> ZTuple {
         ZTuple { elems: vec![LabelledZId::new(zid, 0)], divergence_idxs: vec![], multiarg: vec![zid], multiuse: vec![], arity: 1 }
@@ -306,6 +237,10 @@ impl ZTuple {
     /// convert a ztuple to an Expr. This is for extracting out the final complete inventions at the very end so that
     /// there are no more ZIds or Ids and everything is self contained without references to shared data structures.
     fn to_expr(&self, node: Id, appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>, egraph: &EGraph) -> Expr {
+        if self.elems.is_empty() {
+            return extract(node, egraph);  // arity 0
+        }
+
         let mut elem_idx: usize = 0;
         let mut zipper: &Zipper = &appzipper_of_node_zid[&(node,self.elems[elem_idx].zid)].zipper;
         let mut depth: usize = zipper.path.len() - 1;
@@ -509,14 +444,234 @@ struct Stats {
     single_use_wip_fired: i32,
     force_multiuse_fired: i32,
 }
-/// takes a set of programs as an Expr with Programs at its root, and does one full step of compresison.
+
+/// Args for compression step
+#[derive(Parser, Debug, Serialize)]
+#[clap(name = "Stitch")]
+pub struct CompressionStepConfig {
+    /// max arity of inventions to find (will find all from 0 to this number inclusive)
+    #[clap(short='a', long, default_value = "2")]
+    pub max_arity: usize,
+
+    /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
+    /// unless --lossy-candidates is enabled.
+    #[clap(short='a', long, default_value = "1")]
+    pub inv_candidates: usize,
+
+    /// Turning this on means that only the top invention will be guaranteed to be the best invention,
+    /// and the 2nd best invention may not be the actual second best invention. Basically, this just enables
+    /// pruning of everything that's worse than the best invention which could cause speedups depending on the domain.
+    #[clap(long)]
+    pub lossy_candidates: bool,
+
+    /// disable caching (though caching isn't used for much currently)
+    #[clap(long)]
+    pub no_cache: bool,
+
+    /// print out programs rewritten under invention
+    #[clap(long,short='r')]
+    pub show_rewritten: bool,
+
+    /// disable the free variable pruning optimization
+    #[clap(long)]
+    pub no_opt_free_vars: bool,
+
+    /// disable the single usage pruning optimization
+    #[clap(long)]
+    pub no_opt_single_use: bool,
+
+    /// disable the upper bound pruning optimization
+    #[clap(long)]
+    pub no_opt_upper_bound: bool,
+
+    /// disable the force multiuse pruning optimization
+    #[clap(long)]
+    pub no_opt_force_multiuse: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct CompressionStepResult {
+    pub inv: Invention,
+    pub rewritten: Expr,
+    pub done: FinishedItem,
+    pub expected_cost: i32,
+    pub final_cost: i32,
+    pub multiplier: f64,
+    pub multiplier_wrt_orig: f64,
+    pub uses: i32,
+    pub use_exprs: Vec<Expr>,
+    pub use_args: Vec<Vec<Expr>>,
+    pub dc_inv_str: String,
+    pub initial_cost: i32,
+}
+
+impl CompressionStepResult {
+    fn new(done: FinishedItem, programs_node: Id, inv_name: &str, appzipper_of_node_zid: &mut HashMap<(Id,ZId),AppZipper>,  num_paths_to_node: &HashMap<Id,i32>, egraph: &mut EGraph, past_invs: &Vec<CompressionStepResult>) -> Self {
+        let initial_cost = egraph[programs_node].data.inventionless_cost;
+
+        // cost of the very first initial program before any inventions
+        let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { initial_cost };
+
+        let inv = done.to_invention(inv_name, appzipper_of_node_zid, egraph);
+        let rewritten: Expr = rewrite_with_invention_egraph(programs_node, &inv, egraph);
+        let expected_cost = initial_cost - done.compressive_utility;
+        let final_cost = rewritten.cost();
+        if expected_cost != final_cost {
+            println!("*** expected cost {} != final cost {}", expected_cost, final_cost);
+        }
+        let multiplier = initial_cost as f64 / final_cost as f64;
+        let multiplier_wrt_orig = very_first_cost as f64 / final_cost as f64;
+        let uses = done.nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
+        let use_exprs: Vec<Expr> = done.nodes.iter().map(|node| extract(*node, egraph)).collect();
+        let use_args: Vec<Vec<Expr>> = done.nodes.iter().map(|node|
+            done.ztuple.multiarg.iter().map(|zid|
+                extract(appzipper_of_node_zid[&(*node,*zid)].arg, egraph)
+            ).collect()).collect();
+        
+        // dreamcoder compatability
+        let dc_inv_str: String = dc_inv_str(&inv, past_invs);
+        CompressionStepResult { inv, rewritten, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost }
+    }
+    pub fn json(&self) -> serde_json::Value {        
+        let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| expr.to_string()).collect();
+        let use_args: Vec<String> = self.use_args.iter().map(|args| format!("{} {}", self.inv.name, args.iter().map(|expr| expr.to_string()).collect::<Vec<String>>().join(" "))).collect();
+        let all_uses: Vec<serde_json::Value> = use_exprs.iter().zip(use_args.iter()).map(|(expr,args)| json!({args: expr})).collect();
+
+        json!({            
+            "body": self.inv.body.to_string(),
+            "dreamcoder": self.dc_inv_str,
+            "arity": self.inv.arity,
+            "name": self.inv.name,
+            "rewritten": self.rewritten.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+            "utility": self.done.utility,
+            "expected_cost": self.expected_cost,
+            "final_cost": self.final_cost,
+            "multiplier": self.multiplier,
+            "multiplier_wrt_orig": self.multiplier_wrt_orig,
+            "num_uses": self.uses,
+            "uses": all_uses,
+        })
+    }
+}
+
+impl fmt::Display for CompressionStepResult {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.expected_cost != self.final_cost {
+            write!(f,"[cost mismatch] ")?;
+        }
+        write!(f, "utility: {} | final_cost: {} | {:.2}x | uses: {} | body: {}",
+            self.done.utility, self.final_cost, self.multiplier, self.uses, self.inv)
+    }
+}
+
+/// sort the donelist by utility, truncate to cfg.inv_candidates, update the lowest_donelist_utility to be the lowest utility,
+/// update utility_pruning_cutoff to be the highest utility if --lossy-candidates is set else the lowest utility
+fn update_donelist(donelist: &mut Vec<FinishedItem>, cfg: &CompressionStepConfig, lowest_donelist_utility: &mut i32, utility_pruning_cutoff: &mut i32) {
+    // sort in decreasing order by utility primarily, and break ties using the ztuple (just in order to be deterministic!)
+    donelist.sort_unstable_by(|a,b| (b.utility,&b.ztuple).cmp(&(a.utility,&a.ztuple)));
+    donelist.truncate(cfg.inv_candidates);
+    *lowest_donelist_utility = donelist.last().map(|x|x.utility).unwrap_or(0);
+    *utility_pruning_cutoff = if cfg.lossy_candidates { donelist.first().map(|x|x.utility).unwrap_or(0) } else { donelist.last().map(|x|x.utility).unwrap_or(0) };
+}
+
+/// This utility directly corresponds to decrease in program cost of the
+/// final program tree once it has been rewritten with the invention. Program
+/// cost is leaf_nodes * 100 + non_leaf_nodes * 1, so dividing a cost (or a utility)
+/// by 100 will give approximately the number of leaf nodes.
+/// 
+/// At a very high level, we can calculate this utility as:
+///     (num places the invention is useful) * (size of invention body)
+/// However it's a little more complicated due to inventions re-using their variables
+/// and the slight cost of using the invention primitive itself.
+/// 
+/// `left_utility`: utility of a single use of the whole invention except the righthand edge
+/// `right_utility`: utility of the righthand edge of the invention
+fn compressive_utility(
+    body_utility: i32,
+    ztuple: &ZTuple,
+    nodes: &Vec<Id>,
+    num_paths_to_node: &HashMap<Id,i32>,
+    egraph: &EGraph,
+    appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
+) -> i32 {
+    // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
+    // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
+    let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * ztuple.arity as i32);
+    // multiuse utility depends on the size of the argument that's being used in multiple places. We can
+    // look up that argument using appzipper_of_node_zid since ztuple.multiuses gives us the zids for the multiuse
+    // cases (leaving out the original use)
+    let global_multiuse_utility = ztuple.multiuse.iter()
+        .map(|&arg_zid| // for each extra use of a multiuse arg
+            nodes.iter().map(|node| // for each node
+                num_paths_to_node[node] * // account for same node being used in multiple subtrees
+                egraph[appzipper_of_node_zid[&(*node,arg_zid)].arg].data.inventionless_cost
+            ).sum::<i32>()
+        ).sum::<i32>();
+    // total number of places the invention is used. num_paths_to_node accounts for structural hashing
+    let num_uses = nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
+    // utility = num_uses * (cost of applying invention + invention body utility) + multiuse utility
+    num_uses * (app_penalty + body_utility) + global_multiuse_utility
+}
+
+/// This utility is just for any utility terms that we care about that don't directly correspond
+/// to changes in size that come from rewriting with an invention
+fn other_utility(
+    body_utility: i32,
+) -> i32 {
+    // this is a bit like the structure penalty from dreamcoder except that
+    // that penalty uses inlined versions of nested inventions.
+    let structure_penalty = - body_utility * 3 / 2;
+    structure_penalty
+}
+
+/// This takes a partial invention and gives an upper bound on the maximum
+/// compressive_utility() that any completed offspring of this partial invention could have.
+fn compressive_utility_upper_bound(
+    left_utility: i32,
+    global_right_utility_upper_bound: i32,
+    ztuple: &ZTuple,
+    nodes: &Vec<Id>,
+    num_paths_to_node: &HashMap<Id,i32>,
+    egraph: &EGraph,
+    appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
+) -> i32 {
+    // safe bound: arity will only increase in offspring inventions, so this term will only
+    // get more negative, so this bound is safe.
+    let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * ztuple.arity as i32);
+    // safe bound: this is an exact utility for all the multiuse that's happened so far. As long
+    // as right_utility_upper_bound incorporates any benefits from possible future multiuse, this is okay.
+    let global_multiuse_utility = ztuple.multiuse.iter()
+        .map(|&arg_zid| // for each extra use of a multiuse arg
+            nodes.iter().map(|node| // for each node
+                num_paths_to_node[node] * // account for same node being used in multiple subtrees
+                egraph[appzipper_of_node_zid[&(*node,arg_zid)].arg].data.inventionless_cost
+            ).sum::<i32>()
+        ).sum::<i32>();
+    // safe bound: number of usage locations will only decrease in offspring inventions
+    let num_uses = nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
+    // safe bound: summing a bunch of safe bounds is safe
+    num_uses * (app_penalty + left_utility) + global_multiuse_utility + global_right_utility_upper_bound
+}
+
+/// This takes a partial invention and gives an upper bound on the maximum
+/// other_utility() that any completed offspring of this partial invention could have.
+fn other_utility_upper_bound(
+    left_utility: i32,
+) -> i32 {
+    // safe bound: since structure_penalty is negative an upper bound is anything less negative or exact. Since
+    // left_utility < body_utility we know that this will be a less negative bound.
+    let structure_penalty = - left_utility * 3 / 2;
+    structure_penalty
+}
+
+
+/// Takes a set of programs as an Expr with Programs as its root, and does one full step of compresison.
 /// Returns the top Inventions and the Expr rewritten under that invention along with other useful info in CompressionStepResult
-fn compression_step(
+/// The number of inventions returned is based on cfg.inv_candidates
+pub fn compression_step(
     programs_expr: &Expr,
-    args: &CompressionArgs,
-    out_dir: &str, // output directory
     new_inv_name: &str, // name of the new invention, like "inv4"
-    very_first_cost: i32, // original cost before any inventions were ever found (for bookkeeping)
+    cfg: &CompressionStepConfig,
     past_invs: &Vec<CompressionStepResult>, // past inventions we've found
 ) -> Vec<CompressionStepResult> {
 
@@ -525,12 +680,12 @@ fn compression_step(
     let programs_node = egraph.add_expr(programs_expr.into());
     egraph.rebuild();
 
-    println!("Initial egraph:\n\t{}\n", egraph_info(&egraph));
-    if args.render_initial {
-        save(&egraph, "0_programs", &out_dir);
-    }
+    // println!("Initial egraph:\n\t{}\n", egraph_info(&egraph));
+    // if args.render_initial {
+    //     save(&egraph, "0_programs", &out_dir);
+    // }
 
-    let treenodes: Vec<Id> = toplogical_ordering(programs_node,&egraph);
+    let treenodes: Vec<Id> = topological_ordering(programs_node,&egraph);
     assert!(usize::from(*treenodes.iter().max().unwrap()) == treenodes.len() - 1); // ensures we can safely just use Vecs of length treenodes.len() to store various nodewise things
 
     // populate num_paths_to_node so we know how many different parts of the programs tree
@@ -540,7 +695,7 @@ fn compression_step(
     let tstart_total = std::time::Instant::now();
 
     let tstart = std::time::Instant::now();
-    let all_appzippers = get_appzippers(&treenodes, args.no_cache, &mut egraph);
+    let all_appzippers = get_appzippers(&treenodes, cfg.no_cache, &mut egraph);
     println!("get_appzippers: {:?}ms", tstart.elapsed().as_millis());
 
     let tstart = std::time::Instant::now();
@@ -587,10 +742,32 @@ fn compression_step(
 
     let tstart = std::time::Instant::now();
 
-    let max_donelist: usize = 100; // todo revisit
+    // arity 0 inventions
+    for node in treenodes.iter() {
+        if *node == programs_node { continue; }
+        if !egraph[*node].data.free_vars.is_empty() { continue; }
+        
+        let ztuple = ZTuple::empty();
+        let nodes = vec![*node];
+        let body_utility = egraph[*node].data.inventionless_cost;
+        let compressive_utility = compressive_utility(body_utility, &ztuple, &nodes, &num_paths_to_node, &egraph, &appzipper_of_node_zid);
+        let utility = compressive_utility + other_utility(body_utility);
+        if utility == 0 { continue; }
+
+        donelist.push(FinishedItem::new(ztuple,nodes, utility, compressive_utility));
+    }
+    println!("got {} arity zero inventions ({:?}ms)", donelist.len(), tstart.elapsed().as_millis());
+
     let mut lowest_donelist_utility = 0;
     let mut utility_pruning_cutoff = 0;
+
+    // sort and truncate
+    update_donelist(&mut donelist, &cfg, &mut lowest_donelist_utility, &mut utility_pruning_cutoff);
+
     let mut stats: Stats = Default::default();
+
+
+    let tstart = std::time::Instant::now();
 
     // put together the initial set of single-arg single-use inventions from the appzippers
     initial_inventions(
@@ -601,14 +778,16 @@ fn compression_step(
         &egraph,
         &mut lowest_donelist_utility,
         &mut utility_pruning_cutoff,
-        max_donelist,
         &num_paths_to_node,
         &mut stats,
+        cfg,
     );
 
     println!("initial_inventions(): {:?}ms", tstart.elapsed().as_millis());
     println!("initial worklist length: {}", worklist.len());
-    println!("largest ztuple group: {}", worklist.iter().map(|ztg| ztg.nodes.len()).max().unwrap());
+    if let Some(size) = worklist.iter().map(|ztg| ztg.nodes.len()).max() {
+        println!("largest ztuple group: {}", size);
+    }
     println!("avg ztuple group: {}", worklist.iter().map(|ztg| ztg.nodes.len()).sum::<usize>() as f64 / worklist.len() as f64);
 
     // todo not sure if its the right move to sort by this see discussion in notes "sort the worklist by upper bound"
@@ -626,13 +805,13 @@ fn compression_step(
         &first_mergeable_zid_of_zid,
         &mut worklist,
         &mut donelist,
-        args.max_arity,
+        cfg.max_arity,
         &egraph,
         &mut lowest_donelist_utility,
         &mut utility_pruning_cutoff,
-        max_donelist,
         &num_paths_to_node,
         &mut stats,
+        cfg,
     );
 
     let elapsed_derive_inventions = tstart.elapsed().as_millis();
@@ -646,13 +825,13 @@ fn compression_step(
 
     let mut results: Vec<CompressionStepResult> = vec![];
 
-    // construct CompressionStepResults and print some info about them
+    // construct CompressionStepResults and print some info about them)
     println!("Cost before: {}", orig_cost);
-    for (i,done) in donelist.iter().enumerate().take(10) {
-        let res = CompressionStepResult::new(done.clone(), programs_node, very_first_cost, new_inv_name, &mut appzipper_of_node_zid, &num_paths_to_node, &mut egraph, past_invs);
+    for (i,done) in donelist.iter().enumerate() {
+        let res = CompressionStepResult::new(done.clone(), programs_node, new_inv_name, &mut appzipper_of_node_zid, &num_paths_to_node, &mut egraph, past_invs);
 
         println!("{}: {}", i, res);
-        if args.show_rewritten {
+        if cfg.show_rewritten {
             println!("rewritten: {}", res.rewritten);
         }
         results.push(res);
@@ -664,7 +843,7 @@ fn compression_step(
     // we sort again here because technically the costs might not be quite right if the rewrite_with_invention actually gives
     // a slightly different utility than the normal utility. This would indicate a bug and shouldn't happen often, but in case
     // there are small justifiable reasons for the mismatch we do this.
-    results.sort_by_key(|res| res.final_cost_rewritten);
+    // results.sort_by_key(|res| res.final_cost_rewritten);
     
 
     // println!("Final egraph: {}",egraph_info(&egraph));
@@ -683,6 +862,9 @@ fn compression_step(
     results
 }
 
+/// Finds the initial set of single-arg single-use inventions from the appzippers. This updates `donelist` with the
+/// discovered inventions and pushes all the partial inventions to `worklist`. No stitching is done at this point, that
+/// will all be done during `derive_inventions`. This just gets the worklist in its initial state!
 #[inline(never)]
 fn initial_inventions(
     appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
@@ -693,80 +875,83 @@ fn initial_inventions(
     egraph: &EGraph,
     lowest_donelist_utility: &mut i32,
     utility_pruning_cutoff: &mut i32,
-    max_donelist: usize,
     num_paths_to_node: &HashMap<Id,i32>,
     stats: &mut Stats,
+    cfg: &CompressionStepConfig,
 ) {
     for (zid,nodes) in nodes_of_zid.iter().enumerate() {
+        let ztuple = ZTuple::single(zid);
+
+        // 1) Define keys that we will use to index into our zippers
         let left_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice();
         let path_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.path.as_slice();
         let right_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.right.as_slice();
         let both_edge_key = |node: &Id| (appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice(),
                                          appzipper_of_node_zid[&(*node,zid)].zipper.right.as_slice());
+
+
+        // 2) Sort our nodes by their both_edge_key (which also sorts them by their left_edge_key since `left` is a prefix of `both`)
+        //    and then group adjacent nodes that are equal in terms of `left` or `both` keys, creating two sets of groups.
         let mut nodes = nodes.clone();
-
-        // sorting by `both` means elements with the same `both` key will be adjacent, AND
-        // elements with the same `left` key will be contiguous (since the `left` key is a prefix of the `both` key)
         nodes.sort_unstable_by_key(&both_edge_key);
-
         let left_groups = group_by_key(nodes.clone(), left_edge_key);
         let both_groups = group_by_key(nodes, both_edge_key);
 
-        // finish any inventions
+        // *******************
+        // * ADD TO DONELIST *
+        // *******************
         for group in both_groups {
-            // if groups are singletons or contain free variables, skip them
-            if group.len() <= 1 {
+            // prune finished inventions that are only useful at one node
+            if !cfg.no_opt_single_use && group.len() <= 1 {
                 stats.single_use_done_fired += 1;
                 continue;
             }
-            if edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) ||
-               edge_has_free_vars(right_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
+            // prune finished inventions that have free variables in them
+            if  edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) ||
+                edge_has_free_vars(right_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
                 stats.free_vars_done_fired += 1;
                 continue;
             }
-            let utility = {
-                let left_utility = left_edge_utility(left_edge_key(&group[0]), &egraph);
-                let right_utility = right_edge_utility(right_edge_key(&group[0]), &egraph);
-                let arity_utility = -COST_NONTERMINAL * 1; // arity is 1
-                let multiuse_utility = 0; // can't have multiuse here
-                let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-                num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility
-            };
+            // calculate utility of this single-arg single-use invention
+            let left_utility = left_edge_utility(left_edge_key(&group[0]), &egraph);
+            let right_utility = right_edge_utility(right_edge_key(&group[0]), &egraph);
+            let compressive_utility = compressive_utility(left_utility + right_utility, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
+            let utility = compressive_utility + other_utility(left_utility + right_utility);
+            // push to donelist if better than worst thing on donelist
             if utility > *lowest_donelist_utility {
-                donelist.push(FinishedItem::new(ZTuple::single(zid), group, utility));
+                donelist.push(FinishedItem::new(ztuple.clone(), group, utility, compressive_utility));
+                // if you beat the cutoff, we need to update the cutoff (regardless of whether its --lossy-candidates or not)
                 if utility > *utility_pruning_cutoff {
-                    *utility_pruning_cutoff = utility;
+                    update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
                 }
             }
             stats.num_done += 1;
         }
 
-        // extend the worklist
+        // *******************
+        // * ADD TO WORKLIST *
+        // *******************
         for group in left_groups {
-            // if groups are singletons or contain free variables on the left edge (which can never be changed), discard them
-            if group.len() <= 1 {
+            // prune partial inventions that are only useful at one node
+            if !cfg.no_opt_single_use && group.len() <= 1 {
                 // println!("rejected bc <= 1: {}", ZTuple::single(zid).to_expr(group[0], &appzipper_of_node_zid, &egraph));
                 stats.single_use_wip_fired += 1;
                 continue;
             }
-            if edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
+            // prune partial inentions that contain free variables in their concrete part
+            if !cfg.no_opt_free_vars && edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
                 // panic!("hey");
                 stats.free_vars_wip_fired += 1;
                 continue;
             }
             // println!("passed: {}", ZTuple::single(zid).to_expr(group[0], &appzipper_of_node_zid, &egraph));
-
-
+            // upper bound the utility of the partial invention
             let left_utility = left_edge_utility(left_edge_key(&group[0]), &egraph);
-            let upper_bound = {
-                let right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), &egraph)).sum::<i32>();
-                let arity_utility = -COST_NONTERMINAL * 1; // arity is 1
-                let multiuse_utility = 0; // can't have multiuse here, and upper bound accounts for future multiuse
-                let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-                num_uses * (-COST_TERMINAL + left_utility + arity_utility) + multiuse_utility + right_utility_upper_bound
-            };
-            if upper_bound > *utility_pruning_cutoff {
-                worklist.push(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound));
+            let global_right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), &egraph)).sum::<i32>();
+            let upper_bound = other_utility_upper_bound(left_utility) + compressive_utility_upper_bound(left_utility, global_right_utility_upper_bound, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
+            // push to worklist if utility upper bound is good enough
+            if !cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
+                worklist.push(WorklistItem::new(ztuple.clone(), group, left_utility, upper_bound));
                 // worklist.push(HeapItem::new(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound)));
                 // worklist.sort_by_key(|wi| -wi.left_utility);
             } else {
@@ -774,10 +959,7 @@ fn initial_inventions(
             }
         }
     }
-
-    donelist.sort_unstable_by_key(|item| -item.utility);
-    donelist.truncate(max_donelist);
-    if !donelist.is_empty() { *lowest_donelist_utility = donelist.last().unwrap().utility; }
+    update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
 }
 
 
@@ -795,29 +977,36 @@ fn derive_inventions(
     // upper_bound_cutoff: &mut i32,
     lowest_donelist_utility: &mut i32,
     utility_pruning_cutoff: &mut i32,
-    max_donelist: usize,
     num_paths_to_node: &HashMap<Id,i32>,
     stats: &mut Stats,
+    cfg: &CompressionStepConfig,
 ) {
 
-    // todo ofc can parallelize this 
+    // let mut till_shuffle = 100;
+    // todo could parallelize 
     while let Some(wi) = worklist.pop() {
         // let wi = wi.item;
         // println!("processing {}", num_processed);
-        // check upper bound;
-        if wi.utility_upper_bound <= *utility_pruning_cutoff {
+        
+        // prune if upper bound is too low (cutoff may have increased in the time since this was added to the worklist)
+        if !cfg.no_opt_upper_bound && wi.utility_upper_bound <= *utility_pruning_cutoff {
             stats.upper_bound_fired += 1;
             continue;
         }
         stats.num_wip += 1;
 
+        // till_shuffle -= 1;
+        // if till_shuffle == 0 {
+        //     till_shuffle = 1000;
+        //     worklist.shuffle(&mut rand::thread_rng());
+        // }
+
         let rightmost_zid: ZId = wi.ztuple.elems.last().unwrap().zid;
         let first_mergeable_zid: ZId = first_mergeable_zid_of_zid[rightmost_zid];
-
-
         let mut possible_elems: Vec<(LabelledZId,Id)> = vec![];
 
-        // collect all the possible LabelledZIds
+        // collect all the possible LabelledZIds; these essentially correspond to the different zippers (labelled with #i variables) that
+        // we could choose to merge in. We collect these from each of the nodes in the group.
         for node in wi.nodes.iter() {
             // skip over the zids that are prefixes - partition point will binarysearch for the first case where the predicate is false.
             // this works nicely since all (unusuable) prefix ones come before all nonprefix ones and first_mergeable_zid tells us the first nonprefix one
@@ -841,11 +1030,16 @@ fn derive_inventions(
         }
         
         // sort by zid (and ivar) (and Id though we dont care about that)
-        possible_elems.sort();
+        possible_elems.sort(); // sorting is important!
         // Itertools::group_by(key: F)
         for (elem, subset) in &Itertools::group_by(possible_elems.into_iter(), |(elem, _node)| elem.clone()) {
             let mut nodes: Vec<Id> = subset.map(|(_elem, node)| node).collect();
             let num_nodes = nodes.len();
+            if !cfg.no_opt_single_use && num_nodes == 1 {
+                // might as well prune at this point too!
+                stats.single_use_wip_fired += 1;
+                continue;
+            }
             let is_multiuse = elem.ivar < wi.ztuple.arity; // multiuse means an old index within the old arity range was reused
 
             // divergence point doesnt depend on the specific node so we'll just use the first one
@@ -879,80 +1073,62 @@ fn derive_inventions(
             let both_groups = group_by_key(nodes, both_edge_key);
             let num_offspring = fold_groups.len();
 
-            // finish any inventions
+            // *******************
+            // * ADD TO DONELIST *
+            // *******************
             for group in both_groups {
                 // if groups are singletons or contain free variables, skip them
-                if group.len() <= 1 {
+                if !cfg.no_opt_single_use && group.len() <= 1 {
                     stats.single_use_done_fired += 1;
                     continue;
                 }
-                if  edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
+                // prune inventions that contain free variables
+                if edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
                     edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph) ||
                     edge_has_free_vars(right_edge_key(&group[0]), right_path_key(&group[0]),  0, &egraph) {
                     stats.free_vars_done_fired += 1;
                     continue;
                 }
+                // Calculate utility
                 // the left side of the fold is a RIGHT-facing edge (since it faces into the fold) hence it's right_edge_utility for the left_fold_key
-                let fold_utility = right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
-                let left_utility = wi.left_utility + fold_utility;
+                let left_utility = wi.left_utility + right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
                 let right_utility = right_edge_utility(right_edge_key(&group[0]), egraph);
-                let arity_utility = -COST_NONTERMINAL * new_ztuple.arity as i32; // new arity
-                // multiuse utility depends on the size of the argument that's being used in multiple places. We can
-                // look up that argument using appzipper_of_node_zid since ztuple.multiuses gives us the zids for the multiuse
-                // cases (leaving out the original use)
-                let multiuse_utility = new_ztuple.multiuse.iter()
-                    .map(|&arg_zid| // for each extra use of a multiuse arg
-                        group.iter().map(|node| // for each node
-                            num_paths_to_node[node] * // account for same node being used in multiple subtrees
-                            egraph[appzipper_of_node_zid[&(*node,arg_zid)].arg].data.inventionless_cost
-                        ).sum::<i32>()
-                    ).sum::<i32>();
-                
-                let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-                let utility = num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility;
+                let compressive_utility = compressive_utility(left_utility + right_utility, &new_ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
+                let utility = compressive_utility + other_utility(left_utility + right_utility);
+
+                // if you beat the worst thing on the donelist, you get pushed on the donelist
                 if utility > *lowest_donelist_utility {
-                    donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility));
+                    donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility));
+                    // if you beat the cutoff, we should adjust the cutoff now (regardless of whether it's --lossy-candidates or not)
                     if utility > *utility_pruning_cutoff {
-                        *utility_pruning_cutoff = utility;
+                        update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
                     }
                 }
                 stats.num_done += 1;
             }
     
-            // extend the worklist
+            // *******************
+            // * ADD TO WORKLIST *
+            // *******************
             for group in fold_groups {
-                // if groups are singletons or the fold contains free variables, skip them
-                if group.len() <= 1 {
+                // prune partial inventions that are only useful at one node
+                if !cfg.no_opt_single_use && group.len() <= 1 {
                     stats.single_use_wip_fired += 1;
                     continue;
                 }
-                if edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
-                    edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph) {
+                // prune partial inventions that contain free variables in their concrete part
+                if !cfg.no_opt_free_vars && 
+                   (edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
+                    edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph)) {
                     stats.free_vars_wip_fired += 1;
                     continue;
                 }
-                // todo filter out ones w free vars too
-                let fold_utility = right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
-                let left_utility = wi.left_utility + fold_utility;
-                let upper_bound = {
-                    let right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), egraph)).sum::<i32>();
-                    
-                    let arity_utility = -COST_NONTERMINAL * new_ztuple.arity as i32; // new arity
-                    // multiuse utility depends on the size of the argument that's being used in multiple places. We can
-                    // look up that argument using appzipper_of_node_zid since ztuple.multiuses gives us the zids for the multiuse
-                    // cases (leaving out the original use)
-                    let multiuse_utility = new_ztuple.multiuse.iter()
-                        .map(|&arg_zid| // for each extra use of a multiuse arg
-                            group.iter().map(|node| // for each node
-                                num_paths_to_node[node] * // account for same node being used in multiple subtrees
-                                egraph[appzipper_of_node_zid[&(*node,arg_zid)].arg].data.inventionless_cost
-                            ).sum::<i32>()
-                        ).sum::<i32>();
 
-                    let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-                    num_uses * (-COST_TERMINAL + left_utility + arity_utility) + multiuse_utility + right_utility_upper_bound
-                };
-                if upper_bound > *utility_pruning_cutoff {
+                // Calculate utility
+                let left_utility = wi.left_utility + right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
+                let global_right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), egraph)).sum::<i32>();
+                let upper_bound = other_utility_upper_bound(left_utility) + compressive_utility_upper_bound(left_utility, global_right_utility_upper_bound, &new_ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
+                if !cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
                     // worklist.push(HeapItem::new(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound)));
                     worklist.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
                     // worklist.sort_by_key(|wi| -wi.left_utility);
@@ -965,153 +1141,21 @@ fn derive_inventions(
             // has all the same non-leading-edge so it only has one offspring. It is strictly beneficial (or breakeven
             // for single leaf nodes) to accept this multiuse, so we can just Break before looking at any higher zid 
             // merges and instead let this newly pushed multiuse thing be the one that merges with those future things.
-            if is_multiuse && num_nodes == wi.nodes.len() && num_offspring == 1 {
+            if !cfg.no_opt_force_multiuse && is_multiuse && num_nodes == wi.nodes.len() && num_offspring == 1 {
                 stats.force_multiuse_fired += 1;
                 break; // todo I would be a little careful with this optimization, disable it by commenting this if you suspect its not sound. It should be fine but I wrote it at night.
             }
         }
 
-        if donelist.len() > std::cmp::max(1000, if max_donelist != usize::MAX { max_donelist*4 } else { max_donelist }) {
-            donelist.sort_unstable_by_key(|item| -item.utility);
-            donelist.truncate(max_donelist);
-            *lowest_donelist_utility = donelist.last().unwrap().utility;
+        // truncate the donelist if is 4x larger than its max size (min of 1000)
+        if donelist.len() > std::cmp::max(1000, if cfg.inv_candidates != usize::MAX { cfg.inv_candidates*4 } else { cfg.inv_candidates }) {
+            update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
         }
 
     }
 
     assert!(worklist.is_empty());
-
-    donelist.sort_unstable_by_key(|item| -item.utility);
-    donelist.truncate(max_donelist);
-    if !donelist.is_empty() { *lowest_donelist_utility = donelist.last().unwrap().utility; }
-
+    update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
     println!("{:?}", stats);
 }
 
-pub fn pretty_programs(programs: &Expr) -> Vec<String> {
-    match programs.get_root() {
-        Lambda::Programs(roots) => {
-            roots.iter().map(|root| programs.to_string_uncurried(Some(*root))).collect()
-        },
-        _ => unreachable!()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct CompressionStepResult {
-    pub inv: InventionExpr,
-    pub inv_name: String,
-    pub rewritten: Expr,
-    pub done: FinishedItem,
-    pub final_cost: i32,
-    pub multiplier: f64,
-    pub final_cost_rewritten: i32,
-    pub multiplier_rewritten: f64,
-    pub multiplier_wrt_orig: f64,
-    pub uses: i32,
-    pub use_exprs: Vec<Expr>,
-    pub use_args: Vec<Vec<Expr>>,
-    pub dc_inv_str: String,
-}
-
-impl CompressionStepResult {
-    fn new(done: FinishedItem, programs_node: Id, very_first_cost: i32, inv_name: &str, appzipper_of_node_zid: &mut HashMap<(Id,ZId),AppZipper>,  num_paths_to_node: &HashMap<Id,i32>, egraph: &mut EGraph, past_invs: &Vec<CompressionStepResult>) -> Self {
-        let orig_cost = egraph[programs_node].data.inventionless_cost;
-
-        let inv = InventionExpr::new(done.ztuple.to_expr(done.nodes[0], appzipper_of_node_zid, egraph), done.ztuple.arity);
-        let rewritten: Expr = rewrite_with_inventions(programs_node, &[&inv], &[inv_name], egraph);
-        let final_cost = orig_cost - done.utility;
-        let multiplier = orig_cost as f64 / final_cost as f64;
-        let final_cost_rewritten = rewritten.cost();
-        let multiplier_rewritten = orig_cost as f64 / final_cost_rewritten as f64;
-        let multiplier_wrt_orig = very_first_cost as f64 / final_cost_rewritten as f64;
-        let uses = done.nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-        let use_exprs: Vec<Expr> = done.nodes.iter().map(|node| extract(*node, egraph)).collect();
-        let use_args: Vec<Vec<Expr>> = done.nodes.iter().map(|node|
-            done.ztuple.multiarg.iter().map(|zid|
-                extract(appzipper_of_node_zid[&(*node,*zid)].arg, egraph)
-            ).collect()).collect();
-        
-        // dreamcoder compatability
-        let dc_inv_str: String = dc_inv_str(&inv, past_invs);
-        CompressionStepResult { inv, inv_name: String::from(inv_name), rewritten, done, final_cost, multiplier, final_cost_rewritten, multiplier_rewritten, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str }
-    }
-    fn json(&self) -> serde_json::Value {        
-        let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| expr.to_string()).collect();
-        let use_args: Vec<String> = self.use_args.iter().map(|args| format!("{} {}", self.inv_name, args.iter().map(|expr| expr.to_string()).collect::<Vec<String>>().join(" "))).collect();
-        let all_uses: Vec<serde_json::Value> = use_exprs.iter().zip(use_args.iter()).map(|(expr,args)| json!({args: expr})).collect();
-
-        json!({            
-            "body": self.inv.body.to_string(),
-            "dreamcoder": self.dc_inv_str,
-            "arity": self.inv.arity,
-            "name": self.inv_name,
-            "rewritten": pretty_programs(&self.rewritten),
-            "utility": self.done.utility,
-            "final_cost": self.final_cost,
-            "multiplier": self.multiplier,
-            "final_cost_rewritten": self.final_cost_rewritten,
-            "multiplier_rewritten": self.multiplier_rewritten,
-            "multiplier_wrt_orig": self.multiplier_wrt_orig,
-            "num_uses": self.uses,
-            "uses": all_uses,
-        })
-    }
-}
-
-impl fmt::Display for CompressionStepResult {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "utility: {} (final_cost: ({},{}); ({:.2}x,{:.2}x)) | uses: {} | body: {}",
-            self.done.utility, self.final_cost, self.final_cost_rewritten, self.multiplier, self.multiplier_rewritten, self.uses, self.inv)
-    }
-}
-
-
-pub fn compression(
-    programs_expr: &Expr,
-    args: &CompressionArgs,
-    out_dir: &str,
-) -> Vec<CompressionStepResult> {
-    let mut rewritten: Expr = programs_expr.clone();
-    let mut invs: Vec<CompressionStepResult> = Default::default();
-
-    let tstart = std::time::Instant::now();
-
-    for i in 0..args.iterations {
-        println!("\n=======Iteration {}=======",i);
-        let inv_name = format!("inv{}",invs.len());
-        let res: Vec<CompressionStepResult> = compression_step(&rewritten, args, out_dir, &inv_name, programs_expr.cost(), &invs);
-        if !res.is_empty() {
-            let res: CompressionStepResult = res[0].clone();
-            rewritten = res.rewritten.clone();
-            println!("Chose Invention {}: {}\n{}", res.inv_name, res, res.rewritten);
-            invs.push(res);
-        } else {
-            println!("No inventions found at iteration {}",i);
-            break;
-        }
-    }
-
-    println!("\n=======Compression Summary=======");
-    println!("Found {} inventions", invs.len());
-    println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(programs_expr,&rewritten), programs_expr.cost(), rewritten.cost());
-    for i in 0..invs.len() {
-        let inv = &invs[i];
-        println!("{} ({:.2}x wrt orig): {}" ,inv.inv_name, compression_factor(programs_expr, &inv.rewritten), inv);
-    }
-    println!("Time: {}ms", tstart.elapsed().as_millis());
-
-    let out = json!({
-        "cmd": std::env::args().join(" "),
-        "args": args,
-        "original_cost": programs_expr.cost(),
-        "original": pretty_programs(programs_expr),
-        "invs": invs.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
-    });
-
-    std::fs::write(&args.out, serde_json::to_string_pretty(&out).unwrap()).unwrap();
-
-    // serde_json::to_writer(&std::fs::File::create(&args.out).unwrap(), &out).unwrap();
-    println!("Wrote to {:?}",args.out);
-    invs
-}

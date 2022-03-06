@@ -3,3 +3,6 @@ Cargo.lock
 flamegraph.svg
 .vscode
 *.svg
+.DS_Store
+
+out/

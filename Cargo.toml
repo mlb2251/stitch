@@ -1,7 +1,7 @@
 [package]
-name = "dreamegg"
+name = "stitch"
 version = "0.1.0"
-authors = ["Matt Bowers <mattb6503@gmail.com>"]
+authors = ["Matt Bowers <mlbowers@mit.edu>", "Theo Olausson <theoxo@mit.edu>"]
 edition = "2018"
 license = "MIT"
 
@@ -12,10 +12,8 @@ egg = "0.6.0"
 log = "0.4.0"
 env_logger = "0.8.4"
 chrono = "0.4"
-# example of enabling a crate feature
-# serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = {version = "1.0", features = ["preserve_order"]}
-clap = "3.0.0-beta.5"
+clap = { version = "3.1.0", features = ["derive"]}
 symbolic_expressions = "5"
 nix = "0.23.0"
 serde = "1.0.130"

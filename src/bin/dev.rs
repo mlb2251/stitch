@@ -1,8 +1,5 @@
-use dreamegg::*;
-use dreamegg::domains::simple::*;
-type Executable = dreamegg::Executable<SimpleVal>;
+use stitch::*;
 
 fn main() {
-
-
+    println!("hello world!");
 }
