@@ -2,5 +2,4 @@
     "(lam (app (app cons (app inc $0)) (app (app cons (app inc $0)) empty)))",
     "(lam (app (app cons (app dec $0)) (app (app cons (app dec $0)) empty)))",
     "(lam (app (app cons (app (app plus $0) $0)) (app (app cons (app (app plus $0) $0)) empty)))"
-
 ]
