@@ -482,6 +482,10 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_ctx_thread: bool,
 
+    /// disables context threading
+    #[clap(long)]
+    pub no_other_util: bool,
+
     /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
     /// unless --lossy-candidates is enabled.
     #[clap(short='a', long, default_value = "1")]
@@ -684,7 +688,9 @@ fn compressive_utility(
 /// to changes in size that come from rewriting with an invention
 fn other_utility(
     body_utility: i32,
+    cfg: &CompressionStepConfig,
 ) -> i32 {
+    if cfg.no_other_util { return 0; }
     // this is a bit like the structure penalty from dreamcoder except that
     // that penalty uses inlined versions of nested inventions.
     let structure_penalty = - body_utility * 3 / 2;
@@ -726,6 +732,7 @@ fn compressive_utility_upper_bound(
 /// other_utility() that any completed offspring of this partial invention could have.
 fn other_utility_upper_bound(
     left_utility: i32,
+    cfg: &CompressionStepConfig,
 ) -> i32 {
     // safe bound: since structure_penalty is negative an upper bound is anything less negative or exact. Since
     // left_utility < body_utility we know that this will be a less negative bound.
@@ -820,7 +827,7 @@ pub fn compression_step(
         let nodes = vec![*node];
         let body_utility = egraph[*node].data.inventionless_cost;
         let compressive_utility = compressive_utility(body_utility, &ztuple, &nodes, &num_paths_to_node, &egraph, &appzipper_of_node_zid);
-        let utility = compressive_utility + other_utility(body_utility);
+        let utility = compressive_utility + other_utility(body_utility, cfg);
         if utility == 0 { continue; }
 
         donelist.push(FinishedItem::new(ztuple,nodes, utility, compressive_utility));
@@ -985,7 +992,7 @@ fn initial_inventions(
             let left_utility = left_edge_utility(left_edge_key(&group[0]), &egraph);
             let right_utility = right_edge_utility(right_edge_key(&group[0]), &egraph);
             let compressive_utility = compressive_utility(left_utility + right_utility, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
-            let utility = compressive_utility + other_utility(left_utility + right_utility);
+            let utility = compressive_utility + other_utility(left_utility + right_utility, cfg);
             // push to donelist if better than worst thing on donelist
             if utility > *lowest_donelist_utility {
                 donelist.push(FinishedItem::new(ztuple.clone(), group, utility, compressive_utility));
@@ -1017,7 +1024,7 @@ fn initial_inventions(
             // upper bound the utility of the partial invention
             let left_utility = left_edge_utility(left_edge_key(&group[0]), &egraph);
             let global_right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), &egraph)).sum::<i32>();
-            let upper_bound = other_utility_upper_bound(left_utility) + compressive_utility_upper_bound(left_utility, global_right_utility_upper_bound, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
+            let upper_bound = other_utility_upper_bound(left_utility, cfg) + compressive_utility_upper_bound(left_utility, global_right_utility_upper_bound, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
             // push to worklist if utility upper bound is good enough
             if cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
                 worklist.push_back(WorklistItem::new(ztuple.clone(), group, left_utility, upper_bound));
@@ -1170,7 +1177,7 @@ fn derive_inventions(
                 let left_utility = wi.left_utility + right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
                 let right_utility = right_edge_utility(right_edge_key(&group[0]), egraph);
                 let compressive_utility = compressive_utility(left_utility + right_utility, &new_ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
-                let utility = compressive_utility + other_utility(left_utility + right_utility);
+                let utility = compressive_utility + other_utility(left_utility + right_utility, cfg);
 
                 // if you beat the worst thing on the donelist, you get pushed on the donelist
                 if utility > *lowest_donelist_utility {
@@ -1203,7 +1210,7 @@ fn derive_inventions(
                 // Calculate utility
                 let left_utility = wi.left_utility + right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
                 let global_right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), egraph)).sum::<i32>();
-                let upper_bound = other_utility_upper_bound(left_utility) + compressive_utility_upper_bound(left_utility, global_right_utility_upper_bound, &new_ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
+                let upper_bound = other_utility_upper_bound(left_utility, cfg) + compressive_utility_upper_bound(left_utility, global_right_utility_upper_bound, &new_ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
                 if cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
                     // worklist.push(HeapItem::new(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound)));
                     worklist.push_back(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
