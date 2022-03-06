@@ -275,6 +275,11 @@ impl ZTuple {
                 zipper = &appzipper_of_node_zid[&(node,self.elems[elem_idx].zid)].zipper;
                 depth = zipper.zpath.path.len() - 1;
                 expr = Expr::ivar(self.elems[elem_idx].ivar as i32);
+
+                // do any threading, turning #i into something like ((#i $1) $0)
+                for var in zipper.zpath.threaded_vars.iter().rev() {
+                    expr = Expr::app(expr, Expr::ivar(*var as i32));
+                }
                 continue;
             }
             // pass a divergence point to our left that we stored something for
@@ -374,6 +379,10 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph, cfg: &Co
                     if egraph[b_appzipper.arg].data.free_vars.contains(&0) {
                         // context threading: wrap the arg in a lambda but leave it otherwise unchanged
                         new.arg = egraph.add(Lambda::Lam([b_appzipper.arg]));
+                        // depth in number of lambdas (including the newly added one)
+                        let depth = new.zipper.zpath.path.iter().filter(|x| **x == ZNode::Body).count();
+                        // thread variables equal to depth-1, for example if there are no lambdas (except the newly added one) this will thread $0
+                        new.zipper.zpath.threaded_vars.push(depth as i32 - 1);
                         // todo modify zipper to account for this
                     } else {
                         // no threading and no $0 so it's safe to downshift everything in the argument
