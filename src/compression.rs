@@ -259,7 +259,15 @@ impl ZTuple {
         let mut elem_idx: usize = 0;
         let mut zipper: &Zipper = &appzipper_of_node_zid[&(node,self.elems[elem_idx].zid)].zipper;
         let mut depth: usize = zipper.zpath.path.len() - 1;
-        let mut expr = Expr::ivar(self.elems[elem_idx].ivar as i32);
+        fn start_ivar(ztuple: &ZTuple, elem_idx: usize, zipper: &Zipper) -> Expr {
+            let mut expr = Expr::ivar(ztuple.elems[elem_idx].ivar as i32);
+            // do any threading, turning #i into something like ((#i $1) $0)
+            for var in zipper.zpath.threaded_vars.iter().rev() {
+                expr = Expr::app(expr, Expr::var(*var as i32));
+            }
+            expr
+        }
+        let mut expr = start_ivar(self, elem_idx, zipper);
         let mut diverged: Vec<(usize,Expr)> = vec![];
 
         // we do this by a loop where we start at the bottom of the leftmost zipper and gradually extract the Expr bottom up,
@@ -274,12 +282,7 @@ impl ZTuple {
                 elem_idx += 1;
                 zipper = &appzipper_of_node_zid[&(node,self.elems[elem_idx].zid)].zipper;
                 depth = zipper.zpath.path.len() - 1;
-                expr = Expr::ivar(self.elems[elem_idx].ivar as i32);
-
-                // do any threading, turning #i into something like ((#i $1) $0)
-                for var in zipper.zpath.threaded_vars.iter().rev() {
-                    expr = Expr::app(expr, Expr::ivar(*var as i32));
-                }
+                expr = start_ivar(self, elem_idx, zipper);
                 continue;
             }
             // pass a divergence point to our left that we stored something for
@@ -654,9 +657,13 @@ fn compressive_utility(
     egraph: &EGraph,
     appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
 ) -> i32 {
+
+
+    // tiny penalty: there's one extra `lam` introduced (compared to original programs) for each instance of threading used in each arg
+    let ctx_thread_penalty = - COST_NONTERMINAL * ztuple.multiarg.iter().map(|zid| appzipper_of_node_zid[&(nodes[0],*zid)].zipper.zpath.threaded_vars.len()).sum::<usize>() as i32;
     // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
     // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
-    let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * ztuple.arity as i32);
+    let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * ztuple.arity as i32) + ctx_thread_penalty;
     // multiuse utility depends on the size of the argument that's being used in multiple places. We can
     // look up that argument using appzipper_of_node_zid since ztuple.multiuses gives us the zids for the multiuse
     // cases (leaving out the original use)
@@ -695,9 +702,11 @@ fn compressive_utility_upper_bound(
     egraph: &EGraph,
     appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
 ) -> i32 {
+    // safe bound: this penalty will only increase in offspring so doing the penalty-so-far like this is safe
+    let ctx_thread_penalty = - COST_NONTERMINAL * ztuple.multiarg.iter().map(|zid| appzipper_of_node_zid[&(nodes[0],*zid)].zipper.zpath.threaded_vars.len()).sum::<usize>() as i32;
     // safe bound: arity will only increase in offspring inventions, so this term will only
     // get more negative, so this bound is safe.
-    let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * ztuple.arity as i32);
+    let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * ztuple.arity as i32) + ctx_thread_penalty;
     // safe bound: this is an exact utility for all the multiuse that's happened so far. As long
     // as right_utility_upper_bound incorporates any benefits from possible future multiuse, this is okay.
     let global_multiuse_utility = ztuple.multiuse.iter()
