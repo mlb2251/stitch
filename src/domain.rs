@@ -205,7 +205,7 @@ impl<D: Domain> Executable<D> {
     }
 
     /// gets vec of (env,result) pairs for all the envs this node has been evaluated under
-    pub fn evals_of_node(&self, node: Id) -> Vec<(Vec<Val<D>>,Val<D>)> {
+    pub fn evals_of_node(&self, _node: Id) -> Vec<(Vec<Val<D>>,Val<D>)> {
         unimplemented!()
         // self.evals.borrow().iter()
         //     .filter(|((id,_env),_res)| *id == node)

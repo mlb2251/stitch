@@ -98,12 +98,6 @@ pub fn timestamp() -> String {
     format!("{}", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"))
 }
 
-pub fn search(pat: &str, egraph: &EGraph) -> Vec<SearchMatches>
-{
-    let applam:Pattern<Lambda> = pat.parse().unwrap();
-    applam.search(&egraph)
-}
-
 pub fn save(egraph: &EGraph, name: &str, outdir: &str) 
 {
     egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();

@@ -42,42 +42,16 @@ pub struct Args {
     pub step: CompressionStepConfig,
 }
 
-// struct DreamcoderConfig {
-// CPUs: usize,
-// arity: usize,
-// verbose: bool,
-// collect_data: bool,
-// bs: usize,
-// aic: i32,
-// structurePenalty: i32,
-// topK: usize,
-// DSL: DreamcoderDSL,
-// frontiers: 
-// pseudoCounts: i32,
-// topI: usize,
-// }
-
-// struct DreamcoderDSL {
-//     logVariable: f32,
-//     productions: Vec<DreamcoderProduction>,
-// }
-
-// struct DreamcoderProduction {
-//     logProbability: f32,
-//     expression: String,
-// }
-
-
 fn main() {
-    procspawn::init();
+    // procspawn::init();
     let args = Args::parse();
     // create a new directory for logging outputs
     // let out_dir: String = format!("target/{}",timestamp());
     // let out_dir_p = std::path::Path::new(out_dir.as_str());
     // assert!(!out_dir_p.exists());
     // std::fs::create_dir(out_dir_p).unwrap();
-
     
+    // load programs in from one of two different json formats depending on the --dc-fmt flag
     let mut programs: Vec<String> = if args.dc_fmt {
         // read dreamcoder format
         let json: serde_json::Value = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
@@ -96,6 +70,7 @@ fn main() {
         programs.truncate(n);
     }
     
+    // parse the program strings into expressions
     let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
 
     for prog in programs.iter() {
@@ -104,6 +79,9 @@ fn main() {
 
     programs_info(&programs);
 
+    // build a single `Expr::Programs` node from these programs. Stitch uses these because often we want to treat
+    // different parts of the same programs the same way that we treat different parts of different programs, so
+    // treating everything as one big expression makes sense.
     let programs: Expr = Expr::programs(programs);
 
     if programs.to_string_curried(None).contains("(app (lam") {
@@ -125,12 +103,16 @@ fn compression(
     for i in 0..args.iterations {
         println!("\n=======Iteration {}=======",i);
         let inv_name = format!("inv{}",step_results.len());
+
+        // call actual compression
         let res: Vec<CompressionStepResult> = compression_step(
             &rewritten,
             &inv_name,
             &args.step,
             &step_results);
+
         if !res.is_empty() {
+            // rewrite with the invention
             let res: CompressionStepResult = res[0].clone();
             rewritten = res.rewritten.clone();
             println!("Chose Invention {}: {}", res.inv.name, res);
@@ -150,6 +132,7 @@ fn compression(
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
 
+    // write everything to json
     let out = json!({
         "cmd": std::env::args().join(" "),
         "args": args,

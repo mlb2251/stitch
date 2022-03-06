@@ -16,7 +16,7 @@ pub struct Data {
 
 impl Analysis<Lambda> for LambdaAnalysis {
     type Data = Data;
-    fn merge(&self, _to: &mut Data, _from: Data) -> bool {
+    fn merge(&mut self, _to: &mut Data, _from: Data) -> DidMerge {
         // we really shouldnt be merging anyone ever
         panic!("EClasses should never be merged because EGraph is only used as a structural hasher in Stitch");
         // assert_eq!(to.free_vars,from.free_vars);
