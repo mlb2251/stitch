@@ -581,38 +581,96 @@ fn update_donelist(donelist: &mut Vec<FinishedItem>, cfg: &CompressionStepConfig
     *utility_pruning_cutoff = if cfg.lossy_candidates { donelist.first().map(|x|x.utility).unwrap_or(0) } else { donelist.last().map(|x|x.utility).unwrap_or(0) };
 }
 
-fn other_utility(
-    left_utility: i32,
-    right_utility: i32
-) -> i32 {
-    let structure_penalty = - (left_utility + right_utility) * 3 / 2;
-    structure_penalty
-}
-
+/// This utility directly corresponds to decrease in program cost of the
+/// final program tree once it has been rewritten with the invention. Program
+/// cost is leaf_nodes * 100 + non_leaf_nodes * 1, so dividing a cost (or a utility)
+/// by 100 will give approximately the number of leaf nodes.
+/// 
+/// At a very high level, we can calculate this utility as:
+///     (num places the invention is useful) * (size of invention body)
+/// However it's a little more complicated due to inventions re-using their variables
+/// and the slight cost of using the invention primitive itself.
+/// 
+/// `left_utility`: utility of a single use of the whole invention except the righthand edge
+/// `right_utility`: utility of the righthand edge of the invention
 fn compressive_utility(
-    left_utility: i32,
-    right_utility: i32,
+    body_utility: i32,
     ztuple: &ZTuple,
     nodes: &Vec<Id>,
     num_paths_to_node: &HashMap<Id,i32>,
     egraph: &EGraph,
     appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
 ) -> i32 {
-    let arity_utility = -COST_NONTERMINAL * ztuple.arity as i32;
-
+    // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
+    // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
+    let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * ztuple.arity as i32);
     // multiuse utility depends on the size of the argument that's being used in multiple places. We can
     // look up that argument using appzipper_of_node_zid since ztuple.multiuses gives us the zids for the multiuse
     // cases (leaving out the original use)
-    let multiuse_utility = ztuple.multiuse.iter()
+    let global_multiuse_utility = ztuple.multiuse.iter()
         .map(|&arg_zid| // for each extra use of a multiuse arg
             nodes.iter().map(|node| // for each node
                 num_paths_to_node[node] * // account for same node being used in multiple subtrees
                 egraph[appzipper_of_node_zid[&(*node,arg_zid)].arg].data.inventionless_cost
             ).sum::<i32>()
         ).sum::<i32>();
+    // total number of places the invention is used. num_paths_to_node accounts for structural hashing
     let num_uses = nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-    num_uses * (-COST_TERMINAL + left_utility + right_utility + arity_utility) + multiuse_utility
+    // utility = num_uses * (cost of applying invention + invention body utility) + multiuse utility
+    num_uses * (app_penalty + body_utility) + global_multiuse_utility
 }
+
+/// This utility is just for any utility terms that we care about that don't directly correspond
+/// to changes in size that come from rewriting with an invention
+fn other_utility(
+    body_utility: i32,
+) -> i32 {
+    // this is a bit like the structure penalty from dreamcoder except that
+    // that penalty uses inlined versions of nested inventions.
+    let structure_penalty = - body_utility * 3 / 2;
+    structure_penalty
+}
+
+/// This takes a partial invention and gives an upper bound on the maximum
+/// compressive_utility() that any completed offspring of this partial invention could have.
+fn compressive_utility_upper_bound(
+    left_utility: i32,
+    global_right_utility_upper_bound: i32,
+    ztuple: &ZTuple,
+    nodes: &Vec<Id>,
+    num_paths_to_node: &HashMap<Id,i32>,
+    egraph: &EGraph,
+    appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
+) -> i32 {
+    // safe bound: arity will only increase in offspring inventions, so this term will only
+    // get more negative, so this bound is safe.
+    let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * ztuple.arity as i32);
+    // safe bound: this is an exact utility for all the multiuse that's happened so far. As long
+    // as right_utility_upper_bound incorporates any benefits from possible future multiuse, this is okay.
+    let global_multiuse_utility = ztuple.multiuse.iter()
+        .map(|&arg_zid| // for each extra use of a multiuse arg
+            nodes.iter().map(|node| // for each node
+                num_paths_to_node[node] * // account for same node being used in multiple subtrees
+                egraph[appzipper_of_node_zid[&(*node,arg_zid)].arg].data.inventionless_cost
+            ).sum::<i32>()
+        ).sum::<i32>();
+    // safe bound: number of usage locations will only decrease in offspring inventions
+    let num_uses = nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
+    // safe bound: summing a bunch of safe bounds is safe
+    num_uses * (app_penalty + left_utility) + global_multiuse_utility + global_right_utility_upper_bound
+}
+
+/// This takes a partial invention and gives an upper bound on the maximum
+/// other_utility() that any completed offspring of this partial invention could have.
+fn other_utility_upper_bound(
+    left_utility: i32,
+) -> i32 {
+    // safe bound: since structure_penalty is negative an upper bound is anything less negative or exact. Since
+    // left_utility < body_utility we know that this will be a less negative bound.
+    let structure_penalty = - left_utility * 3 / 2;
+    structure_penalty
+}
+
 
 /// Takes a set of programs as an Expr with Programs as its root, and does one full step of compresison.
 /// Returns the top Inventions and the Expr rewritten under that invention along with other useful info in CompressionStepResult
@@ -698,10 +756,9 @@ pub fn compression_step(
         
         let ztuple = ZTuple::empty();
         let nodes = vec![*node];
-        let left_utility = 0;
-        let right_utility = egraph[*node].data.inventionless_cost;
-        let compressive_utility = compressive_utility(left_utility, right_utility, &ztuple, &nodes, &num_paths_to_node, &egraph, &appzipper_of_node_zid);
-        let utility = compressive_utility + other_utility(left_utility, right_utility);
+        let body_utility = egraph[*node].data.inventionless_cost;
+        let compressive_utility = compressive_utility(body_utility, &ztuple, &nodes, &num_paths_to_node, &egraph, &appzipper_of_node_zid);
+        let utility = compressive_utility + other_utility(body_utility);
         if utility == 0 { continue; }
 
         donelist.push(FinishedItem::new(ztuple,nodes, utility, compressive_utility));
@@ -830,6 +887,8 @@ fn initial_inventions(
     cfg: &CompressionStepConfig,
 ) {
     for (zid,nodes) in nodes_of_zid.iter().enumerate() {
+        let ztuple = ZTuple::single(zid);
+
         // 1) Define keys that we will use to index into our zippers
         let left_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice();
         let path_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.path.as_slice();
@@ -860,15 +919,14 @@ fn initial_inventions(
                 stats.free_vars_done_fired += 1;
                 continue;
             }
-            let ztuple = ZTuple::single(zid);
             // calculate utility of this single-arg single-use invention
             let left_utility = left_edge_utility(left_edge_key(&group[0]), &egraph);
             let right_utility = right_edge_utility(right_edge_key(&group[0]), &egraph);
-            let compressive_utility = compressive_utility(left_utility, right_utility, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
-            let utility = compressive_utility + other_utility(left_utility, right_utility);
+            let compressive_utility = compressive_utility(left_utility + right_utility, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
+            let utility = compressive_utility + other_utility(left_utility + right_utility);
             // push to donelist if utility is good enough
             if utility > *lowest_donelist_utility {
-                donelist.push(FinishedItem::new(ztuple, group, utility, compressive_utility));
+                donelist.push(FinishedItem::new(ztuple.clone(), group, utility, compressive_utility));
                 if utility > *utility_pruning_cutoff {
                     *utility_pruning_cutoff = utility;
                 }
@@ -893,19 +951,13 @@ fn initial_inventions(
                 continue;
             }
             // println!("passed: {}", ZTuple::single(zid).to_expr(group[0], &appzipper_of_node_zid, &egraph));
-
             // upper bound the utility of the partial invention
             let left_utility = left_edge_utility(left_edge_key(&group[0]), &egraph);
-            let upper_bound = {
-                let right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), &egraph)).sum::<i32>();
-                let arity_utility = -COST_NONTERMINAL * 1; // arity is 1
-                let multiuse_utility = 0; // can't have multiuse here, and upper bound accounts for future multiuse
-                let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-                num_uses * (-COST_TERMINAL + left_utility + arity_utility) + multiuse_utility + right_utility_upper_bound
-            };
+            let global_right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), &egraph)).sum::<i32>();
+            let upper_bound = other_utility_upper_bound(left_utility) + compressive_utility_upper_bound(left_utility, global_right_utility_upper_bound, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
             // push to worklist if utility upper bound is good enough
             if !cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
-                worklist.push(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound));
+                worklist.push(WorklistItem::new(ztuple.clone(), group, left_utility, upper_bound));
                 // worklist.push(HeapItem::new(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound)));
                 // worklist.sort_by_key(|wi| -wi.left_utility);
             } else {
@@ -1041,8 +1093,8 @@ fn derive_inventions(
                 // the left side of the fold is a RIGHT-facing edge (since it faces into the fold) hence it's right_edge_utility for the left_fold_key
                 let left_utility = wi.left_utility + right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
                 let right_utility = right_edge_utility(right_edge_key(&group[0]), egraph);
-                let compressive_utility = compressive_utility(left_utility, right_utility, &new_ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
-                let utility = compressive_utility + other_utility(left_utility, right_utility);
+                let compressive_utility = compressive_utility(left_utility + right_utility, &new_ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
+                let utility = compressive_utility + other_utility(left_utility + right_utility);
 
                 if utility > *lowest_donelist_utility {
                     donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility));
@@ -1069,24 +1121,8 @@ fn derive_inventions(
                     continue;
                 }
                 let left_utility = wi.left_utility + right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
-                let upper_bound = {
-                    let right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), egraph)).sum::<i32>();
-                    
-                    let arity_utility = -COST_NONTERMINAL * new_ztuple.arity as i32; // new arity
-                    // multiuse utility depends on the size of the argument that's being used in multiple places. We can
-                    // look up that argument using appzipper_of_node_zid since ztuple.multiuses gives us the zids for the multiuse
-                    // cases (leaving out the original use)
-                    let multiuse_utility = new_ztuple.multiuse.iter()
-                        .map(|&arg_zid| // for each extra use of a multiuse arg
-                            group.iter().map(|node| // for each node
-                                num_paths_to_node[node] * // account for same node being used in multiple subtrees
-                                egraph[appzipper_of_node_zid[&(*node,arg_zid)].arg].data.inventionless_cost
-                            ).sum::<i32>()
-                        ).sum::<i32>();
-
-                    let num_uses = group.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
-                    num_uses * (-COST_TERMINAL + left_utility + arity_utility) + multiuse_utility + right_utility_upper_bound
-                };
+                let global_right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), egraph)).sum::<i32>();
+                let upper_bound = other_utility_upper_bound(left_utility) + compressive_utility_upper_bound(left_utility, global_right_utility_upper_bound, &new_ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
                 if !cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
                     // worklist.push(HeapItem::new(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound)));
                     worklist.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
