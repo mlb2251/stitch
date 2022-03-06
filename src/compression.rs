@@ -578,7 +578,8 @@ impl fmt::Display for CompressionStepResult {
 /// sort the donelist by utility, truncate to cfg.inv_candidates, update the lowest_donelist_utility to be the lowest utility,
 /// update utility_pruning_cutoff to be the highest utility if --lossy-candidates is set else the lowest utility
 fn update_donelist(donelist: &mut Vec<FinishedItem>, cfg: &CompressionStepConfig, lowest_donelist_utility: &mut i32, utility_pruning_cutoff: &mut i32) {
-    donelist.sort_unstable_by_key(|item| -item.utility);
+    // sort in decreasing order by utility primarily, and break ties using the ztuple (just in order to be deterministic!)
+    donelist.sort_unstable_by(|a,b| (b.utility,&b.ztuple).cmp(&(a.utility,&a.ztuple)));
     donelist.truncate(cfg.inv_candidates);
     *lowest_donelist_utility = donelist.last().map(|x|x.utility).unwrap_or(0);
     *utility_pruning_cutoff = if cfg.lossy_candidates { donelist.first().map(|x|x.utility).unwrap_or(0) } else { donelist.last().map(|x|x.utility).unwrap_or(0) };
