@@ -505,10 +505,9 @@ pub struct CompressionStepResult {
     pub inv: Invention,
     pub rewritten: Expr,
     pub done: FinishedItem,
+    pub expected_cost: i32,
     pub final_cost: i32,
     pub multiplier: f64,
-    pub final_cost_rewritten: i32,
-    pub multiplier_rewritten: f64,
     pub multiplier_wrt_orig: f64,
     pub uses: i32,
     pub use_exprs: Vec<Expr>,
@@ -526,11 +525,13 @@ impl CompressionStepResult {
 
         let inv = done.to_invention(inv_name, appzipper_of_node_zid, egraph);
         let rewritten: Expr = rewrite_with_invention_egraph(programs_node, &inv, egraph);
-        let final_cost = initial_cost - done.utility;
+        let expected_cost = initial_cost - done.compressive_utility;
+        let final_cost = rewritten.cost();
+        if expected_cost != final_cost {
+            println!("*** expected cost {} != final cost {}", expected_cost, final_cost);
+        }
         let multiplier = initial_cost as f64 / final_cost as f64;
-        let final_cost_rewritten = rewritten.cost();
-        let multiplier_rewritten = initial_cost as f64 / final_cost_rewritten as f64;
-        let multiplier_wrt_orig = very_first_cost as f64 / final_cost_rewritten as f64;
+        let multiplier_wrt_orig = very_first_cost as f64 / final_cost as f64;
         let uses = done.nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
         let use_exprs: Vec<Expr> = done.nodes.iter().map(|node| extract(*node, egraph)).collect();
         let use_args: Vec<Vec<Expr>> = done.nodes.iter().map(|node|
@@ -540,7 +541,7 @@ impl CompressionStepResult {
         
         // dreamcoder compatability
         let dc_inv_str: String = dc_inv_str(&inv, past_invs);
-        CompressionStepResult { inv, rewritten, done, final_cost, multiplier, final_cost_rewritten, multiplier_rewritten, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost }
+        CompressionStepResult { inv, rewritten, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost }
     }
     pub fn json(&self) -> serde_json::Value {        
         let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| expr.to_string()).collect();
@@ -554,10 +555,9 @@ impl CompressionStepResult {
             "name": self.inv.name,
             "rewritten": self.rewritten.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
             "utility": self.done.utility,
+            "expected_cost": self.expected_cost,
             "final_cost": self.final_cost,
             "multiplier": self.multiplier,
-            "final_cost_rewritten": self.final_cost_rewritten,
-            "multiplier_rewritten": self.multiplier_rewritten,
             "multiplier_wrt_orig": self.multiplier_wrt_orig,
             "num_uses": self.uses,
             "uses": all_uses,
@@ -567,8 +567,11 @@ impl CompressionStepResult {
 
 impl fmt::Display for CompressionStepResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "utility: {} (final_cost: ({},{}); ({:.2}x,{:.2}x)) | uses: {} | body: {}",
-            self.done.utility, self.final_cost, self.final_cost_rewritten, self.multiplier, self.multiplier_rewritten, self.uses, self.inv)
+        if self.expected_cost != self.final_cost {
+            write!(f,"[cost mismatch] ")?;
+        }
+        write!(f, "utility: {} | final_cost: {} | {:.2}x | uses: {} | body: {}",
+            self.done.utility, self.final_cost, self.multiplier, self.uses, self.inv)
     }
 }
 
@@ -850,7 +853,7 @@ pub fn compression_step(
     // we sort again here because technically the costs might not be quite right if the rewrite_with_invention actually gives
     // a slightly different utility than the normal utility. This would indicate a bug and shouldn't happen often, but in case
     // there are small justifiable reasons for the mismatch we do this.
-    results.sort_by_key(|res| res.final_cost_rewritten);
+    // results.sort_by_key(|res| res.final_cost_rewritten);
     
 
     // println!("Final egraph: {}",egraph_info(&egraph));
