@@ -66,8 +66,14 @@ enum ZNode {
 
 /// "zipper id" each unique zipper gets referred to by its zipper id
 type ZId = usize;
+
 /// "zipper path" this is a path like "Func Body Arg Body Arg Arg"
-type ZPath = Vec<ZNode>;
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+struct ZPath {
+    path: Vec<ZNode>,
+    threaded_vars: Vec<i32>,
+}
+// type ZPath = Vec<ZNode>;
 
 /// A Zipper is a single-argument single-use invention, so it's a subtree from the
 /// original program with exactly one invention variable #0 used in exactly one place.
@@ -90,7 +96,7 @@ type ZPath = Vec<ZNode>;
 /// ```
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 struct Zipper {
-    path: ZPath,
+    zpath: ZPath,
     left: Vec<Option<Id>>,
     right: Vec<Option<Id>>,
 }
@@ -173,8 +179,14 @@ impl FinishedItem {
 // }
 
 impl Zipper {
-    fn new(path: ZPath, left: Vec<Option<Id>>, right: Vec<Option<Id>> ) -> Zipper {
-        Zipper { path, left, right }
+    fn empty() -> Zipper {
+        Zipper { zpath: ZPath::empty(), left: vec![], right: vec![] }
+    }
+}
+
+impl ZPath {
+    fn empty() -> ZPath {
+        ZPath { path: vec![], threaded_vars: vec![] }
     }
 }
 
@@ -204,7 +216,7 @@ impl AppZipper {
                 appzipper.zipper.right.insert(0,None);        
             },
         }
-        appzipper.zipper.path.insert(0,new);
+        appzipper.zipper.zpath.path.insert(0,new);
         appzipper
     }
 }
@@ -246,7 +258,7 @@ impl ZTuple {
 
         let mut elem_idx: usize = 0;
         let mut zipper: &Zipper = &appzipper_of_node_zid[&(node,self.elems[elem_idx].zid)].zipper;
-        let mut depth: usize = zipper.path.len() - 1;
+        let mut depth: usize = zipper.zpath.path.len() - 1;
         let mut expr = Expr::ivar(self.elems[elem_idx].ivar as i32);
         let mut diverged: Vec<(usize,Expr)> = vec![];
 
@@ -257,18 +269,18 @@ impl ZTuple {
             // encounter divergence point to our right
             if elem_idx < self.divergence_idxs.len() && depth == self.divergence_idxs[elem_idx] {
                 // we should diverge to the right
-                assert_eq!(zipper.path[depth], ZNode::Func);
+                assert_eq!(zipper.zpath.path[depth], ZNode::Func);
                 diverged.push((depth,expr));
                 elem_idx += 1;
                 zipper = &appzipper_of_node_zid[&(node,self.elems[elem_idx].zid)].zipper;
-                depth = zipper.path.len() - 1;
+                depth = zipper.zpath.path.len() - 1;
                 expr = Expr::ivar(self.elems[elem_idx].ivar as i32);
                 continue;
             }
             // pass a divergence point to our left that we stored something for
             if !diverged.is_empty() && depth == diverged.last().unwrap().0 {
                 // we should ignore our normal Some(f) and instead use the stored diverged expr
-                assert_eq!(zipper.path[depth], ZNode::Arg);
+                assert_eq!(zipper.zpath.path[depth], ZNode::Arg);
                 expr = Expr::app(diverged.pop().unwrap().1, expr);
                 if depth == 0 { break }
                 depth -= 1;
@@ -276,7 +288,7 @@ impl ZTuple {
             }
 
             // normal step upward by 1
-            match (&zipper.path[depth], &zipper.left[depth], &zipper.right[depth]) {
+            match (&zipper.zpath.path[depth], &zipper.left[depth], &zipper.right[depth]) {
                 (ZNode::Arg, Some(f), None) => { expr = Expr::app(extract(*f,egraph), expr); },
                 (ZNode::Func, None, Some(x)) => { expr = Expr::app(expr, extract(*x,egraph)); },
                 (ZNode::Body, None, None) => { expr = Expr::lam(expr); },
@@ -294,7 +306,7 @@ impl ZTuple {
 /// since it's any O(N) choice of a parent to be the root of the invention, and any choice of a single descendent of that
 /// parent to be the abstracted #0. Returns a map from nodes to the list of single-arg single-use inventions that can be
 /// used at that node.
-fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> HashMap<Id,Vec<AppZipper>> {
+fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph, cfg: &CompressionStepConfig) -> HashMap<Id,Vec<AppZipper>> {
     let mut all_appzippers: HashMap<Id,Vec<AppZipper>> = Default::default();
     let cache: &mut Option<RecVarModCache> = &mut if no_cache { None } else { Some(HashMap::new()) };
     
@@ -312,7 +324,7 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> HashM
         let mut appzippers: Vec<AppZipper> = vec![];
         
         // any node can become the identity function (the empty zipper)
-        appzippers.push(AppZipper::new(Zipper::new(vec![],vec![],vec![]), *treenode));
+        appzippers.push(AppZipper::new(Zipper::empty(), *treenode));
 
         match node {
             Lambda::IVar(_) => { panic!("attempted to abstract an IVar") }
@@ -350,9 +362,8 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> HashM
                 //    as it created tons of new nodes in the egraph. This is no longer needed with ivars. No shfiting at lal!
 
                 for b_appzipper in b_appzippers.iter() {
-                    // can't bubble an appzipper over a lambda if its arg refers to the lambda!
-                    // todo make it handle the threading case i figured out with theo
-                    if egraph[b_appzipper.arg].data.free_vars.contains(&0) {
+                    // unless context threading is turned on, you can't bubble an appzipper over a lambda if its arg refers to the lambda!
+                    if cfg.no_ctx_thread && egraph[b_appzipper.arg].data.free_vars.contains(&0) {
                         continue;
                     }
 
@@ -361,12 +372,11 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> HashM
                     // downshift the args since the lambda above them moved below them (earlier we made sure none of them had pointers to it)
 
                     if egraph[b_appzipper.arg].data.free_vars.contains(&0) {
-                        // context threading
-                        // todo currently this branch will never be taken thanks to the `continue;` above. However when you do remove that continue
-                        // todo you want to modify this to also change the zipper in some way to indicate that this is context threaded.
+                        // context threading: wrap the arg in a lambda but leave it otherwise unchanged
                         new.arg = egraph.add(Lambda::Lam([b_appzipper.arg]));
+                        // todo modify zipper to account for this
                     } else {
-                        // no threading
+                        // no threading and no $0 so it's safe to downshift everything in the argument
                         new.arg = shift(b_appzipper.arg, -1, egraph, cache).unwrap();
                     }
                     // println!("Bubbled over lam:\n\t{}\n{}", extract(*treenode,egraph), new.to_string(egraph));
@@ -381,7 +391,7 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> HashM
     // note that we must be very careful pruning here. Most pruning isnt allowed, for example you cant prune things
     // that have free variables out bc if those free vars are on the leading edge you could still merge them away later
     all_appzippers.iter_mut().for_each(|(_,appzippers)| {
-        appzippers.retain(|appzipper| !appzipper.zipper.path.is_empty());
+        appzippers.retain(|appzipper| !appzipper.zipper.zpath.path.is_empty());
     });
 
     all_appzippers
@@ -455,6 +465,10 @@ pub struct CompressionStepConfig {
     /// max arity of inventions to find (will find all from 0 to this number inclusive)
     #[clap(short='a', long, default_value = "2")]
     pub max_arity: usize,
+
+    /// disables context threading
+    #[clap(long)]
+    pub no_ctx_thread: bool,
 
     /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
     /// unless --lossy-candidates is enabled.
@@ -732,34 +746,34 @@ pub fn compression_step(
     let tstart_total = std::time::Instant::now();
 
     let tstart = std::time::Instant::now();
-    let all_appzippers = get_appzippers(&treenodes, cfg.no_cache, &mut egraph);
+    let all_appzippers = get_appzippers(&treenodes, cfg.no_cache, &mut egraph, cfg);
     println!("get_appzippers: {:?}ms", tstart.elapsed().as_millis());
 
     let tstart = std::time::Instant::now();
 
     // flatten all the appzippers (single arg single use inventions) to get the list of zipper paths, then sort/dedup.
-    let mut paths: Vec<ZPath> = all_appzippers.values().flatten().map(|appzipper| appzipper.zipper.path.clone()).collect();
-    println!("{} total paths (incl dupes)", paths.len());
-    paths.sort();
-    paths.dedup();
-    println!("{} paths", paths.len());
+    let mut zpaths: Vec<ZPath> = all_appzippers.values().flatten().map(|appzipper| appzipper.zipper.zpath.clone()).collect();
+    println!("{} total paths (incl dupes)", zpaths.len());
+    zpaths.sort();
+    zpaths.dedup();
+    println!("{} paths", zpaths.len());
     println!("collect paths and dedup: {:?}ms", tstart.elapsed().as_millis());
 
     // define all the important data structures for compression
     let mut appzipper_of_node_zid: HashMap<(Id,ZId),AppZipper> = Default::default(); // lookup an appzipper from a node and zid
     let mut zids_of_node: Vec<Vec<ZId>> = vec![vec![]; treenodes.len()]; // lookup all zids that a node can use
-    let mut nodes_of_zid: Vec<Vec<Id>> = vec![vec![]; paths.len()]; // look up all nodes that a zid can be used at
+    let mut nodes_of_zid: Vec<Vec<Id>> = vec![vec![]; zpaths.len()]; // look up all nodes that a zid can be used at
     let mut first_mergeable_zid_of_zid: Vec<ZId> = Default::default(); // used for speed; lets you quickly lookup the smallest mergable (non-suffix) zid larger than your current zid
     let mut worklist: VecDeque<WorklistItem> = Default::default(); // worklist that holds partially constructed inventions
     // let mut worklist: BinaryHeap<HeapItem> = Default::default();
     let mut donelist: Vec<FinishedItem> = Default::default(); // completed inventions will go here
 
     // populate first_mergeable_zid_of_zid
-    for (i,path) in paths.iter().enumerate() {
+    for (i,zpath) in zpaths.iter().enumerate() {
         // first path after `i` where the path isnt a prefix is the first mergeable one
         // (note partition_point points to the first elem where the predicate is FALSE assuming the 
         // vec already starts with all Trues and ends with all Falses)
-        first_mergeable_zid_of_zid.push(paths[i..].partition_point(|p| p.starts_with(path)) + i);
+        first_mergeable_zid_of_zid.push(zpaths[i..].partition_point(|p| p.path.starts_with(&zpath.path)) + i);
     }
 
     let tstart = std::time::Instant::now();
@@ -767,7 +781,7 @@ pub fn compression_step(
     // populate zids_of_node, nodes_of_zid, and appzipper_of_node_zid
     for (treenode,appzippers) in all_appzippers {
         for appzipper in appzippers {
-            if let Ok(i) = paths.binary_search(&appzipper.zipper.path) {
+            if let Ok(i) = zpaths.binary_search(&appzipper.zipper.zpath) {
                 zids_of_node[usize::from(treenode)].push(i);
                 nodes_of_zid[i].push(treenode);
                 appzipper_of_node_zid.insert((treenode,i),appzipper.clone());
@@ -921,7 +935,7 @@ fn initial_inventions(
 
         // 1) Define keys that we will use to index into our zippers
         let left_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice();
-        let path_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.path.as_slice();
+        let path_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.zpath.path.as_slice();
         let right_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,zid)].zipper.right.as_slice();
         let both_edge_key = |node: &Id| (appzipper_of_node_zid[&(*node,zid)].zipper.left.as_slice(),
                                          appzipper_of_node_zid[&(*node,zid)].zipper.right.as_slice());
@@ -1087,24 +1101,24 @@ fn derive_inventions(
             let is_multiuse = elem.ivar < wi.ztuple.arity; // multiuse means an old index within the old arity range was reused
 
             // divergence point doesnt depend on the specific node so we'll just use the first one
-            let div_idx = divergence_idx(appzipper_of_node_zid[&(nodes[0],rightmost_zid)].zipper.path.as_slice(),
-                                         appzipper_of_node_zid[&(nodes[0],elem.zid)].zipper.path.as_slice());
+            let div_idx = divergence_idx(appzipper_of_node_zid[&(nodes[0],rightmost_zid)].zipper.zpath.path.as_slice(),
+                                         appzipper_of_node_zid[&(nodes[0],elem.zid)].zipper.zpath.path.as_slice());
             
-            let div_depth = appzipper_of_node_zid[&(nodes[0],rightmost_zid)].zipper.path[..div_idx].iter().filter(|x| **x == ZNode::Body).count() as i32;
+            let div_depth = appzipper_of_node_zid[&(nodes[0],rightmost_zid)].zipper.zpath.path[..div_idx].iter().filter(|x| **x == ZNode::Body).count() as i32;
 
             let new_ztuple: ZTuple = wi.ztuple.extend(elem.clone(), div_idx, is_multiuse);
 
             // define key functions for grabbing all the slices of zipper we care about
             // left_fold_key is the left inner side of the fold which is rightmost_zid.RIGHT (not LEFT)
             let left_fold_key =  |node: &Id| &appzipper_of_node_zid[&(*node,rightmost_zid)].zipper.right[div_idx+1..];
-            let left_fold_path_key =  |node: &Id| &appzipper_of_node_zid[&(*node,rightmost_zid)].zipper.path[div_idx+1..];
+            let left_fold_path_key =  |node: &Id| &appzipper_of_node_zid[&(*node,rightmost_zid)].zipper.zpath.path[div_idx+1..];
             let right_fold_key = |node: &Id| &appzipper_of_node_zid[&(*node,elem.zid)].zipper.left[div_idx+1..];
-            let right_fold_path_key = |node: &Id| &appzipper_of_node_zid[&(*node,elem.zid)].zipper.path[div_idx+1..];
+            let right_fold_path_key = |node: &Id| &appzipper_of_node_zid[&(*node,elem.zid)].zipper.zpath.path[div_idx+1..];
 
             let fold_key = |node: &Id| (&appzipper_of_node_zid[&(*node,rightmost_zid)].zipper.right[div_idx+1..],
                                         &appzipper_of_node_zid[&(*node,elem.zid)].zipper.left[div_idx+1..]);
             let right_edge_key = |node: &Id| appzipper_of_node_zid[&(*node,elem.zid)].zipper.right.as_slice();
-            let right_path_key = |node: &Id| appzipper_of_node_zid[&(*node,elem.zid)].zipper.path.as_slice();
+            let right_path_key = |node: &Id| appzipper_of_node_zid[&(*node,elem.zid)].zipper.zpath.path.as_slice();
 
             let both_edge_key = |node: &Id| (&appzipper_of_node_zid[&(*node,rightmost_zid)].zipper.right[div_idx+1..],
                                              &appzipper_of_node_zid[&(*node,elem.zid)].zipper.left[div_idx+1..],
