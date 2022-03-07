@@ -1,0 +1,217 @@
+{
+  "cmd": "target/release/compress -f data/train_19.json --max-arity=2 --iterations=3",
+  "args": {
+    "file": "data/train_19.json",
+    "out": "out/out.json",
+    "iterations": 3,
+    "max_arity": 2,
+    "show_rewritten": false,
+    "shuffle": false,
+    "truncate": null,
+    "no_cache": false,
+    "render_inventions": false,
+    "render_final": false,
+    "render_initial": false
+  },
+  "original_cost": 19628,
+  "original": [
+    "(lam (logo_forLoop 3 (lam (lam (logo_FWRT (logo_MULL logo_UL 1) (logo_DIVA logo_UA 3) $0))) $0))",
+    "(lam (logo_forLoop 3 (lam (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 3) $0))) $0))",
+    "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_MULL logo_UL 1) (logo_DIVA logo_UA 8) $0))) $0))",
+    "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 8) $0))) $0))",
+    "(lam (logo_forLoop 9 (lam (lam (logo_FWRT (logo_MULL logo_UL 1) (logo_DIVA logo_UA 9) $0))) $0))",
+    "(lam (logo_forLoop 9 (lam (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 9) $0))) $0))",
+    "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT (logo_MULL logo_epsL 1) logo_epsA $0))) $0))",
+    "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT (logo_MULL logo_epsL 2) logo_epsA $0))) $0))",
+    "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0))) $0))",
+    "(lam (logo_forLoop 4 (lam (lam (logo_FWRT (logo_MULL logo_UL 1) (logo_DIVA logo_UA 4) $0))) $0))",
+    "(lam (logo_FWRT logo_UL logo_ZA $0))",
+    "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 4) (logo_FWRT logo_UL logo_ZA $0)))",
+    "(lam (logo_forLoop 4 (lam (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) $0))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (logo_FWRT (logo_MULL logo_UL 1) (logo_DIVA logo_UA 5) $0))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 5) $0))) $0))",
+    "(lam (logo_forLoop 6 (lam (lam (logo_FWRT (logo_MULL logo_UL 1) (logo_DIVA logo_UA 6) $0))) $0))",
+    "(lam (logo_forLoop 9 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) (logo_DIVA logo_UA 4) $0))) $0))",
+    "(lam (logo_forLoop 6 (lam (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 6) $0))) $0))",
+    "(lam (logo_forLoop 7 (lam (lam (logo_FWRT (logo_MULL logo_UL 1) (logo_DIVA logo_UA 7) $0))) $0))"
+  ],
+  "invs": [
+    {
+      "body": "(lam (logo_forLoop #0 (lam (lam (logo_FWRT (logo_MULL logo_UL #1) (logo_DIVA logo_UA #0) $0))) $0))",
+      "dreamcoder": "#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $3) (logo_DIVA logo_UA $4) $0))) $0))))",
+      "arity": 2,
+      "name": "inv0",
+      "rewritten": [
+        "(inv0 3 1)",
+        "(inv0 3 2)",
+        "(inv0 8 1)",
+        "(inv0 8 2)",
+        "(inv0 9 1)",
+        "(inv0 9 2)",
+        "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT (logo_MULL logo_epsL 1) logo_epsA $0))) $0))",
+        "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT (logo_MULL logo_epsL 2) logo_epsA $0))) $0))",
+        "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0))) $0))",
+        "(inv0 4 1)",
+        "(lam (logo_FWRT logo_UL logo_ZA $0))",
+        "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 4) (logo_FWRT logo_UL logo_ZA $0)))",
+        "(inv0 4 2)",
+        "(inv0 5 1)",
+        "(inv0 5 2)",
+        "(inv0 6 1)",
+        "(lam (logo_forLoop 9 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) (logo_DIVA logo_UA 4) $0))) $0))",
+        "(inv0 6 2)",
+        "(inv0 7 1)"
+      ],
+      "utility": 10543,
+      "final_cost": 9085,
+      "multiplier": 2.160484314804623,
+      "final_cost_rewritten": 9085,
+      "multiplier_rewritten": 2.160484314804623,
+      "multiplier_wrt_orig": 2.160484314804623,
+      "num_uses": 13,
+      "uses": [
+        {
+          "inv0 3 1": "(lam (logo_forLoop 3 (lam (lam (logo_FWRT (logo_MULL logo_UL 1) (logo_DIVA logo_UA 3) $0))) $0))"
+        },
+        {
+          "inv0 3 2": "(lam (logo_forLoop 3 (lam (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 3) $0))) $0))"
+        },
+        {
+          "inv0 8 1": "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_MULL logo_UL 1) (logo_DIVA logo_UA 8) $0))) $0))"
+        },
+        {
+          "inv0 8 2": "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 8) $0))) $0))"
+        },
+        {
+          "inv0 9 1": "(lam (logo_forLoop 9 (lam (lam (logo_FWRT (logo_MULL logo_UL 1) (logo_DIVA logo_UA 9) $0))) $0))"
+        },
+        {
+          "inv0 9 2": "(lam (logo_forLoop 9 (lam (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 9) $0))) $0))"
+        },
+        {
+          "inv0 4 1": "(lam (logo_forLoop 4 (lam (lam (logo_FWRT (logo_MULL logo_UL 1) (logo_DIVA logo_UA 4) $0))) $0))"
+        },
+        {
+          "inv0 4 2": "(lam (logo_forLoop 4 (lam (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) $0))) $0))"
+        },
+        {
+          "inv0 5 1": "(lam (logo_forLoop 5 (lam (lam (logo_FWRT (logo_MULL logo_UL 1) (logo_DIVA logo_UA 5) $0))) $0))"
+        },
+        {
+          "inv0 5 2": "(lam (logo_forLoop 5 (lam (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 5) $0))) $0))"
+        },
+        {
+          "inv0 6 1": "(lam (logo_forLoop 6 (lam (lam (logo_FWRT (logo_MULL logo_UL 1) (logo_DIVA logo_UA 6) $0))) $0))"
+        },
+        {
+          "inv0 6 2": "(lam (logo_forLoop 6 (lam (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 6) $0))) $0))"
+        },
+        {
+          "inv0 7 1": "(lam (logo_forLoop 7 (lam (lam (logo_FWRT (logo_MULL logo_UL 1) (logo_DIVA logo_UA 7) $0))) $0))"
+        }
+      ]
+    },
+    {
+      "body": "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT (logo_MULL logo_epsL #0) logo_epsA $0))) $0))",
+      "dreamcoder": "#(lambda (lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL $3) logo_epsA $0))) $0)))",
+      "arity": 1,
+      "name": "inv1",
+      "rewritten": [
+        "(inv0 3 1)",
+        "(inv0 3 2)",
+        "(inv0 8 1)",
+        "(inv0 8 2)",
+        "(inv0 9 1)",
+        "(inv0 9 2)",
+        "(inv1 1)",
+        "(inv1 2)",
+        "(inv1 5)",
+        "(inv0 4 1)",
+        "(lam (logo_FWRT logo_UL logo_ZA $0))",
+        "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 4) (logo_FWRT logo_UL logo_ZA $0)))",
+        "(inv0 4 2)",
+        "(inv0 5 1)",
+        "(inv0 5 2)",
+        "(inv0 6 1)",
+        "(lam (logo_forLoop 9 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) (logo_DIVA logo_UA 4) $0))) $0))",
+        "(inv0 6 2)",
+        "(inv0 7 1)"
+      ],
+      "utility": 2130,
+      "final_cost": 6955,
+      "multiplier": 1.306254493170381,
+      "final_cost_rewritten": 6955,
+      "multiplier_rewritten": 1.306254493170381,
+      "multiplier_wrt_orig": 2.8221423436376707,
+      "num_uses": 3,
+      "uses": [
+        {
+          "inv1 2": "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT (logo_MULL logo_epsL 2) logo_epsA $0))) $0))"
+        },
+        {
+          "inv1 1": "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT (logo_MULL logo_epsL 1) logo_epsA $0))) $0))"
+        },
+        {
+          "inv1 5": "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0))) $0))"
+        }
+      ]
+    },
+    {
+      "body": "(inv0 #0 1)",
+      "dreamcoder": "#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $3) (logo_DIVA logo_UA $4) $0))) $0)))) $0 1))",
+      "arity": 1,
+      "name": "inv2",
+      "rewritten": [
+        "(inv2 3)",
+        "(inv0 3 2)",
+        "(inv2 8)",
+        "(inv0 8 2)",
+        "(inv2 9)",
+        "(inv0 9 2)",
+        "(inv1 1)",
+        "(inv1 2)",
+        "(inv1 5)",
+        "(inv2 4)",
+        "(lam (logo_FWRT logo_UL logo_ZA $0))",
+        "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 4) (logo_FWRT logo_UL logo_ZA $0)))",
+        "(inv0 4 2)",
+        "(inv2 5)",
+        "(inv0 5 2)",
+        "(inv2 6)",
+        "(lam (logo_forLoop 9 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) (logo_DIVA logo_UA 4) $0))) $0))",
+        "(inv0 6 2)",
+        "(inv2 7)"
+      ],
+      "utility": 707,
+      "final_cost": 6248,
+      "multiplier": 1.1131562099871959,
+      "final_cost_rewritten": 6248,
+      "multiplier_rewritten": 1.1131562099871959,
+      "multiplier_wrt_orig": 3.141485275288092,
+      "num_uses": 7,
+      "uses": [
+        {
+          "inv2 7": "(inv0 7 1)"
+        },
+        {
+          "inv2 8": "(inv0 8 1)"
+        },
+        {
+          "inv2 6": "(inv0 6 1)"
+        },
+        {
+          "inv2 4": "(inv0 4 1)"
+        },
+        {
+          "inv2 5": "(inv0 5 1)"
+        },
+        {
+          "inv2 9": "(inv0 9 1)"
+        },
+        {
+          "inv2 3": "(inv0 3 1)"
+        }
+      ]
+    }
+  ]
+}
