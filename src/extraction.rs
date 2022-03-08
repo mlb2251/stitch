@@ -26,6 +26,10 @@ pub struct ExtractionArgs {
         default_value = "out/extraction_out.json"
     )]
     pub out: PathBuf,
+
+    /// Whether we're reading in a list of dict of frontiers rather than a list of programs.
+    #[clap(long)]
+    pub use_frontier_format: bool,
 }
 
 /// convert an egraph Id to an Expr. Assumes one node per class (just picks the first node). Note
