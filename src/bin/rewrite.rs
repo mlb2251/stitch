@@ -6,9 +6,9 @@ cargo run --bin=rewrite --release
     --program_file # Programs to rewrite
     --inventions_file # JSON containing inventions
     --out # Where to put the outputs.
-    --dc_fmt # Whether it's
+    --dc_fmt # Functions are written in the DreamCoder frontiers file format.
 
-Sample command: cargo run --bin=rewrite --release -- --program-file data/logo/test_111.json --inventions-file out/out.json
+Sample command: cargo run --bin=rewrite --release -- --program-file data/logo/logo_dc.json --inventions-file out/out.json --dc-fmt
 */
 
 use clap::Parser;
@@ -117,7 +117,12 @@ fn main() {
             rewritten_frontiers
                 .entry(task_name)
                 .or_insert(Vec::new())
-                .push(pretty_program.to_string().clone());
+                .push(
+                    pretty_program
+                        .to_string()
+                        .replace("(lam ", "(lambda ")
+                        .clone(),
+                );
         }
         let json: serde_json::Value = json!(rewritten_frontiers);
         std::fs::write(&args.out, serde_json::to_string_pretty(&json).unwrap()).unwrap();
