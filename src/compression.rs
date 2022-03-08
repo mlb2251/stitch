@@ -460,6 +460,10 @@ pub struct CompressionStepConfig {
     #[clap(short='a', long, default_value = "2")]
     pub max_arity: usize,
 
+    /// num threads (no parallelism if set to 1)
+    #[clap(short='t', long, default_value = "1")]
+    pub threads: usize,
+
     /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
     /// unless --lossy-candidates is enabled.
     #[clap(short='a', long, default_value = "1")]
@@ -876,7 +880,7 @@ pub fn compression_step(
         worklist.make_contiguous().sort_by(|a, b| b.cmp(a)); // reverse sort order
     }
 
-    let mut shared = Arc::new(Mutex::new(SharedMutable { donelist, worklist, lowest_donelist_utility, utility_pruning_cutoff, stats}));
+    let shared = Arc::new(Mutex::new(SharedMutable { donelist, worklist, lowest_donelist_utility, utility_pruning_cutoff, stats}));
     let appzipper_of_node_zid = Arc::new(appzipper_of_node_zid);
     let zids_of_node = Arc::new(zids_of_node);
     let first_mergeable_zid_of_zid = Arc::new(first_mergeable_zid_of_zid);
@@ -884,16 +888,44 @@ pub fn compression_step(
     let num_paths_to_node = Arc::new(num_paths_to_node);
     let cfg: Arc<CompressionStepConfig> = Arc::new(cfg.clone()); // gotta clone it so there's no "&" left with an annoying lifetime
     // derive inventions by merging
-    // let handle = thread::spawn(move || {
+
+    if cfg.threads == 1 {
+        // SINGLE THREADED
         derive_inventions(
-            shared.clone(),
-            appzipper_of_node_zid.clone(),
-            zids_of_node.clone(),
-            first_mergeable_zid_of_zid.clone(),
-            egraph.clone(),
-            num_paths_to_node.clone(),
-            cfg.clone(),
-        );
+            Arc::clone(&shared),
+            Arc::clone(&appzipper_of_node_zid),
+            Arc::clone(&zids_of_node),
+            Arc::clone(&first_mergeable_zid_of_zid),
+            Arc::clone(&egraph),
+            Arc::clone(&num_paths_to_node),
+            Arc::clone(&cfg),
+        )
+    } else {
+        // MULTITHREADED
+        let mut handles = vec![];
+        for _ in 0..cfg.threads {
+            let shared = Arc::clone(&shared);
+            let appzipper_of_node_zid = Arc::clone(&appzipper_of_node_zid);
+            let zids_of_node = Arc::clone(&zids_of_node);
+            let first_mergeable_zid_of_zid = Arc::clone(&first_mergeable_zid_of_zid);
+            let egraph = Arc::clone(&egraph);
+            let num_paths_to_node = Arc::clone(&num_paths_to_node);
+            let cfg = Arc::clone(&cfg);
+            handles.push(thread::spawn(move || {
+                derive_inventions(
+                    shared,
+                    appzipper_of_node_zid,
+                    zids_of_node,
+                    first_mergeable_zid_of_zid,
+                    egraph,
+                    num_paths_to_node,
+                    cfg,
+                )}));
+        }
+        for handle in handles {
+            handle.join().unwrap();
+        }
+    }
     // });
     // handle.join().unwrap();
 
