@@ -5,10 +5,10 @@ use std::hash::Hash;
 use itertools::Itertools;
 use extraction::extract;
 use serde_json::json;
-use clap::{Parser,ArgEnum};
+use clap::{Parser};
 use serde::Serialize;
 // import slicerandom
-use rand::seq::SliceRandom;
+// use rand::seq::SliceRandom;
 
 
 /// At the end of the day we convert our Inventions into InventionExprs to make
@@ -835,6 +835,13 @@ pub fn compression_step(
     println!("deriving inventions...");
     let tstart = std::time::Instant::now();
 
+    // worklist.make_contiguous().shuffle(&mut rand::thread_rng()); // shuffle
+    if cfg.ascending_worklist {
+        worklist.make_contiguous().sort(); // ascending sort order
+    } else {
+        worklist.make_contiguous().sort_by(|a, b| b.cmp(a)); // reverse sort order
+    }
+
     // derive inventions by merging
     derive_inventions(
         &appzipper_of_node_zid,
@@ -1018,16 +1025,26 @@ fn derive_inventions(
     stats: &mut Stats,
     cfg: &CompressionStepConfig,
 ) {
-    // worklist.make_contiguous().shuffle(&mut rand::thread_rng()); // shuffle
-    if cfg.ascending_worklist {
-        worklist.make_contiguous().sort(); // ascending sort order
-    } else {
-        worklist.make_contiguous().sort_by(|a, b| b.cmp(a)); // reverse sort order
-    }
+    let mut worklist_buf: Vec<WorklistItem> = Default::default();
+    let mut donelist_buf: Vec<FinishedItem> = Default::default();
 
     // let mut till_shuffle = 100;
-    // todo could parallelize 
-    while let Some(wi) = if cfg.fifo_worklist { worklist.pop_front() } else { worklist.pop_back() } {
+    // todo could parallelize
+
+    loop {
+
+        // * CRITICAL SECTION START *
+        donelist.extend(donelist_buf.drain(..).filter(|done| done.utility > *lowest_donelist_utility));
+        update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
+        worklist.extend(worklist_buf.drain(..).filter(|done| done.utility_upper_bound > *utility_pruning_cutoff));
+
+        let next = if cfg.fifo_worklist { worklist.pop_front() } else { worklist.pop_back() };
+        let wi = match next {
+            Some(wi) => wi,
+            None => break,
+        };
+        // * CRITICAL SECTION END *
+
         // let wi = wi.item;
         // println!("processing {}", num_processed);
         
@@ -1140,15 +1157,17 @@ fn derive_inventions(
                 let compressive_utility = compressive_utility(left_utility + right_utility, &new_ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
                 let utility = compressive_utility + other_utility(left_utility + right_utility);
 
+                donelist_buf.push(FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility));
+
                 // if you beat the worst thing on the donelist, you get pushed on the donelist
-                if utility > *lowest_donelist_utility {
-                    donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility));
-                    // if you beat the cutoff, we should adjust the cutoff now (regardless of whether it's --lossy-candidates or not)
-                    if utility > *utility_pruning_cutoff {
-                        update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
-                    }
-                }
-                stats.num_done += 1;
+                // if utility > *lowest_donelist_utility {
+                //     // donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility));
+                //     // if you beat the cutoff, we should adjust the cutoff now (regardless of whether it's --lossy-candidates or not)
+                //     if utility > *utility_pruning_cutoff {
+                //         update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
+                //     }
+                // }
+                // stats.num_done += 1;
             }
     
             // *******************
@@ -1172,13 +1191,16 @@ fn derive_inventions(
                 let left_utility = wi.left_utility + right_edge_utility(left_fold_key(&group[0]), egraph) + left_edge_utility(right_fold_key(&group[0]), egraph);
                 let global_right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), egraph)).sum::<i32>();
                 let upper_bound = other_utility_upper_bound(left_utility) + compressive_utility_upper_bound(left_utility, global_right_utility_upper_bound, &new_ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
-                if cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
-                    // worklist.push(HeapItem::new(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound)));
-                    worklist.push_back(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
-                    // worklist.sort_by_key(|wi| -wi.left_utility);
-                } else {
-                    stats.upper_bound_fired += 1;
-                }
+
+                worklist_buf.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
+
+                // if cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
+                //     // worklist.push(HeapItem::new(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound)));
+                //     worklist_buf.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
+                //     // worklist.sort_by_key(|wi| -wi.left_utility);
+                // } else {
+                //     stats.upper_bound_fired += 1;
+                // }
             }
 
             // a multiuse invention that is present at all the nodes from the original worklist AND
@@ -1192,9 +1214,30 @@ fn derive_inventions(
         }
 
         // truncate the donelist if is 4x larger than its max size (min of 1000)
-        if donelist.len() > std::cmp::max(1000, if cfg.inv_candidates != usize::MAX { cfg.inv_candidates*4 } else { cfg.inv_candidates }) {
-            update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
-        }
+        // if donelist.len() > std::cmp::max(1000, if cfg.inv_candidates != usize::MAX { cfg.inv_candidates*4 } else { cfg.inv_candidates }) {
+        //     update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
+        // }
+
+
+
+        // todo re-add stats.num_done += 1;
+        // todo re-add stats.upper_bound_fired += 1;
+        // if utility > *lowest_donelist_utility {
+        //     // donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility));
+        //     // if you beat the cutoff, we should adjust the cutoff now (regardless of whether it's --lossy-candidates or not)
+        //     if utility > *utility_pruning_cutoff {
+        //         update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
+        //     }
+        // }
+        // stats.num_done += 1;
+
+        // if cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
+        //     // worklist.push(HeapItem::new(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound)));
+        //     worklist_buf.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
+        //     // worklist.sort_by_key(|wi| -wi.left_utility);
+        // } else {
+        //     stats.upper_bound_fired += 1;
+        // }
 
     }
 
