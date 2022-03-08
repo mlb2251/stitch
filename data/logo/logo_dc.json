@@ -1,0 +1,23 @@
+{
+    "frontiers": [
+        {
+            "task": "test_task_1",
+            "programs": [
+                {
+                    "program": "(lam (app (app (app logo_forLoop 3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 1)) (app (app logo_DIVA logo_UA) 3)) $0)))) $0))"
+                },
+                {
+                    "program": "(lam (app (app (app logo_forLoop 3) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 2)) (app (app logo_DIVA logo_UA) 3)) $0)))) $0))"
+                }
+            ]
+        },
+        {
+            "task": "test_task_2",
+            "programs": [
+                {
+                    "program": "(lam (app (app (app logo_forLoop 8) (lam (lam (app (app (app logo_FWRT (app (app logo_MULL logo_UL) 1)) (app (app logo_DIVA logo_UA) 8)) $0)))) $0))"
+                }
+            ]
+        }
+    ]
+}
