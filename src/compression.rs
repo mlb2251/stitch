@@ -858,6 +858,10 @@ pub fn compression_step(
         cfg,
     );
 
+    assert!(worklist.is_empty());
+    update_donelist(&mut donelist, &cfg, &mut lowest_donelist_utility, &mut utility_pruning_cutoff);
+    println!("{:?}", stats);
+
     let elapsed_derive_inventions = tstart.elapsed().as_millis();
 
     println!("\nderive_inventions() done: {:?}ms\n", elapsed_derive_inventions);
@@ -1038,22 +1042,25 @@ fn derive_inventions(
         update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
         worklist.extend(worklist_buf.drain(..).filter(|done| done.utility_upper_bound > *utility_pruning_cutoff));
 
-        let next = if cfg.fifo_worklist { worklist.pop_front() } else { worklist.pop_back() };
-        let wi = match next {
-            Some(wi) => wi,
-            None => break,
+        let wi = loop {
+            let next = if cfg.fifo_worklist { worklist.pop_front() } else { worklist.pop_back() };
+            let wi = match next {
+                Some(wi) => wi,
+                None => return,
+            };
+            // prune if upper bound is too low (cutoff may have increased in the time since this was added to the worklist)
+            if cfg.no_opt_upper_bound || wi.utility_upper_bound > *utility_pruning_cutoff {
+                // stats.upper_bound_fired += 1;
+                break wi
+            }
         };
+        
         // * CRITICAL SECTION END *
 
         // let wi = wi.item;
         // println!("processing {}", num_processed);
         
-        // prune if upper bound is too low (cutoff may have increased in the time since this was added to the worklist)
-        // note that pop_front() off the worklist is better than pop_back() for this reason - if you do LIFO you never get extra pruning from this
-        if !cfg.no_opt_upper_bound && wi.utility_upper_bound <= *utility_pruning_cutoff {
-            stats.upper_bound_fired += 1;
-            continue;
-        }
+        
         stats.num_wip += 1;
 
         // till_shuffle -= 1;
@@ -1240,9 +1247,5 @@ fn derive_inventions(
         // }
 
     }
-
-    assert!(worklist.is_empty());
-    update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
-    println!("{:?}", stats);
 }
 
