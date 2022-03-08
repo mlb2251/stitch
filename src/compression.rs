@@ -8,7 +8,8 @@ use serde_json::json;
 use clap::{Parser};
 use serde::Serialize;
 use std::thread;
-use std::sync::{Arc,Mutex};
+use std::sync::Arc;
+use parking_lot::Mutex;
 use std::ops::DerefMut;
 
 // import slicerandom
@@ -929,7 +930,7 @@ pub fn compression_step(
     // });
     // handle.join().unwrap();
 
-    let mut shared_guard = shared.lock().unwrap();
+    let mut shared_guard = shared.lock();
     let shared: &mut SharedMutable = shared_guard.deref_mut();
 
     assert!(shared.worklist.is_empty());
@@ -1106,12 +1107,10 @@ fn derive_inventions(
 
     loop {
 
-
-
         // * CRITICAL SECTION START *
         let wi = {
-            let mut shared_guard = shared.lock().unwrap();
-            let mut shared = shared_guard.deref_mut();
+            let mut shared_guard = shared.lock();
+            let shared = shared_guard.deref_mut();
             let lowest_donelist_utility = shared.lowest_donelist_utility;
             let utility_pruning_cutoff = shared.utility_pruning_cutoff;
             shared.donelist.extend(donelist_buf.drain(..).filter(|done| done.utility > lowest_donelist_utility));
