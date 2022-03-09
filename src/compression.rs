@@ -506,6 +506,10 @@ pub struct CompressionStepConfig {
     /// disable the force multiuse pruning optimization
     #[clap(long)]
     pub no_opt_force_multiuse: bool,
+
+    /// disable the useless abstraction pruning optimization
+    #[clap(long)]
+    pub no_opt_useless_abstract: bool,
 }
 
 // #[derive(ArgEnum, Clone, Debug, Serialize, Parser)]
@@ -1078,6 +1082,11 @@ fn derive_inventions(
         // Itertools::group_by(key: F)
         for (elem, subset) in &Itertools::group_by(possible_elems.into_iter(), |(elem, _node)| elem.clone()) {
             let mut nodes: Vec<Id> = subset.map(|(_elem, node)| node).collect();
+            if nodes.iter().all(|node|
+                appzipper_of_node_zid[&(nodes[0],elem.zid)].arg == appzipper_of_node_zid[&(*node,elem.zid)].arg
+            ) {
+                continue;
+            }
             let num_nodes = nodes.len();
             if !cfg.no_opt_single_use && num_nodes == 1 {
                 // might as well prune at this point too!
