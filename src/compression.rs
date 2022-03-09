@@ -5,10 +5,8 @@ use std::hash::Hash;
 use itertools::Itertools;
 use extraction::extract;
 use serde_json::json;
-use clap::{Parser,ArgEnum};
+use clap::{Parser};
 use serde::Serialize;
-// import slicerandom
-use rand::seq::SliceRandom;
 
 
 /// At the end of the day we convert our Inventions into InventionExprs to make
