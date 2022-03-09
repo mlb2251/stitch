@@ -104,7 +104,7 @@ fn main() {
             .expect("json deserializing error");
     }
 
-    let mut programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
+    let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
     programs_info(&programs);
 
     let programs: Expr = Expr::programs(programs);
