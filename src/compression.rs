@@ -12,9 +12,6 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 use std::ops::DerefMut;
 
-// import slicerandom
-// use rand::seq::SliceRandom;
-
 
 /// At the end of the day we convert our Inventions into InventionExprs to make
 /// them standalone without needing to carry the EGraph around to figure out what
@@ -207,11 +204,6 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub ascending_worklist: bool,
 
-    // pub worklist_type: WorklistType,
-
-    // #[clap(long)]
-    // pub worklist_sort: WorklistSort,
-
     /// Turning this on means that only the top invention will be guaranteed to be the best invention,
     /// and the 2nd best invention may not be the actual second best invention. Basically, this just enables
     /// pruning of everything that's worse than the best invention which could cause speedups depending on the domain.
@@ -241,6 +233,10 @@ pub struct CompressionStepConfig {
     /// disable the force multiuse pruning optimization
     #[clap(long)]
     pub no_opt_force_multiuse: bool,
+
+    /// disable the useless abstraction pruning optimization
+    #[clap(long)]
+    pub no_opt_useless_abstract: bool,
 
     /// Disable stat logging - note that stat logging in multithreading requires taking a mutex
     /// so it could be a source of slowdown in the multithreaded case, hence this flag to disable it.
@@ -1188,9 +1184,16 @@ fn derive_inventions(
         // Itertools::group_by(key: F)
         for (elem, subset) in &Itertools::group_by(possible_elems.into_iter(), |(elem, _node)| elem.clone()) {
             let mut nodes: Vec<Id> = subset.map(|(_elem, node)| node).collect();
+
+            // if all usage locations of this partial invention take the SAME argument for the new variable, then prune
+            // this partial invention because it's strictly better to inline that argument into the body and not abstract it
+            if !cfg.no_opt_useless_abstract && nodes.iter().all(|node| appzipper_of_node_zid[&(nodes[0],elem.zid)].arg == appzipper_of_node_zid[&(*node,elem.zid)].arg ) {
+                continue;
+            }
+
             let num_nodes = nodes.len();
+            // this partial invention is only used in a single place to lets prune it
             if !cfg.no_opt_single_use && num_nodes == 1 {
-                // might as well prune at this point too!
                 if !cfg.no_stats { stats.lock().deref_mut().single_use_wip_fired += 1; };
                 continue;
             }
