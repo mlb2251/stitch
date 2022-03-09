@@ -1082,9 +1082,10 @@ fn derive_inventions(
         // Itertools::group_by(key: F)
         for (elem, subset) in &Itertools::group_by(possible_elems.into_iter(), |(elem, _node)| elem.clone()) {
             let mut nodes: Vec<Id> = subset.map(|(_elem, node)| node).collect();
-            if nodes.iter().all(|node|
-                appzipper_of_node_zid[&(nodes[0],elem.zid)].arg == appzipper_of_node_zid[&(*node,elem.zid)].arg
-            ) {
+
+            // if all usage locations of this partial invention take the SAME argument for the new variable, then prune
+            // this partial invention because it's strictly better to inline that argument into the body and not abstract it
+            if !cfg.no_opt_useless_abstract && nodes.iter().all(|node| appzipper_of_node_zid[&(nodes[0],elem.zid)].arg == appzipper_of_node_zid[&(*node,elem.zid)].arg ) {
                 continue;
             }
             let num_nodes = nodes.len();
