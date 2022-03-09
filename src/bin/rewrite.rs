@@ -111,6 +111,17 @@ fn main() {
     let rewritten = rewrite_with_inventions(programs, &inventions[..]);
 
     if args.dc_fmt {
+        // Match the relevant input format.
+        #[derive(Serialize)]
+        pub struct DcProgram {
+            pub program: String,
+        }
+        #[derive(Serialize)]
+        pub struct DcFrontier {
+            pub task: String,
+            pub programs: Vec<DcProgram>,
+        }
+
         // Rewrite back the lambda and optionally rewrite back the DC invention format.
         for (i, pretty_program) in rewritten.split_programs().iter().enumerate() {
             let task_name = program_id_to_task_name[&i].clone();
@@ -124,7 +135,28 @@ fn main() {
                         .clone(),
                 );
         }
-        let json: serde_json::Value = json!(rewritten_frontiers);
+        fn rewritten_to_dc_fmt_frontiers(
+            task_name: &String,
+            string_programs: &Vec<String>,
+        ) -> DcFrontier {
+            let programs = string_programs
+                .iter()
+                .map(|p| DcProgram {
+                    program: p.to_string(),
+                })
+                .collect();
+            let frontier = DcFrontier {
+                task: task_name.to_string(),
+                programs: programs,
+            };
+            frontier
+        }
+        let dc_fmt_frontiers: Vec<DcFrontier> = rewritten_frontiers
+            .iter()
+            .map(|(t, ps)| rewritten_to_dc_fmt_frontiers(t, ps))
+            .collect();
+
+        let json: serde_json::Value = json!({ "frontiers": dc_fmt_frontiers });
         std::fs::write(&args.out, serde_json::to_string_pretty(&json).unwrap()).unwrap();
     } else {
         let json: serde_json::Value = json!({ "rewritten": rewritten.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>() });
