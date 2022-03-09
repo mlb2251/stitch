@@ -1088,9 +1088,10 @@ fn derive_inventions(
             if !cfg.no_opt_useless_abstract && nodes.iter().all(|node| appzipper_of_node_zid[&(nodes[0],elem.zid)].arg == appzipper_of_node_zid[&(*node,elem.zid)].arg ) {
                 continue;
             }
+
             let num_nodes = nodes.len();
+            // this partial invention is only used in a single place to lets prune it
             if !cfg.no_opt_single_use && num_nodes == 1 {
-                // might as well prune at this point too!
                 stats.single_use_wip_fired += 1;
                 continue;
             }
