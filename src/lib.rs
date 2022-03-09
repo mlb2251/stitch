@@ -22,6 +22,8 @@ pub use {
     egraphs::{*,EGraph},
 };
 
+pub use colorful::{Color,Colorful,RGB};
+
 pub mod domains;
 
 /// nonterminals ("app" and "lam") cost 1/100th of a terminal ("var", "ivar", "prim"). This is because nonterminals

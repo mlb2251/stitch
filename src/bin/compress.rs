@@ -10,6 +10,7 @@ use serde_json::json;
 use itertools::Itertools;
 
 
+
 /// Compression
 #[derive(Parser, Debug, Serialize)]
 #[clap(name = "Stitch")]
@@ -73,10 +74,12 @@ fn main() {
     // parse the program strings into expressions
     let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
 
-    for prog in programs.iter() {
-        println!("{}", prog);
-    }
-
+    // for prog in programs.iter() {
+    //     println!("{}", prog);
+    // }
+    println!("{}","**********".blue().bold());
+    println!("{}","* Stitch *".blue().bold());
+    println!("{}","**********".blue().bold());
     programs_info(&programs);
 
     // build a single `Expr::Programs` node from these programs. Stitch uses these because often we want to treat
@@ -101,7 +104,7 @@ fn compression(
     let tstart = std::time::Instant::now();
 
     for i in 0..args.iterations {
-        println!("\n=======Iteration {}=======",i);
+        println!("{}",format!("\n=======Iteration {}=======",i).blue().bold());
         let inv_name = format!("inv{}",step_results.len());
 
         // call actual compression
@@ -123,7 +126,7 @@ fn compression(
         }
     }
 
-    println!("\n=======Compression Summary=======");
+    println!("{}","\n=======Compression Summary=======".blue().bold());
     println!("Found {} inventions", step_results.len());
     println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(programs_expr,&rewritten), programs_expr.cost(), rewritten.cost());
     for i in 0..step_results.len() {
