@@ -55,11 +55,11 @@ fn main() {
     let mut programs: Vec<String> = if args.dc_fmt {
         // read dreamcoder format
         let json: serde_json::Value = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
-        let mut programs: Vec<String> = json["frontiers"].as_array().unwrap().iter().map(|f| f["programs"].as_array().unwrap().iter().map(|p|p["program"].as_str().unwrap().to_string())).flatten().collect();
+        let mut programs: Vec<String> = json["frontiers"].as_array().unwrap_or_else(||panic!("json parse error, are you sure you wanted --dc-fmt ?")).iter().map(|f| f["programs"].as_array().unwrap().iter().map(|p|p["program"].as_str().unwrap().to_string())).flatten().collect();
         programs = programs.iter().map(|p| p.replace("(lambda ","(lam ")).collect();
         programs
     } else {
-        from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error")
+        from_reader(File::open(&args.file).expect("file not found")).unwrap_or_else(|_|panic!("json parse error, did you mean to include --dc-fmt ?"))
     };
     
     
