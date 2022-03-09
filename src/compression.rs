@@ -156,6 +156,99 @@ struct HeapItem {
     item: WorklistItem,
 }
 
+/// This contains all the data that needs to be shared between threads running derive_inventions().
+/// Notably we only take the lock on this data once at the start of a loop iteration. If you have
+/// additional shared data that you want to access/modify more often then it should be handled
+/// separately from this.
+struct MutableMultithreadData {
+    donelist: Vec<FinishedItem>,
+    worklist: VecDeque<WorklistItem>,
+    lowest_donelist_utility:i32,
+    utility_pruning_cutoff: i32,
+}
+
+/// Various tracking stats
+#[derive(Clone,Default, Debug)]
+struct Stats {
+    partial_invs: usize,
+    finished_invs: usize,
+    upper_bound_fired: usize,
+    free_vars_done_fired: usize,
+    free_vars_wip_fired: usize,
+    single_use_done_fired: usize,
+    single_use_wip_fired: usize,
+    force_multiuse_fired: usize,
+}
+
+/// Args for compression step
+#[derive(Parser, Debug, Serialize, Clone)]
+#[clap(name = "Stitch")]
+pub struct CompressionStepConfig {
+    /// max arity of inventions to find (will find all from 0 to this number inclusive)
+    #[clap(short='a', long, default_value = "2")]
+    pub max_arity: usize,
+
+    /// num threads (no parallelism if set to 1)
+    #[clap(short='t', long, default_value = "1")]
+    pub threads: usize,
+
+    /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
+    /// unless --lossy-candidates is enabled.
+    #[clap(short='a', long, default_value = "1")]
+    pub inv_candidates: usize,
+
+    /// By default we use a LIFO worklist but this is certainly something to explore more
+    /// and this flag makes it fifo https://github.com/mlb2251/stitch/issues/31
+    #[clap(long)]
+    pub fifo_worklist: bool,
+
+    /// By default we sort the worklist in decreasing zipper order before starting to process it,
+    /// but this swaps it to increasing order. https://github.com/mlb2251/stitch/issues/31
+    #[clap(long)]
+    pub ascending_worklist: bool,
+
+    // pub worklist_type: WorklistType,
+
+    // #[clap(long)]
+    // pub worklist_sort: WorklistSort,
+
+    /// Turning this on means that only the top invention will be guaranteed to be the best invention,
+    /// and the 2nd best invention may not be the actual second best invention. Basically, this just enables
+    /// pruning of everything that's worse than the best invention which could cause speedups depending on the domain.
+    #[clap(long)]
+    pub lossy_candidates: bool,
+
+    /// disable caching (though caching isn't used for much currently)
+    #[clap(long)]
+    pub no_cache: bool,
+
+    /// print out programs rewritten under invention
+    #[clap(long,short='r')]
+    pub show_rewritten: bool,
+
+    /// disable the free variable pruning optimization
+    #[clap(long)]
+    pub no_opt_free_vars: bool,
+
+    /// disable the single usage pruning optimization
+    #[clap(long)]
+    pub no_opt_single_use: bool,
+
+    /// disable the upper bound pruning optimization
+    #[clap(long)]
+    pub no_opt_upper_bound: bool,
+
+    /// disable the force multiuse pruning optimization
+    #[clap(long)]
+    pub no_opt_force_multiuse: bool,
+
+    /// Disable stat logging - note that stat logging in multithreading requires taking a mutex
+    /// so it could be a source of slowdown in the multithreaded case, hence this flag to disable it.
+    /// From some initial tests it seems to cause no slowdown anyways though.
+    #[clap(long)]
+    pub no_stats: bool,
+}
+
 impl WorklistItem {
     fn new(ztuple: ZTuple, nodes: Vec<Id>, left_utility: i32, utility_upper_bound: i32) -> WorklistItem {
         WorklistItem { ztuple: ztuple, nodes: nodes, left_utility: left_utility, utility_upper_bound: utility_upper_bound }
@@ -440,83 +533,6 @@ fn divergence_idx(left: &[ZNode], right: &[ZNode]) -> usize {
     panic!("right does not diverge from left")
 }
 
-/// Various tracking stats
-#[derive(Clone,Default, Debug)]
-struct Stats {
-    num_wip: i32,
-    num_done: i32,
-    upper_bound_fired: i32,
-    free_vars_done_fired: i32,
-    free_vars_wip_fired: i32,
-    single_use_done_fired: i32,
-    single_use_wip_fired: i32,
-    force_multiuse_fired: i32,
-}
-
-/// Args for compression step
-#[derive(Parser, Debug, Serialize, Clone)]
-#[clap(name = "Stitch")]
-pub struct CompressionStepConfig {
-    /// max arity of inventions to find (will find all from 0 to this number inclusive)
-    #[clap(short='a', long, default_value = "2")]
-    pub max_arity: usize,
-
-    /// num threads (no parallelism if set to 1)
-    #[clap(short='t', long, default_value = "1")]
-    pub threads: usize,
-
-    /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
-    /// unless --lossy-candidates is enabled.
-    #[clap(short='a', long, default_value = "1")]
-    pub inv_candidates: usize,
-
-    /// By default we use a LIFO worklist but this is certainly something to explore more
-    /// and this flag makes it fifo https://github.com/mlb2251/stitch/issues/31
-    #[clap(long)]
-    pub fifo_worklist: bool,
-
-    /// By default we sort the worklist in decreasing zipper order before starting to process it,
-    /// but this swaps it to increasing order. https://github.com/mlb2251/stitch/issues/31
-    #[clap(long)]
-    pub ascending_worklist: bool,
-
-
-    // pub worklist_type: WorklistType,
-
-    // #[clap(long)]
-    // pub worklist_sort: WorklistSort,
-
-    /// Turning this on means that only the top invention will be guaranteed to be the best invention,
-    /// and the 2nd best invention may not be the actual second best invention. Basically, this just enables
-    /// pruning of everything that's worse than the best invention which could cause speedups depending on the domain.
-    #[clap(long)]
-    pub lossy_candidates: bool,
-
-    /// disable caching (though caching isn't used for much currently)
-    #[clap(long)]
-    pub no_cache: bool,
-
-    /// print out programs rewritten under invention
-    #[clap(long,short='r')]
-    pub show_rewritten: bool,
-
-    /// disable the free variable pruning optimization
-    #[clap(long)]
-    pub no_opt_free_vars: bool,
-
-    /// disable the single usage pruning optimization
-    #[clap(long)]
-    pub no_opt_single_use: bool,
-
-    /// disable the upper bound pruning optimization
-    #[clap(long)]
-    pub no_opt_upper_bound: bool,
-
-    /// disable the force multiuse pruning optimization
-    #[clap(long)]
-    pub no_opt_force_multiuse: bool,
-}
-
 // #[derive(ArgEnum, Clone, Debug, Serialize, Parser)]
 // enum WorklistType {
 //     #[clap(arg_enum, long = "foobaar")]
@@ -622,7 +638,7 @@ fn update_donelist(donelist: &mut Vec<FinishedItem>, cfg: &CompressionStepConfig
 
 /// sort the donelist by utility, truncate to cfg.inv_candidates, update the lowest_donelist_utility to be the lowest utility,
 /// update utility_pruning_cutoff to be the highest utility if --lossy-candidates is set else the lowest utility
-fn update_donelist_shared(shared: &mut SharedMutable, cfg: &CompressionStepConfig) {
+fn update_donelist_shared(shared: &mut MutableMultithreadData, cfg: &CompressionStepConfig) {
     // sort in decreasing order by utility primarily, and break ties using the ztuple (just in order to be deterministic!)
     shared.donelist.sort_unstable_by(|a,b| (b.utility,&b.ztuple).cmp(&(a.utility,&a.ztuple)));
     shared.donelist.truncate(cfg.inv_candidates);
@@ -634,7 +650,7 @@ fn update_donelist_shared(shared: &mut SharedMutable, cfg: &CompressionStepConfi
 
 // /// sort the donelist by utility, truncate to cfg.inv_candidates, update the lowest_donelist_utility to be the lowest utility,
 // /// update utility_pruning_cutoff to be the highest utility if --lossy-candidates is set else the lowest utility
-// fn update_donelist_threaded(shared: Arc<Mutex<SharedMutable>>, cfg: Arc<CompressionStepConfig>) {
+// fn update_donelist_threaded(shared: Arc<Mutex<MutableMultithreadData>>, cfg: Arc<CompressionStepConfig>) {
 //     // sort in decreasing order by utility primarily, and break ties using the ztuple (just in order to be deterministic!)
 //     donelist.sort_unstable_by(|a,b| (b.utility,&b.ztuple).cmp(&(a.utility,&a.ztuple)));
 //     donelist.truncate(cfg.inv_candidates);
@@ -730,15 +746,6 @@ fn other_utility_upper_bound(
     // left_utility < body_utility we know that this will be a less negative bound.
     let structure_penalty = - left_utility * 3 / 2;
     structure_penalty
-}
-
-
-struct SharedMutable {
-    donelist: Vec<FinishedItem>,
-    worklist: VecDeque<WorklistItem>,
-    lowest_donelist_utility:i32,
-    utility_pruning_cutoff: i32,
-    stats: Stats,
 }
 
 /// Takes a set of programs as an Expr with Programs as its root, and does one full step of compresison.
@@ -845,7 +852,10 @@ pub fn compression_step(
 
     let tstart = std::time::Instant::now();
 
-    // put together the initial set of single-arg single-use inventions from the appzippers
+    // **********************
+    // * INITIAL INVENTIONS *
+    // **********************
+    // (these are the single-arg single-use inventions)
     initial_inventions(
         &appzipper_of_node_zid,
         &nodes_of_zid,
@@ -866,9 +876,6 @@ pub fn compression_step(
     }
     println!("avg ztuple group: {}", worklist.iter().map(|ztg| ztg.nodes.len()).sum::<usize>() as f64 / worklist.len() as f64);
 
-    // todo not sure if its the right move to sort by this see discussion in notes "sort the worklist by upper bound"
-    // worklist.sort_by_key(|wi| wi.utility_upper_bound);
-
     println!("total prep: {:?}ms", tstart_total.elapsed().as_millis());
 
     println!("deriving inventions...");
@@ -881,17 +888,25 @@ pub fn compression_step(
         worklist.make_contiguous().sort_by(|a, b| b.cmp(a)); // reverse sort order
     }
 
-    let shared = Arc::new(Mutex::new(SharedMutable { donelist, worklist, lowest_donelist_utility, utility_pruning_cutoff, stats}));
-    let appzipper_of_node_zid = Arc::new(appzipper_of_node_zid);
-    let zids_of_node = Arc::new(zids_of_node);
+    // At this point we transition to multithreading. We don't do this earlier because it'd require messy mutexes during single threaded code.
+    // So now here we shadow over all our variables to make atomically refcounted pointers to them (`Arc`), along with `Mutex`s for things
+    // that aren't read-only. 
+    let shared = Arc::new(Mutex::new(MutableMultithreadData { donelist, worklist, lowest_donelist_utility, utility_pruning_cutoff}));
+    let stats =                      Arc::new(Mutex::new(stats));
+    let appzipper_of_node_zid =      Arc::new(appzipper_of_node_zid);
+    let zids_of_node =               Arc::new(zids_of_node);
     let first_mergeable_zid_of_zid = Arc::new(first_mergeable_zid_of_zid);
-    let egraph = Arc::new(egraph);
-    let num_paths_to_node = Arc::new(num_paths_to_node);
-    let cfg: Arc<CompressionStepConfig> = Arc::new(cfg.clone()); // gotta clone it so there's no "&" left with an annoying lifetime
-    // derive inventions by merging
-
+    let egraph =                     Arc::new(egraph);
+    let num_paths_to_node =          Arc::new(num_paths_to_node);
+    // unfortunately since we dont own `cfg` we can't `move` it into an Arc so we need to duplicate it here - no worries it's lightweight
+    let cfg: Arc<CompressionStepConfig> = Arc::new(cfg.clone()); 
+    
+    // *********************
+    // * DERIVE INVENTIONS *
+    // *********************
+    // (this is finding all the higher-arity multi-use inventions through stitching)
     if cfg.threads == 1 {
-        // SINGLE THREADED
+        // Single threaded
         derive_inventions(
             Arc::clone(&shared),
             Arc::clone(&appzipper_of_node_zid),
@@ -899,19 +914,24 @@ pub fn compression_step(
             Arc::clone(&first_mergeable_zid_of_zid),
             Arc::clone(&egraph),
             Arc::clone(&num_paths_to_node),
+            Arc::clone(&stats),
             Arc::clone(&cfg),
         )
     } else {
-        // MULTITHREADED
+        // Multithreaded
         let mut handles = vec![];
         for _ in 0..cfg.threads {
-            let shared = Arc::clone(&shared);
-            let appzipper_of_node_zid = Arc::clone(&appzipper_of_node_zid);
-            let zids_of_node = Arc::clone(&zids_of_node);
+            // clone the Arcs to have copies for this thread
+            let shared =                     Arc::clone(&shared);
+            let appzipper_of_node_zid =      Arc::clone(&appzipper_of_node_zid);
+            let zids_of_node =               Arc::clone(&zids_of_node);
             let first_mergeable_zid_of_zid = Arc::clone(&first_mergeable_zid_of_zid);
-            let egraph = Arc::clone(&egraph);
-            let num_paths_to_node = Arc::clone(&num_paths_to_node);
-            let cfg = Arc::clone(&cfg);
+            let egraph =                     Arc::clone(&egraph);
+            let num_paths_to_node =          Arc::clone(&num_paths_to_node);
+            let stats =                      Arc::clone(&stats);
+            let cfg =                        Arc::clone(&cfg);
+            
+            // launch thread to just call derive_inventions()
             handles.push(thread::spawn(move || {
                 derive_inventions(
                     shared,
@@ -920,22 +940,23 @@ pub fn compression_step(
                     first_mergeable_zid_of_zid,
                     egraph,
                     num_paths_to_node,
+                    stats,
                     cfg,
                 )}));
         }
+        // wait for all threads to finish (when all have empty worklists)
         for handle in handles {
             handle.join().unwrap();
         }
     }
-    // });
-    // handle.join().unwrap();
+
 
     let mut shared_guard = shared.lock();
-    let shared: &mut SharedMutable = shared_guard.deref_mut();
+    let shared: &mut MutableMultithreadData = shared_guard.deref_mut();
 
     assert!(shared.worklist.is_empty());
     update_donelist_shared(shared, &cfg);
-    println!("{:?}", shared.stats);
+    println!("{:?}", stats.lock().deref_mut());
 
     let elapsed_derive_inventions = tstart.elapsed().as_millis();
 
@@ -965,21 +986,6 @@ pub fn compression_step(
         // }
     }
 
-    // we sort again here because technically the costs might not be quite right if the rewrite_with_invention actually gives
-    // a slightly different utility than the normal utility. This would indicate a bug and shouldn't happen often, but in case
-    // there are small justifiable reasons for the mismatch we do this.
-    // results.sort_by_key(|res| res.final_cost_rewritten);
-    
-
-    // println!("Final egraph: {}",egraph_info(&egraph));
-
-    // print out the largest variable we've seen (useful to make sure our egraph isnt exploding due to Vars)
-    // for i in 0..100 {
-    //     if search(format!("(${})",i).as_str(),&egraph).is_empty() {
-    //         println!("Largest variable: ${}",i-1);
-    //         break;
-    //     }
-    // }
 
     println!("Final donelist length: {}",shared.donelist.len());
     println!("derive_inventions() took: {}ms ***\n", elapsed_derive_inventions);
@@ -1050,7 +1056,7 @@ fn initial_inventions(
                     update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
                 }
             }
-            stats.num_done += 1;
+            stats.finished_invs += 1;
         }
 
         // *******************
@@ -1091,60 +1097,63 @@ fn initial_inventions(
 
 #[inline(never)]
 fn derive_inventions(
-    shared: Arc<Mutex<SharedMutable>>,
+    shared: Arc<Mutex<MutableMultithreadData>>,
     appzipper_of_node_zid: Arc<HashMap<(Id,ZId),AppZipper>>,
     zids_of_node: Arc<Vec<Vec<ZId>>>,
     first_mergeable_zid_of_zid: Arc<Vec<ZId>>,
     egraph: Arc<EGraph>,
     num_paths_to_node: Arc<HashMap<Id,i32>>,
+    stats: Arc<Mutex<Stats>>,
     cfg: Arc<CompressionStepConfig>,
 ) {
     let mut worklist_buf: Vec<WorklistItem> = Default::default();
     let mut donelist_buf: Vec<FinishedItem> = Default::default();
 
     // let mut till_shuffle = 100;
-    // todo could parallelize
 
     loop {
 
-        // * CRITICAL SECTION START *
+        // * MULTITHREADING: CRITICAL SECTION START *
         let wi = {
+            // take the lock, which will be released immediately when this scope exits
             let mut shared_guard = shared.lock();
-            let shared = shared_guard.deref_mut();
+            let shared: &mut MutableMultithreadData = shared_guard.deref_mut();
             let lowest_donelist_utility = shared.lowest_donelist_utility;
-            let utility_pruning_cutoff = shared.utility_pruning_cutoff;
+            let old_donelist_len = shared.donelist.len();
+            // drain from donelist_buf into the actual donelist
             shared.donelist.extend(donelist_buf.drain(..).filter(|done| done.utility > lowest_donelist_utility));
-            update_donelist_shared(shared, &cfg);
-            shared.worklist.extend(worklist_buf.drain(..).filter(|done| done.utility_upper_bound > utility_pruning_cutoff));
+            if !cfg.no_stats { stats.lock().deref_mut().finished_invs += shared.donelist.len() - old_donelist_len; };
+            // sort + truncate + update utility_pruning_cutoff and lowest_donelist_utility
+            update_donelist_shared(shared, &cfg); // this also updates utility_pruning_cutoff
+            // pull out utility_pruning_cutoff now that it has been updated (not earlier)
+            let utility_pruning_cutoff = shared.utility_pruning_cutoff;
 
+            let old_worklist_len = shared.worklist.len();
+            let worklist_buf_len = worklist_buf.len();
+            // drain from worklist_buf into the actual worklist
+            shared.worklist.extend(worklist_buf.drain(..).filter(|done| done.utility_upper_bound > utility_pruning_cutoff));
+            // num pruned by upper bound = num we were gonna add minus change in worklist length
+            if !cfg.no_stats { stats.lock().deref_mut().upper_bound_fired += worklist_buf_len - (shared.worklist.len() - old_worklist_len); };
+
+            // loop until we get a new (unpruned) item from the worklist
             let wi = loop {
                 let next = if cfg.fifo_worklist { shared.worklist.pop_front() } else { shared.worklist.pop_back() };
                 let wi = match next {
                     Some(wi) => wi,
-                    None => return,
+                    None => return, // worklist was empty! we're done!
                 };
                 // prune if upper bound is too low (cutoff may have increased in the time since this was added to the worklist)
                 if cfg.no_opt_upper_bound || wi.utility_upper_bound > shared.utility_pruning_cutoff {
-                    // stats.upper_bound_fired += 1;
                     break wi
+                } else {
+                    if !cfg.no_stats { stats.lock().deref_mut().upper_bound_fired += 1; };
                 }
             };
             wi
         };
-        
-        // * CRITICAL SECTION END *
+        // * MULTITHREADING: CRITICAL SECTION END *
 
-        // let wi = wi.item;
-        // println!("processing {}", num_processed);
-        
-        
-        // stats.num_wip += 1;
-
-        // till_shuffle -= 1;
-        // if till_shuffle == 0 {
-        //     till_shuffle = 1000;
-        //     worklist.shuffle(&mut rand::thread_rng());
-        // }
+        if !cfg.no_stats { stats.lock().deref_mut().partial_invs += 1; };
 
         let rightmost_zid: ZId = wi.ztuple.elems.last().unwrap().zid;
         let first_mergeable_zid: ZId = first_mergeable_zid_of_zid[rightmost_zid];
@@ -1182,7 +1191,7 @@ fn derive_inventions(
             let num_nodes = nodes.len();
             if !cfg.no_opt_single_use && num_nodes == 1 {
                 // might as well prune at this point too!
-                // stats.single_use_wip_fired += 1;
+                if !cfg.no_stats { stats.lock().deref_mut().single_use_wip_fired += 1; };
                 continue;
             }
             let is_multiuse = elem.ivar < wi.ztuple.arity; // multiuse means an old index within the old arity range was reused
@@ -1224,14 +1233,14 @@ fn derive_inventions(
             for group in both_groups {
                 // if groups are singletons or contain free variables, skip them
                 if !cfg.no_opt_single_use && group.len() <= 1 {
-                    // stats.single_use_done_fired += 1;
+                    if !cfg.no_stats { stats.lock().deref_mut().single_use_done_fired += 1; };
                     continue;
                 }
                 // prune inventions that contain free variables
                 if edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
                     edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph) ||
                     edge_has_free_vars(right_edge_key(&group[0]), right_path_key(&group[0]),  0, &egraph) {
-                    // stats.free_vars_done_fired += 1;
+                    if !cfg.no_stats { stats.lock().deref_mut().free_vars_done_fired += 1; };
                     continue;
                 }
                 // Calculate utility
@@ -1242,16 +1251,6 @@ fn derive_inventions(
                 let utility = compressive_utility + other_utility(left_utility + right_utility);
 
                 donelist_buf.push(FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility));
-
-                // if you beat the worst thing on the donelist, you get pushed on the donelist
-                // if utility > *lowest_donelist_utility {
-                //     // donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility));
-                //     // if you beat the cutoff, we should adjust the cutoff now (regardless of whether it's --lossy-candidates or not)
-                //     if utility > *utility_pruning_cutoff {
-                //         update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
-                //     }
-                // }
-                // stats.num_done += 1;
             }
     
             // *******************
@@ -1260,14 +1259,14 @@ fn derive_inventions(
             for group in fold_groups {
                 // prune partial inventions that are only useful at one node
                 if !cfg.no_opt_single_use && group.len() <= 1 {
-                    // stats.single_use_wip_fired += 1;
+                    if !cfg.no_stats { stats.lock().deref_mut().single_use_wip_fired += 1; };
                     continue;
                 }
                 // prune partial inventions that contain free variables in their concrete part
                 if !cfg.no_opt_free_vars && 
                    (edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
                     edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph)) {
-                    // stats.free_vars_wip_fired += 1;
+                        if !cfg.no_stats { stats.lock().deref_mut().free_vars_wip_fired += 1; };
                     continue;
                 }
 
@@ -1277,14 +1276,6 @@ fn derive_inventions(
                 let upper_bound = other_utility_upper_bound(left_utility) + compressive_utility_upper_bound(left_utility, global_right_utility_upper_bound, &new_ztuple, &group, &*num_paths_to_node, &*egraph, &*appzipper_of_node_zid);
 
                 worklist_buf.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
-
-                // if cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
-                //     // worklist.push(HeapItem::new(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound)));
-                //     worklist_buf.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
-                //     // worklist.sort_by_key(|wi| -wi.left_utility);
-                // } else {
-                //     stats.upper_bound_fired += 1;
-                // }
             }
 
             // a multiuse invention that is present at all the nodes from the original worklist AND
@@ -1292,37 +1283,10 @@ fn derive_inventions(
             // for single leaf nodes) to accept this multiuse, so we can just Break before looking at any higher zid 
             // merges and instead let this newly pushed multiuse thing be the one that merges with those future things.
             if !cfg.no_opt_force_multiuse && is_multiuse && num_nodes == wi.nodes.len() && num_offspring == 1 {
-                // stats.force_multiuse_fired += 1;
-                break; // todo I would be a little careful with this optimization, disable it by commenting this if you suspect its not sound. It should be fine but I wrote it at night.
+                if !cfg.no_stats { stats.lock().deref_mut().force_multiuse_fired += 1; };
+                break;
             }
         }
-
-        // truncate the donelist if is 4x larger than its max size (min of 1000)
-        // if donelist.len() > std::cmp::max(1000, if cfg.inv_candidates != usize::MAX { cfg.inv_candidates*4 } else { cfg.inv_candidates }) {
-        //     update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
-        // }
-
-
-
-        // todo re-add stats.num_done += 1;
-        // todo re-add stats.upper_bound_fired += 1;
-        // if utility > *lowest_donelist_utility {
-        //     // donelist.push(FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility));
-        //     // if you beat the cutoff, we should adjust the cutoff now (regardless of whether it's --lossy-candidates or not)
-        //     if utility > *utility_pruning_cutoff {
-        //         update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
-        //     }
-        // }
-        // stats.num_done += 1;
-
-        // if cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
-        //     // worklist.push(HeapItem::new(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound)));
-        //     worklist_buf.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
-        //     // worklist.sort_by_key(|wi| -wi.left_utility);
-        // } else {
-        //     stats.upper_bound_fired += 1;
-        // }
-
     }
 }
 
