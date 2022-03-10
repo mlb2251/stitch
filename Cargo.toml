@@ -27,3 +27,10 @@ colorful = "0.2.1"
 
 [profile.release]
 debug = true # for flamegraphs
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "logo_train_200"
+harness = false # so we can add our own benchmarking harness
