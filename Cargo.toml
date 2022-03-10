@@ -29,8 +29,8 @@ colorful = "0.2.1"
 debug = true # for flamegraphs
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = {version = "0.3", features = ["html_reports"]}
 
 [[bench]]
-name = "logo_train_200"
+name = "compress_bench"
 harness = false # so we can add our own benchmarking harness
