@@ -471,12 +471,17 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph) -> HashM
         all_appzippers.insert(*treenode, appzippers);
     }
 
-    // remove all the identity functions.
     // note that we must be very careful pruning here. Most pruning isnt allowed, for example you cant prune things
     // that have free variables out bc if those free vars are on the leading edge you could still merge them away later
     all_appzippers.iter_mut().for_each(|(_,appzippers)| {
-        appzippers.retain(|appzipper| !appzipper.zipper.path.is_empty());
-    });
+        appzippers.retain(|appzipper|
+            !appzipper.zipper.path.is_empty() // no identity function
+            // no toplevel abstraction. This is to mirror dreamcoder and so that
+            // rewritten programs actually are things that a top down search could find,
+            // in particular because when you come across an arrow typed hole in top down
+            // search (eg a HOF argument) you autogenerate lambdas and then go into the body.
+            && appzipper.zipper.path[0] != ZNode::Body 
+        )});
 
     all_appzippers
 }
