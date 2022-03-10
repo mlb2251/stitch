@@ -105,7 +105,7 @@ fn beam_extract_rec(
 
     if Some(root) == inv {
         assert!(target_cost == COST_TERMINAL);
-        return into_expr.add(Lambda::Prim(format!("inv{}",root).into()));
+        return into_expr.add(Lambda::Prim(format!("fn_{}",root).into()));
     }
 
     for enode in egraph[root].iter() {

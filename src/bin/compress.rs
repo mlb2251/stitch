@@ -105,7 +105,7 @@ fn compression(
 
     for i in 0..args.iterations {
         println!("{}",format!("\n=======Iteration {}=======",i).blue().bold());
-        let inv_name = format!("inv{}",step_results.len());
+        let inv_name = format!("fn_{}",step_results.len());
 
         // call actual compression
         let res: Vec<CompressionStepResult> = compression_step(

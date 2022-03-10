@@ -983,7 +983,7 @@ pub fn compression_step(
         }
         results.push(res);
         // if args.render_inventions {
-        //     inv_expr.save(&format!("inv{}",i), &out_dir);
+        //     inv_expr.save(&format!("fn_{}",i), &out_dir);
         // }
     }
 
