@@ -42,7 +42,7 @@ To see a full list of command line options run `cargo run --release --bin=compre
 
 Comparing your feature before merging it:
 
-```
+```bash
 git checkout main
 cargo bench
 git checkout feature
