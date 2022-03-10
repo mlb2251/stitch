@@ -7,7 +7,7 @@ use clap::Parser;
 
 pub fn compression_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("compression");
-    group.sample_size(10);
+    group.sample_size(20);
     fn programs_from_file(file: &str) -> Expr {
         let programs: Vec<String> = from_reader(File::open(file).expect("file not found")).unwrap();
         let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
@@ -19,19 +19,22 @@ pub fn compression_benchmark(c: &mut Criterion) {
     let programs_dials = programs_from_file("data/cogsci/dials.json");
     let programs_furniture = programs_from_file("data/cogsci/furniture.json");
 
-    let cfg_arity2 = CompressionStepConfig::parse_from("compress --max-arity=2".split_whitespace());
-    let cfg_arity3 = CompressionStepConfig::parse_from("compress --max-arity=3".split_whitespace());
+    let cfg_arity2_t1 = CompressionStepConfig::parse_from("compress --max-arity=2 -t1".split_whitespace());
+    let cfg_arity2 = CompressionStepConfig::parse_from("compress --max-arity=2 -t10".split_whitespace());
+    let cfg_arity3 = CompressionStepConfig::parse_from("compress --max-arity=3 -t10".split_whitespace());
 
     
     let tstart = std::time::Instant::now();
-    group.bench_function("logo/train_200.json -i3 -a2", |b| b.iter(|| compression(black_box(&programs_logo_train_200), black_box(&cfg_arity2), black_box(3))));
-    group.bench_function("cogsci/train_200.json -i3 -a3", |b| b.iter(|| compression(black_box(&programs_logo_train_200), black_box(&cfg_arity3), black_box(3))));
-    // group.bench_function("cogsci/nuts-bolts.json -i3 -a2", |b| b.iter(|| compression(black_box(&programs_nuts_bolts), black_box(&cfg_arity2), black_box(3))));
-    // group.bench_function("cogsci/nuts-bolts.json -i3 -a3", |b| b.iter(|| compression(black_box(&programs_nuts_bolts), black_box(&cfg_arity3), black_box(3))));
-    // group.bench_function("cogsci/dials.json -i1 -a2", |b| b.iter(|| compression(black_box(&programs_dials), black_box(&cfg_arity2), black_box(1))));
-    // group.bench_function("cogsci/furniture.json -i1 -a2", |b| b.iter(|| compression(black_box(&programs_furniture), black_box(&cfg_arity2), black_box(1))));
+    group.bench_function("cogsci/nuts-bolts.json -i3 -a2 single-threaded", |b| b.iter(|| compression(black_box(&programs_logo_train_200), black_box(&cfg_arity2_t1), black_box(3))));
+    group.bench_function("logo/train_200.json -t10 -i3 -a2", |b| b.iter(|| compression(black_box(&programs_logo_train_200), black_box(&cfg_arity2), black_box(3))));
+    group.bench_function("cogsci/train_200.json -t10 -i3 -a3", |b| b.iter(|| compression(black_box(&programs_logo_train_200), black_box(&cfg_arity3), black_box(3))));
+    group.bench_function("cogsci/nuts-bolts.json -t10 -i3 -a2", |b| b.iter(|| compression(black_box(&programs_nuts_bolts), black_box(&cfg_arity2), black_box(3))));
+    group.bench_function("cogsci/nuts-bolts.json -t10 -i3 -a3", |b| b.iter(|| compression(black_box(&programs_nuts_bolts), black_box(&cfg_arity3), black_box(3))));
+    group.bench_function("cogsci/dials.json -i1 -t10 -a2", |b| b.iter(|| compression(black_box(&programs_dials), black_box(&cfg_arity2), black_box(1))));
+    group.bench_function("cogsci/furniture.json -t10 -i1 -a2", |b| b.iter(|| compression(black_box(&programs_furniture), black_box(&cfg_arity2), black_box(1))));
     group.finish();
     println!("Total `cargo bench` time: {}s", tstart.elapsed().as_secs());
+    println!("{}/target/criterion/compression/report/index.html", std::env::current_dir().unwrap().to_str().unwrap())
 }
 
 criterion_group!(benches, compression_benchmark);
