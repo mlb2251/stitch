@@ -42,13 +42,20 @@ To see a full list of command line options run `cargo run --release --bin=compre
 
 Comparing your feature before merging it:
 
-```bash
+```
+git checkout main
+cargo bench
+git checkout feature
+cargo bench
+```
+
+<!-- ```bash
 git checkout main
 cargo bench --bench=compress_bench -- --save-baseline=main
 git checkout feature
 cargo bench --bench=compress_bench -- --save-baseline=feature
 cargo bench -- --load-baseline=feature --baseline=master
-```
+``` -->
 
 Details:
 
