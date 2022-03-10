@@ -27,3 +27,10 @@ colorful = "0.2.1"
 
 [profile.release]
 debug = true # for flamegraphs
+
+[dev-dependencies]
+criterion = {version = "0.3", features = ["html_reports"]}
+
+[[bench]]
+name = "compress_bench"
+harness = false # so we can add our own benchmarking harness
