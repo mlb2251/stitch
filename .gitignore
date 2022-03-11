@@ -6,3 +6,5 @@ flamegraph.svg
 .DS_Store
 
 out/
+
+bindings/
