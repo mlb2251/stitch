@@ -30,6 +30,10 @@ Brief guide to reading this:
 
 ## Command line arguments
 
+- `--max-arity=2` or `-a2` controls max arity of invention found (default is 2)
+- `--iterations=10` or `-i10` controls how many iterations of compression to run. Each iteration produces one invention (which can build on the previous ones)
+- `--threads=10` or `-t10` is a quick way to boost performance by multithreading (default is 1)
+
 To see a full list of command line options run `cargo run --release --bin=compress -- --help`
 
 ## Disabling optimizations
