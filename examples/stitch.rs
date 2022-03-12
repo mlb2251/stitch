@@ -1,10 +1,15 @@
 use stitch::*;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
-use std::collections::HashMap;
+use serde_json::json;
 
 
-/// Runs compression
+/// Calls compression.rs::compression(), and has a similar API to bin/compress.rs
+/// `programs` should be a list of program strings. Keyword arguments exist for
+/// all the parameters of CompressionStepConfig (eg max_arity etc). `iterations` controls
+/// the number of inventions that are returned.
+/// Returns: a json string similar to the output of bin/compress.rs with some minor changes.
+/// You can parse this string with `import json; json.loads(output)`.
 #[pyfunction(
     programs,
     "*",
@@ -41,7 +46,7 @@ fn compression(
     no_opt_upper_bound: bool,
     no_opt_force_multiuse: bool,
     no_opt_useless_abstract: bool,
-    no_stats: bool) -> HashMap<String,String> {
+    no_stats: bool) -> String {
 
     let cfg = CompressionStepConfig {
         max_arity,
@@ -61,35 +66,25 @@ fn compression(
     };
 
     let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
-    println!("{}","**********".blue().bold());
-    println!("{}","* Stitch *".blue().bold());
-    println!("{}","**********".blue().bold());
     programs_info(&programs);
-
     let programs: Expr = Expr::programs(programs);
-    
-    py.allow_threads(||
-        unimplemented!()
-    )
+
+    // release the GIL and call compression
+    let step_results = py.allow_threads(||
+        stitch::compression(&programs, iterations, &cfg)
+    );
+
+    let out = json!({
+        "cfg": cfg,
+        "iterations": iterations,
+        "original_cost": programs.cost(),
+        "original": programs.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+        "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
+    });
+
+    // return as something you could json.loads(out) from in python
+    out.to_string()
 }
-
-/// Formats the sum of two numbers as string.
-// #[pyfunction(
-//     a,
-//     "*",
-//     b = "10",
-//     c = "10",
-// )]
-// #[pyo3(text_signature = "(a, *, b, c)")]
-// fn soot(a: usize, b: usize) -> PyResult<String> {
-//     Ok((a + b).to_string())
-// }
-
-/// Formats the sum of two numbers as string.
-// #[pyfunction]
-// fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
-//     Ok((a + b).to_string())
-// }
 
 /// A Python module implemented in Rust.
 #[pymodule]
