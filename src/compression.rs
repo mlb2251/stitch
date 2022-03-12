@@ -749,6 +749,51 @@ fn other_utility_upper_bound(
     structure_penalty
 }
 
+/// Multistep compression. See `compression_step` if you'd just like to do a single step of compression.
+pub fn compression(
+    programs_expr: &Expr,
+    iterations: usize,
+    cfg: &CompressionStepConfig,
+) -> Vec<CompressionStepResult> {
+    let mut rewritten: Expr = programs_expr.clone();
+    let mut step_results: Vec<CompressionStepResult> = Default::default();
+
+    let tstart = std::time::Instant::now();
+
+    for i in 0..iterations {
+        println!("{}",format!("\n=======Iteration {}=======",i).blue().bold());
+        let inv_name = format!("fn_{}",step_results.len());
+
+        // call actual compression
+        let res: Vec<CompressionStepResult> = compression_step(
+            &rewritten,
+            &inv_name,
+            &cfg,
+            &step_results);
+
+        if !res.is_empty() {
+            // rewrite with the invention
+            let res: CompressionStepResult = res[0].clone();
+            rewritten = res.rewritten.clone();
+            println!("Chose Invention {}: {}", res.inv.name, res);
+            step_results.push(res);
+        } else {
+            println!("No inventions found at iteration {}",i);
+            break;
+        }
+    }
+
+    println!("{}","\n=======Compression Summary=======".blue().bold());
+    println!("Found {} inventions", step_results.len());
+    println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(programs_expr,&rewritten), programs_expr.cost(), rewritten.cost());
+    for i in 0..step_results.len() {
+        let res = &step_results[i];
+        println!("{} ({:.2}x wrt orig): {}" ,res.inv.name, compression_factor(programs_expr, &res.rewritten), res);
+    }
+    println!("Time: {}ms", tstart.elapsed().as_millis());
+    step_results
+}
+
 /// Takes a set of programs as an Expr with Programs as its root, and does one full step of compresison.
 /// Returns the top Inventions and the Expr rewritten under that invention along with other useful info in CompressionStepResult
 /// The number of inventions returned is based on cfg.inv_candidates

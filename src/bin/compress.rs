@@ -91,60 +91,17 @@ fn main() {
         println!("Normal dreamcoder programs never have unapplied lambdas in them! Who knows what might happen if you run this. Probably it will be fine");
     }
 
-    compression(&programs, &args);
-}
-
-fn compression(
-    programs_expr: &Expr,
-    args: &Args,
-) -> Vec<CompressionStepResult> {
-    let mut rewritten: Expr = programs_expr.clone();
-    let mut step_results: Vec<CompressionStepResult> = Default::default();
-
-    let tstart = std::time::Instant::now();
-
-    for i in 0..args.iterations {
-        println!("{}",format!("\n=======Iteration {}=======",i).blue().bold());
-        let inv_name = format!("fn_{}",step_results.len());
-
-        // call actual compression
-        let res: Vec<CompressionStepResult> = compression_step(
-            &rewritten,
-            &inv_name,
-            &args.step,
-            &step_results);
-
-        if !res.is_empty() {
-            // rewrite with the invention
-            let res: CompressionStepResult = res[0].clone();
-            rewritten = res.rewritten.clone();
-            println!("Chose Invention {}: {}", res.inv.name, res);
-            step_results.push(res);
-        } else {
-            println!("No inventions found at iteration {}",i);
-            break;
-        }
-    }
-
-    println!("{}","\n=======Compression Summary=======".blue().bold());
-    println!("Found {} inventions", step_results.len());
-    println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(programs_expr,&rewritten), programs_expr.cost(), rewritten.cost());
-    for i in 0..step_results.len() {
-        let res = &step_results[i];
-        println!("{} ({:.2}x wrt orig): {}" ,res.inv.name, compression_factor(programs_expr, &res.rewritten), res);
-    }
-    println!("Time: {}ms", tstart.elapsed().as_millis());
+    let step_results = compression(&programs, args.iterations, &args.step);
 
     // write everything to json
     let out = json!({
         "cmd": std::env::args().join(" "),
         "args": args,
-        "original_cost": programs_expr.cost(),
-        "original": programs_expr.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+        "original_cost": programs.cost(),
+        "original": programs.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
         "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
     });
 
     std::fs::write(&args.out, serde_json::to_string_pretty(&out).unwrap()).unwrap();
     println!("Wrote to {:?}",args.out);
-    step_results
 }
