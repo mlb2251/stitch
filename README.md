@@ -46,7 +46,8 @@ Currently initial Python bindings are offered.
 - Build the bindings by running `./gen_bindings.sh` (they will be added to `bindings/`)
   - Tell me or open an issue if this command doesn't work! It may vary by OS and the current command may be somewhat OSX-specific in the `rustc` flags used but that could be improved
 - Add the `stitch/bindings/` folder to your `$PYTHONPATH`, for example by adding `export PYTHONPATH="$PYTHONPATH:path/to/stitch/bindings/"` to your  `~/.bashrc` or however you do it with your particular shell / venv. This will mean the `stitch.so` file is in your python path which will let you import it.
-- Launch `python` and try to `import stitch`. As a simple example run `stitch.compression(["(a a a)", "(b b b)"], iterations=1, max_arity=2)` and it should find the `(#0 #0 #0)` invention
+- Launch `python` and try to `import stitch`.
+- As a simple example run the Python code `import stitch,json; result = json.loads(stitch.compression(["(a a a)", "(b b b)"], iterations=1, max_arity=2)); print("Result:", result)` and it should find the `(#0 #0 #0)` invention.
 - There are a lot more keyword arguments available (full list in `examples/stitch.rs` which is where the bindings live since keeping things in `examples/` is a workaround for having a project generate a cdylib for Python bindings in addition to normal Rust/). Basically everything that you would find in  `cargo run --release --bin=compress -- --help` is included.
 
 ## Benchmarking
