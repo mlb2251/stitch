@@ -1,3 +1,4 @@
+#!/bin/bash
 # This script just compiles the python bindings for stitch. While there are nicer ways to properly publish a library,
 # for development purposes this is fine. If you add "path/to/stitch/target/release/" to your python path then 
 # you can import stitch with `import stitch`. You can modify your python path with `sys.path.append("path/to/stitch/bindings/")`
@@ -7,3 +8,4 @@ set -e
 mkdir -p bindings
 cargo rustc --release --example=stitch -- -C link-arg=-undefined -C link-arg=dynamic_lookup
 mv target/release/examples/libstitch.dylib bindings/stitch.so
+echo "added bindings: bindings/stitch.so"
