@@ -40,6 +40,15 @@ To see a full list of command line options run `cargo run --release --bin=compre
 
 `cargo run --release --bin=compress data/cogsci/nuts-bolts.json -i3 --no-opt-free-vars --no-opt-upper-bound --no-opt-single-use --no-opt-force-multiuse`
 
+## Python Bindings
+
+Currently initial Python bindings are offered.
+- Build the bindings by running `./gen_bindings.sh` (they will be added to `bindings/`)
+  - Tell me or open an issue if this command doesn't work! It may vary by OS and the current command may be somewhat OSX-specific in the `rustc` flags used but that could be improved
+- Add the `stitch/bindings/` folder to your `$PYTHONPATH`, for example by adding `export PYTHONPATH="$PYTHONPATH:path/to/stitch/bindings/"` to your  `~/.bashrc` or however you do it with your particular shell / venv. This will mean the `stitch.so` file is in your python path which will let you import it.
+- Launch `python` and try to `import stitch`. As a simple example run `stitch.compression(["(a a a)", "(b b b)"], iterations=1, max_arity=2)` and it should find the `(#0 #0 #0)` invention
+- There are a lot more keyword arguments available (full list in `examples/stitch.rs` which is where the bindings live since keeping things in `examples/` is a workaround for having a project generate a cdylib for Python bindings in addition to normal Rust/). Basically everything that you would find in  `cargo run --release --bin=compress -- --help` is included.
+
 ## Benchmarking
 
 * `cargo bench` runs the benchmarks. Running it twice in a row (e.g. from different branches) will do a comparison
