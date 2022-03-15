@@ -33,9 +33,9 @@ pub struct Args {
     #[clap(long)]
     pub truncate: Option<usize>,
 
-    /// the format of the input, e.g. 'programs-list' for simple arrays of programs
-    /// or 'dreamcoder' for a json in the style expected by the original dreamcoder codebase.
-    /// See [formats.rs] for all options or add new ones.
+    /// the format of the input file, e.g. 'programs-list' for a simple JSON array of programs
+    /// or 'dreamcoder' for a JSON in the style expected by the original dreamcoder codebase.
+    /// See [formats.rs] for options or to add new ones.
     #[clap(long, arg_enum, default_value = "programs-list")]
     pub fmt: InputFormat,
 
