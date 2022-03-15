@@ -881,7 +881,7 @@ pub fn compression_step(
         let body_utility = egraph[*node].data.inventionless_cost;
         let compressive_utility = compressive_utility(body_utility, &ztuple, &nodes, &num_paths_to_node, &egraph, &appzipper_of_node_zid);
         let utility = compressive_utility + other_utility(body_utility);
-        if utility == 0 { continue; }
+        if utility <= 0 { continue; }
 
         donelist.push(FinishedItem::new(ztuple,nodes, utility, compressive_utility));
     }
@@ -1095,7 +1095,7 @@ fn initial_inventions(
             let compressive_utility = compressive_utility(left_utility + right_utility, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
             let utility = compressive_utility + other_utility(left_utility + right_utility);
             // push to donelist if better than worst thing on donelist
-            if utility > *lowest_donelist_utility {
+            if utility >= 0 && utility > *lowest_donelist_utility {
                 donelist.push(FinishedItem::new(ztuple.clone(), group, utility, compressive_utility));
                 // if you beat the cutoff, we need to update the cutoff (regardless of whether its --lossy-candidates or not)
                 if utility > *utility_pruning_cutoff {
@@ -1127,7 +1127,7 @@ fn initial_inventions(
             let global_right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), &egraph)).sum::<i32>();
             let upper_bound = other_utility_upper_bound(left_utility) + compressive_utility_upper_bound(left_utility, global_right_utility_upper_bound, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
             // push to worklist if utility upper bound is good enough
-            if cfg.no_opt_upper_bound || upper_bound > *utility_pruning_cutoff {
+            if cfg.no_opt_upper_bound || (upper_bound >= 0 && upper_bound > *utility_pruning_cutoff) {
                 worklist.push_back(WorklistItem::new(ztuple.clone(), group, left_utility, upper_bound));
                 // worklist.push(HeapItem::new(WorklistItem::new(ZTuple::single(zid), group, left_utility, upper_bound)));
                 // worklist.sort_by_key(|wi| -wi.left_utility);
@@ -1302,8 +1302,9 @@ fn derive_inventions(
                 let right_utility = right_edge_utility(right_edge_key(&group[0]), &*egraph);
                 let compressive_utility = compressive_utility(left_utility + right_utility, &new_ztuple, &group, &*num_paths_to_node, &*egraph, &*appzipper_of_node_zid);
                 let utility = compressive_utility + other_utility(left_utility + right_utility);
-
-                donelist_buf.push(FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility));
+                if utility >= 0 {
+                    donelist_buf.push(FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility));
+                }
             }
     
             // *******************
@@ -1328,7 +1329,10 @@ fn derive_inventions(
                 let global_right_utility_upper_bound = group.iter().map(|node| num_paths_to_node[node] * right_edge_utility(right_edge_key(node), &*egraph)).sum::<i32>();
                 let upper_bound = other_utility_upper_bound(left_utility) + compressive_utility_upper_bound(left_utility, global_right_utility_upper_bound, &new_ztuple, &group, &*num_paths_to_node, &*egraph, &*appzipper_of_node_zid);
 
-                worklist_buf.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
+                if upper_bound >= 0 {
+                    worklist_buf.push(WorklistItem::new(new_ztuple.clone(), group, left_utility, upper_bound));
+                }
+
             }
 
             // a multiuse invention that is present at all the nodes from the original worklist AND
