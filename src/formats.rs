@@ -12,7 +12,7 @@ pub enum InputFormat {
 }
 
 impl InputFormat {
-    pub fn load_programs(&self, path: &Path) -> Result<Vec<String>, Error> {
+    pub fn load_programs(&self, path: &Path) -> Result<Vec<String>, String> {
         match self {
             &InputFormat::Dreamcoder => {
                 // read dreamcoder format
@@ -22,7 +22,7 @@ impl InputFormat {
                 Ok(programs)
             }
             &InputFormat::ProgramsList => {
-                Ok(from_reader(File::open(path).expect("file not found")).unwrap_or_else(|_|panic!("json parse error, are you sure you wanted format {:?}?", self)))
+                from_reader(File::open(path).map_err(|e| format!("file not found, error code {:?}", e))?).map_err(|e| format!("json parser error, error code {:?}", e))?
             }
         }
     }
