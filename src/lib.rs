@@ -10,6 +10,7 @@ mod compression;
 mod util;
 mod extraction;
 mod egraphs;
+mod formats;
 
 pub use {
     egg::*,
@@ -20,6 +21,7 @@ pub use {
     macros::*,
     extraction::*,
     egraphs::{*,EGraph},
+    formats::*,
 };
 
 pub use colorful::{Color,Colorful,RGB};
