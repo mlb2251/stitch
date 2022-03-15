@@ -10,6 +10,7 @@ use serde_json::json;
 use itertools::Itertools;
 
 
+
 /// Compression
 #[derive(Parser, Debug, Serialize)]
 #[clap(name = "Stitch")]
@@ -63,11 +64,11 @@ fn main() {
     let mut programs: Vec<String> = if args.dc_fmt {
         // read dreamcoder format
         let json: serde_json::Value = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
-        let mut programs: Vec<String> = json["frontiers"].as_array().unwrap().iter().map(|f| f["programs"].as_array().unwrap().iter().map(|p|p["program"].as_str().unwrap().to_string())).flatten().collect();
+        let mut programs: Vec<String> = json["frontiers"].as_array().unwrap_or_else(||panic!("json parse error, are you sure you wanted --dc-fmt ?")).iter().map(|f| f["programs"].as_array().unwrap().iter().map(|p|p["program"].as_str().unwrap().to_string())).flatten().collect();
         programs = programs.iter().map(|p| p.replace("(lambda ","(lam ")).collect();
         programs
     } else {
-        from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error")
+        from_reader(File::open(&args.file).expect("file not found")).unwrap_or_else(|_|panic!("json parse error, did you mean to include --dc-fmt ?"))
     };
     
     
@@ -81,10 +82,12 @@ fn main() {
     // parse the program strings into expressions
     let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
 
-    for prog in programs.iter() {
-        println!("{}", prog);
-    }
-
+    // for prog in programs.iter() {
+    //     println!("{}", prog);
+    // }
+    println!("{}","**********".blue().bold());
+    println!("{}","* Stitch *".blue().bold());
+    println!("{}","**********".blue().bold());
     programs_info(&programs);
 
     // build a single `Expr::Programs` node from these programs. Stitch uses these because often we want to treat
@@ -96,60 +99,23 @@ fn main() {
         println!("Normal dreamcoder programs never have unapplied lambdas in them! Who knows what might happen if you run this. Probably it will be fine");
     }
 
-    compression(&programs, &args);
-}
-
-fn compression(
-    programs_expr: &Expr,
-    args: &Args,
-) -> Vec<CompressionStepResult> {
-    let mut rewritten: Expr = programs_expr.clone();
-    let mut step_results: Vec<CompressionStepResult> = Default::default();
-
-    let tstart = std::time::Instant::now();
-
-    for i in 0..args.iterations {
-        println!("\n=======Iteration {}=======",i);
-        let inv_name = format!("inv{}",step_results.len());
-
-        // call actual compression
-        let res: Vec<CompressionStepResult> = compression_step(
-            &rewritten,
-            &inv_name,
-            &args.step,
-            &step_results);
-
-        if !res.is_empty() {
-            // rewrite with the invention
-            let res: CompressionStepResult = res[0].clone();
-            rewritten = res.rewritten.clone();
-            println!("Chose Invention {}: {}", res.inv.name, res);
-            step_results.push(res);
-        } else {
-            println!("No inventions found at iteration {}",i);
-            break;
-        }
-    }
-
-    println!("\n=======Compression Summary=======");
-    println!("Found {} inventions", step_results.len());
-    println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(programs_expr,&rewritten), programs_expr.cost(), rewritten.cost());
-    for i in 0..step_results.len() {
-        let res = &step_results[i];
-        println!("{} ({:.2}x wrt orig): {}" ,res.inv.name, compression_factor(programs_expr, &res.rewritten), res);
-    }
-    println!("Time: {}ms", tstart.elapsed().as_millis());
+    let step_results = compression(&programs, args.iterations, &args.step);
 
     // write everything to json
     let out = json!({
         "cmd": std::env::args().join(" "),
         "args": args,
-        "original_cost": programs_expr.cost(),
-        "original": programs_expr.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+        "original_cost": programs.cost(),
+        "original": programs.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
         "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
     });
 
-    std::fs::write(&args.out, serde_json::to_string_pretty(&out).unwrap()).unwrap();
-    println!("Wrote to {:?}",args.out);
-    step_results
+    let out_path = &args.out;
+    if let Some(out_path_dir) = out_path.parent() {
+        if !out_path_dir.exists() {
+            std::fs::create_dir_all(out_path_dir).unwrap();
+        }
+    }
+    std::fs::write(out_path, serde_json::to_string_pretty(&out).unwrap()).unwrap();
+    println!("Wrote to {:?}", out_path);
 }
