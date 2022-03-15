@@ -22,7 +22,7 @@ impl InputFormat {
                 Ok(programs)
             }
             &InputFormat::ProgramsList => {
-                from_reader(File::open(path).map_err(|e| format!("file not found, error code {:?}", e))?).map_err(|e| format!("json parser error, error code {:?}", e))?
+                from_reader(File::open(path).map_err(|e| format!("file not found, error code {:?}", e))?).map_err(|e| format!("json parser error, are you sure you wanted format {:?}? Error code was {:?}", self, e))
             }
         }
     }
