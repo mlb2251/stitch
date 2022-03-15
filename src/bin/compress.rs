@@ -102,6 +102,12 @@ fn main() {
         "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
     });
 
-    std::fs::write(&args.out, serde_json::to_string_pretty(&out).unwrap()).unwrap();
-    println!("Wrote to {:?}",args.out);
+    let out_path = &args.out;
+    if let Some(out_path_dir) = out_path.parent() {
+        if !out_path_dir.exists() {
+            std::fs::create_dir_all(out_path_dir).unwrap();
+        }
+    }
+    std::fs::write(out_path, serde_json::to_string_pretty(&out).unwrap()).unwrap();
+    println!("Wrote to {:?}", out_path);
 }
