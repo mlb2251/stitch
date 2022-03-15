@@ -34,7 +34,7 @@ pub struct Args {
     pub truncate: Option<usize>,
 
     /// use dreamcoder format
-    #[clap(arg_enum, default_value = "default")]
+    #[clap(long, arg_enum, default_value = "programs-list")]
     pub fmt: InputFormat,
 
     #[clap(flatten)]
@@ -50,7 +50,7 @@ fn main() {
     // assert!(!out_dir_p.exists());
     // std::fs::create_dir(out_dir_p).unwrap();
     
-    let mut programs: Vec<String> = args.fmt.load_program(&args.file).unwrap();
+    let mut programs: Vec<String> = args.fmt.load_programs(&args.file).unwrap();
     
     if args.shuffle {
         programs.shuffle(&mut rand::thread_rng());

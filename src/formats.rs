@@ -5,18 +5,14 @@ use clap::ArgEnum;
 use serde::Serialize;
 use serde_json::de::from_reader;
 
-pub trait InputLoader {
-    fn load_program(&self, path: &Path) -> Result<Vec<String>, Error>;
-}
-
 #[derive(Debug, Clone, ArgEnum, Serialize)]
 pub enum InputFormat {
     Dreamcoder,
-    Default
+    ProgramsList
 }
 
-impl InputLoader for InputFormat {
-    fn load_program(&self, path: &Path) -> Result<Vec<String>, Error> {
+impl InputFormat {
+    pub fn load_programs(&self, path: &Path) -> Result<Vec<String>, Error> {
         match self {
             &InputFormat::Dreamcoder => {
                 // read dreamcoder format
@@ -25,7 +21,7 @@ impl InputLoader for InputFormat {
                 programs = programs.iter().map(|p| p.replace("(lambda ","(lam ")).collect();
                 Ok(programs)
             }
-            &InputFormat::Default => {
+            &InputFormat::ProgramsList => {
                 Ok(from_reader(File::open(path).expect("file not found")).unwrap_or_else(|_|panic!("json parse error, are you sure you wanted format {:?}?", self)))
             }
         }
