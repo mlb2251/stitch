@@ -191,7 +191,7 @@ pub struct CompressionStepConfig {
 
     /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
     /// unless --lossy-candidates is enabled.
-    #[clap(short='a', long, default_value = "1")]
+    #[clap(short='n', long, default_value = "1")]
     pub inv_candidates: usize,
 
     /// By default we use a LIFO worklist but this is certainly something to explore more
