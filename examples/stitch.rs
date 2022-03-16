@@ -46,7 +46,10 @@ fn compression(
     no_opt_upper_bound: bool,
     no_opt_force_multiuse: bool,
     no_opt_useless_abstract: bool,
-    no_stats: bool) -> String {
+    no_stats: bool,
+    no_ctx_thread: bool,
+    no_other_util: bool,
+    ) -> String {
 
     let cfg = CompressionStepConfig {
         max_arity,
@@ -63,6 +66,8 @@ fn compression(
         no_opt_force_multiuse,
         no_opt_useless_abstract,
         no_stats,
+        no_other_util,
+        no_ctx_thread,
     };
 
     let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();

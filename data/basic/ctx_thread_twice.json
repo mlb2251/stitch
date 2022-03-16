@@ -1,0 +1,5 @@
+[
+
+    "(A (lam (lam (+ (a b c $0 $1 f) (a b c $0 $1 f)))))",
+    "(A (lam (lam (+ (a b z $0 $1 f) (a b z $0 $1 f)))))"
+]

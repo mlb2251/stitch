@@ -1,4 +1,4 @@
 [
     "(app Y (lam (lam (app (app (app if (app is_nil $0)) nil) (app (app cons (app (app + (app car $0)) (app car $0))) (app $1 (app cdr $0)))))))",
-    "(app Y (lam (lam (app (app (app if (app is_nil $0)) nil) (app (app cons (app (app - (app car $0)) t1)) (app $1 (app cdr $0)))))))"
+    "(app Y (lam (lam (app (app (app if (app is_nil $0)) nil) (app (app cons (app (app - (app car $0)) 1))            (app $1 (app cdr $0)))))))"
 ]
