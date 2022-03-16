@@ -1,4 +1,3 @@
-use std::io::Error;
 use std::path::Path;
 use std::fs::File;
 use clap::ArgEnum;
