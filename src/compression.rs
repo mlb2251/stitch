@@ -792,6 +792,7 @@ fn other_utility_upper_bound(
     left_utility: i32,
     cfg: &CompressionStepConfig,
 ) -> i32 {
+    if cfg.no_other_util { return 0; }
     // safe bound: since structure_penalty is negative an upper bound is anything less negative or exact. Since
     // left_utility < body_utility we know that this will be a less negative bound.
     let structure_penalty = - left_utility * 3 / 2;
