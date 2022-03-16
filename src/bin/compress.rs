@@ -1,6 +1,4 @@
 use stitch::*;
-use std::fs::File;
-use serde_json::de::from_reader;
 // extern crate log;
 use clap::Parser;
 use rand::seq::SliceRandom;
@@ -35,9 +33,11 @@ pub struct Args {
     #[clap(long)]
     pub truncate: Option<usize>,
 
-    /// use dreamcoder format
-    #[clap(long)]
-    pub dc_fmt: bool,
+    /// the format of the input file, e.g. 'programs-list' for a simple JSON array of programs
+    /// or 'dreamcoder' for a JSON in the style expected by the original dreamcoder codebase.
+    /// See [formats.rs] for options or to add new ones.
+    #[clap(long, arg_enum, default_value = "programs-list")]
+    pub fmt: InputFormat,
 
     /// disable all optimizations
     #[clap(long)]
@@ -60,17 +60,7 @@ fn main() {
     // assert!(!out_dir_p.exists());
     // std::fs::create_dir(out_dir_p).unwrap();
     
-    // load programs in from one of two different json formats depending on the --dc-fmt flag
-    let mut programs: Vec<String> = if args.dc_fmt {
-        // read dreamcoder format
-        let json: serde_json::Value = from_reader(File::open(&args.file).expect("file not found")).expect("json deserializing error");
-        let mut programs: Vec<String> = json["frontiers"].as_array().unwrap_or_else(||panic!("json parse error, are you sure you wanted --dc-fmt ?")).iter().map(|f| f["programs"].as_array().unwrap().iter().map(|p|p["program"].as_str().unwrap().to_string())).flatten().collect();
-        programs = programs.iter().map(|p| p.replace("(lambda ","(lam ")).collect();
-        programs
-    } else {
-        from_reader(File::open(&args.file).expect("file not found")).unwrap_or_else(|_|panic!("json parse error, did you mean to include --dc-fmt ?"))
-    };
-    
+    let mut programs: Vec<String> = args.fmt.load_programs(&args.file).unwrap();
     
     if args.shuffle {
         programs.shuffle(&mut rand::thread_rng());
