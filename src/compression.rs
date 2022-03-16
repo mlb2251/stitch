@@ -661,7 +661,7 @@ impl CompressionStepResult {
 impl fmt::Display for CompressionStepResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.expected_cost != self.final_cost {
-            write!(f,"[cost mismatch] ")?;
+            write!(f,"[cost mismatch of {}] ", self.expected_cost - self.final_cost)?;
         }
         write!(f, "utility: {} | final_cost: {} | {:.2}x | uses: {} | body: {}",
             self.done.utility, self.final_cost, self.multiplier, self.uses, self.inv)
