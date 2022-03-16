@@ -265,6 +265,7 @@ impl CompressionStepConfig {
         self.no_opt_single_use = true;
         self.no_opt_upper_bound = true;
         self.no_opt_force_multiuse = true;
+        self.no_opt_useless_abstract = true;
     }
 }
 
