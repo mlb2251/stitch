@@ -21,7 +21,7 @@ impl InputFormat {
                 let mut programs: Vec<String> = Vec::default();
                 let mut tasks: Vec<String> = Vec::default();
                 for frontier in frontiers {
-                    let programs_in_frontier: Vec<String> = frontier["programs"].as_array().unwrap().iter().map(|p|p["program"].as_str().unwrap().to_string()).collect();
+                    let programs_in_frontier: Vec<String> = frontier["programs"].as_array().unwrap().iter().map(|p|p["program"].as_str().unwrap().to_string()).map(|p| p.replace("(lambda ","(lam ")).collect();
                     let task: String = frontier["task"].as_str().unwrap().to_string();
                     let task_repeated: Vec<String> = repeat(task).take(programs_in_frontier.len()).collect();
                     programs.extend(programs_in_frontier);
