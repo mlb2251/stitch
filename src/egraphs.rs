@@ -163,23 +163,35 @@ fn topological_ordering_rec(root: Id, egraph: &EGraph, vec: &mut Vec<Id>) {
     }
 }
 
-pub fn associate_tasks(programs_root: Id, egraph: &EGraph, tasks: &Vec<String>) -> HashMap<Id, HashSet<String>> {
+pub fn associate_tasks(programs_root: Id, egraph: &EGraph, tasks: &Vec<String>) -> HashMap<Id, HashSet<usize>> {
+
+    // this is the map from egraph node ids to tasks (represented with unique usizes) that we will be building
     let mut tasks_of_node = HashMap::new();
+
     let program_roots = egraph[programs_root].nodes[0].children();
     assert_eq!(program_roots.len(), tasks.len());
+
+    // since the tasks may not be listed in any specific order, we need to keep track of whether we've already
+    // made an id for a given task or not
+    let mut ids_of_tasks = HashMap::new();  // Keep track of the task -> task id mapping as we build the result
+    let mut task_id: usize = 0;
     for (program_root, task) in program_roots.iter().zip(tasks) {
-        associate_task_rec(*program_root, egraph, task, &mut tasks_of_node)
+        if !ids_of_tasks.contains_key(task) {
+            ids_of_tasks.insert(task, task_id);
+            task_id += 1;
+        }
+        associate_task_rec(*program_root, egraph, *ids_of_tasks.get(task).unwrap(), &mut tasks_of_node)
     }
     tasks_of_node
 }
 
-fn associate_task_rec(node: Id, egraph: &EGraph, task: &String, tasks_of_node: &mut HashMap<Id, HashSet<String>>) {
+fn associate_task_rec(node: Id, egraph: &EGraph, task_id: usize, tasks_of_node: &mut HashMap<Id, HashSet<usize>>) {
     if !tasks_of_node.keys().contains(&node) {
         tasks_of_node.insert(node, HashSet::new());
     }
     let entry = tasks_of_node.get_mut(&node).unwrap();
-    entry.insert(task.clone());
+    entry.insert(task_id);
     for child in egraph[node].nodes[0].children() {
-        associate_task_rec(*child, egraph, task, tasks_of_node);
+        associate_task_rec(*child, egraph, task_id, tasks_of_node);
     }
 }

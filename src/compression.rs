@@ -905,7 +905,7 @@ pub fn compression_step(
     let mut worklist: VecDeque<WorklistItem> = Default::default(); // worklist that holds partially constructed inventions
     // let mut worklist: BinaryHeap<HeapItem> = Default::default();
     let mut donelist: Vec<FinishedItem> = Default::default(); // completed inventions will go here
-    let tasks_of_node: HashMap<Id, HashSet<String>> = associate_tasks(programs_node, &egraph, tasks);
+    let tasks_of_node: HashMap<Id, HashSet<usize>> = associate_tasks(programs_node, &egraph, tasks);
 
     // populate first_mergeable_zid_of_zid
     for (i,zpath) in zpaths.iter().enumerate() {
@@ -1125,7 +1125,7 @@ fn initial_inventions(
     num_paths_to_node: &HashMap<Id,i32>,
     stats: &mut Stats,
     cfg: &CompressionStepConfig,
-    tasks_of_node: &HashMap<Id, HashSet<String>>,
+    tasks_of_node: &HashMap<Id, HashSet<usize>>,
 ) {
     for (zid,nodes) in nodes_of_zid.iter().enumerate() {
         let ztuple = ZTuple::single(zid);
@@ -1239,7 +1239,7 @@ fn derive_inventions(
     num_paths_to_node: Arc<HashMap<Id,i32>>,
     stats: Arc<Mutex<Stats>>,
     cfg: Arc<CompressionStepConfig>,
-    tasks_of_node: Arc<HashMap<Id, HashSet<String>>>,
+    tasks_of_node: Arc<HashMap<Id, HashSet<usize>>>,
 ) {
     let mut worklist_buf: Vec<WorklistItem> = Default::default();
     let mut donelist_buf: Vec<FinishedItem> = Default::default();
