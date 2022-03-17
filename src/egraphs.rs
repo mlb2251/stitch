@@ -1,5 +1,7 @@
+use itertools::Itertools;
+
 use crate::*;
-use std::collections::{HashSet};
+use std::collections::{HashMap, HashSet};
 
 pub type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
 
@@ -158,5 +160,42 @@ fn topological_ordering_rec(root: Id, egraph: &EGraph, vec: &mut Vec<Id>) {
     if !vec.contains(&root) {
         // if we're already a child of someone else earlier we dont need to be readded
         vec.push(root);
+    }
+}
+
+pub fn associate_tasks(programs_root: Id, egraph: &EGraph, tasks: &Vec<String>) -> HashMap<Id, HashSet<usize>> {
+
+    // this is the map from egraph node ids to tasks (represented with unique usizes) that we will be building
+    let mut tasks_of_node = HashMap::new();
+
+    let program_roots = egraph[programs_root].nodes[0].children();
+    assert_eq!(program_roots.len(), tasks.len());
+
+    // since the tasks may not be listed in any specific order, we need to keep track of whether we've already
+    // made an id for a given task or not
+    let mut ids_of_tasks = HashMap::new();  // Keep track of the task -> task id mapping as we build the result
+    let mut task_id: usize = 0;
+    for (program_root, task) in program_roots.iter().zip(tasks) {
+        if !ids_of_tasks.contains_key(task) {
+            ids_of_tasks.insert(task, task_id);
+            task_id += 1;
+        }
+        associate_task_rec(*program_root, egraph, *ids_of_tasks.get(task).unwrap(), &mut tasks_of_node)
+    }
+
+    // defensive sanity check that each entry is non-empty
+    assert!(tasks_of_node.values().all(|tasks| !tasks.is_empty()));
+
+    tasks_of_node
+}
+
+fn associate_task_rec(node: Id, egraph: &EGraph, task_id: usize, tasks_of_node: &mut HashMap<Id, HashSet<usize>>) {
+    if !tasks_of_node.keys().contains(&node) {
+        tasks_of_node.insert(node, HashSet::new());
+    }
+    let entry = tasks_of_node.get_mut(&node).unwrap();
+    entry.insert(task_id);
+    for child in egraph[node].nodes[0].children() {
+        associate_task_rec(*child, egraph, task_id, tasks_of_node);
     }
 }

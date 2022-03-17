@@ -1,5 +1,5 @@
 use crate::*;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
@@ -179,6 +179,7 @@ struct Stats {
     free_vars_done_fired: usize,
     free_vars_wip_fired: usize,
     single_use_done_fired: usize,
+    single_task_done_fired: usize,
     single_use_wip_fired: usize,
     force_multiuse_fired: usize,
 }
@@ -232,6 +233,10 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_opt_single_use: bool,
 
+    /// disable the single task pruning optimization
+    #[clap(long)]
+    pub no_opt_single_task: bool,
+
     /// disable the upper bound pruning optimization
     #[clap(long)]
     pub no_opt_upper_bound: bool,
@@ -263,6 +268,7 @@ impl CompressionStepConfig {
     pub fn no_opt(&mut self) {
         self.no_opt_free_vars = true;
         self.no_opt_single_use = true;
+        self.no_opt_single_task = true;
         self.no_opt_upper_bound = true;
         self.no_opt_force_multiuse = true;
         self.no_opt_useless_abstract = true;
@@ -805,6 +811,7 @@ pub fn compression(
     programs_expr: &Expr,
     iterations: usize,
     cfg: &CompressionStepConfig,
+    tasks: &Vec<String>,
 ) -> Vec<CompressionStepResult> {
     let mut rewritten: Expr = programs_expr.clone();
     let mut step_results: Vec<CompressionStepResult> = Default::default();
@@ -820,7 +827,8 @@ pub fn compression(
             &rewritten,
             &inv_name,
             &cfg,
-            &step_results);
+            &step_results,
+            tasks);
 
         if !res.is_empty() {
             // rewrite with the invention
@@ -853,6 +861,7 @@ pub fn compression_step(
     new_inv_name: &str, // name of the new invention, like "inv4"
     cfg: &CompressionStepConfig,
     past_invs: &Vec<CompressionStepResult>, // past inventions we've found
+    tasks: &Vec<String>,
 ) -> Vec<CompressionStepResult> {
 
     // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
@@ -896,6 +905,7 @@ pub fn compression_step(
     let mut worklist: VecDeque<WorklistItem> = Default::default(); // worklist that holds partially constructed inventions
     // let mut worklist: BinaryHeap<HeapItem> = Default::default();
     let mut donelist: Vec<FinishedItem> = Default::default(); // completed inventions will go here
+    let tasks_of_node: HashMap<Id, HashSet<usize>> = associate_tasks(programs_node, &egraph, tasks);
 
     // populate first_mergeable_zid_of_zid
     for (i,zpath) in zpaths.iter().enumerate() {
@@ -926,6 +936,10 @@ pub fn compression_step(
     for node in treenodes.iter() {
         if *node == programs_node { continue; }
         if !egraph[*node].data.free_vars.is_empty() { continue; }
+        if tasks_of_node[&node].len() < 2 { continue; }
+        // Note that "single use" pruning is intentionally not done here,
+        // since any invention specific to a node will by definition only
+        // be useful at that node
         
         let ztuple = ZTuple::empty();
         let nodes = vec![*node];
@@ -934,7 +948,7 @@ pub fn compression_step(
         let utility = compressive_utility + other_utility(body_utility, cfg);
         if utility <= 0 { continue; }
 
-        donelist.push(FinishedItem::new(ztuple,nodes, utility, compressive_utility));
+        donelist.push(FinishedItem::new(ztuple, nodes, utility, compressive_utility));
     }
     println!("got {} arity zero inventions ({:?}ms)", donelist.len(), tstart.elapsed().as_millis());
 
@@ -964,6 +978,7 @@ pub fn compression_step(
         &num_paths_to_node,
         &mut stats,
         cfg,
+        &tasks_of_node,
     );
 
     println!("initial_inventions(): {:?}ms", tstart.elapsed().as_millis());
@@ -997,6 +1012,7 @@ pub fn compression_step(
     let num_paths_to_node =          Arc::new(num_paths_to_node);
     // unfortunately since we dont own `cfg` we can't `move` it into an Arc so we need to duplicate it here - no worries it's lightweight
     let cfg: Arc<CompressionStepConfig> = Arc::new(cfg.clone()); 
+    let tasks_of_node = Arc::new(tasks_of_node);
     
     // *********************
     // * DERIVE INVENTIONS *
@@ -1013,6 +1029,7 @@ pub fn compression_step(
             Arc::clone(&num_paths_to_node),
             Arc::clone(&stats),
             Arc::clone(&cfg),
+            Arc::clone(&tasks_of_node),
         )
     } else {
         // Multithreaded
@@ -1027,6 +1044,7 @@ pub fn compression_step(
             let num_paths_to_node =          Arc::clone(&num_paths_to_node);
             let stats =                      Arc::clone(&stats);
             let cfg =                        Arc::clone(&cfg);
+            let tasks_of_node = Arc::clone(&tasks_of_node);
             
             // launch thread to just call derive_inventions()
             handles.push(thread::spawn(move || {
@@ -1039,6 +1057,7 @@ pub fn compression_step(
                     num_paths_to_node,
                     stats,
                     cfg,
+                    tasks_of_node,
                 )}));
         }
         // wait for all threads to finish (when all have empty worklists)
@@ -1106,6 +1125,7 @@ fn initial_inventions(
     num_paths_to_node: &HashMap<Id,i32>,
     stats: &mut Stats,
     cfg: &CompressionStepConfig,
+    tasks_of_node: &HashMap<Id, HashSet<usize>>,
 ) {
     for (zid,nodes) in nodes_of_zid.iter().enumerate() {
         let ztuple = ZTuple::single(zid);
@@ -1145,6 +1165,14 @@ fn initial_inventions(
             let right_utility = right_edge_utility(right_edge_key(&group[0]), &egraph);
             let compressive_utility = compressive_utility(left_utility + right_utility, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
             let utility = compressive_utility + other_utility(left_utility + right_utility, cfg);
+
+            // prune finished inventions specific to one single task
+            if !cfg.no_opt_single_task
+                    && group.iter().all(|node| tasks_of_node[&node].len() == 1)
+                    && group.iter().all(|node| tasks_of_node[&group[0]].iter().next() == tasks_of_node[&node].iter().next()) {
+                stats.single_task_done_fired += 1;
+                continue;
+            }
             // push to donelist if better than worst thing on donelist
             if utility >= 0 && utility > *lowest_donelist_utility {
                 donelist.push(FinishedItem::new(ztuple.clone(), group, utility, compressive_utility));
@@ -1166,6 +1194,15 @@ fn initial_inventions(
                 stats.single_use_wip_fired += 1;
                 continue;
             }
+
+            // prune partial inventions specific to one single task
+            if !cfg.no_opt_single_task
+                    && group.iter().all(|node| tasks_of_node[&node].len() == 1)
+                    && group.iter().all(|node| tasks_of_node[&group[0]].iter().next() == tasks_of_node[&node].iter().next()) {
+                stats.single_task_done_fired += 1;
+                continue;
+            }
+
             // prune partial inentions that contain free variables in their concrete part
             if !cfg.no_opt_free_vars && edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
                 // panic!("hey");
@@ -1202,6 +1239,7 @@ fn derive_inventions(
     num_paths_to_node: Arc<HashMap<Id,i32>>,
     stats: Arc<Mutex<Stats>>,
     cfg: Arc<CompressionStepConfig>,
+    tasks_of_node: Arc<HashMap<Id, HashSet<usize>>>,
 ) {
     let mut worklist_buf: Vec<WorklistItem> = Default::default();
     let mut donelist_buf: Vec<FinishedItem> = Default::default();
@@ -1340,6 +1378,14 @@ fn derive_inventions(
                     if !cfg.no_stats { stats.lock().deref_mut().single_use_done_fired += 1; };
                     continue;
                 }
+
+                // prune partial inventions specific to one single task
+                if !cfg.no_opt_single_task
+                        && group.iter().all(|node| tasks_of_node[&node].len() == 1)
+                        && group.iter().all(|node| tasks_of_node[&group[0]].iter().next() == tasks_of_node[&node].iter().next()) {
+                    stats.lock().deref_mut().single_task_done_fired += 1;
+                    continue;
+                }
                 // prune inventions that contain free variables
                 if edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
                     edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph) ||
@@ -1365,6 +1411,14 @@ fn derive_inventions(
                 // prune partial inventions that are only useful at one node
                 if !cfg.no_opt_single_use && group.len() <= 1 {
                     if !cfg.no_stats { stats.lock().deref_mut().single_use_wip_fired += 1; };
+                    continue;
+                }
+
+                // prune partial inventions specific to one single task
+                if !cfg.no_opt_single_task
+                        && group.iter().all(|node| tasks_of_node[&node].len() == 1)
+                        && group.iter().all(|node| tasks_of_node[&group[0]].iter().next() == tasks_of_node[&node].iter().next()) {
+                    stats.lock().deref_mut().single_task_done_fired += 1;
                     continue;
                 }
                 // prune partial inventions that contain free variables in their concrete part
