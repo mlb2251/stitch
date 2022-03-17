@@ -1009,6 +1009,7 @@ pub fn compression_step(
     let num_paths_to_node =          Arc::new(num_paths_to_node);
     // unfortunately since we dont own `cfg` we can't `move` it into an Arc so we need to duplicate it here - no worries it's lightweight
     let cfg: Arc<CompressionStepConfig> = Arc::new(cfg.clone()); 
+    let tasks_of_node = Arc::new(tasks_of_node);
     
     // *********************
     // * DERIVE INVENTIONS *
@@ -1025,6 +1026,7 @@ pub fn compression_step(
             Arc::clone(&num_paths_to_node),
             Arc::clone(&stats),
             Arc::clone(&cfg),
+            Arc::clone(&tasks_of_node),
         )
     } else {
         // Multithreaded
@@ -1039,6 +1041,7 @@ pub fn compression_step(
             let num_paths_to_node =          Arc::clone(&num_paths_to_node);
             let stats =                      Arc::clone(&stats);
             let cfg =                        Arc::clone(&cfg);
+            let tasks_of_node = Arc::clone(&tasks_of_node);
             
             // launch thread to just call derive_inventions()
             handles.push(thread::spawn(move || {
@@ -1051,6 +1054,7 @@ pub fn compression_step(
                     num_paths_to_node,
                     stats,
                     cfg,
+                    tasks_of_node,
                 )}));
         }
         // wait for all threads to finish (when all have empty worklists)
@@ -1159,7 +1163,7 @@ fn initial_inventions(
             let compressive_utility = compressive_utility(left_utility + right_utility, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
             let utility = compressive_utility + other_utility(left_utility + right_utility, cfg);
 
-            // prune the invention if specific to one single task
+            // prune finished inventions specific to one single task
             if !cfg.no_opt_single_task
                     && group.iter().all(|node| tasks_of_node[&node].len() <= 1)
                     && group.iter().all(|node| tasks_of_node[&group[0]].iter().next() == tasks_of_node[&node].iter().next()) {
@@ -1187,6 +1191,15 @@ fn initial_inventions(
                 stats.single_use_wip_fired += 1;
                 continue;
             }
+
+            // prune partial inventions specific to one single task
+            if !cfg.no_opt_single_task
+                    && group.iter().all(|node| tasks_of_node[&node].len() <= 1)
+                    && group.iter().all(|node| tasks_of_node[&group[0]].iter().next() == tasks_of_node[&node].iter().next()) {
+                stats.single_task_done_fired += 1;
+                continue;
+            }
+
             // prune partial inentions that contain free variables in their concrete part
             if !cfg.no_opt_free_vars && edge_has_free_vars(left_edge_key(&group[0]), path_key(&group[0]),  0, &egraph) {
                 // panic!("hey");
@@ -1223,6 +1236,7 @@ fn derive_inventions(
     num_paths_to_node: Arc<HashMap<Id,i32>>,
     stats: Arc<Mutex<Stats>>,
     cfg: Arc<CompressionStepConfig>,
+    tasks_of_node: Arc<HashMap<Id, HashSet<String>>>,
 ) {
     let mut worklist_buf: Vec<WorklistItem> = Default::default();
     let mut donelist_buf: Vec<FinishedItem> = Default::default();
@@ -1361,6 +1375,14 @@ fn derive_inventions(
                     if !cfg.no_stats { stats.lock().deref_mut().single_use_done_fired += 1; };
                     continue;
                 }
+
+                // prune partial inventions specific to one single task
+                if !cfg.no_opt_single_task
+                        && group.iter().all(|node| tasks_of_node[&node].len() <= 1)
+                        && group.iter().all(|node| tasks_of_node[&group[0]].iter().next() == tasks_of_node[&node].iter().next()) {
+                    stats.lock().deref_mut().single_task_done_fired += 1;
+                    continue;
+                }
                 // prune inventions that contain free variables
                 if edge_has_free_vars(left_fold_key(&group[0]), left_fold_path_key(&group[0]),  div_depth, &egraph) ||
                     edge_has_free_vars(right_fold_key(&group[0]), right_fold_path_key(&group[0]),  div_depth, &egraph) ||
@@ -1386,6 +1408,14 @@ fn derive_inventions(
                 // prune partial inventions that are only useful at one node
                 if !cfg.no_opt_single_use && group.len() <= 1 {
                     if !cfg.no_stats { stats.lock().deref_mut().single_use_wip_fired += 1; };
+                    continue;
+                }
+
+                // prune partial inventions specific to one single task
+                if !cfg.no_opt_single_task
+                        && group.iter().all(|node| tasks_of_node[&node].len() <= 1)
+                        && group.iter().all(|node| tasks_of_node[&group[0]].iter().next() == tasks_of_node[&node].iter().next()) {
+                    stats.lock().deref_mut().single_task_done_fired += 1;
                     continue;
                 }
                 // prune partial inventions that contain free variables in their concrete part
