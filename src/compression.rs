@@ -937,6 +937,7 @@ pub fn compression_step(
         let compressive_utility = compressive_utility(body_utility, &ztuple, &nodes, &num_paths_to_node, &egraph, &appzipper_of_node_zid);
         let utility = compressive_utility + other_utility(body_utility, cfg);
         if utility <= 0 { continue; }
+        if tasks_of_node[&node].len() < 2 { continue; }
 
         donelist.push(FinishedItem::new(ztuple,nodes, utility, compressive_utility));
     }
