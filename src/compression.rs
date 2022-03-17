@@ -1,5 +1,5 @@
 use crate::*;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
@@ -810,6 +810,21 @@ fn other_utility_upper_bound(
     structure_penalty
 }
 
+/// https://github.com/mlb2251/stitch/pull/83
+fn second_beta_inversion_refinement(done: &mut FinishedItem) {
+    let descendants_of_node: HashMap<Id,HashSet<Id>> = unimplemented!();
+    for arg in done.ztuple.multiarg.iter() {
+        // make a list of the possible args we could move into the invention body to refine it
+        let possible_args: HashSet<Id> = done.nodes.iter()
+            .map(|node| descendants_of_node[node].iter().copied())
+            .flatten().collect();
+        for arg in possible_args {
+            let utility_improvement: i32 = unimplemented!();
+            if utility_improvement <= 0 { continue; }
+        }
+    }
+}
+
 /// Multistep compression. See `compression_step` if you'd just like to do a single step of compression.
 pub fn compression(
     programs_expr: &Expr,
@@ -1363,8 +1378,10 @@ fn derive_inventions(
                 let right_utility = right_edge_utility(right_edge_key(&group[0]), &*egraph);
                 let compressive_utility = compressive_utility(left_utility + right_utility, &new_ztuple, &group, &*num_paths_to_node, &*egraph, &*appzipper_of_node_zid);
                 let utility = compressive_utility + other_utility(left_utility + right_utility, &cfg);
-                if utility >= 0 {
-                    donelist_buf.push(FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility));
+                let mut done = FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility);
+                second_beta_inversion_refinement(&mut done);
+                if done.utility >= 0 {
+                    donelist_buf.push(done);
                 }
             }
     
