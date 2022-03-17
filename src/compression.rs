@@ -900,7 +900,6 @@ pub fn compression_step(
     // let mut worklist: BinaryHeap<HeapItem> = Default::default();
     let mut donelist: Vec<FinishedItem> = Default::default(); // completed inventions will go here
     let tasks_of_node: HashMap<Id, HashSet<String>> = associate_tasks(programs_node, &egraph, tasks);
-    println!("{:?}", tasks_of_node);
 
     // populate first_mergeable_zid_of_zid
     for (i,zpath) in zpaths.iter().enumerate() {
