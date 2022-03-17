@@ -5,13 +5,15 @@ use serde_json::json;
 
 
 /// Calls compression.rs::compression(), and has a similar API to bin/compress.rs
-/// `programs` should be a list of program strings. Keyword arguments exist for
+/// `programs` should be a list of program strings. `tasks` should be a list of task name strings,
+/// with length equal to that of programs. Keyword arguments exist for
 /// all the parameters of CompressionStepConfig (eg max_arity etc). `iterations` controls
 /// the number of inventions that are returned.
 /// Returns: a json string similar to the output of bin/compress.rs with some minor changes.
 /// You can parse this string with `import json; json.loads(output)`.
 #[pyfunction(
     programs,
+    tasks,
     "*",
     iterations = "3",
     max_arity = "2",
@@ -32,6 +34,7 @@ use serde_json::json;
 fn compression(
     py: Python,
     programs: Vec<String>,
+    tasks: Vec<String>,
     iterations: usize,
     max_arity: usize,
     threads: usize,
@@ -43,6 +46,7 @@ fn compression(
     show_rewritten: bool,
     no_opt_free_vars: bool,
     no_opt_single_use: bool,
+    no_opt_single_task: bool,
     no_opt_upper_bound: bool,
     no_opt_force_multiuse: bool,
     no_opt_useless_abstract: bool,
@@ -62,6 +66,7 @@ fn compression(
         show_rewritten,
         no_opt_free_vars,
         no_opt_single_use,
+        no_opt_single_task,
         no_opt_upper_bound,
         no_opt_force_multiuse,
         no_opt_useless_abstract,
@@ -76,7 +81,7 @@ fn compression(
 
     // release the GIL and call compression
     let step_results = py.allow_threads(||
-        stitch::compression(&programs, iterations, &cfg)
+        stitch::compression(&programs, iterations, &cfg, &tasks)
     );
 
     let out = json!({
