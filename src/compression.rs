@@ -179,6 +179,7 @@ struct Stats {
     free_vars_done_fired: usize,
     free_vars_wip_fired: usize,
     single_use_done_fired: usize,
+    single_task_done_fired: usize,
     single_use_wip_fired: usize,
     force_multiuse_fired: usize,
 }
@@ -232,6 +233,10 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_opt_single_use: bool,
 
+    /// disable the single task pruning optimization
+    #[clap(long)]
+    pub no_opt_single_task: bool,
+
     /// disable the upper bound pruning optimization
     #[clap(long)]
     pub no_opt_upper_bound: bool,
@@ -263,6 +268,7 @@ impl CompressionStepConfig {
     pub fn no_opt(&mut self) {
         self.no_opt_free_vars = true;
         self.no_opt_single_use = true;
+        self.no_opt_single_task = true;
         self.no_opt_upper_bound = true;
         self.no_opt_force_multiuse = true;
         self.no_opt_useless_abstract = true;
@@ -939,7 +945,7 @@ pub fn compression_step(
         if utility <= 0 { continue; }
         if tasks_of_node[&node].len() < 2 { continue; }
 
-        donelist.push(FinishedItem::new(ztuple,nodes, utility, compressive_utility));
+        donelist.push(FinishedItem::new(ztuple, nodes, utility, compressive_utility));
     }
     println!("got {} arity zero inventions ({:?}ms)", donelist.len(), tstart.elapsed().as_millis());
 
@@ -1152,13 +1158,16 @@ fn initial_inventions(
             let right_utility = right_edge_utility(right_edge_key(&group[0]), &egraph);
             let compressive_utility = compressive_utility(left_utility + right_utility, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
             let utility = compressive_utility + other_utility(left_utility + right_utility, cfg);
+
+            // prune the invention if specific to one single task
+            if !cfg.no_opt_single_task
+                    && group.iter().all(|node| tasks_of_node[&node].len() <= 1)
+                    && group.iter().all(|node| tasks_of_node[&group[0]].iter().next() == tasks_of_node[&node].iter().next()) {
+                stats.single_task_done_fired += 1;
+                continue;
+            }
             // push to donelist if better than worst thing on donelist
-            // and the invention is not specific to one single task
-            if utility >= 0
-               && utility > *lowest_donelist_utility
-               && (group.iter().any(|node| tasks_of_node[&node].len() > 1)
-                   || group.iter().any(|node| tasks_of_node[&group[0]].iter().next() != tasks_of_node[&node].iter().next()))
-            {
+            if utility >= 0 && utility > *lowest_donelist_utility {
                 donelist.push(FinishedItem::new(ztuple.clone(), group, utility, compressive_utility));
                 // if you beat the cutoff, we need to update the cutoff (regardless of whether its --lossy-candidates or not)
                 if utility > *utility_pruning_cutoff {
