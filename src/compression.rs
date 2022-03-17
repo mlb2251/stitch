@@ -781,10 +781,20 @@ fn compressive_utility_upper_bound(
                 egraph[appzipper_of_node_zid[&(*node,arg_zid)].arg].data.inventionless_cost
             ).sum::<i32>()
         ).sum::<i32>();
+    // EXPERIMENTAL: weaken the upper bound to the point that it gets utility equal to each multiarg. This
+    // likely causes a considerable slowdown but accounts for the fact that we may "refine" an arg to put some
+    // of it back into the invention body for nested search.
+    let global_multiarg_utility = ztuple.multiarg.iter()
+    .map(|&arg_zid| // for each extra use of a multiuse arg
+        nodes.iter().map(|node| // for each node
+            num_paths_to_node[node] * // account for same node being used in multiple subtrees
+            egraph[appzipper_of_node_zid[&(*node,arg_zid)].arg].data.inventionless_cost
+        ).sum::<i32>()
+    ).sum::<i32>();
     // safe bound: number of usage locations will only decrease in offspring inventions
     let num_uses = nodes.iter().map(|node| num_paths_to_node[node]).sum::<i32>();
     // safe bound: summing a bunch of safe bounds is safe
-    num_uses * (app_penalty + left_utility) + global_multiuse_utility + global_right_utility_upper_bound
+    num_uses * (app_penalty + left_utility) + global_multiuse_utility + global_right_utility_upper_bound + global_multiarg_utility
 }
 
 /// This takes a partial invention and gives an upper bound on the maximum
