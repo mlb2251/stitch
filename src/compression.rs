@@ -1,5 +1,5 @@
 use crate::*;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
@@ -805,6 +805,7 @@ pub fn compression(
     programs_expr: &Expr,
     iterations: usize,
     cfg: &CompressionStepConfig,
+    tasks: &Vec<String>,
 ) -> Vec<CompressionStepResult> {
     let mut rewritten: Expr = programs_expr.clone();
     let mut step_results: Vec<CompressionStepResult> = Default::default();
@@ -820,7 +821,8 @@ pub fn compression(
             &rewritten,
             &inv_name,
             &cfg,
-            &step_results);
+            &step_results,
+            tasks);
 
         if !res.is_empty() {
             // rewrite with the invention
@@ -853,6 +855,7 @@ pub fn compression_step(
     new_inv_name: &str, // name of the new invention, like "inv4"
     cfg: &CompressionStepConfig,
     past_invs: &Vec<CompressionStepResult>, // past inventions we've found
+    tasks: &Vec<String>,
 ) -> Vec<CompressionStepResult> {
 
     // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
@@ -896,6 +899,8 @@ pub fn compression_step(
     let mut worklist: VecDeque<WorklistItem> = Default::default(); // worklist that holds partially constructed inventions
     // let mut worklist: BinaryHeap<HeapItem> = Default::default();
     let mut donelist: Vec<FinishedItem> = Default::default(); // completed inventions will go here
+    let tasks_of_node: HashMap<Id, HashSet<String>> = associate_tasks(programs_node, &egraph, tasks);
+    println!("{:?}", tasks_of_node);
 
     // populate first_mergeable_zid_of_zid
     for (i,zpath) in zpaths.iter().enumerate() {
@@ -964,6 +969,7 @@ pub fn compression_step(
         &num_paths_to_node,
         &mut stats,
         cfg,
+        &tasks_of_node,
     );
 
     println!("initial_inventions(): {:?}ms", tstart.elapsed().as_millis());
@@ -1106,6 +1112,7 @@ fn initial_inventions(
     num_paths_to_node: &HashMap<Id,i32>,
     stats: &mut Stats,
     cfg: &CompressionStepConfig,
+    tasks_of_node: &HashMap<Id, HashSet<String>>,
 ) {
     for (zid,nodes) in nodes_of_zid.iter().enumerate() {
         let ztuple = ZTuple::single(zid);
@@ -1146,7 +1153,12 @@ fn initial_inventions(
             let compressive_utility = compressive_utility(left_utility + right_utility, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
             let utility = compressive_utility + other_utility(left_utility + right_utility, cfg);
             // push to donelist if better than worst thing on donelist
-            if utility >= 0 && utility > *lowest_donelist_utility {
+            // and the invention is not specific to one single task
+            if utility >= 0
+               && utility > *lowest_donelist_utility
+               && (group.iter().any(|node| tasks_of_node[&node].len() > 1)
+                   || group.iter().any(|node| tasks_of_node[&group[0]].iter().next() != tasks_of_node[&node].iter().next()))
+            {
                 donelist.push(FinishedItem::new(ztuple.clone(), group, utility, compressive_utility));
                 // if you beat the cutoff, we need to update the cutoff (regardless of whether its --lossy-candidates or not)
                 if utility > *utility_pruning_cutoff {

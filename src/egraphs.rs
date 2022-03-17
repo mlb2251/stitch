@@ -1,5 +1,7 @@
+use itertools::Itertools;
+
 use crate::*;
-use std::collections::{HashSet};
+use std::collections::{HashMap, HashSet};
 
 pub type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
 
@@ -158,5 +160,26 @@ fn topological_ordering_rec(root: Id, egraph: &EGraph, vec: &mut Vec<Id>) {
     if !vec.contains(&root) {
         // if we're already a child of someone else earlier we dont need to be readded
         vec.push(root);
+    }
+}
+
+pub fn associate_tasks(programs_root: Id, egraph: &EGraph, tasks: &Vec<String>) -> HashMap<Id, HashSet<String>> {
+    let mut tasks_of_node = HashMap::new();
+    let program_roots = egraph[programs_root].nodes[0].children();
+    assert_eq!(program_roots.len(), tasks.len());
+    for (program_root, task) in program_roots.iter().zip(tasks) {
+        associate_task_rec(*program_root, egraph, task, &mut tasks_of_node)
+    }
+    tasks_of_node
+}
+
+fn associate_task_rec(node: Id, egraph: &EGraph, task: &String, tasks_of_node: &mut HashMap<Id, HashSet<String>>) {
+    if !tasks_of_node.keys().contains(&node) {
+        tasks_of_node.insert(node, HashSet::new());
+    }
+    let entry = tasks_of_node.get_mut(&node).unwrap();
+    entry.insert(task.clone());
+    for child in egraph[node].nodes[0].children() {
+        associate_task_rec(*child, egraph, task, tasks_of_node);
     }
 }
