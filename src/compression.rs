@@ -1168,7 +1168,7 @@ fn initial_inventions(
 
             // prune finished inventions specific to one single task
             if !cfg.no_opt_single_task
-                    && group.iter().all(|node| tasks_of_node[&node].len() <= 1)
+                    && group.iter().all(|node| tasks_of_node[&node].len() == 1)
                     && group.iter().all(|node| tasks_of_node[&group[0]].iter().next() == tasks_of_node[&node].iter().next()) {
                 stats.single_task_done_fired += 1;
                 continue;
@@ -1197,7 +1197,7 @@ fn initial_inventions(
 
             // prune partial inventions specific to one single task
             if !cfg.no_opt_single_task
-                    && group.iter().all(|node| tasks_of_node[&node].len() <= 1)
+                    && group.iter().all(|node| tasks_of_node[&node].len() == 1)
                     && group.iter().all(|node| tasks_of_node[&group[0]].iter().next() == tasks_of_node[&node].iter().next()) {
                 stats.single_task_done_fired += 1;
                 continue;
@@ -1381,7 +1381,7 @@ fn derive_inventions(
 
                 // prune partial inventions specific to one single task
                 if !cfg.no_opt_single_task
-                        && group.iter().all(|node| tasks_of_node[&node].len() <= 1)
+                        && group.iter().all(|node| tasks_of_node[&node].len() == 1)
                         && group.iter().all(|node| tasks_of_node[&group[0]].iter().next() == tasks_of_node[&node].iter().next()) {
                     stats.lock().deref_mut().single_task_done_fired += 1;
                     continue;
@@ -1416,7 +1416,7 @@ fn derive_inventions(
 
                 // prune partial inventions specific to one single task
                 if !cfg.no_opt_single_task
-                        && group.iter().all(|node| tasks_of_node[&node].len() <= 1)
+                        && group.iter().all(|node| tasks_of_node[&node].len() == 1)
                         && group.iter().all(|node| tasks_of_node[&group[0]].iter().next() == tasks_of_node[&node].iter().next()) {
                     stats.lock().deref_mut().single_task_done_fired += 1;
                     continue;

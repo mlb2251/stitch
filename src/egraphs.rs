@@ -182,6 +182,10 @@ pub fn associate_tasks(programs_root: Id, egraph: &EGraph, tasks: &Vec<String>) 
         }
         associate_task_rec(*program_root, egraph, *ids_of_tasks.get(task).unwrap(), &mut tasks_of_node)
     }
+
+    // defensive sanity check that each entry is non-empty
+    assert!(tasks_of_node.values().all(|tasks| !tasks.is_empty()));
+
     tasks_of_node
 }
 
