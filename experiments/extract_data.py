@@ -61,7 +61,7 @@ if __name__ == "__main__":
                 "lc_score": 0.0,     # information required by LAPS, N/A or lost to time as well I believe
                 "DSL": g.json(),
                 "iterations": checkpoint.parameters['iterations'],
-                "frontiers": [f.json() for f in frontiers_at_iteration(idx).values()],
+                "frontiers": [f.json() for f in frontiers_at_iteration(idx).values() if len(f.json()['programs']) > 0],
         }
         messages.append(json.dumps(message))
 
