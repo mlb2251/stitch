@@ -16,9 +16,7 @@ Where `message.json` is in the format constructed on line 34 in [DreamCoder's co
 
 For example, `message.json` can be `data/dc/dc_log_log.json` if you first make the following modifications to the latter:
 1. `pseudoCounts`, `aic`, `structurePenalty` should be of type `float`, not `int`
-2. `lc_score` needs to be added to the JSON. Setting it to `0.0` should be safe if you're only running compression in isolation.
-
-TODO(theoxo): Double check with Cathy/Gabe that it's OK to set `lc_score` to `0.0` if running compression outside of the LAPS/DreamCoder loop. 
+2. `lc_score` needs to be added to the JSON. Setting it to `0.0` should be safe if you're only running compression in isolation (confirmed by C.W; the field is only used by LAPS to weight the NL input)
 
 # Evaluate the likelihood of programs under a new Grammar
 TODO
