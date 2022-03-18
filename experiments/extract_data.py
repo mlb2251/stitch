@@ -45,12 +45,10 @@ if __name__ == "__main__":
     def frontiers_at_iteration(i): return {task: checkpoint.frontiersOverTime[task][i] for task in checkpoint.frontiersOverTime.keys()}
 
     messages = []  # one compression message per iteration
-    for idx, g in enumerate(checkpoint.grammars[1:]):
-        # Note above that I am not saving the first grammar. This is because, as I understand things,
-        # the very first grammar is the grammar _before_ any iterations,
-        # so the frontiers are offset by 1.
-        # Either that or we should drop the _last_ grammar; I'm honestly not sure.
-        # They are certainly offset by 1 in one of the two directions at least -- see the assertion below
+    for idx, g in enumerate(checkpoint.grammars[:-1]):
+        # Note above that I am not saving the last grammar. This is because, as I understand things,
+        # the very last grammar is the grammar after _all_ of compression, and so does not have any
+        # frontiers associated with it (and is thus irrelevant for our teacher-forcing purposes?)
         assert (all([len(checkpoint.grammars) - 1 == len(checkpoint.frontiersOverTime[t]) for t in checkpoint.frontiersOverTime.keys()]))
         message = {"arity": checkpoint.parameters['arity'],
                 "topK": checkpoint.parameters['topK'],
