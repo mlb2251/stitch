@@ -811,14 +811,20 @@ fn other_utility_upper_bound(
 }
 
 /// https://github.com/mlb2251/stitch/pull/83
-fn second_beta_inversion_refinement(done: &mut FinishedItem) {
-    let descendants_of_node: HashMap<Id,HashSet<Id>> = unimplemented!();
-    for arg in done.ztuple.multiarg.iter() {
+fn second_beta_inversion_refinement(
+    done: &mut FinishedItem,
+    descendants_of_node: &HashMap<Id,HashSet<Id>>,
+    appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
+) {
+    for multiarg_zid in done.ztuple.multiarg.iter() {
         // make a list of the possible args we could move into the invention body to refine it
         let possible_args: HashSet<Id> = done.nodes.iter()
-            .map(|node| descendants_of_node[node].iter().copied())
-            .flatten().collect();
+            .map(|node| appzipper_of_node_zid[&(*node,*multiarg_zid)].arg) // lookup arg
+            .map(|arg| descendants_of_node[&arg].iter().copied()) // lookup descendents of arg
+            .flatten().collect(); // collect into hashset to dedup
         for arg in possible_args {
+            
+
             let utility_improvement: i32 = unimplemented!();
             if utility_improvement <= 0 { continue; }
         }
@@ -1379,7 +1385,7 @@ fn derive_inventions(
                 let compressive_utility = compressive_utility(left_utility + right_utility, &new_ztuple, &group, &*num_paths_to_node, &*egraph, &*appzipper_of_node_zid);
                 let utility = compressive_utility + other_utility(left_utility + right_utility, &cfg);
                 let mut done = FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility);
-                second_beta_inversion_refinement(&mut done);
+                second_beta_inversion_refinement(&mut done, unimplemented!(), &appzipper_of_node_zid);
                 if done.utility >= 0 {
                     donelist_buf.push(done);
                 }
