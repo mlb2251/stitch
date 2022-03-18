@@ -38,7 +38,7 @@ To see a full list of command line options run `cargo run --release --bin=compre
 
 ## Disabling optimizations
 
-`cargo run --release --bin=compress data/cogsci/nuts-bolts.json -i3 --no-opt-free-vars --no-opt-upper-bound --no-opt-single-use --no-opt-force-multiuse`
+`cargo run --release --bin=compress data/cogsci/nuts-bolts.json -i3 --no-opt-free-vars --no-opt-upper-bound --no-opt-single-use --no-opt-single-task --no-opt-force-multiuse`
 
 ## Python Bindings
 
