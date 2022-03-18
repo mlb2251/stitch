@@ -5,11 +5,11 @@ use std::collections::{HashMap, HashSet};
 
 pub type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
 
-#[derive(Default)]
+#[derive(Default,Clone,Debug)]
 pub struct LambdaAnalysis;
 
 /// The analysis data associated with each Lambda node
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Data {
     pub free_vars: HashSet<i32>, // $i vars. For example (lam $2) has free_vars = {1}.
     pub free_ivars: HashSet<i32>, // #i ivars

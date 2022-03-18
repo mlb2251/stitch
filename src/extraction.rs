@@ -2,8 +2,6 @@ use crate::*;
 use std::collections::{HashMap, HashSet};
 use compression::*;
 
-
-
 /// convert an egraph Id to an Expr. Assumes one node per class (just picks the first node). Note
 /// that this could cause an infinite loop if the egraph didnt just have a single node in a class
 /// and instead the first node had a self loop.
@@ -108,10 +106,11 @@ pub fn rewrite_with_invention_egraph(
 /// actually do any rewriting.
 pub fn rewritten_cost(
     root: Id,
-    inv: &Invention,
+    inv_body: &Expr,
+    inv_arity: usize,
     egraph: &mut EGraph
 ) -> i32 {
-    let inv_ptr: PtrInvention = PtrInvention::new(egraph.add_expr(&inv.body.clone().into()), inv.arity);
+    let inv_ptr: PtrInvention = PtrInvention::new(egraph.add_expr(inv_body.into()), inv_arity);
     nodecosts(root, &inv_ptr, egraph)[&root].cost
 }
 

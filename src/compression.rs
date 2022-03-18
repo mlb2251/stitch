@@ -182,6 +182,7 @@ struct Stats {
     single_task_done_fired: usize,
     single_use_wip_fired: usize,
     force_multiuse_fired: usize,
+    cost_mismatch_fired: usize,
 }
 
 /// Args for compression step
@@ -286,7 +287,7 @@ impl FinishedItem {
         FinishedItem { ztuple, nodes, utility, compressive_utility }
     }
     fn to_invention(&self, name: &str, appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>, egraph: &EGraph ) -> Invention {
-        Invention::new(self.ztuple.to_expr(self.nodes[0], appzipper_of_node_zid, egraph), self.ztuple.arity, name)
+        self.ztuple.to_invention(name, &self.nodes, appzipper_of_node_zid, egraph)
     }
 }
 
@@ -425,6 +426,9 @@ impl ZTuple {
         }
 
         expr
+    }
+    fn to_invention(&self, name: &str, nodes: &Vec<Id>, appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>, egraph: &EGraph ) -> Invention {
+        Invention::new(self.to_expr(nodes[0], appzipper_of_node_zid, egraph), self.arity, name)
     }
 }
 
@@ -940,6 +944,8 @@ pub fn compression_step(
         // Note that "single use" pruning is intentionally not done here,
         // since any invention specific to a node will by definition only
         // be useful at that node
+
+        // use-conflicts: these will never have useconflicts because a full subtree can never conflict with itself
         
         let ztuple = ZTuple::empty();
         let nodes = vec![*node];
@@ -968,11 +974,12 @@ pub fn compression_step(
     // **********************
     // (these are the single-arg single-use inventions)
     initial_inventions(
+        programs_node,
         &appzipper_of_node_zid,
         &nodes_of_zid,
         &mut worklist,
         &mut donelist,
-        &egraph,
+        &mut egraph,
         &mut lowest_donelist_utility,
         &mut utility_pruning_cutoff,
         &num_paths_to_node,
@@ -1021,6 +1028,7 @@ pub fn compression_step(
     if cfg.threads == 1 {
         // Single threaded
         derive_inventions(
+            programs_node,
             Arc::clone(&shared),
             Arc::clone(&appzipper_of_node_zid),
             Arc::clone(&zids_of_node),
@@ -1049,6 +1057,7 @@ pub fn compression_step(
             // launch thread to just call derive_inventions()
             handles.push(thread::spawn(move || {
                 derive_inventions(
+                    programs_node,
                     shared,
                     appzipper_of_node_zid,
                     zids_of_node,
@@ -1114,12 +1123,13 @@ pub fn compression_step(
 /// will all be done during `derive_inventions`. This just gets the worklist in its initial state!
 #[inline(never)]
 fn initial_inventions(
+    programs_node: Id,
     appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
     nodes_of_zid: &Vec<Vec<Id>>,
     worklist: &mut VecDeque<WorklistItem>,
     // worklist: &mut BinaryHeap<HeapItem>,
     donelist: &mut Vec<FinishedItem>,
-    egraph: &EGraph,
+    egraph: &mut EGraph,
     lowest_donelist_utility: &mut i32,
     utility_pruning_cutoff: &mut i32,
     num_paths_to_node: &HashMap<Id,i32>,
@@ -1163,8 +1173,8 @@ fn initial_inventions(
             // calculate utility of this single-arg single-use invention
             let left_utility = left_edge_utility(left_edge_key(&group[0]), &egraph);
             let right_utility = right_edge_utility(right_edge_key(&group[0]), &egraph);
-            let compressive_utility = compressive_utility(left_utility + right_utility, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
-            let utility = compressive_utility + other_utility(left_utility + right_utility, cfg);
+            let appx_compressive_utility = compressive_utility(left_utility + right_utility, &ztuple, &group, num_paths_to_node, egraph, appzipper_of_node_zid);
+            let appx_utility = appx_compressive_utility + other_utility(left_utility + right_utility, cfg);
 
             // prune finished inventions specific to one single task
             if !cfg.no_opt_single_task
@@ -1174,10 +1184,25 @@ fn initial_inventions(
                 continue;
             }
             // push to donelist if better than worst thing on donelist
-            if utility >= 0 && utility > *lowest_donelist_utility {
-                donelist.push(FinishedItem::new(ztuple.clone(), group, utility, compressive_utility));
+            if appx_utility >= 0 && appx_utility > *lowest_donelist_utility {
+                // compile into an Expr
+                let inv_body: Expr = ztuple.to_expr(group[0], appzipper_of_node_zid, egraph);
+                // figure out the cost we'd get if we rewrote everyone under this
+                let rewritten = extraction::rewritten_cost(programs_node, &inv_body, ztuple.arity, egraph);
+                let exact_compressive_utility = egraph[programs_node].data.inventionless_cost - rewritten;
+                // other_utility just takes the body size, which in this case I think is everything except the `#i`s? This is an appx
+                let exact_utility = exact_compressive_utility + other_utility(inv_body.cost() - COST_TERMINAL * ztuple.elems.len() as i32, cfg);
+
+                if exact_utility != appx_utility {
+                    stats.cost_mismatch_fired += 1;
+                }
+
+                // we can do this check again with the more exact utility
+                if exact_utility >= 0 && exact_utility > *lowest_donelist_utility {
+                    donelist.push(FinishedItem::new(ztuple.clone(), group, exact_utility, exact_compressive_utility));
+                }
                 // if you beat the cutoff, we need to update the cutoff (regardless of whether its --lossy-candidates or not)
-                if utility > *utility_pruning_cutoff {
+                if exact_utility > *utility_pruning_cutoff {
                     update_donelist(donelist, &cfg, lowest_donelist_utility, utility_pruning_cutoff);
                 }
             }
@@ -1231,6 +1256,7 @@ fn initial_inventions(
 
 #[inline(never)]
 fn derive_inventions(
+    programs_node: Id,
     shared: Arc<Mutex<MutableMultithreadData>>,
     appzipper_of_node_zid: Arc<HashMap<(Id,ZId),AppZipper>>,
     zids_of_node: Arc<Vec<Vec<ZId>>>,
@@ -1243,6 +1269,9 @@ fn derive_inventions(
 ) {
     let mut worklist_buf: Vec<WorklistItem> = Default::default();
     let mut donelist_buf: Vec<FinishedItem> = Default::default();
+
+    // for some operations we need a mutable egraph and dont want to slow down for mutexes
+    let mut local_egraph: EGraph = (*egraph).clone();
 
     // let mut till_shuffle = 100;
 
