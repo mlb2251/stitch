@@ -810,6 +810,20 @@ fn other_utility_upper_bound(
     structure_penalty
 }
 
+/// Calculate the exact utility of a completed invention by doing the full bottom up use-conflict
+/// calculation
+#[inline(always)]
+fn exact_utility(ztuple: &ZTuple, node: Id, appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>, egraph: &mut EGraph, programs_node: Id, cfg: &CompressionStepConfig) -> (i32,i32) {
+    // compile into an Expr
+    let inv_body: Expr = ztuple.to_expr(node, appzipper_of_node_zid, egraph);
+    // figure out the cost we'd get if we rewrote everyone under this
+    let rewritten = extraction::rewritten_cost(programs_node, &inv_body, ztuple.arity, egraph);
+    let exact_compressive_utility = egraph[programs_node].data.inventionless_cost - rewritten;
+    // other_utility just takes the body size, which in this case I think is everything except the `#i`s? This is an appx
+    let exact_utility = exact_compressive_utility + other_utility(inv_body.cost() - COST_TERMINAL * ztuple.elems.len() as i32, cfg);
+    (exact_utility, exact_compressive_utility)
+}
+
 /// Multistep compression. See `compression_step` if you'd just like to do a single step of compression.
 pub fn compression(
     programs_expr: &Expr,
@@ -1185,13 +1199,8 @@ fn initial_inventions(
             }
             // push to donelist if better than worst thing on donelist
             if appx_utility >= 0 && appx_utility > *lowest_donelist_utility {
-                // compile into an Expr
-                let inv_body: Expr = ztuple.to_expr(group[0], appzipper_of_node_zid, egraph);
-                // figure out the cost we'd get if we rewrote everyone under this
-                let rewritten = extraction::rewritten_cost(programs_node, &inv_body, ztuple.arity, egraph);
-                let exact_compressive_utility = egraph[programs_node].data.inventionless_cost - rewritten;
-                // other_utility just takes the body size, which in this case I think is everything except the `#i`s? This is an appx
-                let exact_utility = exact_compressive_utility + other_utility(inv_body.cost() - COST_TERMINAL * ztuple.elems.len() as i32, cfg);
+
+                let (exact_utility, exact_compressive_utility) = exact_utility(&ztuple, group[0], appzipper_of_node_zid, egraph, programs_node, cfg);
 
                 if exact_utility != appx_utility {
                     stats.cost_mismatch_fired += 1;
@@ -1426,10 +1435,18 @@ fn derive_inventions(
                 // the left side of the fold is a RIGHT-facing edge (since it faces into the fold) hence it's right_edge_utility for the left_fold_key
                 let left_utility = wi.left_utility + right_edge_utility(left_fold_key(&group[0]), &*egraph) + left_edge_utility(right_fold_key(&group[0]), &*egraph);
                 let right_utility = right_edge_utility(right_edge_key(&group[0]), &*egraph);
-                let compressive_utility = compressive_utility(left_utility + right_utility, &new_ztuple, &group, &*num_paths_to_node, &*egraph, &*appzipper_of_node_zid);
-                let utility = compressive_utility + other_utility(left_utility + right_utility, &cfg);
-                if utility >= 0 {
-                    donelist_buf.push(FinishedItem::new(new_ztuple.clone(), group, utility, compressive_utility));
+                let appx_compressive_utility = compressive_utility(left_utility + right_utility, &new_ztuple, &group, &*num_paths_to_node, &*egraph, &*appzipper_of_node_zid);
+                let appx_utility = appx_compressive_utility + other_utility(left_utility + right_utility, &cfg);
+                if appx_utility > 0 {
+                    let (exact_utility, exact_compressive_utility) = exact_utility(&new_ztuple, group[0], &*appzipper_of_node_zid, &mut local_egraph, programs_node, &*cfg);
+
+                    if exact_utility != appx_utility {
+                        if !cfg.no_stats { stats.lock().deref_mut().cost_mismatch_fired += 1; };
+                    }
+
+                    if exact_utility > 0 {
+                        donelist_buf.push(FinishedItem::new(new_ztuple.clone(), group, exact_utility, exact_compressive_utility));
+                    }
                 }
             }
     
