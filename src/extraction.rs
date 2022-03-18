@@ -112,7 +112,33 @@ pub fn rewritten_cost(
     egraph: &mut EGraph
 ) -> i32 {
     let inv_ptr: PtrInvention = PtrInvention::new(egraph.add_expr(&inv.body.clone().into()), inv.arity);
-    nodecosts(root, &inv_ptr, egraph)[&root].inventionful_cost[&inv_ptr].0
+    nodecosts(root, &inv_ptr, egraph)[&root].cost
+}
+
+#[derive(Debug, Clone)]
+struct CostEntry {
+    cost: i32, // the cost of this node when rewritten
+    args: Option<Vec<Id>>, // None if inv isnt used at this node, else args
+}
+
+impl CostEntry {
+    #[inline(always)]
+    fn new(cost: i32, args: Option<Vec<Id>>) -> Self {
+        CostEntry {
+            cost,
+            args
+        }
+    }
+    /// update to a new cost if it is lower
+    #[inline(always)]
+    fn update(&mut self, cost: i32, args: Option<Vec<Id>>) {
+        if cost < self.cost {
+            self.cost = cost;
+            self.args = args;
+        }
+    }
+
+    
 }
 
 /// Bottom-up figures out the rewritten costs for each node in the tree all the way up to the root node (the total cost of the rewritten programs)
@@ -120,166 +146,110 @@ fn nodecosts(
     root: Id,
     inv: &PtrInvention,
     egraph: &mut EGraph,
-) -> HashMap<Id,NodeCost> {
+) -> HashMap<Id, CostEntry> {
     let treenodes = topological_ordering(root, egraph);
 
-    let mut nodecost_of_treenode: HashMap<Id,NodeCost> = Default::default();
+    // let mut nodecost_of_treenode: HashMap<Id,NodeCost> = Default::default();
+    let mut cost_of_node: HashMap<Id, CostEntry> = Default::default();
     
     for treenode in treenodes.iter() {
         // println!("processing id={}: {}", treenode, extract(*treenode, egraph) );
 
-        // clone to appease the borrow checker
-        let node = egraph[*treenode].nodes[0].clone();
-
-        let mut nodecost = NodeCost::new(egraph[*treenode].data.inventionless_cost);
+        // let mut nodecost = NodeCost::new(egraph[*treenode].data.inventionless_cost);
+        let mut curr_cost = CostEntry::new(egraph[*treenode].data.inventionless_cost, None);
 
         // trying to use the invs at this node
-        if let Some(args) = match_expr_with_inv(*treenode, &inv, &mut nodecost_of_treenode, egraph) {
+        if let Some(args) = match_expr_with_inv(*treenode, &inv, &mut cost_of_node, egraph) {
             let cost: i32 =
                 COST_TERMINAL // the new primitive for this invention
                 + COST_NONTERMINAL * inv.arity as i32 // the chain of app()s needed to apply the new primitive
                 + args.iter()
-                    .map(|id| nodecost_of_treenode[&id]
-                        .cost_under_inv(&inv)) // cost under ANY of the invs since we allow multiple to be used!
+                    .map(|id| cost_of_node[&id].cost) // cost under ANY of the invs since we allow multiple to be used!
                     .sum::<i32>(); // sum costs of actual args
-                    nodecost.new_cost_under_inv(inv.clone(), cost, Some(args));
+            curr_cost.update(cost, Some(args));
         }
 
-
         // inventions based on specific node type
-        match node {
+        match &egraph[*treenode].nodes[0] {
             Lambda::IVar(_) => { unreachable!() }
             Lambda::Var(_) | Lambda::Prim(_) => {},
             Lambda::App([f,x]) => {
-                let ref f_nodecost = nodecost_of_treenode[&f];
-                let ref x_nodecost = nodecost_of_treenode[&x];
-                                
-                // costs with inventions as 1 + fcost + xcost. Use inventionless cost as a default.
-                // if either fcost or xcost is None (ie infinite)
-                let fcost = f_nodecost.cost_under_inv(&inv);
-                let xcost = x_nodecost.cost_under_inv(&inv);
-                let cost = COST_NONTERMINAL+fcost+xcost;
-                nodecost.new_cost_under_inv(inv.clone(), cost, None);
+                // cost = 1 + fcost + xcost
+                let cost = COST_NONTERMINAL + cost_of_node[&f].cost + cost_of_node[&x].cost;
+                curr_cost.update(cost, None);
             }
             Lambda::Lam([b]) => {
                 // just map +1 over the costs
-                let ref b_nodecost = nodecost_of_treenode[&b];
-                let bcost = b_nodecost.cost_under_inv(&inv);
-                nodecost.new_cost_under_inv(inv.clone(), bcost + COST_NONTERMINAL, None);
+                let cost = COST_NONTERMINAL + cost_of_node[&b].cost;
+                curr_cost.update(cost, None);
             }
             Lambda::Programs(roots) => {
                 // no filtering for 2+ uses because we're just doing rewriting here
-                let cost = roots.iter().map(|root| {
-                        nodecost_of_treenode[root].cost_under_inv(&inv)
-                    }).sum();
-                    nodecost.new_cost_under_inv(inv.clone(), cost, None);
+                let cost = roots.iter().map(|root| cost_of_node[root].cost).sum();
+                curr_cost.update(cost, None);
             }
         }
-
-        nodecost_of_treenode.insert(*treenode, nodecost);
+        cost_of_node.insert(*treenode, curr_cost);
     }
-    nodecost_of_treenode
+    cost_of_node
 }
 
 fn extract_from_nodecosts(
     root: Id,
     inv: &PtrInvention,
-    nodecost_of_treenode: &HashMap<Id,NodeCost>,
+    nodecost_of_treenode: &HashMap<Id,CostEntry>,
     egraph: &EGraph,
     inv_name: &str,
 ) -> Expr {
 
-    let target_cost = nodecost_of_treenode[&root].cost_under_inv(&inv);
+    let target_cost = nodecost_of_treenode[&root].cost;
 
-    if let Some((inv,_cost,args)) = nodecost_of_treenode[&root].top_invention() {
-        if let Some(args) = args {
-            // invention was used here
-            let mut expr = Expr::prim(inv_name.clone().into());
-            // wrap the new primitive in app() calls
-            for arg in args.iter() {
-                let arg_expr = extract_from_nodecosts(*arg, &inv, nodecost_of_treenode, egraph, inv_name);
-                expr = Expr::app(expr,arg_expr);
-            }
-            assert_eq!(target_cost,expr.cost());
-            return expr
-        } else {
-            // inventions were used in our children
-            let expr: Expr = match &egraph[root].nodes[0] {
-                Lambda::Prim(_) | Lambda::Var(_) | Lambda::IVar(_) => {unreachable!()},
-                Lambda::App([f,x]) => {
-                    let f_expr = extract_from_nodecosts(*f, &inv, nodecost_of_treenode, egraph, inv_name);
-                    let x_expr = extract_from_nodecosts(*x, &inv, nodecost_of_treenode, egraph, inv_name);
-                    Expr::app(f_expr,x_expr)
-                },
-                Lambda::Lam([b]) => {
-                    let b_expr = extract_from_nodecosts(*b, &inv, nodecost_of_treenode, egraph, inv_name);
-                    Expr::lam(b_expr)
-                }
-                Lambda::Programs(roots) => {
-                    let root_exprs: Vec<Expr> = roots.iter()
-                        .map(|r| extract_from_nodecosts(*r, &inv, nodecost_of_treenode, egraph, inv_name))
-                        .collect();
-                    Expr::programs(root_exprs)
-                }
-            };
-            assert_eq!(target_cost,expr.cost());
-            return expr
-        }
-    } else {
+    if target_cost == egraph[root].data.inventionless_cost {
         // no invention was useful, just return original tree
         let expr =  extract(root, egraph);
         assert_eq!(target_cost,expr.cost());
         return expr
     }
-}
 
-/// There will be one of these structs associated with each node, and it keeps
-/// track of the best inventions for that node, their costs, and their arguments.
-#[derive(Debug,Clone)]
-struct NodeCost {
-    inventionless_cost: i32,
-    inventionful_cost: HashMap<PtrInvention, (i32,Option<Vec<Id>>)>, // i32 = cost; and Some(args) gives the arguments if the invention is used at this node
-}
-
-impl NodeCost {
-    fn new(inventionless_cost: i32) -> Self {
-        Self {
-            inventionless_cost: inventionless_cost,
-            inventionful_cost: HashMap::new()
+    if let Some(args) = &nodecost_of_treenode[&root].args {
+        // invention was used here since args is a Some()
+        let mut expr = Expr::prim(inv_name.clone().into());
+        // wrap the new primitive in app() calls
+        for arg in args.iter() {
+            let arg_expr = extract_from_nodecosts(*arg, &inv, nodecost_of_treenode, egraph, inv_name);
+            expr = Expr::app(expr,arg_expr);
         }
-    }
-    /// cost under an invention if it's useful for this node, else inventionless cost
-    fn cost_under_inv(&self, inv: &PtrInvention) -> i32 {
-        self.inventionful_cost.get(inv).map(|x|x.0).unwrap_or(self.inventionless_cost)
-    }
-    /// improve the cost using a new invention, or do nothing if we've already seen
-    /// a better cost for this invention. Also skip if inventionless cost is better.
-    fn new_cost_under_inv(&mut self, inv: PtrInvention, cost:i32, args: Option<Vec<Id>>) {
-        if cost < self.inventionless_cost {
-            if !self.inventionful_cost.contains_key(&inv)
-               || cost < self.inventionful_cost[&inv].0  {
-                self.inventionful_cost.insert(inv, (cost,args));
+        assert_eq!(target_cost,expr.cost());
+        return expr
+    } else {
+        // inventions were used in our children
+        let expr: Expr = match &egraph[root].nodes[0] {
+            Lambda::Prim(_) | Lambda::Var(_) | Lambda::IVar(_) => {unreachable!()},
+            Lambda::App([f,x]) => {
+                let f_expr = extract_from_nodecosts(*f, &inv, nodecost_of_treenode, egraph, inv_name);
+                let x_expr = extract_from_nodecosts(*x, &inv, nodecost_of_treenode, egraph, inv_name);
+                Expr::app(f_expr,x_expr)
+            },
+            Lambda::Lam([b]) => {
+                let b_expr = extract_from_nodecosts(*b, &inv, nodecost_of_treenode, egraph, inv_name);
+                Expr::lam(b_expr)
             }
+            Lambda::Programs(roots) => {
+                let root_exprs: Vec<Expr> = roots.iter()
+                    .map(|r| extract_from_nodecosts(*r, &inv, nodecost_of_treenode, egraph, inv_name))
+                    .collect();
+                Expr::programs(root_exprs)
+            }
+        };
+        assert_eq!(target_cost,expr.cost());
+        return expr
         }
-    }
-    /// Get the top inventions in decreasing order of cost
-    #[allow(dead_code)] // todo at some point add tests for this
-    fn top_inventions(&self) -> Vec<PtrInvention> {
-        let mut top_inventions: Vec<PtrInvention> = self.inventionful_cost.keys().cloned().collect();
-        top_inventions.sort_by(|a,b| self.inventionful_cost[a].0.cmp(&self.inventionful_cost[b].0));
-        top_inventions
-    }
-    /// Get the top inventions in decreasing order of cost
-    fn top_invention(&self) -> Option<(PtrInvention,i32,Option<Vec<Id>>)> {
-        self.inventionful_cost.iter().min_by_key(|(_k,v)| v.0).map(|(k,v)| (k.clone(),v.0,v.1.clone()))
-    }
 }
-
 
 fn match_expr_with_inv(
     root: Id,
     inv: &PtrInvention,
-    best_inventions_of_treenode: &mut HashMap<Id, NodeCost>,
+    best_inventions_of_treenode: &mut HashMap<Id, CostEntry>,
     egraph: &mut EGraph,
 ) -> Option<Vec<Id>> {
     let mut args: Vec<Option<Id>> = vec![None;inv.arity];
@@ -298,7 +268,7 @@ fn match_expr_with_inv_rec(
     depth: i32,
     args: &mut [Option<Id>],
     threadables: &HashSet<Id>,
-    best_inventions_of_treenode: &mut HashMap<Id, NodeCost>,
+    best_inventions_of_treenode: &mut HashMap<Id, CostEntry>,
     egraph: &mut EGraph,
 ) -> bool {
     // println!("comparing:\n\t{}\n\t{}",
@@ -347,9 +317,8 @@ fn match_expr_with_inv_rec(
                 // now copy over the best_inventions
                 if !best_inventions_of_treenode.contains_key(&arg) {
                     let mut cloned = best_inventions_of_treenode[&root].clone();
-                    cloned.inventionless_cost += COST_NONTERMINAL * num_to_thread;
-                    // we'll force this arg to not use a toplevel invention at the "lam" node hence the None
-                    cloned.inventionful_cost.iter_mut().for_each(|(_key, val)| {val.0 += COST_NONTERMINAL * num_to_thread; val.1 = None});
+                    cloned.cost += COST_NONTERMINAL * num_to_thread;
+                    cloned.args = None; // this is safe since inventions arent even allowed at lam nodes
                     best_inventions_of_treenode.insert(arg,cloned);
                 }
 
