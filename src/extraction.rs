@@ -36,14 +36,12 @@ pub fn extract_enode(enode: &Lambda, egraph: &EGraph) -> Expr {
 struct PtrInvention {
     pub body:Id, // this will be a subtree which can have IVars
     pub arity: usize, // also equal to max ivar in subtree + 1
-    pub name: String
 }
 impl PtrInvention {
-    pub fn new(body:Id, arity: usize, name: String) -> Self {
+    pub fn new(body:Id, arity: usize) -> Self {
         PtrInvention {
             body,
             arity,
-            name
         }
     }
 }
@@ -65,7 +63,6 @@ pub fn rewrite_with_inventions(
 /// 
 /// For the `EGraph` argument here you can either pass in a fresh egraph constructed by `let mut egraph = EGraph::new(); egraph.add_expr(expr.into())`
 /// or if you make repeated calls to this function feel free to pass in the same egraph over and over. It doesn't matter what is in the EGraph already.
-
 pub fn rewrite_with_invention(
     e: Expr,
     inv: &Invention,
@@ -99,8 +96,31 @@ pub fn rewrite_with_invention_egraph(
     inv: &Invention,
     egraph: &mut EGraph,
 ) -> Expr {
-    let inv: PtrInvention = PtrInvention::new(egraph.add_expr(&inv.body.clone().into()), inv.arity, inv.name.clone());
+    let inv_ptr: PtrInvention = PtrInvention::new(egraph.add_expr(&inv.body.clone().into()), inv.arity);
 
+    let nodecost_of_treenode = nodecosts(root, &inv_ptr, egraph);
+
+    // Now that we've calculated all the costs, we can extract the cheapest one
+    extract_from_nodecosts(root, &inv_ptr, &nodecost_of_treenode, egraph, &inv.name)
+}
+
+/// get the cost of this if you were to do rewriting. This calculates the bottom up cost under the hood but doesn't
+/// actually do any rewriting.
+pub fn rewritten_cost(
+    root: Id,
+    inv: &Invention,
+    egraph: &mut EGraph
+) -> i32 {
+    let inv_ptr: PtrInvention = PtrInvention::new(egraph.add_expr(&inv.body.clone().into()), inv.arity);
+    nodecosts(root, &inv_ptr, egraph)[&root].inventionful_cost[&inv_ptr].0
+}
+
+/// Bottom-up figures out the rewritten costs for each node in the tree all the way up to the root node (the total cost of the rewritten programs)
+fn nodecosts(
+    root: Id,
+    inv: &PtrInvention,
+    egraph: &mut EGraph,
+) -> HashMap<Id,NodeCost> {
     let treenodes = topological_ordering(root, egraph);
 
     let mut nodecost_of_treenode: HashMap<Id,NodeCost> = Default::default();
@@ -158,9 +178,7 @@ pub fn rewrite_with_invention_egraph(
 
         nodecost_of_treenode.insert(*treenode, nodecost);
     }
-
-    // Now that we've calculated all the costs, we can extract the cheapest one
-    extract_from_nodecosts(root, &inv, &nodecost_of_treenode, egraph)
+    nodecost_of_treenode
 }
 
 fn extract_from_nodecosts(
@@ -168,6 +186,7 @@ fn extract_from_nodecosts(
     inv: &PtrInvention,
     nodecost_of_treenode: &HashMap<Id,NodeCost>,
     egraph: &EGraph,
+    inv_name: &str,
 ) -> Expr {
 
     let target_cost = nodecost_of_treenode[&root].cost_under_inv(&inv);
@@ -175,11 +194,10 @@ fn extract_from_nodecosts(
     if let Some((inv,_cost,args)) = nodecost_of_treenode[&root].top_invention() {
         if let Some(args) = args {
             // invention was used here
-            let mut expr = Expr::prim(inv.name.clone().into());
-            // wrap the new primitive in app() calls. Note that you pass in the $0 args LAST given how appapplamlam works
-            // todo perhaps this shouldnt be a .rev() - related to what theo found
+            let mut expr = Expr::prim(inv_name.clone().into());
+            // wrap the new primitive in app() calls
             for arg in args.iter() {
-                let arg_expr = extract_from_nodecosts(*arg, &inv, nodecost_of_treenode, egraph);
+                let arg_expr = extract_from_nodecosts(*arg, &inv, nodecost_of_treenode, egraph, inv_name);
                 expr = Expr::app(expr,arg_expr);
             }
             assert_eq!(target_cost,expr.cost());
@@ -189,17 +207,17 @@ fn extract_from_nodecosts(
             let expr: Expr = match &egraph[root].nodes[0] {
                 Lambda::Prim(_) | Lambda::Var(_) | Lambda::IVar(_) => {unreachable!()},
                 Lambda::App([f,x]) => {
-                    let f_expr = extract_from_nodecosts(*f, &inv, nodecost_of_treenode, egraph);
-                    let x_expr = extract_from_nodecosts(*x, &inv, nodecost_of_treenode, egraph);
+                    let f_expr = extract_from_nodecosts(*f, &inv, nodecost_of_treenode, egraph, inv_name);
+                    let x_expr = extract_from_nodecosts(*x, &inv, nodecost_of_treenode, egraph, inv_name);
                     Expr::app(f_expr,x_expr)
                 },
                 Lambda::Lam([b]) => {
-                    let b_expr = extract_from_nodecosts(*b, &inv, nodecost_of_treenode, egraph);
+                    let b_expr = extract_from_nodecosts(*b, &inv, nodecost_of_treenode, egraph, inv_name);
                     Expr::lam(b_expr)
                 }
                 Lambda::Programs(roots) => {
                     let root_exprs: Vec<Expr> = roots.iter()
-                        .map(|r| extract_from_nodecosts(*r, &inv, nodecost_of_treenode, egraph))
+                        .map(|r| extract_from_nodecosts(*r, &inv, nodecost_of_treenode, egraph, inv_name))
                         .collect();
                     Expr::programs(root_exprs)
                 }
