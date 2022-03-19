@@ -1094,7 +1094,7 @@ pub fn compression_step(
 
         println!("{}: {}", i, res);
         if cfg.show_rewritten {
-            println!("rewritten: {}", res.rewritten);
+            println!("rewritten:\n{}", res.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"));
         }
         results.push(res);
         // if args.render_inventions {
