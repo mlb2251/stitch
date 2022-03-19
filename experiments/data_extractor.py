@@ -32,9 +32,6 @@ import string
 
 if __name__ == "__main__":
     
-    print("started:", flush=True)
-
-    print(str(sys.argv[1]))
     checkpoint_file = str(sys.argv[1])
     with open(checkpoint_file, 'rb') as file:
         checkpoint = pickle.load(file)
