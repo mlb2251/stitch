@@ -2,10 +2,10 @@
 
 # The below must match the path to the bin/ directory of the DreamCoder
 # PLDI artifact, and must not include a trailing /
-ARTIFACT_BIN_PATH="~/theoxo/stitch/artifact/bin"
+ARTIFACT_BIN_PATH="/scratch/theoxo/artifact/bin"
 # The below must match the path to the experimentOutputs/ directory
 # of the DreamCoder PLDI artifact, and must not include a trailing /
-EXP_OUTS_PATH="~/theoxo/stitch/artifact/experimentOutputs"
+EXP_OUTS_PATH="/scratch/theoxo/artifact/experimentOutputs"
 
 # These are the logfiles mentioned by K.E. in their email,
 # minus the 'recursive functional programming ones'.
@@ -67,6 +67,6 @@ for ITERATION in {1..10} ; do
     echo "Logging extraction process to $DOMAIN/$RUN/.log"
     mkdir -p "$DOMAIN/$RUN"  # this is just making a folder called e.g. regex/2019...252339/
     echo "$LOG_FILE" > "$DOMAIN/$RUN/.log"
-    python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "$DOMAIN/$RUN" > "$DOMAIN/$RUN/.log"
+    python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "$DOMAIN/$RUN" >> "$DOMAIN/$RUN/.log" 2>&1
     echo "Finished extraction from $LOG_FILE"
 done
