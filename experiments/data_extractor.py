@@ -58,16 +58,16 @@ if __name__ == "__main__":
                 "topI": 300,    # see lines 53-54 in compression.py
                 "structurePenalty": float(re.search(r'_L=([^_]+)', checkpoint_file).group(1)),
                 "CPUs": 1,     # information lost to time, I believe
-                "lc_score": 0.0,     # information required by LAPS, N/A or lost to time as well I believe
+                "lc_score": 0.0,     # weight required by LAPS, but irrelevant for our purposes
                 "DSL": g.json(),
                 "iterations": checkpoint.parameters['iterations'],
                 "frontiers": [f.json() for f in frontiers_at_iteration(idx).values() if len(f.json()['programs']) > 0],
         }
-        messages.append(json.dumps(message))
+        messages.append(json.dumps(message, indent=4))
 
     out_dir_name = sys.argv[2]
     os.makedirs(out_dir_name, exist_ok=True)
     for idx, msg in enumerate(messages):
-        with open(f'{out_dir_name}/iteration_{idx}', 'w') as outf:
+        with open(f'{out_dir_name}/iteration_{idx}.json', 'w') as outf:
             outf.write(msg)
         print(f'Wrote json msg for iteration {idx}')
