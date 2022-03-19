@@ -2,6 +2,11 @@
 
 # $1 must match the path to the DreamCoder PLDI artifact, and must
 # not include a trailing /
+if [ -z $1 ]
+then
+    echo "Usage: bash extract_all_data.sh PATH_TO_DREAMCODER_ARTIFACT" ;
+    exit 1 ;
+fi
 ARTIFACT_PATH=$1
 ARTIFACT_BIN_PATH="${ARTIFACT_PATH}/bin"  # Note: this directory must contain a copy of the "data_extractor.py" script
 EXP_OUTS_PATH="${ARTIFACT_PATH}/experimentOutputs"
