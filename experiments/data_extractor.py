@@ -63,11 +63,11 @@ if __name__ == "__main__":
                 "iterations": checkpoint.parameters['iterations'],
                 "frontiers": [f.json() for f in frontiers_at_iteration(idx).values() if len(f.json()['programs']) > 0],
         }
-        messages.append(json.dumps(message))
+        messages.append(json.dumps(message,indent=4))
 
     out_dir_name = sys.argv[2]
     os.makedirs(out_dir_name, exist_ok=True)
     for idx, msg in enumerate(messages):
-        with open(f'{out_dir_name}/iteration_{idx}', 'w') as outf:
+        with open(f'{out_dir_name}/iteration_{idx}.json', 'w') as outf:
             outf.write(msg)
         print(f'Wrote json msg for iteration {idx}')

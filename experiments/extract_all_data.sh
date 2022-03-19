@@ -2,10 +2,12 @@
 
 # The below must match the path to the bin/ directory of the DreamCoder
 # PLDI artifact, and must not include a trailing /
-ARTIFACT_BIN_PATH="/scratch/theoxo/artifact/bin"
+ARTIFACT_BIN_PATH="/scratch/mlbowers/proj/stitch/experiments/artifact/bin"
 # The below must match the path to the experimentOutputs/ directory
 # of the DreamCoder PLDI artifact, and must not include a trailing /
-EXP_OUTS_PATH="/scratch/theoxo/artifact/experimentOutputs"
+EXP_OUTS_PATH="/scratch/mlbowers/proj/stitch/experiments/artifact/experimentOutputs"
+
+cp data_extractor.py $ARTIFACT_BIN_PATH
 
 # These are the logfiles mentioned by K.E. in their email,
 # minus the 'recursive functional programming ones'.
@@ -48,7 +50,7 @@ for LOG_FILE in ${LOG_FILES[@]} ; do
     echo "Logging extraction process to $DOMAIN/$RUN/.log"
     mkdir -p "$DOMAIN/$RUN"  # this is just making a folder called e.g. regex/2019...252339/
     echo "$LOG_FILE" > "$DOMAIN/$RUN/.log"
-    python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "$DOMAIN/$RUN" >> "$DOMAIN/$RUN/.log" 2>&1
+    python3.9 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "$DOMAIN/$RUN" >> "$DOMAIN/$RUN/.log" 2>&1
     echo "Finished extraction from $LOG_FILE"
 done
 
@@ -58,7 +60,7 @@ done
 # to "rec-fp"
 # TODO(theoxo): Is this the most sane behaviour?
 for ITERATION in {1..10} ; do
-    LOG_FILE="list/2019-07-11T19:49:10.899159/list_aic=1.0_arity=4_ET=57600_it={$ITERATION}_MF=5_noConsolidation=False_pc=30.0_RW=False_solver=ocaml_STM=True_L=1.0_TRR=unsolved_K=5_topkNotMAP=False_rec=False.pickle"
+    LOG_FILE="list/2019-07-11T19:49:10.899159/list_aic=1.0_arity=4_ET=57600_it=${ITERATION}_MF=5_noConsolidation=False_pc=30.0_RW=False_solver=ocaml_STM=True_L=1.0_TRR=unsolved_K=5_topkNotMAP=False_rec=False.pickle"
     echo "Started extracting data from $LOG_FILE"
     DOMAIN="rec-fp"
     RUN=$(echo "$LOG_FILE" | awk -F "/" '{print $2}')
@@ -67,6 +69,6 @@ for ITERATION in {1..10} ; do
     echo "Logging extraction process to $DOMAIN/$RUN/.log"
     mkdir -p "$DOMAIN/$RUN"  # this is just making a folder called e.g. regex/2019...252339/
     echo "$LOG_FILE" > "$DOMAIN/$RUN/.log"
-    python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "$DOMAIN/$RUN" >> "$DOMAIN/$RUN/.log" 2>&1
+    python3.9 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "$DOMAIN/$RUN" >> "$DOMAIN/$RUN/.log" 2>&1
     echo "Finished extraction from $LOG_FILE"
 done
