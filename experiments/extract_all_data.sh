@@ -48,7 +48,7 @@ for LOG_FILE in ${LOG_FILES[@]} ; do
     echo "Logging extraction process to $DOMAIN/$RUN/.log"
     mkdir -p "$DOMAIN/$RUN"  # this is just making a folder called e.g. regex/2019...252339/
     echo "$LOG_FILE" > "$DOMAIN/$RUN/.log"
-    python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "$DOMAIN/$RUN" > "$DOMAIN/$RUN/.log"
+    python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "$DOMAIN/$RUN" >> "$DOMAIN/$RUN/.log" 2>&1
     echo "Finished extraction from $LOG_FILE"
 done
 
