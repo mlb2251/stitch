@@ -54,7 +54,11 @@ impl Analysis<Lambda> for LambdaAnalysis {
             }
             Lambda::Programs(programs) => {
                 // assert no free variables in programs
-                assert!(programs.iter().all(|p| egraph[*p].data.free_vars.is_empty()));
+                for (i,p) in programs.iter().enumerate() {
+                    if !egraph[*p].data.free_vars.is_empty() {
+                        panic!("Assert failed: free vars found in program {}:\n{}\n{:?}", i, extract(*p,egraph), egraph[*p].data.free_vars);
+                    }
+                }
                 assert!(programs.iter().all(|p| egraph[*p].data.free_ivars.is_empty()));
             }
         }

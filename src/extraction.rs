@@ -103,6 +103,9 @@ pub fn rewrite_with_invention_egraph(
 
     let treenodes = topological_ordering(root, egraph);
 
+    assert!(!treenodes.iter().any(|n| egraph[*n].nodes[0] == Lambda::Prim(Symbol::from(&inv.name))),
+        "Invention {} already in tree", inv.name);
+
     let mut nodecost_of_treenode: HashMap<Id,NodeCost> = Default::default();
     
     for treenode in treenodes.iter() {
@@ -129,7 +132,8 @@ pub fn rewrite_with_invention_egraph(
         // inventions based on specific node type
         match node {
             Lambda::IVar(_) => { unreachable!() }
-            Lambda::Var(_) | Lambda::Prim(_) => {},
+            Lambda::Var(_) => {},
+            Lambda::Prim(_) => {},
             Lambda::App([f,x]) => {
                 let ref f_nodecost = nodecost_of_treenode[&f];
                 let ref x_nodecost = nodecost_of_treenode[&x];
@@ -370,13 +374,29 @@ fn match_expr_with_inv_rec(
                 root
             } else if egraph[root].data.free_vars.iter().min().unwrap() - depth >= 0 {
                 // 2. `root` has free variables but they all point outside the invention so are safe to decrement
-                let shifted_root = shift(root, -depth, egraph, &mut None).unwrap();
+                
                 // copy the cost of the unshifted node to the shifted node (see PR#1 comments for why this is safe)
-                if !best_inventions_of_treenode.contains_key(&shifted_root) {
-                    let cloned = best_inventions_of_treenode[&root].clone();
-                    best_inventions_of_treenode.insert(shifted_root,cloned);
+                fn shift_and_fix(node: Id, depth: i32, best_inventions_of_treenode: &mut HashMap<Id,NodeCost>, egraph: &mut EGraph) -> Id {
+                    let shifted_node = shift(node, -depth, egraph, &mut None).unwrap();
+                    if best_inventions_of_treenode.contains_key(&shifted_node) {
+                        return shifted_node; // this has already been handled
+                    }
+                    let mut cloned = best_inventions_of_treenode[&node].clone();
+                    // adjust the args needed for the shifted node so that they are shifted too. Note that this
+                    // is only safe because we only ever use this for a single invention at a time so this hashtable
+                    // actually only has one invention in it. This will be adjusted to be way more clear in the use-conflicts
+                    // PR that hasnt yet been merged.
+                    // Note that you propagate down the same "depth" for the shift amount for all recursive calls, I think this is correct
+                    
+                    cloned.inventionful_cost.iter_mut().for_each(|(_key, val)| {
+                        if let Some(args) = &mut val.1 {
+                            args.iter_mut().for_each(|arg| *arg = shift_and_fix(*arg, depth, best_inventions_of_treenode, egraph));
+                        }
+                    });
+                    best_inventions_of_treenode.insert(shifted_node,cloned);
+                    shifted_node
                 }
-                shifted_root
+                shift_and_fix(root, depth, best_inventions_of_treenode, egraph)
             } else {
                 return false // threading needed but this is not a thread site
             };
