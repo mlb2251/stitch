@@ -1,11 +1,10 @@
 #!/bin/bash
 
-# The below must match the path to the bin/ directory of the DreamCoder
-# PLDI artifact, and must not include a trailing /
-ARTIFACT_BIN_PATH="/scratch/theoxo/artifact/bin"
-# The below must match the path to the experimentOutputs/ directory
-# of the DreamCoder PLDI artifact, and must not include a trailing /
-EXP_OUTS_PATH="/scratch/theoxo/artifact/experimentOutputs"
+# $1 must match the path to the DreamCoder PLDI artifact, and must
+# not include a trailing /
+ARTIFACT_PATH=$1
+ARTIFACT_BIN_PATH="${ARTIFACT_PATH}/bin"  # Note: this directory must contain a copy of the "data_extractor.py" script
+EXP_OUTS_PATH="${ARTIFACT_PATH}/experimentOutputs"
 
 # These are the logfiles mentioned by K.E. in their email,
 # minus the 'recursive functional programming ones'.
