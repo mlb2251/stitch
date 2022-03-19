@@ -1,0 +1,7 @@
+list/2019-07-11T19:49:10.899159/list_aic=1.0_arity=4_ET=57600_it={1}_MF=5_noConsolidation=False_pc=30.0_RW=False_solver=ocaml_STM=True_L=1.0_TRR=unsolved_K=5_topkNotMAP=False_rec=False.pickle
+started:
+/scratch/theoxo/artifact/experimentOutputs/list/2019-07-11T19:49:10.899159/list_aic=1.0_arity=4_ET=57600_it={1}_MF=5_noConsolidation=False_pc=30.0_RW=False_solver=ocaml_STM=True_L=1.0_TRR=unsolved_K=5_topkNotMAP=False_rec=False.pickle
+Traceback (most recent call last):
+  File "/scratch/theoxo/artifact/bin/data_extractor.py", line 39, in <module>
+    with open(checkpoint_file, 'rb') as file:
+FileNotFoundError: [Errno 2] No such file or directory: '/scratch/theoxo/artifact/experimentOutputs/list/2019-07-11T19:49:10.899159/list_aic=1.0_arity=4_ET=57600_it={1}_MF=5_noConsolidation=False_pc=30.0_RW=False_solver=ocaml_STM=True_L=1.0_TRR=unsolved_K=5_topkNotMAP=False_rec=False.pickle'
