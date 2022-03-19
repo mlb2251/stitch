@@ -103,6 +103,9 @@ pub fn rewrite_with_invention_egraph(
 
     let treenodes = topological_ordering(root, egraph);
 
+    assert!(!treenodes.iter().any(|n| egraph[*n].nodes[0] == Lambda::Prim(Symbol::from(&inv.name))),
+        "Invention {} already in tree", inv.name);
+
     let mut nodecost_of_treenode: HashMap<Id,NodeCost> = Default::default();
     
     for treenode in treenodes.iter() {
@@ -129,7 +132,8 @@ pub fn rewrite_with_invention_egraph(
         // inventions based on specific node type
         match node {
             Lambda::IVar(_) => { unreachable!() }
-            Lambda::Var(_) | Lambda::Prim(_) => {},
+            Lambda::Var(_) => {},
+            Lambda::Prim(_) => {},
             Lambda::App([f,x]) => {
                 let ref f_nodecost = nodecost_of_treenode[&f];
                 let ref x_nodecost = nodecost_of_treenode[&x];
