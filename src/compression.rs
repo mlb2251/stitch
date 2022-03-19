@@ -183,6 +183,8 @@ struct Stats {
     single_use_wip_fired: usize,
     force_multiuse_fired: usize,
     cost_mismatch_fired: usize,
+    exact_cost_calculated: usize,
+    usages_mismatch_fired: usize,
 }
 
 /// Args for compression step
@@ -436,7 +438,7 @@ impl ZTuple {
 /// since it's any O(N) choice of a parent to be the root of the invention, and any choice of a single descendent of that
 /// parent to be the abstracted #0. Returns a map from nodes to the list of single-arg single-use inventions that can be
 /// used at that node.
-fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph, cfg: &CompressionStepConfig) -> HashMap<Id,Vec<AppZipper>> {
+fn get_appzippers(treenodes: &Vec<Id>, no_cache:bool, egraph: &mut EGraph, cfg: &CompressionStepConfig) -> HashMap<Id,Vec<AppZipper>> {
     let mut all_appzippers: HashMap<Id,Vec<AppZipper>> = Default::default();
     let cache: &mut Option<RecVarModCache> = &mut if no_cache { None } else { Some(HashMap::new()) };
     
@@ -620,14 +622,14 @@ pub struct CompressionStepResult {
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedItem, programs_node: Id, inv_name: &str, appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,  num_paths_to_node: &HashMap<Id,i32>, egraph: &mut EGraph, past_invs: &Vec<CompressionStepResult>) -> Self {
+    fn new(done: FinishedItem, programs_node: Id, inv_name: &str, appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,  num_paths_to_node: &HashMap<Id,i32>, egraph: &mut EGraph, past_invs: &Vec<CompressionStepResult>, treenodes: &Vec<Id>) -> Self {
         let initial_cost = egraph[programs_node].data.inventionless_cost;
 
         // cost of the very first initial program before any inventions
         let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { initial_cost };
 
         let inv = done.to_invention(inv_name, appzipper_of_node_zid, egraph);
-        let rewritten: Expr = rewrite_with_invention_egraph(programs_node, &inv, egraph);
+        let rewritten: Expr = rewrite_with_invention_egraph(programs_node, &inv, egraph, treenodes);
         let expected_cost = initial_cost - done.compressive_utility;
         let final_cost = rewritten.cost();
         if expected_cost != final_cost {
@@ -812,16 +814,18 @@ fn other_utility_upper_bound(
 
 /// Calculate the exact utility of a completed invention by doing the full bottom up use-conflict
 /// calculation
-#[inline(always)]
-fn exact_utility(ztuple: &ZTuple, node: Id, appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>, egraph: &mut EGraph, programs_node: Id, cfg: &CompressionStepConfig) -> (i32,i32) {
+#[inline(never)]
+fn exact_utility(ztuple: &ZTuple, node: Id, appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>, egraph: &mut EGraph, programs_node: Id, treenodes: &Vec<Id>, cfg: &CompressionStepConfig) -> (i32,i32,usize) {
     // compile into an Expr
     let inv_body: Expr = ztuple.to_expr(node, appzipper_of_node_zid, egraph);
     // figure out the cost we'd get if we rewrote everyone under this
-    let rewritten = extraction::rewritten_cost(programs_node, &inv_body, ztuple.arity, egraph);
-    let exact_compressive_utility = egraph[programs_node].data.inventionless_cost - rewritten;
+    // let rewritten = extraction::rewritten_cost(programs_node, &inv_body, ztuple.arity, egraph, treenodes);
+    let rewritten = extraction::rewrite_with_invention_egraph(programs_node, &ztuple.to_invention("myinv", &vec![node], appzipper_of_node_zid, egraph), egraph, treenodes);
+    let usages: usize = rewritten.nodes.iter().filter(|node| **node == Lambda::Prim("myinv".into())).count();
+    let exact_compressive_utility = egraph[programs_node].data.inventionless_cost - rewritten.cost();
     // other_utility just takes the body size, which in this case I think is everything except the `#i`s? This is an appx
     let exact_utility = exact_compressive_utility + other_utility(inv_body.cost() - COST_TERMINAL * ztuple.elems.len() as i32, cfg);
-    (exact_utility, exact_compressive_utility)
+    (exact_utility, exact_compressive_utility, usages)
 }
 
 /// Multistep compression. See `compression_step` if you'd just like to do a single step of compression.
@@ -991,6 +995,7 @@ pub fn compression_step(
         programs_node,
         &appzipper_of_node_zid,
         &nodes_of_zid,
+        &treenodes,
         &mut worklist,
         &mut donelist,
         &mut egraph,
@@ -1028,6 +1033,7 @@ pub fn compression_step(
     let stats =                      Arc::new(Mutex::new(stats));
     let appzipper_of_node_zid =      Arc::new(appzipper_of_node_zid);
     let zids_of_node =               Arc::new(zids_of_node);
+    let treenodes =                  Arc::new(treenodes);
     let first_mergeable_zid_of_zid = Arc::new(first_mergeable_zid_of_zid);
     let egraph =                     Arc::new(egraph);
     let num_paths_to_node =          Arc::new(num_paths_to_node);
@@ -1046,6 +1052,7 @@ pub fn compression_step(
             Arc::clone(&shared),
             Arc::clone(&appzipper_of_node_zid),
             Arc::clone(&zids_of_node),
+            Arc::clone(&treenodes),
             Arc::clone(&first_mergeable_zid_of_zid),
             Arc::clone(&egraph),
             Arc::clone(&num_paths_to_node),
@@ -1061,6 +1068,7 @@ pub fn compression_step(
             let shared =                     Arc::clone(&shared);
             let appzipper_of_node_zid =      Arc::clone(&appzipper_of_node_zid);
             let zids_of_node =               Arc::clone(&zids_of_node);
+            let treenodes =                  Arc::clone(&treenodes);
             let first_mergeable_zid_of_zid = Arc::clone(&first_mergeable_zid_of_zid);
             let egraph =                     Arc::clone(&egraph);
             let num_paths_to_node =          Arc::clone(&num_paths_to_node);
@@ -1075,6 +1083,7 @@ pub fn compression_step(
                     shared,
                     appzipper_of_node_zid,
                     zids_of_node,
+                    treenodes,
                     first_mergeable_zid_of_zid,
                     egraph,
                     num_paths_to_node,
@@ -1113,7 +1122,7 @@ pub fn compression_step(
     // construct CompressionStepResults and print some info about them)
     println!("Cost before: {}", orig_cost);
     for (i,done) in shared.donelist.iter().enumerate() {
-        let res = CompressionStepResult::new(done.clone(), programs_node, new_inv_name, &appzipper_of_node_zid, &num_paths_to_node, &mut egraph, past_invs);
+        let res = CompressionStepResult::new(done.clone(), programs_node, new_inv_name, &appzipper_of_node_zid, &num_paths_to_node, &mut egraph, past_invs, &treenodes);
 
         println!("{}: {}", i, res);
         if cfg.show_rewritten {
@@ -1140,6 +1149,7 @@ fn initial_inventions(
     programs_node: Id,
     appzipper_of_node_zid: &HashMap<(Id,ZId),AppZipper>,
     nodes_of_zid: &Vec<Vec<Id>>,
+    treenodes: &Vec<Id>,
     worklist: &mut VecDeque<WorklistItem>,
     // worklist: &mut BinaryHeap<HeapItem>,
     donelist: &mut Vec<FinishedItem>,
@@ -1200,10 +1210,14 @@ fn initial_inventions(
             // push to donelist if better than worst thing on donelist
             if appx_utility >= 0 && appx_utility > *lowest_donelist_utility {
 
-                let (exact_utility, exact_compressive_utility) = exact_utility(&ztuple, group[0], appzipper_of_node_zid, egraph, programs_node, cfg);
+                let (exact_utility, exact_compressive_utility, usages) = exact_utility(&ztuple, group[0], appzipper_of_node_zid, egraph, programs_node, treenodes, cfg);
+                stats.exact_cost_calculated += 1;
 
                 if exact_utility != appx_utility {
                     stats.cost_mismatch_fired += 1;
+                }
+                if usages != group.iter().map(|node| num_paths_to_node[&node] as usize).sum::<usize>() {
+                    stats.usages_mismatch_fired += 1;
                 }
 
                 // we can do this check again with the more exact utility
@@ -1269,6 +1283,7 @@ fn derive_inventions(
     shared: Arc<Mutex<MutableMultithreadData>>,
     appzipper_of_node_zid: Arc<HashMap<(Id,ZId),AppZipper>>,
     zids_of_node: Arc<Vec<Vec<ZId>>>,
+    treenodes: Arc<Vec<Id>>,
     first_mergeable_zid_of_zid: Arc<Vec<ZId>>,
     egraph: Arc<EGraph>,
     num_paths_to_node: Arc<HashMap<Id,i32>>,
@@ -1438,10 +1453,15 @@ fn derive_inventions(
                 let appx_compressive_utility = compressive_utility(left_utility + right_utility, &new_ztuple, &group, &*num_paths_to_node, &*egraph, &*appzipper_of_node_zid);
                 let appx_utility = appx_compressive_utility + other_utility(left_utility + right_utility, &cfg);
                 if appx_utility > 0 {
-                    let (exact_utility, exact_compressive_utility) = exact_utility(&new_ztuple, group[0], &*appzipper_of_node_zid, &mut local_egraph, programs_node, &*cfg);
+                    let (exact_utility, exact_compressive_utility, usages) = exact_utility(&new_ztuple, group[0], &*appzipper_of_node_zid, &mut local_egraph, programs_node, &*treenodes, &*cfg);
 
+                    if !cfg.no_stats { stats.lock().deref_mut().exact_cost_calculated += 1; };
                     if exact_utility != appx_utility {
                         if !cfg.no_stats { stats.lock().deref_mut().cost_mismatch_fired += 1; };
+                    }
+
+                    if usages != group.iter().map(|node| num_paths_to_node[&node] as usize).sum::<usize>() {
+                        if !cfg.no_stats { stats.lock().deref_mut().usages_mismatch_fired += 1; };
                     }
 
                     if exact_utility > 0 {

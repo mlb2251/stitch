@@ -51,7 +51,8 @@ pub fn rewrite_with_inventions(
 ) -> Expr {
     let mut egraph = EGraph::default();
     let root = egraph.add_expr(&e.into());
-    rewrite_with_inventions_egraph(root, invs, &mut egraph)
+    let treenodes = topological_ordering(root, &egraph);
+    rewrite_with_inventions_egraph(root, invs, &mut egraph, &treenodes)
 }
 
 /// Rewrite `root` using an invention `inv`. This will use inventions everywhere
@@ -67,7 +68,8 @@ pub fn rewrite_with_invention(
 ) -> Expr {
     let mut egraph = EGraph::default();
     let root = egraph.add_expr(&e.into());
-    rewrite_with_invention_egraph(root, inv, &mut egraph)
+    let treenodes = topological_ordering(root, &egraph);
+    rewrite_with_invention_egraph(root, inv, &mut egraph, &treenodes)
 }
 
 /// Same as `rewrite_with_invention_egraph` but for multiple inventions, rewriting with one after another in order, compounding on each other
@@ -75,10 +77,11 @@ pub fn rewrite_with_inventions_egraph(
     root: Id,
     invs: &[Invention],
     egraph: &mut EGraph,
+    treenodes: &Vec<Id>,
 ) -> Expr {
     let mut root = root;
     for inv in invs.iter() {
-        let expr = rewrite_with_invention_egraph(root, inv, egraph);
+        let expr = rewrite_with_invention_egraph(root, inv, egraph, treenodes);
         root = egraph.add_expr(&expr.into());
     }
     extract(root,egraph)
@@ -93,10 +96,11 @@ pub fn rewrite_with_invention_egraph(
     root: Id,
     inv: &Invention,
     egraph: &mut EGraph,
+    treenodes: &Vec<Id>,
 ) -> Expr {
     let inv_ptr: PtrInvention = PtrInvention::new(egraph.add_expr(&inv.body.clone().into()), inv.arity);
 
-    let nodecost_of_treenode = nodecosts(root, &inv_ptr, egraph);
+    let nodecost_of_treenode = nodecosts(&inv_ptr, egraph, treenodes);
 
     // Now that we've calculated all the costs, we can extract the cheapest one
     extract_from_nodecosts(root, &inv_ptr, &nodecost_of_treenode, egraph, &inv.name)
@@ -108,10 +112,11 @@ pub fn rewritten_cost(
     root: Id,
     inv_body: &Expr,
     inv_arity: usize,
-    egraph: &mut EGraph
+    egraph: &mut EGraph,
+    treenodes: &Vec<Id>,
 ) -> i32 {
     let inv_ptr: PtrInvention = PtrInvention::new(egraph.add_expr(inv_body.into()), inv_arity);
-    nodecosts(root, &inv_ptr, egraph)[&root].cost
+    nodecosts(&inv_ptr, egraph, treenodes)[&root].cost
 }
 
 #[derive(Debug, Clone)]
@@ -142,11 +147,10 @@ impl CostEntry {
 
 /// Bottom-up figures out the rewritten costs for each node in the tree all the way up to the root node (the total cost of the rewritten programs)
 fn nodecosts(
-    root: Id,
     inv: &PtrInvention,
     egraph: &mut EGraph,
+    treenodes: &Vec<Id>,
 ) -> HashMap<Id, CostEntry> {
-    let treenodes = topological_ordering(root, egraph);
 
     // let mut nodecost_of_treenode: HashMap<Id,NodeCost> = Default::default();
     let mut cost_of_node: HashMap<Id, CostEntry> = Default::default();
@@ -163,7 +167,7 @@ fn nodecosts(
                 COST_TERMINAL // the new primitive for this invention
                 + COST_NONTERMINAL * inv.arity as i32 // the chain of app()s needed to apply the new primitive
                 + args.iter()
-                    .map(|id| cost_of_node[&id].cost) // cost under ANY of the invs since we allow multiple to be used!
+                    .map(|id| cost_of_node[&id].cost) // cost under inv
                     .sum::<i32>(); // sum costs of actual args
             curr_cost.update(cost, Some(args));
         }

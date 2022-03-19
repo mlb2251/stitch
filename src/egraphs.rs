@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque, BTreeSet};
 
 pub type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
 
@@ -136,16 +136,32 @@ impl CostFunction<Lambda> for ProgramDepth {
 }
 
 
-/// does a child first traversal of the egraph and returns a Vec<Id> in that
-/// order. Notably an Id will never show up twice (if it showed up earlier
-/// it wont show up again). Assumes no cycles in the EGraph.
-/// Note that I'm pretty usre this will just return 0,1,2,3,... since due to structural
-/// hashing that is a topological ordering
+/// Constructs the set of all descendents of `root`, then just sorts that as a vector
+/// since we know since children were always added before parents to the egraph, children
+/// always have lower numbers.
 pub fn topological_ordering(root: Id, egraph: &EGraph) -> Vec<Id> {
+    // let mut worklist = vec![root];
+    // let mut seen = Vec::with_capacity(egraph[root]);
+
+    // while let Some(id) = worklist.pop() {
+    //     if seen.contains(&id) { continue; }
+    //     seen.push(id);
+    //     for child in egraph[id].nodes[0].children() {
+    //         worklist.push(*child);
+    //     }
+    // }
+    // seen.sort();
+    // seen.dedup();
+    // seen
+
+    // let mut res: Vec<Id> = seen.into_iter().collect();
+    // res.sort();
     let mut vec = Vec::new();
+
     topological_ordering_rec(root, egraph, &mut vec);
     // let alt = (0..=usize::from(root)).collect::<Vec<usize>>().into_iter().map(|x| Id::from(x)).collect::<Vec<Id>>();
     // assert_eq!(vec, alt);
+    // res
     vec
 }
 
