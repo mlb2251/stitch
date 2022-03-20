@@ -159,7 +159,7 @@ pub fn ivar_replace(e: &Expr, child: Id, map: &HashMap<i32, Expr>) -> Expr {
 /// Replace the ivars in an expr based on an i32->Expr map
 pub fn ivar_to_dc(e: &Expr, child: Id, depth: i32, arity: i32) -> Expr {
     match e.get(child) {
-        Lambda::IVar(i) => Expr::var(depth + (arity - 1 - i)),
+        Lambda::IVar(i) => Expr::var(depth + (arity - 1 - i)), // the higher the ivar the smaller the var
         Lambda::Var(v) => Expr::var(*v),
         Lambda::Prim(p) => Expr::prim(*p),
         Lambda::App([f,x]) => Expr::app(ivar_to_dc(e, *f, depth, arity), ivar_to_dc(e, *x, depth, arity)),
