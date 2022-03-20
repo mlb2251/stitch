@@ -1,0 +1,530 @@
+{
+    "num_expected_new_fns": [
+        7,
+        4,
+        0,
+        4,
+        3,
+        3,
+        4,
+        0,
+        6,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    ],
+    "total_new_fns": 31,
+    "num_tasks_solved": [
+        138,
+        148,
+        158,
+        168,
+        177,
+        187,
+        197,
+        207,
+        217,
+        227,
+        236,
+        245,
+        253,
+        253,
+        253,
+        253,
+        253,
+        253,
+        253,
+        254,
+        254,
+        254
+    ],
+    "num_programs": [
+        5486,
+        11031,
+        21939,
+        21196,
+        17526,
+        18932,
+        19289,
+        19301,
+        20521,
+        20430,
+        20977,
+        19669,
+        19557,
+        20139,
+        19467,
+        19193,
+        19892,
+        19529,
+        18071,
+        18807,
+        18681,
+        18171
+    ],
+    "iterations": [
+        {
+            "iteration": 0,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_0.json",
+            "dsl_len": 0,
+            "num_tasks_solved": 138,
+            "num_programs": 5486,
+            "num_expected_new_fns": 7,
+            "expected_new_fns": [
+                {
+                    "name": "fn_0",
+                    "dreamcoder": "#(r_kleene (lambda (r_d $0)))",
+                    "with_sub_inventions": "#(r_kleene (lambda (r_d $0)))",
+                    "stitch_uncanonical": "(r_kleene (lam (r_d $0)))",
+                    "stitch_canonical": "(r_kleene (lam (r_d $0)))",
+                    "arity": 0
+                },
+                {
+                    "name": "fn_1",
+                    "dreamcoder": "#(r_kleene (lambda (r_u $0)))",
+                    "with_sub_inventions": "#(r_kleene (lambda (r_u $0)))",
+                    "stitch_uncanonical": "(r_kleene (lam (r_u $0)))",
+                    "stitch_canonical": "(r_kleene (lam (r_u $0)))",
+                    "arity": 0
+                },
+                {
+                    "name": "fn_2",
+                    "dreamcoder": "#(r_kleene (lambda (r_dot $0)))",
+                    "with_sub_inventions": "#(r_kleene (lambda (r_dot $0)))",
+                    "stitch_uncanonical": "(r_kleene (lam (r_dot $0)))",
+                    "stitch_canonical": "(r_kleene (lam (r_dot $0)))",
+                    "arity": 0
+                },
+                {
+                    "name": "fn_3",
+                    "dreamcoder": "#(r_kleene (lambda (r_const $0)))",
+                    "with_sub_inventions": "#(r_kleene (lambda (r_const $0)))",
+                    "stitch_uncanonical": "(r_kleene (lam (r_const $0)))",
+                    "stitch_canonical": "(r_kleene (lam (r_const $0)))",
+                    "arity": 0
+                },
+                {
+                    "name": "fn_4",
+                    "dreamcoder": "#(lambda (r_const (#(r_kleene (lambda (r_d $0))) $0)))",
+                    "with_sub_inventions": "#(lambda (r_const (fn_0 $0)))",
+                    "stitch_uncanonical": "(r_const (fn_0 #0))",
+                    "stitch_canonical": "(r_const (fn_0 #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_5",
+                    "dreamcoder": "#(lambda (r_d (r_d (r_d $0))))",
+                    "with_sub_inventions": "#(lambda (r_d (r_d (r_d $0))))",
+                    "stitch_uncanonical": "(r_d (r_d (r_d #0)))",
+                    "stitch_canonical": "(r_d (r_d (r_d #0)))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_6",
+                    "dreamcoder": "#(lambda (lambda (r_kleene $0 (#(r_kleene (lambda (r_u $0))) $1))))",
+                    "with_sub_inventions": "#(lambda (lambda (r_kleene $0 (fn_1 $1))))",
+                    "stitch_uncanonical": "(r_kleene #1 (fn_1 #0))",
+                    "stitch_canonical": "(r_kleene #0 (fn_1 #1))",
+                    "arity": 2
+                }
+            ]
+        },
+        {
+            "iteration": 1,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_1.json",
+            "dsl_len": 7,
+            "num_tasks_solved": 148,
+            "num_programs": 11031,
+            "num_expected_new_fns": 4,
+            "expected_new_fns": [
+                {
+                    "name": "fn_7",
+                    "dreamcoder": "#(lambda (r_u (r_u (r_u $0))))",
+                    "with_sub_inventions": "#(lambda (r_u (r_u (r_u $0))))",
+                    "stitch_uncanonical": "(r_u (r_u (r_u #0)))",
+                    "stitch_canonical": "(r_u (r_u (r_u #0)))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_8",
+                    "dreamcoder": "#(lambda (#(lambda (r_d (r_d (r_d $0)))) (r_const $0)))",
+                    "with_sub_inventions": "#(lambda (fn_5 (r_const $0)))",
+                    "stitch_uncanonical": "(fn_5 (r_const #0))",
+                    "stitch_canonical": "(fn_5 (r_const #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_9",
+                    "dreamcoder": "#(lambda (#(r_kleene (lambda (r_dot $0))) (r_d $0)))",
+                    "with_sub_inventions": "#(lambda (fn_2 (r_d $0)))",
+                    "stitch_uncanonical": "(fn_2 (r_d #0))",
+                    "stitch_canonical": "(fn_2 (r_d #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_10",
+                    "dreamcoder": "#(lambda (#(r_kleene (lambda (r_u $0))) (r_u $0)))",
+                    "with_sub_inventions": "#(lambda (fn_1 (r_u $0)))",
+                    "stitch_uncanonical": "(fn_1 (r_u #0))",
+                    "stitch_canonical": "(fn_1 (r_u #0))",
+                    "arity": 1
+                }
+            ]
+        },
+        {
+            "iteration": 2,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_2.json",
+            "dsl_len": 11,
+            "num_tasks_solved": 158,
+            "num_programs": 21939,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 3,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_3.json",
+            "dsl_len": 11,
+            "num_tasks_solved": 168,
+            "num_programs": 21196,
+            "num_expected_new_fns": 4,
+            "expected_new_fns": [
+                {
+                    "name": "fn_11",
+                    "dreamcoder": "#(lambda (r_const (#(lambda (r_d (r_d (r_d $0)))) $0)))",
+                    "with_sub_inventions": "#(lambda (r_const (fn_5 $0)))",
+                    "stitch_uncanonical": "(r_const (fn_5 #0))",
+                    "stitch_canonical": "(r_const (fn_5 #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_12",
+                    "dreamcoder": "#(lambda (string_H (r_u $0)))",
+                    "with_sub_inventions": "#(lambda (string_H (r_u $0)))",
+                    "stitch_uncanonical": "(string_H (r_u #0))",
+                    "stitch_canonical": "(string_H (r_u #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_13",
+                    "dreamcoder": "#(lambda (#(lambda (r_const (#(lambda (r_d (r_d (r_d $0)))) $0))) (r_d $0)))",
+                    "with_sub_inventions": "#(lambda (fn_11 (r_d $0)))",
+                    "stitch_uncanonical": "(fn_11 (r_d #0))",
+                    "stitch_canonical": "(fn_11 (r_d #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_14",
+                    "dreamcoder": "#(lambda (#(lambda (#(r_kleene (lambda (r_u $0))) (r_u $0))) (r_dot $0)))",
+                    "with_sub_inventions": "#(lambda (fn_10 (r_dot $0)))",
+                    "stitch_uncanonical": "(fn_10 (r_dot #0))",
+                    "stitch_canonical": "(fn_10 (r_dot #0))",
+                    "arity": 1
+                }
+            ]
+        },
+        {
+            "iteration": 4,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_4.json",
+            "dsl_len": 15,
+            "num_tasks_solved": 177,
+            "num_programs": 17526,
+            "num_expected_new_fns": 3,
+            "expected_new_fns": [
+                {
+                    "name": "fn_15",
+                    "dreamcoder": "#(lambda (r_l (r_l $0)))",
+                    "with_sub_inventions": "#(lambda (r_l (r_l $0)))",
+                    "stitch_uncanonical": "(r_l (r_l #0))",
+                    "stitch_canonical": "(r_l (r_l #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_16",
+                    "dreamcoder": "#(lambda (#(r_kleene (lambda (r_const $0))) (#(r_kleene (lambda (r_d $0))) $0)))",
+                    "with_sub_inventions": "#(lambda (fn_3 (fn_0 $0)))",
+                    "stitch_uncanonical": "(fn_3 (fn_0 #0))",
+                    "stitch_canonical": "(fn_3 (fn_0 #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_17",
+                    "dreamcoder": "#(lambda (#(lambda (r_const (#(r_kleene (lambda (r_d $0))) $0))) (#(lambda (r_d (r_d (r_d $0)))) $0)))",
+                    "with_sub_inventions": "#(lambda (fn_4 (fn_5 $0)))",
+                    "stitch_uncanonical": "(fn_4 (fn_5 #0))",
+                    "stitch_canonical": "(fn_4 (fn_5 #0))",
+                    "arity": 1
+                }
+            ]
+        },
+        {
+            "iteration": 5,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_5.json",
+            "dsl_len": 18,
+            "num_tasks_solved": 187,
+            "num_programs": 18932,
+            "num_expected_new_fns": 3,
+            "expected_new_fns": [
+                {
+                    "name": "fn_18",
+                    "dreamcoder": "#(lambda (r_const (r_d (r_d $0))))",
+                    "with_sub_inventions": "#(lambda (r_const (r_d (r_d $0))))",
+                    "stitch_uncanonical": "(r_const (r_d (r_d #0)))",
+                    "stitch_canonical": "(r_const (r_d (r_d #0)))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_19",
+                    "dreamcoder": "#(lambda (#(lambda (#(lambda (r_const (#(lambda (r_d (r_d (r_d $0)))) $0))) (r_d $0))) (r_d $0)))",
+                    "with_sub_inventions": "#(lambda (fn_13 (r_d $0)))",
+                    "stitch_uncanonical": "(fn_13 (r_d #0))",
+                    "stitch_canonical": "(fn_13 (r_d #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_20",
+                    "dreamcoder": "#(lambda (#(r_kleene (lambda (r_d $0))) (#(r_kleene (lambda (r_dot $0))) $0)))",
+                    "with_sub_inventions": "#(lambda (fn_0 (fn_2 $0)))",
+                    "stitch_uncanonical": "(fn_0 (fn_2 #0))",
+                    "stitch_canonical": "(fn_0 (fn_2 #0))",
+                    "arity": 1
+                }
+            ]
+        },
+        {
+            "iteration": 6,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_6.json",
+            "dsl_len": 21,
+            "num_tasks_solved": 197,
+            "num_programs": 19289,
+            "num_expected_new_fns": 4,
+            "expected_new_fns": [
+                {
+                    "name": "fn_21",
+                    "dreamcoder": "#(lambda (r_u (#(r_kleene (lambda (r_d $0))) $0)))",
+                    "with_sub_inventions": "#(lambda (r_u (fn_0 $0)))",
+                    "stitch_uncanonical": "(r_u (fn_0 #0))",
+                    "stitch_canonical": "(r_u (fn_0 #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_22",
+                    "dreamcoder": "#(lambda (r_d (#(lambda (r_d (r_d (r_d $0)))) $0)))",
+                    "with_sub_inventions": "#(lambda (r_d (fn_5 $0)))",
+                    "stitch_uncanonical": "(r_d (fn_5 #0))",
+                    "stitch_canonical": "(r_d (fn_5 #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_23",
+                    "dreamcoder": "#(lambda (r_const (#(lambda (#(r_kleene (lambda (r_d $0))) (#(r_kleene (lambda (r_dot $0))) $0))) $0)))",
+                    "with_sub_inventions": "#(lambda (r_const (fn_20 $0)))",
+                    "stitch_uncanonical": "(r_const (fn_20 #0))",
+                    "stitch_canonical": "(r_const (fn_20 #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_24",
+                    "dreamcoder": "#(lambda (#(lambda (#(r_kleene (lambda (r_dot $0))) (r_d $0))) (r_d $0)))",
+                    "with_sub_inventions": "#(lambda (fn_9 (r_d $0)))",
+                    "stitch_uncanonical": "(fn_9 (r_d #0))",
+                    "stitch_canonical": "(fn_9 (r_d #0))",
+                    "arity": 1
+                }
+            ]
+        },
+        {
+            "iteration": 7,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_7.json",
+            "dsl_len": 25,
+            "num_tasks_solved": 207,
+            "num_programs": 19301,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 8,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_8.json",
+            "dsl_len": 25,
+            "num_tasks_solved": 217,
+            "num_programs": 20521,
+            "num_expected_new_fns": 6,
+            "expected_new_fns": [
+                {
+                    "name": "fn_25",
+                    "dreamcoder": "#(lambda (#(lambda (r_const (#(r_kleene (lambda (r_d $0))) $0))) (#(lambda (lambda (r_kleene $0 (#(r_kleene (lambda (r_u $0))) $1)))) $0 (lambda (#(r_kleene (lambda (r_u $0))) (r_d $0))))))",
+                    "with_sub_inventions": "#(lambda (fn_4 (fn_6 $0 (lambda (fn_1 (r_d $0))))))",
+                    "stitch_uncanonical": "(fn_4 (fn_6 #0 (lam (fn_1 (r_d $0)))))",
+                    "stitch_canonical": "(fn_4 (fn_6 #0 (lam (fn_1 (r_d $0)))))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_26",
+                    "dreamcoder": "#(lambda (#(r_kleene (lambda (r_u $0))) (#(lambda (#(r_kleene (lambda (r_const $0))) (#(r_kleene (lambda (r_d $0))) $0))) (#(lambda (r_d (r_d (r_d $0)))) $0))))",
+                    "with_sub_inventions": "#(lambda (fn_1 (fn_16 (fn_5 $0))))",
+                    "stitch_uncanonical": "(fn_1 (fn_16 (fn_5 #0)))",
+                    "stitch_canonical": "(fn_1 (fn_16 (fn_5 #0)))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_27",
+                    "dreamcoder": "#(lambda (r_d (r_d (#(lambda (r_d (#(lambda (r_d (r_d (r_d $0)))) $0))) $0))))",
+                    "with_sub_inventions": "#(lambda (r_d (r_d (fn_22 $0))))",
+                    "stitch_uncanonical": "(r_d (r_d (fn_22 #0)))",
+                    "stitch_canonical": "(r_d (r_d (fn_22 #0)))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_28",
+                    "dreamcoder": "#(lambda (#(lambda (r_l (r_l $0))) (string_underscore $0)))",
+                    "with_sub_inventions": "#(lambda (fn_15 (string_underscore $0)))",
+                    "stitch_uncanonical": "(fn_15 (string_underscore #0))",
+                    "stitch_canonical": "(fn_15 (string_underscore #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_29",
+                    "dreamcoder": "#(lambda (r_u (#(lambda (#(lambda (#(r_kleene (lambda (r_dot $0))) (r_d $0))) (r_d $0))) $0)))",
+                    "with_sub_inventions": "#(lambda (r_u (fn_24 $0)))",
+                    "stitch_uncanonical": "(r_u (fn_24 #0))",
+                    "stitch_canonical": "(r_u (fn_24 #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_30",
+                    "dreamcoder": "#(lambda (string_underscore (#(r_kleene (lambda (r_d $0))) $0)))",
+                    "with_sub_inventions": "#(lambda (string_underscore (fn_0 $0)))",
+                    "stitch_uncanonical": "(string_underscore (fn_0 #0))",
+                    "stitch_canonical": "(string_underscore (fn_0 #0))",
+                    "arity": 1
+                }
+            ]
+        },
+        {
+            "iteration": 9,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_9.json",
+            "dsl_len": 31,
+            "num_tasks_solved": 227,
+            "num_programs": 20430,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 10,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_10.json",
+            "dsl_len": 31,
+            "num_tasks_solved": 236,
+            "num_programs": 20977,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 11,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_11.json",
+            "dsl_len": 31,
+            "num_tasks_solved": 245,
+            "num_programs": 19669,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 12,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_12.json",
+            "dsl_len": 31,
+            "num_tasks_solved": 253,
+            "num_programs": 19557,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 13,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_13.json",
+            "dsl_len": 31,
+            "num_tasks_solved": 253,
+            "num_programs": 20139,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 14,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_14.json",
+            "dsl_len": 31,
+            "num_tasks_solved": 253,
+            "num_programs": 19467,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 15,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_15.json",
+            "dsl_len": 31,
+            "num_tasks_solved": 253,
+            "num_programs": 19193,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 16,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_16.json",
+            "dsl_len": 31,
+            "num_tasks_solved": 253,
+            "num_programs": 19892,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 17,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_17.json",
+            "dsl_len": 31,
+            "num_tasks_solved": 253,
+            "num_programs": 19529,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 18,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_18.json",
+            "dsl_len": 31,
+            "num_tasks_solved": 253,
+            "num_programs": 18071,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 19,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_19.json",
+            "dsl_len": 31,
+            "num_tasks_solved": 254,
+            "num_programs": 18807,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 20,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_20.json",
+            "dsl_len": 31,
+            "num_tasks_solved": 254,
+            "num_programs": 18681,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 21,
+            "file": "data/regex/2019-03-04T19:21:20.153727/iteration_21.json",
+            "dsl_len": 31,
+            "num_tasks_solved": 254,
+            "num_programs": 18171,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        }
+    ]
+}
