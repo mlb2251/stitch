@@ -1,6 +1,4 @@
 logo/2019-03-23T18:21:31.435612/logo_aic=1.0_arity=3_aux=True_BO=True_CO=True_ES=1_ET=3600_HR=0.5_it=20_MF=5_pc=30.0_RS=5000_RT=3600_RR=False_RW=False_STM=True_L=1.5_batch=50_TRR=randomShuffle_K=2_topkNotMAP=False_graph=True.pickle
-started:
-artifact/experimentOutputs/logo/2019-03-23T18:21:31.435612/logo_aic=1.0_arity=3_aux=True_BO=True_CO=True_ES=1_ET=3600_HR=0.5_it=20_MF=5_pc=30.0_RS=5000_RT=3600_RR=False_RW=False_STM=True_L=1.5_batch=50_TRR=randomShuffle_K=2_topkNotMAP=False_graph=True.pickle
 Wrote json msg for iteration 0
 Wrote json msg for iteration 1
 Wrote json msg for iteration 2

@@ -1,6 +1,4 @@
 regex/2019-03-04T19:30:01.252339/regex_aic=1.0_arity=3_BO=True_CO=False_ES=1_ET=720_HR=0.5_it=23_MF=10_pc=30.0_RT=3600_RR=False_RW=False_STM=True_L=1.5_batch=10_TRR=randomShuffle_K=2_topkNotMAP=True_graph=True.pickle
-started:
-artifact/experimentOutputs/regex/2019-03-04T19:30:01.252339/regex_aic=1.0_arity=3_BO=True_CO=False_ES=1_ET=720_HR=0.5_it=23_MF=10_pc=30.0_RT=3600_RR=False_RW=False_STM=True_L=1.5_batch=10_TRR=randomShuffle_K=2_topkNotMAP=True_graph=True.pickle
 Wrote json msg for iteration 0
 Wrote json msg for iteration 1
 Wrote json msg for iteration 2
