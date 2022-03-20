@@ -11,6 +11,9 @@ ARTIFACT_PATH=$1
 ARTIFACT_BIN_PATH="${ARTIFACT_PATH}/bin"  # Note: this directory must contain a copy of the "data_extractor.py" script
 EXP_OUTS_PATH="${ARTIFACT_PATH}/experimentOutputs"
 
+echo "copying data_extractor.py to $ARTIFACT_BIN_PATH"
+cp data_extractor.py $ARTIFACT_BIN_PATH
+
 # These are the logfiles mentioned by K.E. in their email,
 # minus the 'recursive functional programming ones'.
 declare -a LOG_FILES=(
@@ -51,7 +54,6 @@ for LOG_FILE in ${LOG_FILES[@]} ; do
     echo "Domain=$DOMAIN, Run=$RUN"
     echo "Logging extraction process to data/$DOMAIN/$RUN/.log"
     mkdir -p "data/$DOMAIN/$RUN"  # this is just making a folder called e.g. regex/2019...252339/
-    mkdir -p "out/$DOMAIN/$RUN"
     echo "$LOG_FILE" > "data/$DOMAIN/$RUN/.log"
     python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "data/$DOMAIN/$RUN" >> "data/$DOMAIN/$RUN/.log" 2>&1
     echo "Finished extraction from $LOG_FILE"
@@ -71,7 +73,6 @@ for ITERATION in {1..10} ; do
     echo "Domain=$DOMAIN, Run=$RUN"
     echo "Logging extraction process to data/$DOMAIN/$RUN/.log"
     mkdir -p "data/$DOMAIN/$RUN"  # this is just making a folder called e.g. regex/2019...252339/
-    mkdir -p "out/$DOMAIN/$RUN"
     echo "$LOG_FILE" > "data/$DOMAIN/$RUN/.log"
     python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "data/$DOMAIN/$RUN" >> "data/$DOMAIN/$RUN/.log" 2>&1
     echo "Finished extraction from $LOG_FILE"
