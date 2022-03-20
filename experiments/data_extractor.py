@@ -47,14 +47,16 @@ if __name__ == "__main__":
         # the very last grammar is the grammar after _all_ of compression, and so does not have any
         # frontiers associated with it (and is thus irrelevant for our teacher-forcing purposes?)
         assert (all([len(checkpoint.grammars) - 1 == len(checkpoint.frontiersOverTime[t]) for t in checkpoint.frontiersOverTime.keys()]))
-        message = {"arity": checkpoint.parameters['arity'],
+        message = {
+                "verbose": True,
+                "arity": checkpoint.parameters['arity'],
                 "topK": checkpoint.parameters['topK'],
                 "pseudoCounts": float(re.search(r'pc=([^_]+)', checkpoint_file).group(1)),
                 "aic": float(re.search(r'aic=([^_]+)', checkpoint_file).group(1)),
                 "bs": 1000000,  # the Ocaml backend always uses these values for bs and topI I think;
                 "topI": 300,    # see lines 53-54 in compression.py
                 "structurePenalty": float(re.search(r'_L=([^_]+)', checkpoint_file).group(1)),
-                "CPUs": 1,     # information lost to time, I believe
+                "CPUs": 200,     
                 "lc_score": 0.0,     # weight required by LAPS, but irrelevant for our purposes
                 "DSL": g.json(),
                 "iterations": checkpoint.parameters['iterations'],

@@ -11,6 +11,9 @@ ARTIFACT_PATH=$1
 ARTIFACT_BIN_PATH="${ARTIFACT_PATH}/bin"  # Note: this directory must contain a copy of the "data_extractor.py" script
 EXP_OUTS_PATH="${ARTIFACT_PATH}/experimentOutputs"
 
+echo "copying data_extractor.py to $ARTIFACT_BIN_PATH"
+cp data_extractor.py $ARTIFACT_BIN_PATH
+
 # These are the logfiles mentioned by K.E. in their email,
 # minus the 'recursive functional programming ones'.
 declare -a LOG_FILES=(
@@ -49,10 +52,10 @@ for LOG_FILE in ${LOG_FILES[@]} ; do
     DOMAIN=$(echo "$LOG_FILE" | awk -F "/" '{print $1}')
     RUN=$(echo "$LOG_FILE" | awk -F "/" '{print $2}')
     echo "Domain=$DOMAIN, Run=$RUN"
-    echo "Logging extraction process to $DOMAIN/$RUN/.log"
-    mkdir -p "$DOMAIN/$RUN"  # this is just making a folder called e.g. regex/2019...252339/
-    echo "$LOG_FILE" > "$DOMAIN/$RUN/.log"
-    python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "$DOMAIN/$RUN" >> "$DOMAIN/$RUN/.log" 2>&1
+    echo "Logging extraction process to data/$DOMAIN/$RUN/.log"
+    mkdir -p "data/$DOMAIN/$RUN"  # this is just making a folder called e.g. regex/2019...252339/
+    echo "$LOG_FILE" > "data/$DOMAIN/$RUN/.log"
+    python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "data/$DOMAIN/$RUN" >> "data/$DOMAIN/$RUN/.log" 2>&1
     echo "Finished extraction from $LOG_FILE"
 done
 
@@ -68,9 +71,9 @@ for ITERATION in {1..10} ; do
     RUN=$(echo "$LOG_FILE" | awk -F "/" '{print $2}')
     RUN="iteration=${ITERATION}_$RUN"
     echo "Domain=$DOMAIN, Run=$RUN"
-    echo "Logging extraction process to $DOMAIN/$RUN/.log"
-    mkdir -p "$DOMAIN/$RUN"  # this is just making a folder called e.g. regex/2019...252339/
-    echo "$LOG_FILE" > "$DOMAIN/$RUN/.log"
-    python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "$DOMAIN/$RUN" >> "$DOMAIN/$RUN/.log" 2>&1
+    echo "Logging extraction process to data/$DOMAIN/$RUN/.log"
+    mkdir -p "data/$DOMAIN/$RUN"  # this is just making a folder called e.g. regex/2019...252339/
+    echo "$LOG_FILE" > "data/$DOMAIN/$RUN/.log"
+    python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "data/$DOMAIN/$RUN" >> "data/$DOMAIN/$RUN/.log" 2>&1
     echo "Finished extraction from $LOG_FILE"
 done

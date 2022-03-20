@@ -8,3 +8,6 @@ flamegraph.svg
 out/
 
 bindings/
+experiments/artifact.zip
+experiments/artifact
+experiments/compressionMessages/

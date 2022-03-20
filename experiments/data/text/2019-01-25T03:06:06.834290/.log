@@ -1,0 +1,5 @@
+text/2019-01-25T03:06:06.834290/text_aic=1.0_arity=3_aux=True_BO=True_CO=True_ES=1_ET=720_HR=0.5_it=20_MF=5_pc=30.0_RS=5000_RT=3600_RR=False_RW=False_STM=True_L=1.5_batch=10_TRR=randomShuffle_K=2_topkNotMAP=False_rec=True_vec=True_graph=True.pickle
+Traceback (most recent call last):
+  File "/scratch/mlbowers/proj/stitch/experiments/artifact/bin/data_extractor.py", line 49, in <module>
+    assert (all([len(checkpoint.grammars) - 1 == len(checkpoint.frontiersOverTime[t]) for t in checkpoint.frontiersOverTime.keys()]))
+AttributeError: 'ECResult' object has no attribute 'frontiersOverTime'
