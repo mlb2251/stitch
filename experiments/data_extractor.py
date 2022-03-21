@@ -56,7 +56,7 @@ if __name__ == "__main__":
                 "bs": 1000000,  # the Ocaml backend always uses these values for bs and topI I think;
                 "topI": 300,    # see lines 53-54 in compression.py
                 "structurePenalty": float(re.search(r'_L=([^_]+)', checkpoint_file).group(1)),
-                "CPUs": 200,     
+                "CPUs": int(sys.argv[3]),     
                 "lc_score": 0.0,     # weight required by LAPS, but irrelevant for our purposes
                 "DSL": g.json(),
                 "iterations": checkpoint.parameters['iterations'],

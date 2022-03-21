@@ -1,7 +1,5 @@
 #!/bin/bash
 
-
-
 if [ -z $2 ]
 then
     echo "[launch_dreamcoder_run.sh] Usage: ./launch_dreamcoder_run.sh DOMAIN RUN"
@@ -15,13 +13,12 @@ RUN=$2
 
 mkdir -p "trash/$DOMAIN/$RUN"
 
-if [ -d "out/$DOMAIN/$RUN" ]
-    then
-        TRASH="trash/$DOMAIN/$RUN/$(date '+%Y-%m-%d_%H-%M-%S')"
-        echo "[launch_dreamcoder_run.sh] output file out/$DOMAIN/$RUN, moving to $TRASH"
-        mv out/$DOMAIN/$RUN $TRASH
-        continue
-    fi
+if [ -d "out/$DOMAIN/$RUN" ]; then
+    TRASH="trash/$DOMAIN/$RUN/$(date '+%Y-%m-%d_%H-%M-%S')"
+    echo "[launch_dreamcoder_run.sh] output file out/$DOMAIN/$RUN, moving to $TRASH"
+    mv out/$DOMAIN/$RUN $TRASH
+    continue
+fi
 
 
 mkdir -p "out/$DOMAIN/$RUN"
@@ -42,7 +39,7 @@ for i in `seq 0 19`; do
 
     echo "[launch_dreamcoder_run.sh] launching launch_dreamcoder_iteration.sh and logging to $LOG"
     echo "[launch_dreamcoder_run.sh] ./launch_dreamcoder_iteration.sh $DOMAIN $RUN $i"
-    ./launch_dreamcoder_iteration.sh $DOMAIN $RUN $i | tee $LOG
+    ./launch_dreamcoder_iteration.sh $DOMAIN $RUN $i 2>&1 | tee $LOG
     echo "[launch_dreamcoder_run.sh] done, logged to $LOG"
 done
 

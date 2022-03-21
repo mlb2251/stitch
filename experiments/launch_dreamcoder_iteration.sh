@@ -58,7 +58,9 @@ CMD="/usr/bin/time -v $COMPRESSION_BIN $INPUT"
 echo "[launch_dreamcoder_iteration.sh] Launching Compression Binary at $(date '+%Y-%m-%d_%H-%M-%S')"
 echo "[launch_dreamcoder_iteration.sh] $CMD"
 # remove lines that start with "0.000000" or "Frontier" which are spam and fill up memory to log
-($CMD 1>$LOG_STDOUT) 2>&1 | awk "\$1 != \"0.000000\" && \$1 != \"Frontier\" {print}" | tee $LOG_STDERR 1>&2
+# note that system("") is an awk trick to flush the buffer so this doesnt look awful
+($CMD 1>$LOG_STDOUT) 2>&1 | awk "\$1 != \"0.000000\" && \$1 != \"Frontier\" {print; system(\"\")}" | tee $LOG_STDERR 1>&2
+
 
 echo "[launch_dreamcoder_iteration.sh] Compression Binary Exited at $(date '+%Y-%m-%d_%H-%M-%S')"
 

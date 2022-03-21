@@ -7,7 +7,7 @@
     "bs": 1000000,
     "topI": 300,
     "structurePenalty": 1.5,
-    "CPUs": 200,
+    "CPUs": 64,
     "lc_score": 0.0,
     "DSL": {
         "logVariable": -0.763121507489581,
