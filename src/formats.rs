@@ -12,7 +12,7 @@ pub enum InputFormat {
 }
 
 impl InputFormat {
-    pub fn load_programs_and_tasks(&self, path: &Path) -> Result<(Vec<String>, Vec<String>), String> {
+    pub fn load_programs_and_tasks(&self, path: &Path) -> Result<(Vec<String>, Vec<String>, usize), String> {
         match self {
             &InputFormat::Dreamcoder => {
                 // read dreamcoder format
@@ -21,7 +21,8 @@ impl InputFormat {
                 let dsl: Vec<String> = json["DSL"]["productions"].as_array().unwrap().iter().map(|prod|prod["expression"].as_str().unwrap().to_string()).collect();
                 let inv_dc_strs: Vec<(String,String)> = dsl.iter().rev() // rev() since the first dsl function is the newest
                     .filter(|s| s.starts_with("#")).cloned().enumerate()
-                    .map(|(i,dc_str)| (format!("dc_fn_{}",i),dc_str)).collect();
+                    .map(|(i,dc_str)| (format!("fn_{}",i),dc_str)).collect();
+                let num_prior_inventions: usize = inv_dc_strs.len();
                 let mut programs: Vec<String> = Vec::default();
                 let mut tasks: Vec<String> = Vec::default();
                 for (i,frontier) in frontiers.into_iter().enumerate() {
@@ -37,7 +38,7 @@ impl InputFormat {
                     programs.extend(programs_in_frontier);
                     tasks.extend(task_repeated);
                 }
-                Ok((programs, tasks))
+                Ok((programs, tasks, num_prior_inventions))
             }
             &InputFormat::ProgramsList => {
                 let programs: Vec<String> = from_reader(File::open(path).map_err(|e| format!("file not found, error code {:?}", e))?).map_err(|e| format!("json parser error, are you sure you wanted format {:?}? Error code was {:?}", self, e))?;
@@ -47,7 +48,8 @@ impl InputFormat {
                     tasks.push(task_num.to_string());
                     task_num += 1;
                 }
-                Ok((programs, tasks))
+                let num_prior_inventions = 0;
+                Ok((programs, tasks, num_prior_inventions))
             }
         }
     }

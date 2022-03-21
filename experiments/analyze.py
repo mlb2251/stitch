@@ -256,6 +256,39 @@ def dreamcoder_to_invention_info(in_file, out_file):
         'dreamcoder_frontiers': out_json['frontiers'],
     }
 
+def stitch_to_invention_info(stitch_json):
+    in_json = load(stitch_json['args']['file'])
+    stitch_dsl_input = to_stitch_dsl(in_json)
+
+    assert len(stitch_json['invs']) == 1, "there seem to be more than one invention in this file"
+    inv = stitch_json['invs'][0]
+
+    all_programs_in = [programs['program'] for f in in_json['frontiers'] for programs in f['programs']]
+    stitch_programs_in = [to_stitch_program(p,stitch_dsl_input) for p in all_programs_in]
+    stitch_programs_cost_in = sum([stitch_cost(p) for p in stitch_programs_in])
+    compressive_utility = (stitch_programs_cost_in - inv['final_cost'])
+
+    assert stitch_programs_cost_in == stitch_json["original_cost"]
+    assert compressive_utility ==  stitch_json["original_cost"] - inv["final_cost"]
+
+    return {
+            'in_file': stitch_json['args']['file'],
+            'out_file': stitch_json['args']['out'],
+            'name': inv['name'],
+            'stitch_uncanonical': inv['body'],
+            'stitch_canonical': inv['body'],
+            'dreamcoder': inv['dreamcoder'],
+            'dreamcoder_frontiers_score': None,
+            'stitch_programs_cost': inv['final_cost'],
+            'compressive_utility': stitch_json["original_cost"] - inv["final_cost"],
+            'compressive_multiplier': inv["multiplier"],
+            'stitch_utility': inv["utility"],
+            'usages': inv['num_uses'],
+            'stitch_programs': inv['rewritten'],
+            'dreamcoder_frontiers': None,
+        }
+
+
 def usages(fn_name, stitch_programs):
     # we count name + closeparen or name + space so that fn_1 doesnt get counted for things like fn_10
     return sum([p.count(f'{fn_name})') + p.count(f'{fn_name} ') for p in stitch_programs])
@@ -372,7 +405,38 @@ if __name__ == '__main__':
         in_files = [x['in_file'] for x in load(out_path / 'invention_info' / 'info.json')]
         for i,in_file in enumerate(in_files):
             print(in_file)
-        
+    
+    elif mode == 'run_invention_info_stitch':
+        out_path = Path(sys.argv[2])
+        save_dir = out_path / 'stitch' / 'invention_info'
+        save_dir.mkdir(exist_ok=True)
+        summary = []
+        for file in sorted([f for f in os.listdir(out_path / 'stitch') if f.endswith('.json')], key=lambda x: int(re.match(r'out_(\d*)',x).group(1))):
+            stitch_json = load(out_path / 'stitch' / file)
+            inv_info = stitch_to_invention_info(stitch_json)
+            save(inv_info, save_dir / f'{file}.json')
+            inv_info['dreamcoder_frontiers'] = None
+            inv_info['stitch_programs'] = None
+            summary.append(inv_info)
+        save(summary, save_dir / 'info.json')
+
+    elif mode == 'compare':
+        out_path = Path(sys.argv[2])
+        stitch = load(out_path / 'stitch' / 'invention_info' / 'info.json')
+        dc = load(out_path / 'invention_info' / 'info.json')
+        for i,(s,d) in enumerate(zip(stitch,dc)):
+            assert s['name'] == d['name']
+            assert s['in_file'] == d['in_file']
+            if s['compressive_utility'] == d['compressive_utility']:
+                print(f"{i}: exact match for compressive_utility")
+            elif s['compressive_utility'] < d['compressive_utility']:
+                print(f"{i}: WARNING STITCH IS WORSE IN compressive_utility")
+                print("===STITCH===")
+                for k,v in s.items():
+                    print(f"{k}: {v}")
+                print("===DREAMCODER===")
+                for k,v in d.items():
+                    print(f"{k}: {v}")
 
 
 

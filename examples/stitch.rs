@@ -16,6 +16,7 @@ use serde_json::json;
     tasks,
     "*",
     iterations = "3",
+    num_prior_inventions = "0",
     max_arity = "2",
     threads = "1",
     inv_candidates = "1",
@@ -36,6 +37,7 @@ fn compression(
     programs: Vec<String>,
     tasks: Vec<String>,
     iterations: usize,
+    num_prior_inventions: usize,
     max_arity: usize,
     threads: usize,
     inv_candidates: usize,
@@ -81,7 +83,7 @@ fn compression(
 
     // release the GIL and call compression
     let step_results = py.allow_threads(||
-        stitch::compression(&programs, iterations, &cfg, &tasks)
+        stitch::compression(&programs, iterations, &cfg, &tasks, num_prior_inventions)
     );
 
     let out = json!({

@@ -812,6 +812,7 @@ pub fn compression(
     iterations: usize,
     cfg: &CompressionStepConfig,
     tasks: &Vec<String>,
+    num_prior_inventions: usize,
 ) -> Vec<CompressionStepResult> {
     let mut rewritten: Expr = programs_expr.clone();
     let mut step_results: Vec<CompressionStepResult> = Default::default();
@@ -820,7 +821,7 @@ pub fn compression(
 
     for i in 0..iterations {
         println!("{}",format!("\n=======Iteration {}=======",i).blue().bold());
-        let inv_name = format!("fn_{}",step_results.len());
+        let inv_name = format!("fn_{}", num_prior_inventions + step_results.len());
 
         // call actual compression
         let res: Vec<CompressionStepResult> = compression_step(
