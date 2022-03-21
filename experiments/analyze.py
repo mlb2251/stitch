@@ -2,6 +2,8 @@ import json
 import sys
 import os
 import re
+from typing import *
+from pathlib import Path
 
 """
 This converts from any dreamcoder json that can be indexed like json["DSL"]["productions"]["expression]
@@ -192,16 +194,75 @@ def to_stitch_dsl(dc_json):
 
         dsl.append({'name':f'fn_{i}','dreamcoder':dc_string, 'with_sub_inventions':with_sub_inventions, 'stitch_uncanonical':stitch_uncanonical, 'stitch_canonical':stitch_canonical, 'arity':arity})
     return dsl
-# for d in dsl:
-#     for k,v in d.items():
-#         print(f'{k}: {v}')
-#     print()
 
+def to_stitch_program(program: str, stitch_dsl):
+    for entry in stitch_dsl[::-1]:
+        program = program.replace(entry['dreamcoder'], entry['name'])
+    program = program.replace('lambda','lam')
+    assert '#' not in program
+    return program
 
+COST_NONTERMINAL = 1
+COST_TERMINAL = 100
+def stitch_cost(stitch_program):
+    cost = 0
+    # lambda costs
+    cost += COST_NONTERMINAL * stitch_program.count('(lam ')
+    stitch_program = stitch_program.replace('(lam ','')
+    # app costs are based on spaces now that we've removed the lam space
+    cost += COST_NONTERMINAL * stitch_program.count(' ')
+    # clear parens 
+    stitch_program = stitch_program.replace('(','')
+    stitch_program = stitch_program.replace(')','')
+    # prim/var costs is the number of space separated things remaining
+    cost += COST_TERMINAL * len([x for x in stitch_program.split(' ') if x != ''])
+    return cost
 
+def dreamcoder_to_invention_info(dc_json_input, dc_json_output):
+    stitch_dsl_input = to_stitch_dsl(dc_json_input)
+    stitch_dsl_output = to_stitch_dsl(dc_json_output)
+    new_fn = diff(stitch_dsl_input,stitch_dsl_output)
+    assert len(new_fn) == 1, f"these inputs and outputs differ by {len(new_fn)} functions (must differ by 1 fn)"
+    new_fn = new_fn[0]
+    
+    all_programs_out = [programs['program'] for f in dc_json_output['frontiers'] for programs in f['programs']]
+    stitch_programs_out = [to_stitch_program(p,stitch_dsl_output) for p in all_programs_out]
+    stitch_programs_cost_out = sum([stitch_cost(p) for p in stitch_programs_out])
+    
+    all_programs_in = [programs['program'] for f in dc_json_input['frontiers'] for programs in f['programs']]
+    stitch_programs_in = [to_stitch_program(p,stitch_dsl_input) for p in all_programs_in]
+    stitch_programs_cost_in = sum([stitch_cost(p) for p in stitch_programs_in])
+    
+    compressive_utility = (stitch_programs_cost_in - stitch_programs_cost_out)
+    compressive_multiplier = stitch_programs_cost_in / stitch_programs_cost_out
+
+    return {
+        'name': new_fn['name'],
+        'stitch_uncanonical': new_fn['stitch_uncanonical'],
+        'stitch_canonical': new_fn['stitch_canonical'],
+        'dreamcoder': new_fn['dreamcoder'],
+        'dreamcoder_frontiers_score': None,
+        'stitch_programs_cost': stitch_programs_cost_out,
+        'compressive_utility': compressive_utility,
+        'compressive_multiplier': compressive_multiplier,
+        'stitch_utility': None,
+        'usages': usages(new_fn["name"], stitch_programs_out),
+        'stitch_programs': stitch_programs_out,
+        'dreamcoder_frontiers': dc_json_output['frontiers'],
+    }
+
+def usages(fn_name, stitch_programs):
+    # we count name + closeparen or name + space so that fn_1 doesnt get counted for things like fn_10
+    return sum([p.count(f'{fn_name})') + p.count(f'{fn_name} ') for p in stitch_programs])
 
 
 def diff(input_dsl,output_dsl):
+    # print("\n\nIN\n\n")
+    # for k in input_dsl:
+    #     print(f'{k["name"]}: {k["dreamcoder"]}')
+    # print("\n\nOUT\n\n")
+    # for k in output_dsl:
+    #     print(f'{k["name"]}: {k["dreamcoder"]}')
     difference = len(output_dsl) - len(input_dsl)
     assert difference >= 0
     if difference != 0:
@@ -271,6 +332,33 @@ if __name__ == '__main__':
         for domain,runs in RUNS.items():
             for run in runs:
                 save(run_info(os.path.join('data',domain,run)), os.path.join('data',domain,run,'info.json'))
+    
+    elif mode == 'process_dc_out':
+        dc_json_in = load(sys.argv[2])
+        dc_json_out = load(sys.argv[3])
+        out_path = Path(sys.argv[3]).with_suffix('.invention_info.json')
+
+        save(dreamcoder_to_invention_info(dc_json_in,dc_json_out), out_path)
 
 
+"""
+Unified single step output format for exactly 1 new invention
+invention_info.json
+
+name
+stitch_uncanonical
+stitch_canonical
+dreamcoder
+dreamcoder_frontiers_score
+stitch_frontiers_cost
+compressivity
+stitch_utility (null for now)
+stitch_frontiers
+dreamcoder_frontiers
+
+"""
+
+
+
+    
 

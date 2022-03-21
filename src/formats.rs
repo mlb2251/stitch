@@ -24,12 +24,15 @@ impl InputFormat {
                     .map(|(i,dc_str)| (format!("dc_fn_{}",i),dc_str)).collect();
                 let mut programs: Vec<String> = Vec::default();
                 let mut tasks: Vec<String> = Vec::default();
-                for frontier in frontiers {
+                for (i,frontier) in frontiers.into_iter().enumerate() {
                     let programs_in_frontier: Vec<String> = frontier["programs"].as_array().unwrap().iter().map(|p|p["program"].as_str().unwrap().to_string())
                         .map(|p| inv_dc_strs.iter().rev().fold(p, |p, s| p.replace(&s.1, &s.0))) // replace #(lambda ...) with fn_2 etc. Start with highest numbered fn to avoid mangling bodies of other fns.
                         .map(|p| p.replace("(lambda ","(lam ")).collect();
                     assert!(!programs_in_frontier.iter().any(|p| p.contains("#")));
-                    let task: String = frontier["task"].as_str().unwrap().to_string();
+                    let task: String = match frontier["task"].as_str(){
+                        Some(name) => name.to_string(),
+                        None => i.to_string()
+                    };
                     let task_repeated: Vec<String> = repeat(task).take(programs_in_frontier.len()).collect();
                     programs.extend(programs_in_frontier);
                     tasks.extend(task_repeated);
