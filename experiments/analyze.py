@@ -101,6 +101,7 @@ def load(file):
 def save(obj, file):
     with open(file,'w') as f:
         json.dump(obj,f,indent=4)
+    print(f"wrote {file}")
 
 def stitch_format(with_sub_inventions):
     source = with_sub_inventions[1:] # remove '#'
@@ -218,18 +219,20 @@ def stitch_cost(stitch_program):
     cost += COST_TERMINAL * len([x for x in stitch_program.split(' ') if x != ''])
     return cost
 
-def dreamcoder_to_invention_info(dc_json_input, dc_json_output):
-    stitch_dsl_input = to_stitch_dsl(dc_json_input)
-    stitch_dsl_output = to_stitch_dsl(dc_json_output)
+def dreamcoder_to_invention_info(in_file, out_file):
+    in_json = load(in_file)
+    out_json = load(out_file)
+    stitch_dsl_input = to_stitch_dsl(in_json)
+    stitch_dsl_output = to_stitch_dsl(out_json)
     new_fn = diff(stitch_dsl_input,stitch_dsl_output)
     assert len(new_fn) == 1, f"these inputs and outputs differ by {len(new_fn)} functions (must differ by 1 fn)"
     new_fn = new_fn[0]
     
-    all_programs_out = [programs['program'] for f in dc_json_output['frontiers'] for programs in f['programs']]
+    all_programs_out = [programs['program'] for f in out_json['frontiers'] for programs in f['programs']]
     stitch_programs_out = [to_stitch_program(p,stitch_dsl_output) for p in all_programs_out]
     stitch_programs_cost_out = sum([stitch_cost(p) for p in stitch_programs_out])
     
-    all_programs_in = [programs['program'] for f in dc_json_input['frontiers'] for programs in f['programs']]
+    all_programs_in = [programs['program'] for f in in_json['frontiers'] for programs in f['programs']]
     stitch_programs_in = [to_stitch_program(p,stitch_dsl_input) for p in all_programs_in]
     stitch_programs_cost_in = sum([stitch_cost(p) for p in stitch_programs_in])
     
@@ -237,6 +240,8 @@ def dreamcoder_to_invention_info(dc_json_input, dc_json_output):
     compressive_multiplier = stitch_programs_cost_in / stitch_programs_cost_out
 
     return {
+        'in_file': str(in_file),
+        'out_file': str(out_file),
         'name': new_fn['name'],
         'stitch_uncanonical': new_fn['stitch_uncanonical'],
         'stitch_canonical': new_fn['stitch_canonical'],
@@ -248,7 +253,7 @@ def dreamcoder_to_invention_info(dc_json_input, dc_json_output):
         'stitch_utility': None,
         'usages': usages(new_fn["name"], stitch_programs_out),
         'stitch_programs': stitch_programs_out,
-        'dreamcoder_frontiers': dc_json_output['frontiers'],
+        'dreamcoder_frontiers': out_json['frontiers'],
     }
 
 def usages(fn_name, stitch_programs):
@@ -333,12 +338,42 @@ if __name__ == '__main__':
             for run in runs:
                 save(run_info(os.path.join('data',domain,run)), os.path.join('data',domain,run,'info.json'))
     
-    elif mode == 'process_dc_out':
-        dc_json_in = load(sys.argv[2])
-        dc_json_out = load(sys.argv[3])
+    elif mode == 'invention_info_dc':
+        in_file = sys.argv[2]
+        out_file = sys.argv[3]
         out_path = Path(sys.argv[3]).with_suffix('.invention_info.json')
+        save(dreamcoder_to_invention_info(in_file,out_file), out_path)
 
-        save(dreamcoder_to_invention_info(dc_json_in,dc_json_out), out_path)
+    elif mode == 'run_invention_info_dc':
+        data_path = Path(sys.argv[2])
+        out_path = Path(sys.argv[3])
+        save_dir = out_path / 'invention_info'
+        save_dir.mkdir(exist_ok=True)
+        input_run_info = load(data_path / 'info.json')
+
+        summary_json = []
+
+        for i in range(0,len(input_run_info['iterations'])):
+            inv = 0
+            curr_input = data_path / f'iteration_{i}.json'
+            for file in sorted(os.listdir(out_path / f'iteration_{i}_rerun_compressionMessages')):
+                output = out_path / f'iteration_{i}_rerun_compressionMessages' / file
+                inv_info = dreamcoder_to_invention_info(curr_input, output)
+                save(inv_info, save_dir / f'iteration_{i}_inv{inv}.json')
+                inv_info['dreamcoder_frontiers'] = None
+                inv_info['stitch_programs'] = None
+                summary_json.append(inv_info)
+                curr_input = output
+                inv += 1
+        save(summary_json, save_dir / f'info.json')
+    
+    elif mode == 'to_input_files':
+        out_path = Path(sys.argv[2])
+        in_files = [x['in_file'] for x in load(out_path / 'invention_info' / 'info.json')]
+        for i,in_file in enumerate(in_files):
+            print(in_file)
+        
+
 
 
 """
