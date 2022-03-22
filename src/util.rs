@@ -179,8 +179,23 @@ pub fn dc_inv_str(inv: &Invention, past_step_results: &Vec<CompressionStepResult
     res = res.replace("(lam ", "(lambda ");
     // inline any past inventions using their dc_inv_str. Match on "fn_i)" and "fn_i " to avoid matching fn_1 on fn_10 or any other prefix
     for past_step_result in past_step_results.iter() {
-        res = res.replace(&format!("{})",past_step_result.inv.name), &format!("{})",past_step_result.dc_inv_str));
-        res = res.replace(&format!("{} ",past_step_result.inv.name), &format!("{} ", past_step_result.dc_inv_str));
+        res = replace_prim_with(&res, &past_step_result.inv.name, &past_step_result.dc_inv_str);
+        // res = res.replace(&format!("{})",past_step_result.inv.name), &format!("{})",past_step_result.dc_inv_str));
+        // res = res.replace(&format!("{} ",past_step_result.inv.name), &format!("{} ", past_step_result.dc_inv_str));
+    }
+    res
+}
+
+pub fn replace_prim_with(s: &str, prim: &str, new: &str) -> String {
+    let mut res: String = s.to_string();
+    res = res.replace(&format!(" {})",prim), &format!(" {})",new));
+    res = res.replace(&format!(" {} ",prim), &format!(" {} ",new));
+    res = res.replace(&format!("({} ",prim), &format!("({} ",new));
+    if res.starts_with(prim) {
+        res = format!("{} {}", new, &res[prim.len()..]);
+    }
+    if res.ends_with(prim) {
+        res = format!("{} {}", &res[..res.len()-prim.len()], new);
     }
     res
 }

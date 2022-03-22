@@ -51,6 +51,10 @@ pub struct RewriteArgs {
     /// See [formats.rs] for options or to add new ones.
     #[clap(long, arg_enum, default_value = "programs-list")]
     pub fmt: InputFormat,
+
+    /// return the rewritten programs in dreamcoder (#(lambda)) format
+    #[clap(long)]
+    pub dreamcoder_output: bool,
 }
 
 fn main() {
@@ -63,6 +67,8 @@ fn main() {
         from_reader(File::open(&args.inventions_file).expect("file not found"))
             .expect("json deserializing error");
     let inventions = inventions_data["invs"].as_array().unwrap();
+
+    let dreamcoder_translation: Vec<(String,String)> = inventions.iter().map(|invention| (invention["name"].as_str().unwrap().to_string(),invention["dreamcoder"].as_str().unwrap().to_string())).collect();
 
     let inventions: Vec<Invention> = inventions
         .iter()
@@ -131,12 +137,18 @@ fn main() {
             // Rewrite back the lambda and optionally rewrite back the DC invention format.
             for (i, pretty_program) in rewritten.split_programs().iter().enumerate() {
                 let task_name = program_id_to_task_name[&i].clone();
+                let mut pretty_program = pretty_program.to_string();
+                if args.dreamcoder_output {
+                    for (name, dc_translation) in dreamcoder_translation.iter() {
+                        pretty_program = replace_prim_with(&pretty_program, name, dc_translation);
+                    }
+                }
+
                 rewritten_frontiers
                     .entry(task_name)
                     .or_insert(Vec::new())
                     .push(
                         pretty_program
-                            .to_string()
                             .replace("(lam ", "(lambda ")
                             .clone(),
                     );

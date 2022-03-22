@@ -657,11 +657,13 @@ impl CompressionStepResult {
         let rewritten_dreamcoder: Vec<String> = rewritten.split_programs().iter().map(|p|{
             let mut res = p.to_string();
             for past_inv in past_invs {
-                res = res.replace(&format!("{})",past_inv.inv.name), &format!("{})",past_inv.dc_inv_str));
-                res = res.replace(&format!("{} ",past_inv.inv.name), &format!("{} ",past_inv.dc_inv_str));
+                res = replace_prim_with(&res, &past_inv.inv.name, &past_inv.dc_inv_str);
+                // res = res.replace(&format!("{})",past_inv.inv.name), &format!("{})",past_inv.dc_inv_str));
+                // res = res.replace(&format!("{} ",past_inv.inv.name), &format!("{} ",past_inv.dc_inv_str));
             }
-            res = res.replace(&format!("{})",inv_name), &format!("{})",dc_inv_str));
-            res = res.replace(&format!("{} ",inv_name), &format!("{} ",dc_inv_str));
+            res = replace_prim_with(&res, &inv_name, &dc_inv_str);
+            // res = res.replace(&format!("{})",inv_name), &format!("{})",dc_inv_str));
+            // res = res.replace(&format!("{} ",inv_name), &format!("{} ",dc_inv_str));
             res
         }).collect();
 
