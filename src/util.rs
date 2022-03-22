@@ -191,11 +191,14 @@ pub fn replace_prim_with(s: &str, prim: &str, new: &str) -> String {
     res = res.replace(&format!(" {})",prim), &format!(" {})",new));
     res = res.replace(&format!(" {} ",prim), &format!(" {} ",new));
     res = res.replace(&format!("({} ",prim), &format!("({} ",new));
-    if res.starts_with(prim) {
+    if res.starts_with(&format!("{} ",prim)) {
         res = format!("{} {}", new, &res[prim.len()..]);
     }
-    if res.ends_with(prim) {
+    if res.ends_with(&format!(" {}",prim)) {
         res = format!("{} {}", &res[..res.len()-prim.len()], new);
+    }
+    if res == prim {
+        res = new.to_string();
     }
     res
 }
