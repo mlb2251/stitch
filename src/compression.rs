@@ -262,6 +262,10 @@ pub struct CompressionStepConfig {
     /// disables context threading
     #[clap(long)]
     pub no_ctx_thread: bool,
+
+    /// turns on eta long form (WIP)
+    #[clap(long)]
+    pub eta_long: bool,
 }
 
 impl CompressionStepConfig {
@@ -518,12 +522,14 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph, cfg: &Co
         all_appzippers.insert(*treenode, appzippers);
     }
 
-    for treenode in treenodes.iter() {
-        if let Lambda::App([f,_]) = egraph[*treenode].nodes[0] {
-            // this for eta long form / dreamcoder compatability: no appzipper bodies can be rooted to the left of an App
-            // because that means the body is a function type, which isnt allowed. For example an arity 2 invention with a
-            // function type body would be effectively arity 3 and dreamcoder doesnt support this sort of thing.
-            all_appzippers.get_mut(&f).unwrap().clear();
+    if cfg.eta_long {
+        for treenode in treenodes.iter() {
+            if let Lambda::App([f,_]) = egraph[*treenode].nodes[0] {
+                // this for eta long form / dreamcoder compatability: no appzipper bodies can be rooted to the left of an App
+                // because that means the body is a function type, which isnt allowed. For example an arity 2 invention with a
+                // function type body would be effectively arity 3 and dreamcoder doesnt support this sort of thing.
+                all_appzippers.get_mut(&f).unwrap().clear();
+            }
         }
     }
 
