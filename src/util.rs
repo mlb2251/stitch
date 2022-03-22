@@ -177,9 +177,10 @@ pub fn dc_inv_str(inv: &Invention, past_step_results: &Vec<CompressionStepResult
     // add the "#" that dreamcoder wants and change lam -> lambda
     let mut res: String = format!("#{}", body);
     res = res.replace("(lam ", "(lambda ");
-    // inline any past inventions using their dc_inv_str
+    // inline any past inventions using their dc_inv_str. Match on "fn_i)" and "fn_i " to avoid matching fn_1 on fn_10 or any other prefix
     for past_step_result in past_step_results.iter() {
-        res = res.replace(past_step_result.inv.name.as_str(), past_step_result.dc_inv_str.as_str());
+        res = res.replace(&format!("{})",past_step_result.inv.name), &format!("{})",past_step_result.dc_inv_str));
+        res = res.replace(&format!("{} ",past_step_result.inv.name), &format!("{} ", past_step_result.dc_inv_str));
     }
     res
 }
