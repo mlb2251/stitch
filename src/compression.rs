@@ -476,6 +476,11 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph, cfg: &Co
                     let new: AppZipper = x_appzipper.clone_prepend(ZNode::Arg,Some(f));
                     appzippers.push(new);
                 }
+
+                // this for eta long form / dreamcoder compatability: no appzipper bodies can be rooted to the left of an App
+                // because that means the body is a function type, which isnt allowed. For example an arity 2 invention with a
+                // function type body would be effectively arity 3 and dreamcoder doesnt support this sort of thing.
+                all_appzippers.get_mut(&f).unwrap().clear();
             },
             Lambda::Lam([b]) => {
                 let ref b_appzippers = all_appzippers[&b];
