@@ -608,6 +608,7 @@ fn divergence_idx(left: &[ZNode], right: &[ZNode]) -> usize {
 pub struct CompressionStepResult {
     pub inv: Invention,
     pub rewritten: Expr,
+    pub rewritten_dreamcoder: Vec<String>,
     pub done: FinishedItem,
     pub expected_cost: i32,
     pub final_cost: i32,
@@ -629,6 +630,7 @@ impl CompressionStepResult {
 
         let inv = done.to_invention(inv_name, appzipper_of_node_zid, egraph);
         let rewritten: Expr = rewrite_with_invention_egraph(programs_node, &inv, egraph);
+
         let expected_cost = initial_cost - done.compressive_utility;
         let final_cost = rewritten.cost();
         if expected_cost != final_cost {
@@ -645,7 +647,20 @@ impl CompressionStepResult {
         
         // dreamcoder compatability
         let dc_inv_str: String = dc_inv_str(&inv, past_invs);
-        CompressionStepResult { inv, rewritten, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost }
+        // Rewrite to dreamcoder syntax with all past invention
+        // we rewrite "inv1)" and "inv1 " instead of just "inv1" because we dont want to match on "inv10"
+        let rewritten_dreamcoder: Vec<String> = rewritten.split_programs().iter().map(|p|{
+            let mut res = p.to_string();
+            for past_inv in past_invs {
+                res = res.replace(&format!("{})",past_inv.inv.name), &format!("{})",past_inv.dc_inv_str));
+                res = res.replace(&format!("{} ",past_inv.inv.name), &format!("{} ",past_inv.dc_inv_str));
+            }
+            res = res.replace(&format!("{})",inv_name), &format!("{})",dc_inv_str));
+            res = res.replace(&format!("{} ",inv_name), &format!("{} ",dc_inv_str));
+            res
+        }).collect();
+
+        CompressionStepResult { inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost }
     }
     pub fn json(&self) -> serde_json::Value {        
         let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| expr.to_string()).collect();
@@ -658,6 +673,7 @@ impl CompressionStepResult {
             "arity": self.inv.arity,
             "name": self.inv.name,
             "rewritten": self.rewritten.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+            "rewritten_dreamcoder": self.rewritten_dreamcoder,
             "utility": self.done.utility,
             "expected_cost": self.expected_cost,
             "final_cost": self.final_cost,
