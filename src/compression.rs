@@ -934,7 +934,10 @@ fn get_appzippers(treenodes: &[Id], no_cache:bool, egraph: &mut EGraph, cfg: &Co
     let cache: &mut Option<RecVarModCache> = &mut if no_cache { None } else { Some(HashMap::new()) };
 
     // todo i think we can do something reasonable here.
-    // todo hard to decide exactly how it should go
+    // todo hard to decide exactly how it should go.
+    // i think we do want amortized zippers. But also it seems
+    // like a waste to construct all these super long zippers that we'll
+    // never use.
 
     let mut zid_of_zpath: HashMap<Vec<ZNode>, ZId> = Default::default();
     let mut zpath_of_zid: Vec<Vec<ZNode>> = Default::default();
