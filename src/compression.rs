@@ -513,11 +513,6 @@ impl Assignment {
                 return true; 
             }
 
-            // it's not our first step, but we're back to [0] so we're done
-            if self.ivars.len() == 1 {
-                return false // we backtracked to [0] so we're done
-            }
-
             // prefer extending if we're allowed to
             if self.can_extend && self.ivars.len() < pattern.arg_choices.len() {
                 // println!("extending");
@@ -527,11 +522,17 @@ impl Assignment {
                 // filter for locations where the multiuse equality constraint holds.
                 // note that we know that ivars[0] == 0 ie the first argchoice is always #0
                 // so this is easier than in other cases where we have to look it up.
-                self.match_locations.push(pattern.match_locations.iter()
+                self.match_locations.push(self.match_locations.last().unwrap().iter()
                     .filter(|loc|
                         shared.arg_of_zid_node[&(pattern.arg_choices[self.ptr], **loc)].id == 
                         shared.arg_of_zid_node[&(pattern.arg_choices[0], **loc)].id).cloned().collect());
                 return true
+            }
+
+
+            // it's not our first step, but we're back to [0] so we're done
+            if self.ivars.len() == 1 {
+                return false // we backtracked to [0] so we're done
             }
 
             // since we couldnt' extend, we'd like to increment our ivar.
@@ -540,6 +541,7 @@ impl Assignment {
             // (here, as long as the past ivars contain something at least as big as our
             // current ivar, it's okay to increment our current ivar)
             let new_ivar = self.ivars[self.ptr] + 1;
+
             if new_ivar < shared.cfg.max_arity as i32
                 && self.ivars[self.ptr] <= self.max_ivar_used[self.ptr - 1]
             {
@@ -556,7 +558,7 @@ impl Assignment {
 
                 let first_ivar_use = self.first_ivar_use[self.ivars[self.ptr] as usize];
 
-                self.match_locations.push(pattern.match_locations.iter()
+                self.match_locations.push(self.match_locations.last().unwrap().iter()
                     .filter(|loc|
                         shared.arg_of_zid_node[&(pattern.arg_choices[self.ptr], **loc)].id == 
                         shared.arg_of_zid_node[&(pattern.arg_choices[first_ivar_use], **loc)].id).cloned().collect());
@@ -673,6 +675,7 @@ fn assignments_of_pattern(
                 // for each child.
                 unfinished_pattern_succeeded = true;
                 if shared.cfg.break_early_assignment {
+                    panic!("bug");
                     break
                 }
                 continue; 
@@ -683,6 +686,7 @@ fn assignments_of_pattern(
 
 
     if !is_finished_pattern && unfinished_pattern_succeeded {
+        // println!("pushing: {}", pattern.to_expr(shared));
         worklist_buf.push(HeapItem::new(pattern))
     }
 
