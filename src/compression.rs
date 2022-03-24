@@ -218,7 +218,7 @@ struct CriticalMultithreadData {
 #[derive(Debug)]
 struct SharedData {
     crit: Mutex<CriticalMultithreadData>,
-    arg_of_zid_node: HashMap<(ZId,Id),Arg>,
+    arg_of_zid_node: Vec<HashMap<Id,Arg>>,
     treenodes: Vec<Id>,
     zids_of_node: HashMap<Id,Vec<ZId>>,
     zip_of_zid: Vec<Zip>,
@@ -351,12 +351,13 @@ fn stitch_search(
         let hole_zid: ZId = holes_after_pop.remove(hole_idx);
 
         // sort so that the groupby will work
+        let ref arg_of_loc = shared.arg_of_zid_node[hole_zid];
         let mut match_locations = original_pattern.match_locations.clone();
-        match_locations.sort_unstable_by_key(|loc| shared.arg_of_zid_node[&(hole_zid, *loc)].node_type.clone());
+        match_locations.sort_unstable_by_key(|loc| arg_of_loc[loc].node_type.clone());
         // println!("match locs: {}", match_locations.len());
 
         for (node_type, locs) in match_locations.into_iter()
-            .group_by(|loc| shared.arg_of_zid_node[&(hole_zid, *loc)].node_type.clone()).into_iter()
+            .group_by(|loc| arg_of_loc[loc].node_type.clone()).into_iter()
         {
             let tracked = original_pattern.tracked && Some(node_type.clone()) == tracked_node_type(hole_zid, &shared);
 
@@ -385,7 +386,7 @@ fn stitch_search(
             // check for useless abstractions (ie same arg everywhere) which might have arison from our narrowing of the match_locations
             if original_pattern.arg_choices.iter()
             .any(|argchoice_zid| locs.iter()
-                .map(|loc| shared.arg_of_zid_node[&(*argchoice_zid, *loc)].id.clone()).all_equal())
+                .map(|loc| shared.arg_of_zid_node[*argchoice_zid][loc].id.clone()).all_equal())
             {
                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
                 continue; // useless abstraction
@@ -450,7 +451,7 @@ fn stitch_search(
         let tracked = original_pattern.tracked && tracked_node_type(hole_zid, &shared).is_none();
 
         // add an argchoice, as long as it's actually abstracting a different thing over all locations
-        if original_pattern.match_locations.iter().map(|loc| shared.arg_of_zid_node[&(hole_zid, *loc)].id.clone()).all_equal() {
+        if original_pattern.match_locations.iter().map(|loc| arg_of_loc[loc].id.clone()).all_equal() {
             if tracked { println!("{} useless abstraction pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], "?#")); }
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
         } else {
@@ -614,10 +615,13 @@ impl Assignment {
                 // filter for locations where the multiuse equality constraint holds.
                 // note that we know that ivars[0] == 0 ie the first argchoice is always #0
                 // so this is easier than in other cases where we have to look it up.
+                let ref arg_of_node_self = shared.arg_of_zid_node[pattern.arg_choices[self.ptr]];
+                let ref arg_of_node_ivar0 = shared.arg_of_zid_node[pattern.arg_choices[0]];
+                // println!("{:?}", self.ivars);
                 self.match_locations.push(self.match_locations.last().unwrap().iter()
                     .filter(|loc|
-                        shared.arg_of_zid_node[&(pattern.arg_choices[self.ptr], **loc)].id == 
-                        shared.arg_of_zid_node[&(pattern.arg_choices[0], **loc)].id).cloned().collect());
+                        arg_of_node_self[*loc].id == 
+                        arg_of_node_ivar0[*loc].id).cloned().collect());
                 return true
             }
 
@@ -652,11 +656,13 @@ impl Assignment {
 
                 // when you increment, you get to pop the previous match_locations and
                 // push a new one thats subsetting on the one *before* that one.
+                let ref arg_of_node_self = shared.arg_of_zid_node[pattern.arg_choices[self.ptr]];
+                let ref arg_of_node_other = shared.arg_of_zid_node[pattern.arg_choices[first_ivar_use]];
                 self.match_locations.pop();
                 self.match_locations.push(self.match_locations.last().unwrap().iter()
                     .filter(|loc|
-                        shared.arg_of_zid_node[&(pattern.arg_choices[self.ptr], **loc)].id == 
-                        shared.arg_of_zid_node[&(pattern.arg_choices[first_ivar_use], **loc)].id).cloned().collect());
+                        arg_of_node_self[loc].id == 
+                        arg_of_node_other[loc].id).cloned().collect());
                 
                 // having incremented an ivar, we are now allowed to extend if we weren't already
                 self.can_extend = true;
@@ -755,7 +761,7 @@ fn assignments_of_pattern(
         // check for useless abstractions (ie same arg everywhere) which might have arison from our narrowing of the match_locations
         if pattern.arg_choices.iter()
             .any(|argchoice_zid| asn.match_locations.last().unwrap().iter()
-                .map(|loc| shared.arg_of_zid_node[&(*argchoice_zid, *loc)].id.clone()).all_equal())
+                .map(|loc| shared.arg_of_zid_node[*argchoice_zid][loc].id.clone()).all_equal())
         {
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
             asn.prune_branch(&mut pattern);
@@ -777,7 +783,7 @@ fn assignments_of_pattern(
                 );
                 // todo migrate this over to using negative ivars some time
                 if finished_pattern.first_zid_of_ivar.iter().any(|zid|
-                    shared.egraph[shared.arg_of_zid_node[&(*zid,finished_pattern.match_locations[0])].id].data.free_vars.iter().any(|free_var|
+                    shared.egraph[shared.arg_of_zid_node[*zid][&finished_pattern.match_locations[0]].id].data.free_vars.iter().any(|free_var|
                         *free_var < 0))
                 {
                     if pattern.tracked { println!("{} discarding finished_pattern because one of its args has negative vars: {}", "[TRACK]".red().bold(), finished_pattern.to_expr(&shared)); }
@@ -1096,17 +1102,17 @@ impl HoleChoice {
             },
             &HoleChoice::FewApps => {
                 pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().filter(|loc|shared.arg_of_zid_node[&(*hole_zid, **loc)].node_type == NodeType::App).count()))
+                    (hole_idx, pattern.match_locations.iter().filter(|loc|shared.arg_of_zid_node[*hole_zid][loc].node_type == NodeType::App).count()))
                         .min_by_key(|x|x.1).unwrap().0
             }
             &HoleChoice::MaxCost => {
                 pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[&(*hole_zid, *loc)].cost).sum::<i32>()))
+                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
                         .max_by_key(|x|x.1).unwrap().0
             }
             &HoleChoice::MinCost => {
                 pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[&(*hole_zid, *loc)].cost).sum::<i32>()))
+                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
                         .min_by_key(|x|x.1).unwrap().0
             }
             &HoleChoice::MaxLargestSubset => {
@@ -1114,7 +1120,7 @@ impl HoleChoice {
                 // mainly because where there are like dozens of holes doing all these lookups and clones and hashmaps is a LOT
                 pattern.holes.iter().enumerate()
                     .map(|(hole_idx,hole_zid)| (hole_idx, *pattern.match_locations.iter()
-                        .map(|loc| shared.arg_of_zid_node[&(*hole_zid, *loc)].node_type.clone()).counts().values().max().unwrap())).max_by_key(|&(_,max_count)| max_count).unwrap().0
+                        .map(|loc| shared.arg_of_zid_node[*hole_zid][loc].node_type.clone()).counts().values().max().unwrap())).max_by_key(|&(_,max_count)| max_count).unwrap().0
             }
             _ => unimplemented!()
         }
@@ -1149,17 +1155,18 @@ fn get_appzippers(
     no_cache: bool,
     egraph: &mut EGraph,
     cfg: &CompressionStepConfig
-) -> (HashMap<Zip, ZId>, Vec<Zip>, HashMap<(ZId,Id),Arg>, HashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>) {
+) -> (HashMap<Zip, ZId>, Vec<Zip>, Vec<HashMap<Id,Arg>>, HashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>) {
     let cache: &mut Option<RecVarModCache> = &mut if no_cache { None } else { Some(HashMap::new()) };
 
     let mut zid_of_zip: HashMap<Zip, ZId> = Default::default();
     let mut zip_of_zid: Vec<Zip> = Default::default();
-    let mut arg_of_zid_node: HashMap<(ZId,Id),Arg> = Default::default();
+    let mut arg_of_zid_node: Vec<HashMap<Id,Arg>> = Default::default();
     let mut zids_of_node: HashMap<Id,Vec<ZId>> = Default::default();
     let mut extensions_of_zid: Vec<ZIdExtension> = Default::default();
 
     zid_of_zip.insert(vec![], EMPTY_ZID);
     zip_of_zid.push(vec![]);
+    arg_of_zid_node.push(HashMap::new());
     assert!(EMPTY_ZID == 0);
     
     for treenode in treenodes.iter() {
@@ -1172,7 +1179,7 @@ fn get_appzippers(
         
         // any node can become the identity function (the empty zipper with itself as the arg)
         let mut zids: Vec<ZId> = vec![EMPTY_ZID];
-        arg_of_zid_node.insert((EMPTY_ZID,*treenode),
+        arg_of_zid_node[EMPTY_ZID].insert(*treenode,
             Arg::new(*treenode, *treenode, cost_of_node_once[treenode], node_type_of_node(&node).unwrap()));
 
         match node {
@@ -1187,12 +1194,14 @@ fn get_appzippers(
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
+                        arg_of_zid_node.push(HashMap::new());
                         zid
                     });
                     // add new zid to this node
                     zids.push(*zid);
                     // give it the same arg
-                    arg_of_zid_node.insert((*zid,*treenode), arg_of_zid_node[&(*f_zid,f)].clone());
+                    let arg = arg_of_zid_node[*f_zid][&f].clone();
+                    arg_of_zid_node[*zid].insert(*treenode, arg);
                 }
 
                 // bubble from `x`
@@ -1203,12 +1212,15 @@ fn get_appzippers(
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
+                        arg_of_zid_node.push(HashMap::new());
                         zid
                     });
                     // add new zid to this node
                     zids.push(*zid);
                     // give it the same arg
-                    arg_of_zid_node.insert((*zid,*treenode), arg_of_zid_node[&(*x_zid,x)].clone());
+                    let arg = arg_of_zid_node[*x_zid][&x].clone();
+                    arg_of_zid_node[*zid].insert(*treenode, arg);
+
                 }
             },
             Lambda::Lam([b]) => {
@@ -1225,14 +1237,15 @@ fn get_appzippers(
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
+                        arg_of_zid_node.push(HashMap::new());
                         zid
                     });
                     // add new zid to this node
                     zids.push(*zid);
                     // shift the arg but keep the unshifted part the sam
-                    let mut arg: Arg = arg_of_zid_node[&(*b_zid,b)].clone();
+                    let mut arg: Arg = arg_of_zid_node[*b_zid][&b].clone();
                     arg.id = shift(arg.id, -1, egraph, cache).unwrap();
-                    arg_of_zid_node.insert((*zid,*treenode), arg);
+                    arg_of_zid_node[*zid].insert(*treenode, arg);
                 }
             },
         }
@@ -1312,7 +1325,7 @@ impl CompressionStepResult {
         let use_exprs: Vec<Expr> = done.match_locations.iter().map(|node| extract(*node, &shared.egraph)).collect();
         let use_args: Vec<Vec<Expr>> = done.match_locations.iter().map(|node|
             done.first_zid_of_ivar.iter().map(|zid|
-                extract(shared.arg_of_zid_node[&(*zid,*node)].id, &shared.egraph)
+                extract(shared.arg_of_zid_node[*zid][node].id, &shared.egraph)
             ).collect()).collect();
         
         // dreamcoder compatability
@@ -1407,7 +1420,7 @@ fn compressive_utility(
         // extra utility. Note we use `first_zid_of_ivar` since it doesn't matter which
         // of the zids we use as long as it corresponds to the right ivar
         let multiuse_utility = ivar_multiuses.iter().map(|(ivar,count)|
-            count * shared.arg_of_zid_node[&(first_zid_of_ivar[*ivar],*loc)].cost
+            count * shared.arg_of_zid_node[first_zid_of_ivar[*ivar]][loc].cost
         ).sum::<i32>();
         // multiply all this utility by the number of times this node shows up
         (base_utility + multiuse_utility) * shared.num_paths_to_node[loc]
