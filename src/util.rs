@@ -348,7 +348,7 @@ pub fn group_by_key<T: Copy, U: Ord>(v: Vec<T>, key: impl Fn(&T)->U) -> Vec<Vec<
 
 /// Returns a hashmap from node id to number of places that node is used in the tree. Essentially this just
 /// follows all paths down from the root and logs how many times it encounters each node
-pub fn num_paths_to_node(programs_node: Id, treenodes: &Vec<Id>, egraph: &EGraph) -> HashMap<Id,i32> {
+pub fn num_paths_to_node(roots: &[Id], treenodes: &Vec<Id>, egraph: &EGraph) -> HashMap<Id,i32> {
     let mut num_paths_to_node: HashMap<Id,i32> = HashMap::new();
     treenodes.iter().for_each(|treenode| {
         num_paths_to_node.insert(*treenode, 0);
@@ -360,6 +360,8 @@ pub fn num_paths_to_node(programs_node: Id, treenodes: &Vec<Id>, egraph: &EGraph
             helper(num_paths_to_node, &child, egraph);
         }
     }
-    helper(&mut num_paths_to_node, &programs_node, &egraph);
+    roots.iter().for_each(|root| {
+        helper(&mut num_paths_to_node, root, egraph);
+    });
     num_paths_to_node
 }
