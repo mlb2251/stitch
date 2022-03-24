@@ -558,6 +558,9 @@ impl Assignment {
 
                 let first_ivar_use = self.first_ivar_use[self.ivars[self.ptr] as usize];
 
+                // when you increment, you get to pop the previous match_locations and
+                // push a new one thats subsetting on the one *before* that one.
+                self.match_locations.pop();
                 self.match_locations.push(self.match_locations.last().unwrap().iter()
                     .filter(|loc|
                         shared.arg_of_zid_node[&(pattern.arg_choices[self.ptr], **loc)].id == 
