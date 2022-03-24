@@ -37,6 +37,48 @@ impl Pattern {
             body_utility, // 0 body utility
         }
     }
+    fn to_expr(&self, shared: &SharedData) -> Expr {
+        let mut curr_zip: Zip = vec![];
+        // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
+        let zips: Vec<(Zip,bool)> = self.holes.iter().map(|zid| (shared.zip_of_zid[*zid].clone(), true)).
+            chain(self.arg_choices.iter().map(|zid| (shared.zip_of_zid[*zid].clone(), false))).collect();
+
+
+        fn helper(curr_node: Id, curr_zip: &mut Zip, zips: &Vec<(Zip,bool)>, shared: &SharedData) -> Expr {
+            match zips.iter().find(|(zip,_)| zip == curr_zip) {
+                // current zip matches a hole
+                Some((_,true)) => Expr::prim("??".into()),
+                // current zip matches an ivar
+                Some((_,false)) => Expr::prim("##".into()),
+                // no ivar zip match, so recurse
+                None => {
+                    match &shared.egraph[curr_node].nodes[0] {
+                        Lambda::Prim(p) => Expr::prim(*p),
+                        Lambda::Var(v) => Expr::var(*v),
+                        Lambda::Lam([b]) => {
+                            curr_zip.push(ZNode::Body);
+                            let b_expr = helper(*b, curr_zip, &zips, shared);
+                            curr_zip.pop();
+                            Expr::lam(b_expr) 
+                        }
+                        Lambda::App([f,x]) => {
+                            curr_zip.push(ZNode::Func);
+                            let f_expr = helper(*f, curr_zip, &zips, shared);
+                            curr_zip.pop();
+                            curr_zip.push(ZNode::Arg);
+                            let x_expr = helper(*x, curr_zip, &zips, shared);
+                            curr_zip.pop();
+                            Expr::app(f_expr, x_expr)
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+            }
+            
+        }
+        // we can pick any match location
+        helper(self.match_locations[0], &mut curr_zip, &zips, shared)
+    }
 }
 
 
@@ -171,6 +213,7 @@ fn get_worklist_item(
     donelist_buf: &mut Vec<FinishedPattern>,
     shared: &Arc<SharedData>,
 ) -> Option<(Pattern,i32,i32)> {
+
     println!("get_worklist_item()");
     println!("worklist_buf: {}", worklist_buf.len());
     // * MULTITHREADING: CRITICAL SECTION START *
@@ -231,6 +274,8 @@ fn stitch_search(
             None => return,
         };
 
+        println!("[prio={}; uses={}] chose: {}", original_pattern.match_locations.len() as i32 * original_pattern.body_utility, original_pattern.match_locations.len(), original_pattern.to_expr(&shared));
+
         // this insane little piece of code just figures out which hole will give us
         // a set of location groups such that we're maximizing for the size of the largest
         // group. So this is a max{ max{ ... }} hence the two max() calls.
@@ -244,18 +289,18 @@ fn stitch_search(
         // sort so that the groupby will work
         let mut match_locations = original_pattern.match_locations.clone();
         match_locations.sort_unstable_by_key(|loc| shared.arg_of_zid_node[&(hole_zid, *loc)].node_type.clone());
-        println!("match locs: {}", match_locations.len());
+        // println!("match locs: {}", match_locations.len());
 
         for (node_type, locs) in match_locations.into_iter()
             .group_by(|loc| shared.arg_of_zid_node[&(hole_zid, *loc)].node_type.clone()).into_iter()
         {
             let locs: Vec<Id> = locs.collect();
-            println!("match sublocs: {} for node type {:?}", locs.len(), node_type);
+            // println!("match sublocs: {} for node type {:?}", locs.len(), node_type);
             if !shared.cfg.no_opt_single_use && locs.len() < 2 {
                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_wip_fired += 1; };
                 continue; // too few uses
             }
-            println!("delete me 2");
+            // println!("delete me 2");
             // todo honestly package these checks into a single function we can call from both here and the assignment code
             // **todo actually prune argchoice *whenever* we narrow subset!** including here!
             // todo add single task pruning
@@ -297,7 +342,7 @@ fn stitch_search(
                     body_utility,
                 };
 
-                println!("delete me 3");
+                // println!("delete me 3");
                 if new_pattern.arg_choices.len() > 0 {
                     assignments_of_pattern(
                         new_pattern,
@@ -475,7 +520,7 @@ impl Assignment {
 
             // prefer extending if we're allowed to
             if self.can_extend && self.ivars.len() < pattern.arg_choices.len() {
-                println!("extending");
+                // println!("extending");
                 self.ivars.push(0);
                 self.ptr += 1;
                 self.max_ivar_used.push(self.max_ivar_used[self.ptr - 1]);
@@ -498,7 +543,7 @@ impl Assignment {
             if new_ivar < shared.cfg.max_arity as i32
                 && self.ivars[self.ptr] <= self.max_ivar_used[self.ptr - 1]
             {
-                println!("incrementing");
+                // println!("incrementing");
                 // increment ivar and update max_ivar_used
                 self.ivars[self.ptr] = new_ivar;
                 if new_ivar > *self.max_ivar_used.last().unwrap() {
@@ -557,8 +602,8 @@ fn assignments_of_pattern(
 
 
     while asn.next(&pattern, shared) {
-        println!("ptr: {}", asn.ptr);
-        println!("ivars: {:?}", asn.ivars);
+        // println!("ptr: {}", asn.ptr);
+        // println!("ivars: {:?}", asn.ivars);
 
         // prune if not used in any places
         if asn.match_locations.len() == 0 {
