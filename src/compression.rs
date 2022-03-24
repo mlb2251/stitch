@@ -1567,7 +1567,7 @@ pub fn compression(
     println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(programs_expr,&rewritten), programs_expr.cost(), rewritten.cost());
     for i in 0..step_results.len() {
         let res = &step_results[i];
-        println!("{} ({:.2}x wrt orig): {}" ,res.inv.name, compression_factor(programs_expr, &res.rewritten), res);
+        println!("{} ({:.2}x wrt orig): {}" ,res.inv.name.clone().blue(), compression_factor(programs_expr, &res.rewritten), res);
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
     step_results
