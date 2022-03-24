@@ -21,6 +21,31 @@ struct Pattern {
     pruned_assignment_prefixes: Vec<Vec<i32>>,
     utility_upper_bound: i32,
     body_utility: i32, // the size (in `cost`) of a single use of the pattern body so far
+    tracked: bool, // for debugging
+}
+
+impl Expr {
+    fn zipper_replace(&self, zip: &Zip, new: &str) -> Expr {
+        let child = self.apply_zipper(zip).unwrap();
+        // clone and overwrite that node
+        let mut res = self.clone();
+        res.nodes[usize::from(child)] = Lambda::Prim(new.into());
+        res
+    }
+    /// replaces the node at the end of the zipper with `new` prim,
+    /// returning the new expression
+    fn apply_zipper(&self, zip: &Zip) -> Option<Id> {
+        let mut child = self.root();
+        for znode in zip.iter() {
+            child = match (znode, self.get(child)) {
+                (ZNode::Body, Lambda::Lam([b])) => *b,
+                (ZNode::Func, Lambda::App([f,x])) => *f,
+                (ZNode::Arg, Lambda::App([f,x])) => *x,
+                (z,c) => return None // no zipper works here
+            };
+        }
+        Some(child)
+    }
 }
 
 impl Pattern {
@@ -35,6 +60,7 @@ impl Pattern {
             pruned_assignment_prefixes: vec![],
             utility_upper_bound,
             body_utility, // 0 body utility
+            tracked: cfg.track.is_some(),
         }
     }
     fn to_expr(&self, shared: &SharedData) -> Expr {
@@ -49,7 +75,7 @@ impl Pattern {
                 // current zip matches a hole
                 Some((_,true)) => Expr::prim("??".into()),
                 // current zip matches an ivar
-                Some((_,false)) => Expr::prim("##".into()),
+                Some((_,false)) => Expr::prim("?#".into()),
                 // no ivar zip match, so recurse
                 None => {
                     match &shared.egraph[curr_node].nodes[0] {
@@ -90,6 +116,17 @@ enum NodeType {
     Prim(Symbol)
 }
 
+impl std::fmt::Display for NodeType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            NodeType::Lam => write!(f, "lam"),
+            NodeType::App => write!(f, "app"),
+            NodeType::Var(v) => write!(f, "${}", v),
+            NodeType::Prim(p) => write!(f, "{}", p),
+        }
+    }
+}
+
 type Zip = Vec<ZNode>;
 const EMPTY_ZID: ZId = 0;
 
@@ -112,17 +149,31 @@ impl Arg {
     }
 }
 
-fn node_type_of_node(node: &Lambda) -> NodeType {
+/// NodeType from a &Lambda node. Returns None if this is
+/// and IVar (which is not considered a node type) and crashes
+/// on Programs node.
+fn node_type_of_node(node: &Lambda) -> Option<NodeType> {
     match node {
-        Lambda::Var(i) => NodeType::Var(*i),
-        Lambda::Prim(p) => NodeType::Prim(*p),
-        Lambda::Lam(_) => NodeType::Lam,
-        Lambda::App(_) => NodeType::App,
+        Lambda::Var(i) => Some(NodeType::Var(*i)),
+        Lambda::Prim(p) => {
+            if *p == Symbol::from("?#") { None } else {
+                Some(NodeType::Prim(*p))
+            }
+        },
+        Lambda::Lam(_) => Some(NodeType::Lam),
+        Lambda::App(_) => Some(NodeType::App),
+        Lambda::IVar(_) => None,
         _ => unreachable!()
     }
 }
 
-
+/// Returns Some(nodetype) for what we expect the hole to expand to to follow
+/// the target, and returns None if we expect it to become a ?# argchoice.
+fn tracked_node_type(hole_zid: ZId, shared: &SharedData) -> Option<NodeType> {
+    let id = shared.tracking.as_ref().unwrap().expr
+        .apply_zipper(&shared.zip_of_zid[hole_zid]).unwrap();
+    node_type_of_node(shared.tracking.as_ref().unwrap().expr.get(id))
+}
 
 /// The heap item used for heap-based worklists
 #[derive(Debug,Clone, Eq, PartialEq)]
@@ -177,6 +228,12 @@ struct SharedData {
     cost_of_node_all: HashMap<Id,i32>,
     stats: Mutex<Stats>,
     cfg: CompressionStepConfig,
+    tracking: Option<Tracking>,
+}
+
+#[derive(Debug)]
+struct Tracking {
+    expr: Expr,
 }
 
 impl CriticalMultithreadData {
@@ -274,7 +331,11 @@ fn stitch_search(
             None => return,
         };
 
-        // println!("[prio={}; uses={}] chose: {}", original_pattern.match_locations.len() as i32 * original_pattern.body_utility, original_pattern.match_locations.len(), original_pattern.to_expr(&shared));
+        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().partial_invs += 1; };
+
+        if shared.cfg.verbose_worklist {
+            println!("[prio={}; uses={}] chose: {}", original_pattern.match_locations.len() as i32 * original_pattern.body_utility, original_pattern.match_locations.len(), original_pattern.to_expr(&shared));
+        }
 
         // this insane little piece of code just figures out which hole will give us
         // a set of location groups such that we're maximizing for the size of the largest
@@ -294,10 +355,13 @@ fn stitch_search(
         for (node_type, locs) in match_locations.into_iter()
             .group_by(|loc| shared.arg_of_zid_node[&(hole_zid, *loc)].node_type.clone()).into_iter()
         {
+            let tracked = original_pattern.tracked && Some(node_type.clone()) == tracked_node_type(hole_zid, &shared);
+
             let locs: Vec<Id> = locs.collect();
             // println!("match sublocs: {} for node type {:?}", locs.len(), node_type);
             if !shared.cfg.no_opt_single_use && locs.len() < 2 {
                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_wip_fired += 1; };
+                if tracked { println!("{} single use pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",node_type))); }
                 continue; // too few uses
             }
             // println!("delete me 2");
@@ -316,6 +380,7 @@ fn stitch_search(
             let utility_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
             if utility_upper_bound < weak_utility_pruning_cutoff {
                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
+                if tracked { println!("{} upper bound pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",node_type))); }
                 continue; // too low utility
             }
             if utility_upper_bound > 0 {
@@ -340,6 +405,7 @@ fn stitch_search(
                     pruned_assignment_prefixes: original_pattern.pruned_assignment_prefixes.clone(),
                     utility_upper_bound,
                     body_utility,
+                    tracked
                 };
 
                 // println!("delete me 3");
@@ -353,14 +419,18 @@ fn stitch_search(
                         &shared,
                     );
                 } else {
+                    if tracked { println!("{} pushed {} to worklist", "[TRACK]".green().bold(), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",node_type))); }
                     worklist_buf.push(HeapItem::new(new_pattern))
                 }
             }
         }
         
 
+        let tracked = original_pattern.tracked && tracked_node_type(hole_zid, &shared).is_none();
+
         // add an argchoice, as long as it's actually abstracting a different thing over all locations
         if original_pattern.match_locations.iter().map(|loc| shared.arg_of_zid_node[&(hole_zid, *loc)].node_type.clone()).all_equal() {
+            if tracked { println!("{} useless abstraction pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], "?#")); }
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
         } else {
             // add an argchoice but leave everythin else as-is
@@ -373,6 +443,7 @@ fn stitch_search(
                 pruned_assignment_prefixes: original_pattern.pruned_assignment_prefixes.clone(),
                 utility_upper_bound: original_pattern.utility_upper_bound,
                 body_utility: original_pattern.body_utility,
+                tracked
             };
             
             assignments_of_pattern(
@@ -605,6 +676,10 @@ fn assignments_of_pattern(
         first_step: true,
     };
 
+    if pattern.tracked && is_finished_pattern {
+        println!("{} Pattern finished, looking for assignments: {}", "[TRACK]".yellow().bold(), pattern.to_expr(&shared));
+    }
+
 
     while asn.next(&pattern, shared) {
         // println!("ptr: {}", asn.ptr);
@@ -664,11 +739,16 @@ fn assignments_of_pattern(
             if is_finished_pattern {
                 // add to donelist
                 // todo add refinement here
-                donelist_buf.push(FinishedPattern::new(
+                let finished_pattern = FinishedPattern::new(
                     &pattern,
                     &asn,
                     &shared
-                ));
+                );
+                if pattern.tracked {
+                    println!("{} pushed {} to donelist", "----->".yellow().bold(), finished_pattern.to_expr(&shared));
+                }
+                donelist_buf.push(finished_pattern);
+                
                 continue; 
             } else {
                 // worklist case - note that at this point we know we wont be able to
@@ -678,7 +758,6 @@ fn assignments_of_pattern(
                 // for each child.
                 unfinished_pattern_succeeded = true;
                 if shared.cfg.break_early_assignment {
-                    panic!("bug");
                     break
                 }
                 continue; 
@@ -688,9 +767,13 @@ fn assignments_of_pattern(
     }
 
 
-    if !is_finished_pattern && unfinished_pattern_succeeded {
-        // println!("pushing: {}", pattern.to_expr(shared));
-        worklist_buf.push(HeapItem::new(pattern))
+    if !is_finished_pattern {
+        if unfinished_pattern_succeeded {
+            if pattern.tracked { println!("{} pushed {} to worklist", "[TRACK]".green().bold(), pattern.to_expr(&shared)); }
+            worklist_buf.push(HeapItem::new(pattern))
+        } else {
+            if pattern.tracked { println!("{} discarding because failed to find an assignment: {}", "[TRACK]".red().bold(), pattern.to_expr(&shared)); }
+        }
     }
 
 
@@ -850,6 +933,14 @@ pub struct CompressionStepConfig {
     #[clap(short='n', long, default_value = "1")]
     pub inv_candidates: usize,
 
+    /// pattern or invention to track
+    #[clap(long)]
+    pub track: Option<String>,
+
+    /// print out each step of what gets popped off the worklist
+    #[clap(long)]
+    pub verbose_worklist: bool,
+
     /// 
     #[clap(long)]
     pub break_early_assignment: bool,
@@ -985,7 +1076,7 @@ fn get_appzippers(
         // any node can become the identity function (the empty zipper with itself as the arg)
         let mut zids: Vec<ZId> = vec![EMPTY_ZID];
         arg_of_zid_node.insert((EMPTY_ZID,*treenode),
-            Arg::new(*treenode, *treenode, cost_of_node_once[treenode], node_type_of_node(&node)));
+            Arg::new(*treenode, *treenode, cost_of_node_once[treenode], node_type_of_node(&node).unwrap()));
 
         match node {
             Lambda::IVar(_) => { panic!("attempted to abstract an IVar") }
@@ -1343,6 +1434,18 @@ pub fn compression_step(
     let tstart_prep = std::time::Instant::now();
     let tstart = std::time::Instant::now();
 
+
+    // set up tracking if any
+    let tracking: Option<Tracking> = cfg.track.as_ref().map(|s|{
+        let mut s = s.clone();
+        for i in 0..30 {
+            // un-assign any ivars from #i back to ?#
+            s = replace_prim_with(&s, &format!("#{}",i),&format!("?#"));
+        }
+        let mut expr: Expr = s.parse().unwrap();
+        Tracking { expr }
+    });
+
     // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
     let mut egraph: EGraph = Default::default();
     let programs_node = egraph.add_expr(programs_expr.into());
@@ -1432,6 +1535,7 @@ pub fn compression_step(
         cost_of_node_all,
         stats: Mutex::new(stats),
         cfg: cfg.clone(),
+        tracking,
     });
     
     // *****************
