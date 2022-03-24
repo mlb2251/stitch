@@ -370,6 +370,15 @@ fn stitch_search(
             // todo add single task pruning
             // todo add pruning if we JUST added a free var as our node_type
 
+            // check for useless abstractions (ie same arg everywhere) which might have arison from our narrowing of the match_locations
+            if original_pattern.arg_choices.iter()
+            .any(|argchoice_zid| locs.iter()
+                .map(|loc| shared.arg_of_zid_node[&(*argchoice_zid, *loc)].id.clone()).all_equal())
+            {
+                if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
+                continue; // useless abstraction
+            }
+
             // add to body utility
             let body_utility = original_pattern.body_utility +  match node_type {
                 NodeType::Lam | NodeType::App => COST_NONTERMINAL,
