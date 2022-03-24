@@ -12,6 +12,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 use std::ops::DerefMut;
 use std::collections::BinaryHeap;
+use rand::Rng;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Pattern {
@@ -371,6 +372,15 @@ fn stitch_search(
             // **todo actually prune argchoice *whenever* we narrow subset!** including here!
             // todo add single task pruning
             // todo add pruning if we JUST added a free var as our node_type
+            if !shared.cfg.no_opt_free_vars {
+                if let NodeType::Var(i) = node_type {
+                    if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
+                        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_wip_fired += 1; };
+                        if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",node_type))); }
+                        continue; // free var
+                    }
+                }
+            }
 
             // check for useless abstractions (ie same arg everywhere) which might have arison from our narrowing of the match_locations
             if original_pattern.arg_choices.iter()
@@ -1067,6 +1077,9 @@ pub enum HoleChoice {
     LowEntropy,
     MaxCost,
     MinCost,
+    ManyGroups,
+    FewGroups,
+    FewApps,
 }
 
 impl HoleChoice {
@@ -1077,14 +1090,23 @@ impl HoleChoice {
         match self {
             &HoleChoice::First => 0,
             &HoleChoice::Last => pattern.holes.len() - 1,
+            &HoleChoice::Random => {
+                let mut rng = rand::thread_rng();
+                rng.gen_range(0..pattern.holes.len())
+            },
+            &HoleChoice::FewApps => {
+                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
+                    (hole_idx, pattern.match_locations.iter().filter(|loc|shared.arg_of_zid_node[&(*hole_zid, **loc)].node_type == NodeType::App).count()))
+                        .min_by_key(|x|x.1).unwrap().0
+            }
             &HoleChoice::MaxCost => {
                 pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-             (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[&(*hole_zid, *loc)].cost).sum::<i32>()))
+                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[&(*hole_zid, *loc)].cost).sum::<i32>()))
                         .max_by_key(|x|x.1).unwrap().0
             }
             &HoleChoice::MinCost => {
                 pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-             (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[&(*hole_zid, *loc)].cost).sum::<i32>()))
+                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[&(*hole_zid, *loc)].cost).sum::<i32>()))
                         .min_by_key(|x|x.1).unwrap().0
             }
             &HoleChoice::MaxLargestSubset => {
