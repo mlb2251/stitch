@@ -117,6 +117,18 @@ enum NodeType {
     Prim(Symbol)
 }
 
+impl NodeType {
+    #[inline]
+    fn has_holes(&self) -> bool {
+        match self {
+            NodeType::Lam => true,
+            NodeType::App => true,
+            NodeType::Var(_) => false,
+            NodeType::Prim(_) => false,
+        }
+    }
+}
+
 impl std::fmt::Display for NodeType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -361,7 +373,7 @@ fn stitch_search(
         {
             let tracked = original_pattern.tracked && Some(node_type.clone()) == tracked_node_type(hole_zid, &shared);
 
-            if holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() {
+            if holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !node_type.has_holes() {
                 continue; // this is an arity 0 inv
             }
 
@@ -620,6 +632,16 @@ impl Assignment {
                 self.ivars.push(0);
                 self.ptr += 1;
                 self.max_ivar_used.push(self.max_ivar_used[self.ptr - 1]);
+
+                // backtrack if we know this to be a bad (too low utility) prefix
+                if pattern.pruned_assignment_prefixes.binary_search(&self.ivars).is_ok() {
+                    self.can_extend = false;
+                    self.match_locations.push(vec![]); // todo ack hacky
+                    // dont extend match location
+                    if pattern.tracked { println!("prune by pruned_assignment_prefixes: {:?}", self.ivars); }
+                    continue;
+                }
+
                 // filter for locations where the multiuse equality constraint holds.
                 // note that we know that ivars[0] == 0 ie the first argchoice is always #0
                 // so this is easier than in other cases where we have to look it up.
@@ -661,6 +683,14 @@ impl Assignment {
                 }
 
                 let first_ivar_use = self.first_ivar_use[self.ivars[self.ptr] as usize];
+
+                // backtrack if we know this to be a bad (too low utility) prefix
+                if pattern.pruned_assignment_prefixes.binary_search(&self.ivars).is_ok() {
+                    self.can_extend = false;
+                    // dont extend match location
+                    if pattern.tracked { println!("prune by pruned_assignment_prefixes: {:?}", self.ivars); }
+                    continue;
+                }
 
                 // when you increment, you get to pop the previous match_locations and
                 // push a new one thats subsetting on the one *before* that one.
@@ -744,12 +774,7 @@ fn assignments_of_pattern(
             }
         }
 
-        // backtrack if we know this to be a bad (too low utility) prefix
-        if pattern.pruned_assignment_prefixes.binary_search(&asn.ivars).is_ok() {
-            asn.prune_branch(&mut pattern);
-            if pattern.tracked { println!("prune by pruned_assignment_prefixes: {:?}", asn.ivars); }
-            continue;
-        }
+        
 
         // check upper bound, and discard + add to bad prefix list if it fails
         let utility_upper_bound: i32 = utility_upper_bound(asn.match_locations.last().unwrap(), pattern.body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
