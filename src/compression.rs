@@ -314,6 +314,8 @@ fn get_worklist_item(
 }
 
 
+
+
 fn stitch_search(
     shared: Arc<SharedData>,
 ) {
@@ -341,9 +343,8 @@ fn stitch_search(
         // this insane little piece of code just figures out which hole will give us
         // a set of location groups such that we're maximizing for the size of the largest
         // group. So this is a max{ max{ ... }} hence the two max() calls.
-        let hole_idx: usize = original_pattern.holes.iter().enumerate()
-            .map(|(hole_idx,hole_zid)| (hole_idx, *original_pattern.match_locations.iter()
-                .map(|loc| shared.arg_of_zid_node[&(*hole_zid, *loc)].node_type.clone()).counts().values().max().unwrap())).max_by_key(|&(_,max_count)| max_count).unwrap().0;
+        
+        let hole_idx: usize = shared.cfg.hole_choice.choose_hole(&original_pattern, &shared);
 
         let mut holes_after_pop: Vec<ZId> = original_pattern.holes.clone();
         let hole_zid: ZId = holes_after_pop.remove(hole_idx);
@@ -757,11 +758,21 @@ fn assignments_of_pattern(
             if is_finished_pattern {
                 // add to donelist
                 // todo add refinement here
+                // we do need to prune negatives in the args, I'll do that here since later we'll be refining here
+                
                 let finished_pattern = FinishedPattern::new(
                     &pattern,
                     &asn,
                     &shared
                 );
+                // todo migrate this over to using negative ivars some time
+                if finished_pattern.first_zid_of_ivar.iter().any(|zid|
+                    shared.egraph[shared.arg_of_zid_node[&(*zid,finished_pattern.match_locations[0])].id].data.free_vars.iter().any(|free_var|
+                        *free_var < 0))
+                {
+                    if pattern.tracked { println!("{} discarding finished_pattern because one of its args has negative vars: {}", "[TRACK]".red().bold(), finished_pattern.to_expr(&shared)); }
+                    continue;
+                }
                 if pattern.tracked {
                     println!("{} pushed {} to donelist", "----->".yellow().bold(), finished_pattern.to_expr(&shared));
                 }
@@ -952,6 +963,10 @@ pub struct CompressionStepConfig {
     pub inv_candidates: usize,
 
     /// pattern or invention to track
+    #[clap(long, arg_enum, default_value = "min-cost")]
+    pub hole_choice: HoleChoice,
+
+    /// pattern or invention to track
     #[clap(long)]
     pub track: Option<String>,
 
@@ -1041,6 +1056,48 @@ impl CompressionStepConfig {
     }
 }
 
+
+#[derive(Debug, Clone, clap::ArgEnum, Serialize)]
+pub enum HoleChoice {
+    Random,
+    First,
+    Last,
+    MaxLargestSubset,
+    HighEntropy,
+    LowEntropy,
+    MaxCost,
+    MinCost,
+}
+
+impl HoleChoice {
+    fn choose_hole(&self, pattern: &Pattern, shared: &SharedData) -> usize {
+        if pattern.holes.len() == 1 {
+            return 0;
+        }
+        match self {
+            &HoleChoice::First => 0,
+            &HoleChoice::Last => pattern.holes.len() - 1,
+            &HoleChoice::MaxCost => {
+                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
+             (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[&(*hole_zid, *loc)].cost).sum::<i32>()))
+                        .max_by_key(|x|x.1).unwrap().0
+            }
+            &HoleChoice::MinCost => {
+                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
+             (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[&(*hole_zid, *loc)].cost).sum::<i32>()))
+                        .min_by_key(|x|x.1).unwrap().0
+            }
+            &HoleChoice::MaxLargestSubset => {
+                // todo warning this is extremely slow, partially bc of counts() but I think
+                // mainly because where there are like dozens of holes doing all these lookups and clones and hashmaps is a LOT
+                pattern.holes.iter().enumerate()
+                    .map(|(hole_idx,hole_zid)| (hole_idx, *pattern.match_locations.iter()
+                        .map(|loc| shared.arg_of_zid_node[&(*hole_zid, *loc)].node_type.clone()).counts().values().max().unwrap())).max_by_key(|&(_,max_count)| max_count).unwrap().0
+            }
+            _ => unimplemented!()
+        }
+    }
+}
 
 
 impl LabelledZId {
@@ -1136,9 +1193,9 @@ fn get_appzippers(
                 for b_zid in zids_of_node[&b].iter() {
                     // cant bubble an arg over a lambda that references it without context threading
                     // todo add ctx shifting or something stronger at some point
-                    if egraph[arg_of_zid_node[&(*b_zid,b)].id].data.free_vars.contains(&0) {
-                        continue;
-                    }
+                    // if egraph[arg_of_zid_node[&(*b_zid,b)].id].data.free_vars.contains(&0) {
+                    //     continue;
+                    // }
 
                     // clone and extend zip to get new zid for this node
                     let mut zip = zip_of_zid[*b_zid].clone();
