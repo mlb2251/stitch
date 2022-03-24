@@ -361,6 +361,10 @@ fn stitch_search(
         {
             let tracked = original_pattern.tracked && Some(node_type.clone()) == tracked_node_type(hole_zid, &shared);
 
+            if holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() {
+                continue; // this is an arity 0 inv
+            }
+
             let locs: Vec<Id> = locs.collect();
             // println!("match sublocs: {} for node type {:?}", locs.len(), node_type);
             if !shared.cfg.no_opt_single_use && locs.len() < 2 {
@@ -368,6 +372,8 @@ fn stitch_search(
                 if tracked { println!("{} single use pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",node_type))); }
                 continue; // too few uses
             }
+
+
             // println!("delete me 2");
             // todo honestly package these checks into a single function we can call from both here and the assignment code
             // **todo actually prune argchoice *whenever* we narrow subset!** including here!
@@ -606,9 +612,11 @@ impl Assignment {
                 return true; 
             }
 
+
             // prefer extending if we're allowed to
             if self.can_extend && self.ivars.len() < pattern.arg_choices.len() {
                 // println!("extending");
+                // todo at this point add auto-incrementing by arbitrary amts when you see that it doesnt cause subsetting
                 self.ivars.push(0);
                 self.ptr += 1;
                 self.max_ivar_used.push(self.max_ivar_used[self.ptr - 1]);
