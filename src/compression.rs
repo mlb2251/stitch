@@ -214,8 +214,8 @@ fn get_worklist_item(
     shared: &Arc<SharedData>,
 ) -> Option<(Pattern,i32,i32)> {
 
-    println!("get_worklist_item()");
-    println!("worklist_buf: {}", worklist_buf.len());
+    // println!("get_worklist_item()");
+    // println!("worklist_buf: {}", worklist_buf.len());
     // * MULTITHREADING: CRITICAL SECTION START *
     // take the lock, which will be released immediately when this scope exits
     let mut shared_guard = shared.crit.lock();
@@ -274,7 +274,7 @@ fn stitch_search(
             None => return,
         };
 
-        println!("[prio={}; uses={}] chose: {}", original_pattern.match_locations.len() as i32 * original_pattern.body_utility, original_pattern.match_locations.len(), original_pattern.to_expr(&shared));
+        // println!("[prio={}; uses={}] chose: {}", original_pattern.match_locations.len() as i32 * original_pattern.body_utility, original_pattern.match_locations.len(), original_pattern.to_expr(&shared));
 
         // this insane little piece of code just figures out which hole will give us
         // a set of location groups such that we're maximizing for the size of the largest
@@ -606,13 +606,14 @@ fn assignments_of_pattern(
         // println!("ivars: {:?}", asn.ivars);
 
         // prune if not used in any places
-        if asn.match_locations.len() == 0 {
+        if asn.match_locations.last().unwrap().len() == 0 {
             asn.prune_branch(&mut pattern);
             continue;
         }
 
         // prune if only used in a single place
-        if asn.match_locations.len() == 1 {
+        if asn.match_locations.last().unwrap().len() == 1 {
+            // panic!("single {:?} for {}", asn.ivars, pattern.to_expr(shared));
             if is_finished_pattern {
                 if !shared.cfg.no_stats { shared.stats.lock().single_use_done_fired += 1; }
                 asn.prune_branch(&mut pattern);
