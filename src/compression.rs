@@ -271,6 +271,7 @@ impl CriticalMultithreadData {
     /// update utility_pruning_cutoff to be the highest utility if --lossy-candidates is set else the lowest utility
     fn update(&mut self, cfg: &CompressionStepConfig) {
         // sort in decreasing order by utility primarily, and break ties using the zids (just in order to be deterministic!)
+        // let old_best = self.donelist.first().map(|x|x.utility).unwrap_or(0);
         self.donelist.sort_unstable_by(|a,b| (b.utility,&b.labelled_zids).cmp(&(a.utility,&a.labelled_zids)));
         self.donelist.truncate(cfg.inv_candidates);
         self.lowest_donelist_utility = self.donelist.last().map(|x|x.utility).unwrap_or(0);
@@ -292,12 +293,18 @@ fn get_worklist_item(
     let mut shared_guard = shared.crit.lock();
     let crit: &mut CriticalMultithreadData = shared_guard.deref_mut();
     let lowest_donelist_utility = crit.lowest_donelist_utility;
+    let old_best_utility = crit.donelist.first().map(|x|x.utility).unwrap_or(0);
     let old_donelist_len = crit.donelist.len();
     // drain from donelist_buf into the actual donelist
     crit.donelist.extend(donelist_buf.drain(..).filter(|done| done.utility > lowest_donelist_utility));
     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().finished_invs += crit.donelist.len() - old_donelist_len; };
     // sort + truncate + update utility_pruning_cutoff and lowest_donelist_utility
     crit.update(&shared.cfg); // this also updates utility_pruning_cutoff
+
+    if shared.cfg.verbose_best && crit.donelist.first().map(|x|x.utility).unwrap_or(0) > old_best_utility {
+        println!("{} @ step={} util={} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().partial_invs, crit.donelist.first().unwrap().utility, crit.donelist.first().unwrap().to_expr(shared));
+    }
+
     // pull out the newer versions of these now that theyve been updated, since we're returning them at the end
     let lowest_donelist_utility = crit.lowest_donelist_utility;
     let utility_pruning_cutoff = crit.utility_pruning_cutoff;
@@ -1023,6 +1030,10 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub verbose_worklist: bool,
 
+    /// whenever a new best thing is found, print it
+    #[clap(long)]
+    pub verbose_best: bool,
+
     /// 
     #[clap(long)]
     pub break_early_assignment: bool,
@@ -1650,6 +1661,7 @@ pub fn compression_step(
     }
     println!("got {} arity zero inventions in {:?}ms", donelist.len(), tstart.elapsed().as_millis());
 
+
     // sort and truncate
 
     let mut stats: Stats = Default::default();
@@ -1680,6 +1692,12 @@ pub fn compression_step(
         cfg: cfg.clone(),
         tracking,
     });
+
+    if cfg.verbose_best {
+        let best_util = shared.crit.lock().deref_mut().donelist.first().unwrap().utility;
+        let best_expr: Expr = shared.crit.lock().deref_mut().donelist.first().unwrap().to_expr(&shared);
+        println!("{} @ step=0 util={} for {}", "[new best utility]".blue(), best_util, best_expr);
+    }
     
     // *****************
     // * STITCH SEARCH *
