@@ -615,8 +615,8 @@ impl Assignment {
                 // filter for locations where the multiuse equality constraint holds.
                 // note that we know that ivars[0] == 0 ie the first argchoice is always #0
                 // so this is easier than in other cases where we have to look it up.
-                let ref arg_of_node_self = shared.arg_of_zid_node[self.ptr];
-                let ref arg_of_node_ivar0 = shared.arg_of_zid_node[0];
+                let ref arg_of_node_self = shared.arg_of_zid_node[pattern.arg_choices[self.ptr]];
+                let ref arg_of_node_ivar0 = shared.arg_of_zid_node[pattern.arg_choices[0]];
                 // println!("{:?}", self.ivars);
                 self.match_locations.push(self.match_locations.last().unwrap().iter()
                     .filter(|loc|
@@ -656,8 +656,8 @@ impl Assignment {
 
                 // when you increment, you get to pop the previous match_locations and
                 // push a new one thats subsetting on the one *before* that one.
-                let ref arg_of_node_self = shared.arg_of_zid_node[self.ptr];
-                let ref arg_of_node_other = shared.arg_of_zid_node[first_ivar_use];
+                let ref arg_of_node_self = shared.arg_of_zid_node[pattern.arg_choices[self.ptr]];
+                let ref arg_of_node_other = shared.arg_of_zid_node[pattern.arg_choices[first_ivar_use]];
                 self.match_locations.pop();
                 self.match_locations.push(self.match_locations.last().unwrap().iter()
                     .filter(|loc|
