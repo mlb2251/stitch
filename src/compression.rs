@@ -194,7 +194,8 @@ impl Ord for HeapItem {
 impl HeapItem {
     fn new(pattern: Pattern) -> Self {
         HeapItem {
-            key: pattern.body_utility * pattern.match_locations.len() as i32,
+            // key: pattern.body_utility * pattern.match_locations.len() as i32,
+            key: pattern.utility_upper_bound,
             pattern
         }
     }
