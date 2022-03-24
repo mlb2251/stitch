@@ -429,7 +429,7 @@ fn stitch_search(
         let tracked = original_pattern.tracked && tracked_node_type(hole_zid, &shared).is_none();
 
         // add an argchoice, as long as it's actually abstracting a different thing over all locations
-        if original_pattern.match_locations.iter().map(|loc| shared.arg_of_zid_node[&(hole_zid, *loc)].node_type.clone()).all_equal() {
+        if original_pattern.match_locations.iter().map(|loc| shared.arg_of_zid_node[&(hole_zid, *loc)].id.clone()).all_equal() {
             if tracked { println!("{} useless abstraction pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], "?#")); }
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
         } else {
@@ -682,12 +682,14 @@ fn assignments_of_pattern(
 
 
     while asn.next(&pattern, shared) {
+        if pattern.tracked { println!("trying assignment: {:?}", asn.ivars); }
         // println!("ptr: {}", asn.ptr);
         // println!("ivars: {:?}", asn.ivars);
 
         // prune if not used in any places
         if asn.match_locations.last().unwrap().len() == 0 {
             asn.prune_branch(&mut pattern);
+            if pattern.tracked { println!("prune by 0 uses: {:?}", asn.ivars); }
             continue;
         }
 
@@ -695,10 +697,12 @@ fn assignments_of_pattern(
         if asn.match_locations.last().unwrap().len() == 1 {
             // panic!("single {:?} for {}", asn.ivars, pattern.to_expr(shared));
             if is_finished_pattern {
+                if pattern.tracked { println!("prune by 1 use: {:?}", asn.ivars); }
                 if !shared.cfg.no_stats { shared.stats.lock().single_use_done_fired += 1; }
                 asn.prune_branch(&mut pattern);
                 continue;
             } else if !shared.cfg.no_opt_single_use {
+                if pattern.tracked { println!("prune by 1 use: {:?}", asn.ivars); }
                 if !shared.cfg.no_stats { shared.stats.lock().single_use_wip_fired += 1; }
                 asn.prune_branch(&mut pattern);
                 continue;
@@ -708,6 +712,7 @@ fn assignments_of_pattern(
         // backtrack if we know this to be a bad (too low utility) prefix
         if pattern.pruned_assignment_prefixes.binary_search(&asn.ivars).is_ok() {
             asn.prune_branch(&mut pattern);
+            if pattern.tracked { println!("prune by pruned_assignment_prefixes: {:?}", asn.ivars); }
             continue;
         }
 
@@ -715,11 +720,13 @@ fn assignments_of_pattern(
         let utility_upper_bound: i32 = utility_upper_bound(asn.match_locations.last().unwrap(), pattern.body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
         if utility_upper_bound < weak_utility_pruning_cutoff {
             asn.prune_branch(&mut pattern);
+            if pattern.tracked { println!("prune by upper bound: {:?}", asn.ivars); }
             continue;
         }
 
         // if its a finished pattern and doesnt beat the lowest donelist utility, itll never survive
         if is_finished_pattern && utility_upper_bound <= weak_lowest_donelist_utility {
+            if pattern.tracked { println!("prune by lowest_donelist_utility: {:?}", asn.ivars); }
             asn.prune_branch(&mut pattern);
             continue
         }
@@ -727,10 +734,11 @@ fn assignments_of_pattern(
         // check for useless abstractions (ie same arg everywhere) which might have arison from our narrowing of the match_locations
         if pattern.arg_choices.iter()
             .any(|argchoice_zid| asn.match_locations.last().unwrap().iter()
-                .map(|loc| shared.arg_of_zid_node[&(*argchoice_zid, *loc)].node_type.clone()).all_equal())
+                .map(|loc| shared.arg_of_zid_node[&(*argchoice_zid, *loc)].id.clone()).all_equal())
         {
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
             asn.prune_branch(&mut pattern);
+            if pattern.tracked { println!("prune by useless abstraction: {:?}", asn.ivars); }
             continue; // useless abstraction
         }
 
