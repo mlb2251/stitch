@@ -1,5 +1,5 @@
 use crate::*;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
@@ -40,9 +40,9 @@ impl Expr {
         for znode in zip.iter() {
             child = match (znode, self.get(child)) {
                 (ZNode::Body, Lambda::Lam([b])) => *b,
-                (ZNode::Func, Lambda::App([f,x])) => *f,
-                (ZNode::Arg, Lambda::App([f,x])) => *x,
-                (z,c) => return None // no zipper works here
+                (ZNode::Func, Lambda::App([f,_])) => *f,
+                (ZNode::Arg, Lambda::App([_,x])) => *x,
+                (_,_) => return None // no zipper works here
             };
         }
         Some(child)
@@ -234,13 +234,17 @@ struct CriticalMultithreadData {
 struct SharedData {
     crit: Mutex<CriticalMultithreadData>,
     arg_of_zid_node: Vec<HashMap<Id,Arg>>,
+    #[allow(dead_code)]
     treenodes: Vec<Id>,
+    #[allow(dead_code)]
     zids_of_node: HashMap<Id,Vec<ZId>>,
     zip_of_zid: Vec<Zip>,
     extensions_of_zid: Vec<ZIdExtension>,
     egraph: EGraph,
     num_paths_to_node: HashMap<Id,i32>,
+    #[allow(dead_code)]
     tasks_of_node: HashMap<Id, HashSet<usize>>,
+    #[allow(dead_code)]
     cost_of_node_once: HashMap<Id,i32>,
     cost_of_node_all: HashMap<Id,i32>,
     stats: Mutex<Stats>,
@@ -1102,14 +1106,6 @@ pub struct CompressionStepConfig {
     /// disables other_utility so the only utility is based on compressivity
     #[clap(long)]
     pub no_other_util: bool,
-    
-    /// disables context threading
-    #[clap(long)]
-    pub no_ctx_thread: bool,
-
-    /// turns on eta long form (WIP)
-    #[clap(long)]
-    pub eta_long: bool,
 }
 
 impl CompressionStepConfig {
@@ -1205,7 +1201,7 @@ fn get_appzippers(
     cost_of_node_once: &HashMap<Id,i32>,
     no_cache: bool,
     egraph: &mut EGraph,
-    cfg: &CompressionStepConfig
+    _cfg: &CompressionStepConfig
 ) -> (HashMap<Zip, ZId>, Vec<Zip>, Vec<HashMap<Id,Arg>>, HashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>) {
     let cache: &mut Option<RecVarModCache> = &mut if no_cache { None } else { Some(HashMap::new()) };
 
@@ -1213,7 +1209,6 @@ fn get_appzippers(
     let mut zip_of_zid: Vec<Zip> = Default::default();
     let mut arg_of_zid_node: Vec<HashMap<Id,Arg>> = Default::default();
     let mut zids_of_node: HashMap<Id,Vec<ZId>> = Default::default();
-    let mut extensions_of_zid: Vec<ZIdExtension> = Default::default();
 
     zid_of_zip.insert(vec![], EMPTY_ZID);
     zip_of_zid.push(vec![]);
@@ -1303,7 +1298,7 @@ fn get_appzippers(
         zids_of_node.insert(*treenode, zids);
     }
 
-    extensions_of_zid = zip_of_zid.iter().map(|zip| {
+    let extensions_of_zid = zip_of_zid.iter().map(|zip| {
         let mut zip_body = zip.clone();
         zip_body.push(ZNode::Body);
         let mut zip_arg = zip.clone();
@@ -1592,7 +1587,6 @@ pub fn compression_step(
 ) -> Vec<CompressionStepResult> {
 
     let tstart_total = std::time::Instant::now();
-    let tstart_prep = std::time::Instant::now();
     let tstart = std::time::Instant::now();
 
 
@@ -1603,7 +1597,7 @@ pub fn compression_step(
             // un-assign any ivars from #i back to ?#
             s = replace_prim_with(&s, &format!("#{}",i),&format!("?#"));
         }
-        let mut expr: Expr = s.parse().unwrap();
+        let expr: Expr = s.parse().unwrap();
         Tracking { expr }
     });
 
@@ -1632,14 +1626,13 @@ pub fn compression_step(
     println!("set up low cost data structs: {:?}ms", tstart.elapsed().as_millis());
 
     let tstart = std::time::Instant::now();
-    let (zid_of_zip,
+    let (_zid_of_zip,
         zip_of_zid,
         arg_of_zid_node,
         zids_of_node,
         extensions_of_zid) = get_appzippers(&treenodes, &cost_of_node_once, cfg.no_cache, &mut egraph, cfg);
     println!("get_appzippers: {:?}ms", tstart.elapsed().as_millis());
 
-    let tstart = std::time::Instant::now();
 
     println!("{} zips", zip_of_zid.len());
     println!("arg_of_zid_node size: {}", arg_of_zid_node.len());
@@ -1671,10 +1664,9 @@ pub fn compression_step(
 
     // sort and truncate
 
-    let mut stats: Stats = Default::default();
+    let stats: Stats = Default::default();
 
 
-    let tstart = std::time::Instant::now();
 
     println!("total prep: {:?}ms", tstart_total.elapsed().as_millis());
 
