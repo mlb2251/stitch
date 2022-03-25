@@ -50,9 +50,12 @@ impl Expr {
 }
 
 impl Pattern {
-    fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, cfg: &CompressionStepConfig) -> Self {
+    fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &EGraph, cfg: &CompressionStepConfig) -> Self {
         let body_utility = 0;
-        let match_locations = treenodes.clone();
+        let mut match_locations = treenodes.clone();
+        if cfg.no_top_lambda {
+            match_locations.retain(|node| node_type_of_node(&egraph[*node].nodes[0]).unwrap() != NodeType::Lam);
+        }
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cfg);
         Pattern {
             holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
@@ -253,10 +256,10 @@ struct Tracking {
 impl CriticalMultithreadData {
     /// Create a new mutable multithread data struct with
     /// a worklist that just has a single hole on it
-    fn new(donelist: Vec<FinishedPattern>, treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, cfg: &CompressionStepConfig) -> Self {
+    fn new(donelist: Vec<FinishedPattern>, treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &EGraph, cfg: &CompressionStepConfig) -> Self {
         // push an empty hole onto a new worklist
         let mut worklist = BinaryHeap::new();
-        worklist.push(HeapItem::new(Pattern::single_hole(treenodes, cost_of_node_all, num_paths_to_node, cfg)));
+        worklist.push(HeapItem::new(Pattern::single_hole(treenodes, cost_of_node_all, num_paths_to_node, egraph, cfg)));
         
         let mut res = CriticalMultithreadData {
             donelist,
@@ -427,7 +430,7 @@ fn stitch_search(
             let utility_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
             if utility_upper_bound < weak_utility_pruning_cutoff {
                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-                if tracked { println!("{} upper bound pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",node_type))); }
+                if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), utility_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",node_type))); }
                 continue; // too low utility
             }
             if utility_upper_bound > 0 {
@@ -1021,6 +1024,10 @@ pub struct CompressionStepConfig {
     /// pattern or invention to track
     #[clap(long, arg_enum, default_value = "min-cost")]
     pub hole_choice: HoleChoice,
+
+    /// inventions cant start with a Lambda
+    #[clap(long)]
+    pub no_top_lambda: bool,
 
     /// pattern or invention to track
     #[clap(long)]
@@ -1675,7 +1682,7 @@ pub fn compression_step(
     let tstart = std::time::Instant::now();
 
 
-    let crit = CriticalMultithreadData::new(donelist, &treenodes, &cost_of_node_all, &num_paths_to_node, &cfg);
+    let crit = CriticalMultithreadData::new(donelist, &treenodes, &cost_of_node_all, &num_paths_to_node, &egraph, &cfg);
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
         arg_of_zid_node,
