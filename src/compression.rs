@@ -463,7 +463,8 @@ fn stitch_search(
                 };
 
                 // println!("delete me 3");
-                if new_pattern.arg_choices.len() > 0 {
+                if new_pattern.holes.is_empty() {
+                    // if it's a finished pattern then we get the assignments
                     assignments_of_pattern(
                         new_pattern,
                         weak_utility_pruning_cutoff,
@@ -473,6 +474,7 @@ fn stitch_search(
                         &shared,
                     );
                 } else {
+                    // otherwise we add it to the worklist (we only run assignments on worklist items when we first add a new argchoice)
                     if tracked { println!("{} pushed {} to worklist", "[TRACK]".green().bold(), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",node_type))); }
                     worklist_buf.push(HeapItem::new(new_pattern))
                 }
