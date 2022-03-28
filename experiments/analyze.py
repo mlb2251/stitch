@@ -5,40 +5,6 @@ import re
 from typing import *
 from pathlib import Path
 
-"""
-This converts from any dreamcoder json that can be indexed like json["DSL"]["productions"]["expression]
-to get a program into various stitch formats. For example this works for
-compression messages, ./compression stdout outputs, and ./compression inputs.
-
-The output is a json that has a list with the following keys (also see example below):
-    name: the name of the primitive eg fn_0
-    dreamcoder: the dreamcoder style string (like the "dreamcoder" field of stitch format)
-    with_sub_inventions: the dreamcoder string but with inner inventions replaced with fn_i calls instead of inlining their bodies
-    stitch_uncanonical: stitch format using ivars and lams. Note that this is not canonical meaning #1 might come before #0
-    stitch_canonical: canonicalized so #0 comes before #1 etc.
-        Useful for seeing if stitch can find the same invention
-        *HOWEVER* reordering the ivars means any rewritten frontiers with this will be nonsensical, so
-        use stitch_uncanonical if you need to actually maintain semantics of frontiers, do multiuse scoring, etc
-    arity: arity (since stitch needs to know this)
-
-Example:
-    name: fn_0
-    dreamcoder: #(lambda (lambda (lambda (logo_forLoop $0 (lambda (lambda (logo_FWRT $4 $3 $0)))))))
-    with_sub_inventions: #(lambda (lambda (lambda (logo_forLoop $0 (lambda (lambda (logo_FWRT $4 $3 $0)))))))
-    stitch_uncanonical: (logo_forLoop #2 (lam (lam (logo_FWRT #0 #1 $0))))
-    stitch_canonical: (logo_forLoop #0 (lam (lam (logo_FWRT #1 #2 $0))))
-    arity: 3
-
-Another example:
-    name: fn_5
-    dreamcoder: #(lambda (logo_forLoop 7 (lambda (lambda (#(lambda (lambda (lambda (logo_forLoop $0 (lambda (lambda (logo_FWRT $4 $3 $0))))))) (logo_MULL logo_epsL $2) logo_epsA 7 $0)))))
-    with_sub_inventions: #(lambda (logo_forLoop 7 (lambda (lambda (fn_0 (logo_MULL logo_epsL $2) logo_epsA 7 $0)))))
-    stitch_uncanonical: (logo_forLoop 7 (lam (lam (fn_0 (logo_MULL logo_epsL #0) logo_epsA 7 $0))))
-    stitch_canonical: (logo_forLoop 7 (lam (lam (fn_0 (logo_MULL logo_epsL #0) logo_epsA 7 $0))))
-    arity: 1
-
-"""
-
 RUNS = {
     'list': [
         '2019-02-15T16:31:58.353555',
@@ -180,6 +146,39 @@ def canonicalize(uncanonical):
 
 # pull out all the learned library fns
 def to_stitch_dsl(dc_json):
+    """
+    This converts from any dreamcoder json that can be indexed like json["DSL"]["productions"]["expression]
+    to get a program into various stitch formats. For example this works for
+    compression messages, ./compression stdout outputs, and ./compression inputs.
+
+    The output is a json that has a list with the following keys (also see example below):
+        name: the name of the primitive eg fn_0
+        dreamcoder: the dreamcoder style string (like the "dreamcoder" field of stitch format)
+        with_sub_inventions: the dreamcoder string but with inner inventions replaced with fn_i calls instead of inlining their bodies
+        stitch_uncanonical: stitch format using ivars and lams. Note that this is not canonical meaning #1 might come before #0
+        stitch_canonical: canonicalized so #0 comes before #1 etc.
+            Useful for seeing if stitch can find the same invention
+            *HOWEVER* reordering the ivars means any rewritten frontiers with this will be nonsensical, so
+            use stitch_uncanonical if you need to actually maintain semantics of frontiers, do multiuse scoring, etc
+        arity: arity (since stitch needs to know this)
+
+    Example:
+        name: fn_0
+        dreamcoder: #(lambda (lambda (lambda (logo_forLoop $0 (lambda (lambda (logo_FWRT $4 $3 $0)))))))
+        with_sub_inventions: #(lambda (lambda (lambda (logo_forLoop $0 (lambda (lambda (logo_FWRT $4 $3 $0)))))))
+        stitch_uncanonical: (logo_forLoop #2 (lam (lam (logo_FWRT #0 #1 $0))))
+        stitch_canonical: (logo_forLoop #0 (lam (lam (logo_FWRT #1 #2 $0))))
+        arity: 3
+
+    Another example:
+        name: fn_5
+        dreamcoder: #(lambda (logo_forLoop 7 (lambda (lambda (#(lambda (lambda (lambda (logo_forLoop $0 (lambda (lambda (logo_FWRT $4 $3 $0))))))) (logo_MULL logo_epsL $2) logo_epsA 7 $0)))))
+        with_sub_inventions: #(lambda (logo_forLoop 7 (lambda (lambda (fn_0 (logo_MULL logo_epsL $2) logo_epsA 7 $0)))))
+        stitch_uncanonical: (logo_forLoop 7 (lam (lam (fn_0 (logo_MULL logo_epsL #0) logo_epsA 7 $0))))
+        stitch_canonical: (logo_forLoop 7 (lam (lam (fn_0 (logo_MULL logo_epsL #0) logo_epsA 7 $0))))
+        arity: 1
+
+    """
     dsl_dc = [prod["expression"] for prod in dc_json["DSL"]["productions"]]
     dsl_dc = [p for p in dsl_dc if p.startswith("#")]
     dsl_dc.reverse() # reverse so first one learned comes first

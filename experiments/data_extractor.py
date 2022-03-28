@@ -48,7 +48,7 @@ if __name__ == "__main__":
         # frontiers associated with it (and is thus irrelevant for our teacher-forcing purposes?)
         assert (all([len(checkpoint.grammars) - 1 == len(checkpoint.frontiersOverTime[t]) for t in checkpoint.frontiersOverTime.keys()]))
         message = {
-                "verbose": True,
+                "verbose": False,
                 "arity": checkpoint.parameters['arity'],
                 "topK": checkpoint.parameters['topK'],
                 "pseudoCounts": float(re.search(r'pc=([^_]+)', checkpoint_file).group(1)),
