@@ -55,7 +55,7 @@ for LOG_FILE in ${LOG_FILES[@]} ; do
     echo "Logging extraction process to data/$DOMAIN/$RUN/.log"
     mkdir -p "data/$DOMAIN/$RUN"  # this is just making a folder called e.g. regex/2019...252339/
     echo "$LOG_FILE" > "data/$DOMAIN/$RUN/.log"
-    python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "data/$DOMAIN/$RUN" "64" >> "data/$DOMAIN/$RUN/.log" 2>&1
+    python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "data/$DOMAIN/$RUN" "8" >> "data/$DOMAIN/$RUN/.log" 2>&1
     echo "Finished extraction from $LOG_FILE"
 done
 
@@ -74,6 +74,11 @@ for ITERATION in {1..10} ; do
     echo "Logging extraction process to data/$DOMAIN/$RUN/.log"
     mkdir -p "data/$DOMAIN/$RUN"  # this is just making a folder called e.g. regex/2019...252339/
     echo "$LOG_FILE" > "data/$DOMAIN/$RUN/.log"
-    python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "data/$DOMAIN/$RUN" "6" >> "data/$DOMAIN/$RUN/.log" 2>&1
+    python3 "$ARTIFACT_BIN_PATH/data_extractor.py" "$EXP_OUTS_PATH/$LOG_FILE" "data/$DOMAIN/$RUN" "8" >> "data/$DOMAIN/$RUN/.log" 2>&1
     echo "Finished extraction from $LOG_FILE"
 done
+
+# add info.json to all data folders
+echo "analyzing all run data"
+python3 analyze.py all_run_info
+echo "done"
