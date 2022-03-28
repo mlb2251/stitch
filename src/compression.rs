@@ -226,6 +226,7 @@ struct CriticalMultithreadData {
     worklist: BinaryHeap<HeapItem>,
     lowest_donelist_utility:i32,
     utility_pruning_cutoff: i32,
+    active_threads: HashSet<std::thread::ThreadId>, // list of threads currently holding worklist items
 }
 
 /// All the data shared among threads, mostly read-only
@@ -270,6 +271,7 @@ impl CriticalMultithreadData {
             worklist,
             lowest_donelist_utility: 0,
             utility_pruning_cutoff: 0,
+            active_threads: HashSet::new(),
         };
         res.update(cfg);
         res
@@ -298,7 +300,7 @@ fn get_worklist_item(
     // * MULTITHREADING: CRITICAL SECTION START *
     // take the lock, which will be released immediately when this scope exits
     let mut shared_guard = shared.crit.lock();
-    let crit: &mut CriticalMultithreadData = shared_guard.deref_mut();
+    let mut crit: &mut CriticalMultithreadData = shared_guard.deref_mut();
     let lowest_donelist_utility = crit.lowest_donelist_utility;
     let old_best_utility = crit.donelist.first().map(|x|x.utility).unwrap_or(0);
     let old_donelist_len = crit.donelist.len();
@@ -313,8 +315,8 @@ fn get_worklist_item(
     }
 
     // pull out the newer versions of these now that theyve been updated, since we're returning them at the end
-    let lowest_donelist_utility = crit.lowest_donelist_utility;
-    let utility_pruning_cutoff = crit.utility_pruning_cutoff;
+    let mut lowest_donelist_utility = crit.lowest_donelist_utility;
+    let mut utility_pruning_cutoff = crit.utility_pruning_cutoff;
 
     let old_worklist_len = crit.worklist.len();
     let worklist_buf_len = worklist_buf.len();
@@ -323,20 +325,30 @@ fn get_worklist_item(
     // num pruned by upper bound = num we were gonna add minus change in worklist length
     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += worklist_buf_len - (crit.worklist.len() - old_worklist_len); };
 
-    // loop until we get a new (unpruned) item from the worklist
-    let heap_item = loop {
-        let heap_item = match crit.worklist.pop() {
-            Some(heap_item) => heap_item,
-            None => return None, // worklist was empty! we're done!
-        };
+    loop {
+        while crit.worklist.is_empty() {
+            crit.active_threads.remove(&thread::current().id());
+            if crit.active_threads.is_empty() {
+                return None
+            }
+            // give up our lock then take it back
+            drop(shared_guard);
+            // is this enough time for other threads to grab it?
+            shared_guard = shared.crit.lock();
+            crit = shared_guard.deref_mut();
+            lowest_donelist_utility = crit.lowest_donelist_utility;
+            utility_pruning_cutoff = crit.utility_pruning_cutoff;
+        }
+        
+        let  heap_item = crit.worklist.pop().unwrap();
         // prune if upper bound is too low (cutoff may have increased in the time since this was added to the worklist)
         if shared.cfg.no_opt_upper_bound || heap_item.pattern.utility_upper_bound > utility_pruning_cutoff {
-            break heap_item;
-        } else {
-            if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
+            // we got one!
+            crit.active_threads.insert(thread::current().id());
+            return Some((heap_item.pattern, utility_pruning_cutoff, lowest_donelist_utility));
         }
-    };
-    return Some((heap_item.pattern, utility_pruning_cutoff, lowest_donelist_utility));
+        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
+    }
     // * MULTITHREADING: CRITICAL SECTION END *
 }
 
@@ -1696,8 +1708,9 @@ pub fn compression_step(
     });
 
     if cfg.verbose_best {
-        let best_util = shared.crit.lock().deref_mut().donelist.first().unwrap().utility;
-        let best_expr: Expr = shared.crit.lock().deref_mut().donelist.first().unwrap().to_expr(&shared);
+        let mut crit = shared.crit.lock();
+        let best_util = crit.deref_mut().donelist.first().unwrap().utility;
+        let best_expr: Expr = crit.deref_mut().donelist.first().unwrap().to_expr(&shared);
         println!("{} @ step=0 util={} for {}", "[new best utility]".blue(), best_util, best_expr);
     }
     
