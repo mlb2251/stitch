@@ -2,6 +2,8 @@ import json
 import sys
 import os
 import re
+from typing import *
+from pathlib import Path
 
 """
 This converts from any dreamcoder json that can be indexed like json["DSL"]["productions"]["expression]
@@ -99,6 +101,7 @@ def load(file):
 def save(obj, file):
     with open(file,'w') as f:
         json.dump(obj,f,indent=4)
+    print(f"wrote {file}")
 
 def stitch_format(with_sub_inventions):
     source = with_sub_inventions[1:] # remove '#'
@@ -192,16 +195,112 @@ def to_stitch_dsl(dc_json):
 
         dsl.append({'name':f'fn_{i}','dreamcoder':dc_string, 'with_sub_inventions':with_sub_inventions, 'stitch_uncanonical':stitch_uncanonical, 'stitch_canonical':stitch_canonical, 'arity':arity})
     return dsl
-# for d in dsl:
-#     for k,v in d.items():
-#         print(f'{k}: {v}')
-#     print()
+
+def to_stitch_program(program: str, stitch_dsl):
+    for entry in stitch_dsl[::-1]:
+        program = program.replace(entry['dreamcoder'], entry['name'])
+    program = program.replace('lambda','lam')
+    assert '#' not in program
+    return program
+
+COST_NONTERMINAL = 1
+COST_TERMINAL = 100
+def stitch_cost(stitch_program):
+    cost = 0
+    # lambda costs
+    cost += COST_NONTERMINAL * stitch_program.count('(lam ')
+    stitch_program = stitch_program.replace('(lam ','')
+    # app costs are based on spaces now that we've removed the lam space
+    cost += COST_NONTERMINAL * stitch_program.count(' ')
+    # clear parens 
+    stitch_program = stitch_program.replace('(','')
+    stitch_program = stitch_program.replace(')','')
+    # prim/var costs is the number of space separated things remaining
+    cost += COST_TERMINAL * len([x for x in stitch_program.split(' ') if x != ''])
+    return cost
+
+def dreamcoder_to_invention_info(in_file, out_file):
+    in_json = load(in_file)
+    out_json = load(out_file)
+    stitch_dsl_input = to_stitch_dsl(in_json)
+    stitch_dsl_output = to_stitch_dsl(out_json)
+    new_fn = diff(stitch_dsl_input,stitch_dsl_output)
+    assert len(new_fn) == 1, f"these inputs and outputs differ by {len(new_fn)} functions (must differ by 1 fn)"
+    new_fn = new_fn[0]
+    
+    all_programs_out = [programs['program'] for f in out_json['frontiers'] for programs in f['programs']]
+    stitch_programs_out = [to_stitch_program(p,stitch_dsl_output) for p in all_programs_out]
+    stitch_programs_cost_out = sum([stitch_cost(p) for p in stitch_programs_out])
+    
+    all_programs_in = [programs['program'] for f in in_json['frontiers'] for programs in f['programs']]
+    stitch_programs_in = [to_stitch_program(p,stitch_dsl_input) for p in all_programs_in]
+    stitch_programs_cost_in = sum([stitch_cost(p) for p in stitch_programs_in])
+    
+    compressive_utility = (stitch_programs_cost_in - stitch_programs_cost_out)
+    compressive_multiplier = stitch_programs_cost_in / stitch_programs_cost_out
+
+    return {
+        'in_file': str(in_file),
+        'out_file': str(out_file),
+        'name': new_fn['name'],
+        'stitch_uncanonical': new_fn['stitch_uncanonical'],
+        'stitch_canonical': new_fn['stitch_canonical'],
+        'dreamcoder': new_fn['dreamcoder'],
+        'dreamcoder_frontiers_score': None,
+        'stitch_programs_cost': stitch_programs_cost_out,
+        'compressive_utility': compressive_utility,
+        'compressive_multiplier': compressive_multiplier,
+        'stitch_utility': None,
+        'usages': usages(new_fn["name"], stitch_programs_out),
+        'stitch_programs': stitch_programs_out,
+        'dreamcoder_frontiers': out_json['frontiers'],
+    }
+
+def stitch_to_invention_info(stitch_json):
+    in_json = load(stitch_json['args']['file'])
+    stitch_dsl_input = to_stitch_dsl(in_json)
+
+    assert len(stitch_json['invs']) == 1, "there seem to be more than one invention in this file"
+    inv = stitch_json['invs'][0]
+
+    all_programs_in = [programs['program'] for f in in_json['frontiers'] for programs in f['programs']]
+    stitch_programs_in = [to_stitch_program(p,stitch_dsl_input) for p in all_programs_in]
+    stitch_programs_cost_in = sum([stitch_cost(p) for p in stitch_programs_in])
+    compressive_utility = (stitch_programs_cost_in - inv['final_cost'])
+
+    assert stitch_programs_cost_in == stitch_json["original_cost"]
+    assert compressive_utility ==  stitch_json["original_cost"] - inv["final_cost"]
+
+    return {
+            'in_file': stitch_json['args']['file'],
+            'out_file': stitch_json['args']['out'],
+            'name': inv['name'],
+            'stitch_uncanonical': inv['body'],
+            'stitch_canonical': inv['body'],
+            'dreamcoder': inv['dreamcoder'],
+            'dreamcoder_frontiers_score': None,
+            'stitch_programs_cost': inv['final_cost'],
+            'compressive_utility': stitch_json["original_cost"] - inv["final_cost"],
+            'compressive_multiplier': inv["multiplier"],
+            'stitch_utility': inv["utility"],
+            'usages': inv['num_uses'],
+            'stitch_programs': inv['rewritten'],
+            'dreamcoder_frontiers': None,
+        }
 
 
-
+def usages(fn_name, stitch_programs):
+    # we count name + closeparen or name + space so that fn_1 doesnt get counted for things like fn_10
+    return sum([p.count(f'{fn_name})') + p.count(f'{fn_name} ') for p in stitch_programs])
 
 
 def diff(input_dsl,output_dsl):
+    # print("\n\nIN\n\n")
+    # for k in input_dsl:
+    #     print(f'{k["name"]}: {k["dreamcoder"]}')
+    # print("\n\nOUT\n\n")
+    # for k in output_dsl:
+    #     print(f'{k["name"]}: {k["dreamcoder"]}')
     difference = len(output_dsl) - len(input_dsl)
     assert difference >= 0
     if difference != 0:
@@ -271,6 +370,94 @@ if __name__ == '__main__':
         for domain,runs in RUNS.items():
             for run in runs:
                 save(run_info(os.path.join('data',domain,run)), os.path.join('data',domain,run,'info.json'))
+    
+    elif mode == 'invention_info_dc':
+        in_file = sys.argv[2]
+        out_file = sys.argv[3]
+        out_path = Path(sys.argv[3]).with_suffix('.invention_info.json')
+        save(dreamcoder_to_invention_info(in_file,out_file), out_path)
+
+    elif mode == 'run_invention_info_dc':
+        data_path = Path(sys.argv[2])
+        out_path = Path(sys.argv[3])
+        save_dir = out_path / 'invention_info'
+        save_dir.mkdir(exist_ok=True)
+        input_run_info = load(data_path / 'info.json')
+
+        summary_json = []
+
+        for i in range(0,len(input_run_info['iterations'])):
+            inv = 0
+            curr_input = data_path / f'iteration_{i}.json'
+            for file in sorted(os.listdir(out_path / f'iteration_{i}_rerun_compressionMessages')):
+                output = out_path / f'iteration_{i}_rerun_compressionMessages' / file
+                inv_info = dreamcoder_to_invention_info(curr_input, output)
+                save(inv_info, save_dir / f'iteration_{i}_inv{inv}.json')
+                inv_info['dreamcoder_frontiers'] = None
+                inv_info['stitch_programs'] = None
+                summary_json.append(inv_info)
+                curr_input = output
+                inv += 1
+        save(summary_json, save_dir / f'info.json')
+    
+    elif mode == 'to_input_files':
+        out_path = Path(sys.argv[2])
+        in_files = [x['in_file'] for x in load(out_path / 'invention_info' / 'info.json')]
+        for i,in_file in enumerate(in_files):
+            print(in_file)
+    
+    elif mode == 'run_invention_info_stitch':
+        out_path = Path(sys.argv[2])
+        save_dir = out_path / 'stitch' / 'invention_info'
+        save_dir.mkdir(exist_ok=True)
+        summary = []
+        for file in sorted([f for f in os.listdir(out_path / 'stitch') if f.endswith('.json')], key=lambda x: int(re.match(r'out_(\d*)',x).group(1))):
+            stitch_json = load(out_path / 'stitch' / file)
+            inv_info = stitch_to_invention_info(stitch_json)
+            save(inv_info, save_dir / f'{file}.json')
+            inv_info['dreamcoder_frontiers'] = None
+            inv_info['stitch_programs'] = None
+            summary.append(inv_info)
+        save(summary, save_dir / 'info.json')
+
+    elif mode == 'compare':
+        out_path = Path(sys.argv[2])
+        stitch = load(out_path / 'stitch' / 'invention_info' / 'info.json')
+        dc = load(out_path / 'invention_info' / 'info.json')
+        for i,(s,d) in enumerate(zip(stitch,dc)):
+            assert s['name'] == d['name']
+            assert s['in_file'] == d['in_file']
+            if s['compressive_utility'] == d['compressive_utility']:
+                print(f"{i}: exact match for compressive_utility")
+            elif s['compressive_utility'] < d['compressive_utility']:
+                print(f"{i}: WARNING STITCH IS WORSE IN compressive_utility")
+                print("===STITCH===")
+                for k,v in s.items():
+                    print(f"{k}: {v}")
+                print("===DREAMCODER===")
+                for k,v in d.items():
+                    print(f"{k}: {v}")
 
 
+
+"""
+Unified single step output format for exactly 1 new invention
+invention_info.json
+
+name
+stitch_uncanonical
+stitch_canonical
+dreamcoder
+dreamcoder_frontiers_score
+stitch_frontiers_cost
+compressivity
+stitch_utility (null for now)
+stitch_frontiers
+dreamcoder_frontiers
+
+"""
+
+
+
+    
 

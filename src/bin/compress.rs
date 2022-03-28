@@ -60,7 +60,7 @@ fn main() {
     // assert!(!out_dir_p.exists());
     // std::fs::create_dir(out_dir_p).unwrap();
     
-    let (mut programs, tasks) = args.fmt.load_programs_and_tasks(&args.file).unwrap();
+    let (mut programs, tasks, num_prior_inventions) = args.fmt.load_programs_and_tasks(&args.file).unwrap();
     
     if args.shuffle {
         programs.shuffle(&mut rand::thread_rng());
@@ -89,7 +89,7 @@ fn main() {
         println!("Normal dreamcoder programs never have unapplied lambdas in them! Who knows what might happen if you run this. Probably it will be fine");
     }
 
-    let step_results = compression(&programs, args.iterations, &args.step, &tasks);
+    let step_results = compression(&programs, args.iterations, &args.step, &tasks, num_prior_inventions);
 
     // write everything to json
     let out = json!({
