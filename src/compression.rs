@@ -39,6 +39,10 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_top_lambda: bool,
 
+    /// build out partial patterns with #i instead of ?#
+    #[clap(long)]
+    pub choose_vars_early: bool,
+
     /// pattern or invention to track
     #[clap(long)]
     pub track: Option<String>,
@@ -131,6 +135,8 @@ impl CompressionStepConfig {
 struct Pattern {
     holes: Vec<ZId>, // in order of when theyre added NOT left to right
     arg_choices: Vec<ZId>, // a hole gets moved into here when it becomes an argchoice, again these are in order of when they were added
+    arg_assignments: Vec<i32>, // when cfg.choose_vars_early: same length as arg_choices, gives tells you which #i each argchoice was assigned
+    first_ivar_use: Vec<usize>, // when cfg.choose_vars_early: first_ivar_use[i] gives the index of the first use of #i in arg_choices
     match_locations: Vec<Id>, // places where it applies
     pruned_assignment_prefixes: Vec<Vec<i32>>,
     utility_upper_bound: i32,
@@ -168,12 +174,14 @@ impl Pattern {
         let body_utility = 0;
         let mut match_locations = treenodes.clone();
         if cfg.no_top_lambda {
-            match_locations.retain(|node| node_type_of_node(&egraph[*node].nodes[0]).unwrap() != NodeType::Lam);
+            match_locations.retain(|node| expands_to_of_node(&egraph[*node].nodes[0]).unwrap() != ExpandsTo::Lam);
         }
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cfg);
         Pattern {
             holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
             arg_choices: vec![],
+            arg_assignments: vec![],
+            first_ivar_use: vec![],
             match_locations, // single hole matches everywhere
             pruned_assignment_prefixes: vec![],
             utility_upper_bound,
@@ -229,33 +237,36 @@ impl Pattern {
 /// The child-ignoring value of a node in the original set of programs. This tells us
 /// what the hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
-enum NodeType {
+enum ExpandsTo {
     Lam,
     App,
     Var(i32),
-    Prim(Symbol)
+    Prim(Symbol),
+    IVar(i32),
 }
 
-impl NodeType {
+impl ExpandsTo {
     #[inline]
-    /// true if expanding a node of this nodetype will yield new holes
+    /// true if expanding a node of this ExpandsTo will yield new holes
     fn has_holes(&self) -> bool {
         match self {
-            NodeType::Lam => true,
-            NodeType::App => true,
-            NodeType::Var(_) => false,
-            NodeType::Prim(_) => false,
+            ExpandsTo::Lam => true,
+            ExpandsTo::App => true,
+            ExpandsTo::Var(_) => false,
+            ExpandsTo::Prim(_) => false,
+            ExpandsTo::IVar(_) => false,
         }
     }
 }
 
-impl std::fmt::Display for NodeType {
+impl std::fmt::Display for ExpandsTo {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            NodeType::Lam => write!(f, "lam"),
-            NodeType::App => write!(f, "app"),
-            NodeType::Var(v) => write!(f, "${}", v),
-            NodeType::Prim(p) => write!(f, "{}", p),
+            ExpandsTo::Lam => write!(f, "lam"),
+            ExpandsTo::App => write!(f, "app"),
+            ExpandsTo::Var(v) => write!(f, "${}", v),
+            ExpandsTo::Prim(p) => write!(f, "{}", p),
+            ExpandsTo::IVar(v) => write!(f, "#{}", v),
         }
     }
 }
@@ -272,44 +283,44 @@ struct Arg {
     id: Id,
     unshifted_id: Id, // in case `id` was shifted to make it an arg not sure if this will end up being useful
     cost: i32,
-    node_type: NodeType,
+    expands_to: ExpandsTo,
 }
 
 impl Arg {
-    fn new(id: Id, unshifted_id: Id, cost: i32, node_type: NodeType) -> Self {
+    fn new(id: Id, unshifted_id: Id, cost: i32, expands_to: ExpandsTo) -> Self {
         Arg {
             id,
             unshifted_id,
             cost,
-            node_type
+            expands_to
         }
     }
 }
 
-/// NodeType from a &Lambda node. Returns None if this is
+/// ExpandsTo from a &Lambda node. Returns None if this is
 /// and IVar (which is not considered a node type) and crashes
 /// on Programs node.
-fn node_type_of_node(node: &Lambda) -> Option<NodeType> {
+fn expands_to_of_node(node: &Lambda) -> Option<ExpandsTo> {
     match node {
-        Lambda::Var(i) => Some(NodeType::Var(*i)),
+        Lambda::Var(i) => Some(ExpandsTo::Var(*i)),
         Lambda::Prim(p) => {
             if *p == Symbol::from("?#") { None } else {
-                Some(NodeType::Prim(*p))
+                Some(ExpandsTo::Prim(*p))
             }
         },
-        Lambda::Lam(_) => Some(NodeType::Lam),
-        Lambda::App(_) => Some(NodeType::App),
+        Lambda::Lam(_) => Some(ExpandsTo::Lam),
+        Lambda::App(_) => Some(ExpandsTo::App),
         Lambda::IVar(_) => None,
         _ => unreachable!()
     }
 }
 
-/// Returns Some(nodetype) for what we expect the hole to expand to to follow
+/// Returns Some(ExpandsTo) for what we expect the hole to expand to to follow
 /// the target, and returns None if we expect it to become a ?# argchoice.
-fn tracked_node_type(hole_zid: ZId, shared: &SharedData) -> Option<NodeType> {
+fn tracked_expands_to(hole_zid: ZId, shared: &SharedData) -> Option<ExpandsTo> {
     let id = shared.tracking.as_ref().unwrap().expr
         .apply_zipper(&shared.zip_of_zid[hole_zid]).unwrap();
-    node_type_of_node(shared.tracking.as_ref().unwrap().expr.get(id))
+    expands_to_of_node(shared.tracking.as_ref().unwrap().expr.get(id))
 }
 
 /// The heap item used for heap-based worklists. Holds a pattern
@@ -406,7 +417,7 @@ impl CriticalMultithreadData {
         self.donelist.sort_unstable_by(|a,b| (b.utility,&b.labelled_zids).cmp(&(a.utility,&a.labelled_zids)));
         self.donelist.truncate(cfg.inv_candidates);
         self.lowest_donelist_utility = self.donelist.last().map(|x|x.utility).unwrap_or(0);
-        self.utility_pruning_cutoff = if cfg.lossy_candidates { self.donelist.first().map(|x|x.utility).unwrap_or(0) } else { self.donelist.last().map(|x|x.utility).unwrap_or(0) };
+        self.utility_pruning_cutoff = if cfg.lossy_candidates { self.donelist.first().map(|x|x.utility).unwrap_or(0) } else { self.lowest_donelist_utility };
     }
 }
 
@@ -502,7 +513,7 @@ impl HoleChoice {
             },
             &HoleChoice::FewApps => {
                 pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().filter(|loc|shared.arg_of_zid_node[*hole_zid][loc].node_type == NodeType::App).count()))
+                    (hole_idx, pattern.match_locations.iter().filter(|loc|shared.arg_of_zid_node[*hole_zid][loc].expands_to == ExpandsTo::App).count()))
                         .min_by_key(|x|x.1).unwrap().0
             }
             &HoleChoice::MaxCost => {
@@ -520,7 +531,7 @@ impl HoleChoice {
                 // mainly because where there are like dozens of holes doing all these lookups and clones and hashmaps is a LOT
                 pattern.holes.iter().enumerate()
                     .map(|(hole_idx,hole_zid)| (hole_idx, *pattern.match_locations.iter()
-                        .map(|loc| shared.arg_of_zid_node[*hole_zid][loc].node_type.clone()).counts().values().max().unwrap())).max_by_key(|&(_,max_count)| max_count).unwrap().0
+                        .map(|loc| shared.arg_of_zid_node[*hole_zid][loc].expands_to.clone()).counts().values().max().unwrap())).max_by_key(|&(_,max_count)| max_count).unwrap().0
             }
             _ => unimplemented!()
         }
@@ -655,17 +666,43 @@ fn stitch_search(
         // sort the match locations by node type (ie what theyll expand into) so that we can do a group_by() on
         // node type in order to iterate over all the different expansions
         let mut match_locations = original_pattern.match_locations.clone();
-        match_locations.sort_unstable_by_key(|loc| arg_of_loc[loc].node_type.clone());
+        match_locations.sort_unstable_by_key(|loc| arg_of_loc[loc].expands_to.clone());
+
+        // add the argchoice! Leave everything else as-is, just push the old hole zipper onto the argchoice zipper list
+        // let mut arg_choices = original_pattern.arg_choices.clone();
+        // let mut arg_assignments = original_pattern.arg_assignments.clone();
+        // let mut first_ivar_use = original_pattern.first_ivar_use.clone();
+        // todo arg_choices.push(hole_zid);
+
+        let mut ivars_expansions = vec![];
+
+        // consider all ivars used previously
+        for ivar in 0..original_pattern.first_ivar_use.len() {
+            let ref arg_of_loc_ivar = shared.arg_of_zid_node[original_pattern.arg_choices[original_pattern.first_ivar_use[ivar]]];
+            let locs: Vec<Id> = original_pattern.match_locations.iter()
+                .filter(|loc|
+                    arg_of_loc[loc].id == 
+                    arg_of_loc_ivar[loc].id).cloned().collect();
+            ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
+        }
+        // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
+        if original_pattern.first_ivar_use.len() < shared.cfg.max_arity {
+            let ivar = original_pattern.first_ivar_use.len();
+            let locs = original_pattern.match_locations.clone();
+            ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
+        }
 
         // for each way of expanding the hole...
-        for (node_type, locs) in match_locations.into_iter()
-            .group_by(|loc| arg_of_loc[loc].node_type.clone()).into_iter()
+        for (expands_to, locs) in match_locations.into_iter()
+            .group_by(|loc| arg_of_loc[loc].expands_to.clone()).into_iter()
+            .map(|(expands_to, locs)| (expands_to, locs.collect::<Vec<Id>>()))
+            .chain(ivars_expansions.into_iter())
         {
             // for debugging
-            let tracked = original_pattern.tracked && Some(node_type.clone()) == tracked_node_type(hole_zid, &shared);
+            let tracked = original_pattern.tracked && Some(expands_to.clone()) == tracked_expands_to(hole_zid, &shared);
 
             // check for arity 0 inventions; these were previously handled and can be skipped
-            if holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !node_type.has_holes() {
+            if holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() {
                 continue; 
             }
 
@@ -675,17 +712,17 @@ fn stitch_search(
             // structurally hashed node must not do any actual useful abstraction so we can discard it
             if !shared.cfg.no_opt_single_use && locs.len() < 2 {
                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_wip_fired += 1; };
-                if tracked { println!("{} single use pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",node_type))); }
+                if tracked { println!("{} single use pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
                 continue; // too few uses
             }
 
             // check for free variables: if an invention has free variables in the body then it's not a real function and we can discard it
             // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
             if !shared.cfg.no_opt_free_vars {
-                if let NodeType::Var(i) = node_type {
+                if let ExpandsTo::Var(i) = expands_to {
                     if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
                         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_wip_fired += 1; };
-                        if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",node_type))); }
+                        if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
                         continue; // free var
                     }
                 }
@@ -702,9 +739,9 @@ fn stitch_search(
             }
 
             // update the body utility
-            let body_utility = original_pattern.body_utility +  match node_type {
-                NodeType::Lam | NodeType::App => COST_NONTERMINAL,
-                NodeType::Var(_) | NodeType::Prim(_) => COST_TERMINAL,
+            let body_utility = original_pattern.body_utility +  match expands_to {
+                ExpandsTo::Lam | ExpandsTo::App => COST_NONTERMINAL,
+                ExpandsTo::Var(_) | ExpandsTo::Prim(_) => COST_TERMINAL,
             };
 
             // update the upper bound
@@ -712,25 +749,25 @@ fn stitch_search(
 
             // prune if utility upper bound is negative
             if utility_upper_bound <= 0 {
-                if tracked { println!("{} <= 0 utility pruned ({}) when expanding {} to {}", "[TRACK]".red().bold(), utility_upper_bound, original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",node_type))); }
+                if tracked { println!("{} <= 0 utility pruned ({}) when expanding {} to {}", "[TRACK]".red().bold(), utility_upper_bound, original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
                 continue; // too low utility
             }
 
             // branch and bound: if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
             if utility_upper_bound < weak_utility_pruning_cutoff {
                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-                if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), utility_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",node_type))); }
+                if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), utility_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
                 continue; // too low utility
             }
 
             // add any new holes to the list of holes
             let mut holes = holes_after_pop.clone();
-            match node_type {
-                NodeType::Lam => {
+            match expands_to {
+                ExpandsTo::Lam => {
                     // add new holes
                     holes.push(shared.extensions_of_zid[hole_zid].body.unwrap());
                 }
-                NodeType::App => {
+                ExpandsTo::App => {
                     // add new holes
                         holes.push(shared.extensions_of_zid[hole_zid].func.unwrap());
                         holes.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
@@ -743,6 +780,8 @@ fn stitch_search(
             let new_pattern = Pattern {
                 holes,
                 arg_choices: original_pattern.arg_choices.clone(),
+                arg_assignments: original_pattern.arg_assignments.clone(),
+                first_ivar_use: original_pattern.first_ivar_use.clone(),
                 match_locations: locs,
                 pruned_assignment_prefixes: original_pattern.pruned_assignment_prefixes.clone(),
                 utility_upper_bound,
@@ -764,7 +803,7 @@ fn stitch_search(
                 );
             } else {
                 // it's a partial pattern so just add it to the worklist
-                if tracked { println!("{} pushed {} to worklist", "[TRACK]".green().bold(), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",node_type))); }
+                if tracked { println!("{} pushed {} to worklist", "[TRACK]".green().bold(), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
                 worklist_buf.push(HeapItem::new(new_pattern))
             }
         }
@@ -775,7 +814,7 @@ fn stitch_search(
         // In this section we expand the hole that we just popped into an argchoice
 
         // for debugging
-        let tracked = original_pattern.tracked && tracked_node_type(hole_zid, &shared).is_none();
+        let tracked = original_pattern.tracked && tracked_expands_to(hole_zid, &shared).is_none();
 
         // add an argchoice, as long as it's actually abstracting a different thing over all locations
         if original_pattern.match_locations.iter().map(|loc| arg_of_loc[loc].id.clone()).all_equal() {
@@ -785,7 +824,20 @@ fn stitch_search(
         } else {
             // add the argchoice! Leave everything else as-is, just push the old hole zipper onto the argchoice zipper list
             let mut arg_choices = original_pattern.arg_choices.clone();
+            let mut arg_assignments = original_pattern.arg_assignments.clone();
+            let mut first_ivar_use = original_pattern.first_ivar_use.clone();
             arg_choices.push(hole_zid);
+
+            // consider all ivars up to one greater than the biggest one we've seen (this canonicalizes it)
+            for ivar in 0..=first_ivar_use.len() {
+                let ref arg_of_loc_ivar = shared.arg_of_zid_node[original_pattern.arg_choices[first_ivar_use[ivar]]];
+                let locs: Vec<Id> = original_pattern.match_locations.iter()
+                    .filter(|loc|
+                        arg_of_loc[loc].id == 
+                        arg_of_loc_ivar[loc].id).cloned().collect();
+                
+            }
+
             let new_pattern = Pattern {
                 holes: holes_after_pop,
                 arg_choices,
@@ -1210,7 +1262,7 @@ fn get_zippers(
         // any node can become the identity function (the empty zipper with itself as the arg)
         let mut zids: Vec<ZId> = vec![EMPTY_ZID];
         arg_of_zid_node[EMPTY_ZID].insert(*treenode,
-            Arg::new(*treenode, *treenode, cost_of_node_once[treenode], node_type_of_node(&node).unwrap()));
+            Arg::new(*treenode, *treenode, cost_of_node_once[treenode], expands_to_of_node(&node).unwrap()));
         
         descendants_of_node.insert(*treenode, vec![]);
 
