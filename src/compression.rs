@@ -880,7 +880,7 @@ fn stitch_search(
                 }
 
                 if tracked {
-                    println!("{} pushed {} to donelist", "----->".yellow().bold(), new_pattern.to_expr(&shared));
+                    println!("{} pushed {} to donelist", "[TRACK:DONE]".green().bold(), new_pattern.to_expr(&shared));
                 }
                 let finished_pattern = FinishedPattern::new(new_pattern, &shared);
 
