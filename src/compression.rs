@@ -14,6 +14,119 @@ use std::ops::DerefMut;
 use std::collections::BinaryHeap;
 use rand::Rng;
 
+/// Args for compression step
+#[derive(Parser, Debug, Serialize, Clone)]
+#[clap(name = "Stitch")]
+pub struct CompressionStepConfig {
+    /// max arity of inventions to find (will find all from 0 to this number inclusive)
+    #[clap(short='a', long, default_value = "2")]
+    pub max_arity: usize,
+
+    /// num threads (no parallelism if set to 1)
+    #[clap(short='t', long, default_value = "1")]
+    pub threads: usize,
+
+    /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
+    /// unless --lossy-candidates is enabled.
+    #[clap(short='n', long, default_value = "1")]
+    pub inv_candidates: usize,
+
+    /// pattern or invention to track
+    #[clap(long, arg_enum, default_value = "min-cost")]
+    pub hole_choice: HoleChoice,
+
+    /// inventions cant start with a Lambda
+    #[clap(long)]
+    pub no_top_lambda: bool,
+
+    /// pattern or invention to track
+    #[clap(long)]
+    pub track: Option<String>,
+
+    /// print out each step of what gets popped off the worklist
+    #[clap(long)]
+    pub verbose_worklist: bool,
+
+    /// whenever a new best thing is found, print it
+    #[clap(long)]
+    pub verbose_best: bool,
+
+    /// 
+    #[clap(long)]
+    pub break_early_assignment: bool,
+
+    /// By default we use a LIFO worklist but this is certainly something to explore more
+    /// and this flag makes it fifo https://github.com/mlb2251/stitch/issues/31
+    #[clap(long)]
+    pub fifo_worklist: bool,
+
+    /// By default we sort the worklist in decreasing zipper order before starting to process it,
+    /// but this swaps it to increasing order. https://github.com/mlb2251/stitch/issues/31
+    #[clap(long)]
+    pub ascending_worklist: bool,
+
+    /// Turning this on means that only the top invention will be guaranteed to be the best invention,
+    /// and the 2nd best invention may not be the actual second best invention. Basically, this just enables
+    /// pruning of everything that's worse than the best invention which could cause speedups depending on the domain.
+    #[clap(long)]
+    pub lossy_candidates: bool,
+
+    /// disable caching (though caching isn't used for much currently)
+    #[clap(long)]
+    pub no_cache: bool,
+
+    /// print out programs rewritten under invention
+    #[clap(long,short='r')]
+    pub show_rewritten: bool,
+
+    /// disable the free variable pruning optimization
+    #[clap(long)]
+    pub no_opt_free_vars: bool,
+
+    /// disable the single usage pruning optimization
+    #[clap(long)]
+    pub no_opt_single_use: bool,
+
+    /// disable the single task pruning optimization
+    #[clap(long)]
+    pub no_opt_single_task: bool,
+
+    /// disable the upper bound pruning optimization
+    #[clap(long)]
+    pub no_opt_upper_bound: bool,
+
+    /// disable the force multiuse pruning optimization
+    #[clap(long)]
+    pub no_opt_force_multiuse: bool,
+
+    /// disable the useless abstraction pruning optimization
+    #[clap(long)]
+    pub no_opt_useless_abstract: bool,
+
+    /// Disable stat logging - note that stat logging in multithreading requires taking a mutex
+    /// so it could be a source of slowdown in the multithreaded case, hence this flag to disable it.
+    /// From some initial tests it seems to cause no slowdown anyways though.
+    #[clap(long)]
+    pub no_stats: bool,
+
+    /// disables other_utility so the only utility is based on compressivity
+    #[clap(long)]
+    pub no_other_util: bool,
+}
+
+impl CompressionStepConfig {
+    pub fn no_opt(&mut self) {
+        self.no_opt_free_vars = true;
+        self.no_opt_single_use = true;
+        self.no_opt_single_task = true;
+        self.no_opt_upper_bound = true;
+        self.no_opt_force_multiuse = true;
+        self.no_opt_useless_abstract = true;
+    }
+}
+
+
+
 /// A Pattern is a partial invention with holes. The simplest pattern is the single hole `??` which
 /// matches at all nodes in the program set. From this single hole in a top-down manner we grow more complex
 /// patterns like `(+ ?? ??)` and `(+ 3 (* ?? ??))`. Expanding a hole in a pattern always results in a pattern
@@ -307,6 +420,146 @@ impl CriticalMultithreadData {
     }
 }
 
+
+
+/// At the end of the day we convert our Inventions into InventionExprs to make
+/// them standalone without needing to carry the EGraph around to figure out what
+/// the body Id points to.
+#[derive(Debug, Clone)]
+pub struct Invention {
+    pub body: Expr, // invention body (not wrapped in lambdas)
+    pub arity: usize,
+    pub name: String,
+}
+impl Invention {
+    pub fn new(body: Expr, arity: usize, name: &str) -> Self {
+        Self { body, arity, name: String::from(name) }
+    }
+    /// replace any #i with args[i], returning a new expression
+    pub fn apply(&self, args: &[Expr]) -> Expr {
+        assert_eq!(args.len(), self.arity);
+        let map: HashMap<i32, Expr> = args.iter().enumerate().map(|(i,e)| (i as i32, e.clone())).collect();
+        ivar_replace(&self.body, self.body.root(), &map)
+    }
+}
+
+impl Display for Invention {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "[{} arity={}: {}]", self.name, self.arity, self.body)
+    }
+}
+
+/// A node in an ZPath
+/// Ord: Func < Body < Arg
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+enum ZNode {
+    // * order of variants here is important because the derived Ord will use it
+    Func, // zipper went into the function, so Id is the arg
+    Body, 
+    Arg, // zipper went into the arg, so Id is the function
+}
+
+/// "zipper id" each unique zipper gets referred to by its zipper id
+type ZId = usize;
+
+/// a zid referencing a specific ZPath and a #i index
+#[derive(Debug,Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+struct LabelledZId {
+    zid: ZId,
+    ivar: usize // which #i argument this is, which also corresponds to args[i] ofc
+}
+
+/// Various tracking stats
+#[derive(Clone,Default, Debug)]
+struct Stats {
+    partial_invs: usize,
+    finished_invs: usize,
+    upper_bound_fired: usize,
+    free_vars_wip_fired: usize,
+    single_use_done_fired: usize,
+    single_task_done_fired: usize,
+    single_use_wip_fired: usize,
+    useless_abstract_fired: usize,
+}
+
+/// a strategy for choosing which hole to expand next in a partial pattern
+#[derive(Debug, Clone, clap::ArgEnum, Serialize)]
+pub enum HoleChoice {
+    Random,
+    First,
+    Last,
+    MaxLargestSubset,
+    HighEntropy,
+    LowEntropy,
+    MaxCost,
+    MinCost,
+    ManyGroups,
+    FewGroups,
+    FewApps,
+}
+
+impl HoleChoice {
+    fn choose_hole(&self, pattern: &Pattern, shared: &SharedData) -> usize {
+        if pattern.holes.len() == 1 {
+            return 0;
+        }
+        match self {
+            &HoleChoice::First => 0,
+            &HoleChoice::Last => pattern.holes.len() - 1,
+            &HoleChoice::Random => {
+                let mut rng = rand::thread_rng();
+                rng.gen_range(0..pattern.holes.len())
+            },
+            &HoleChoice::FewApps => {
+                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
+                    (hole_idx, pattern.match_locations.iter().filter(|loc|shared.arg_of_zid_node[*hole_zid][loc].node_type == NodeType::App).count()))
+                        .min_by_key(|x|x.1).unwrap().0
+            }
+            &HoleChoice::MaxCost => {
+                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
+                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
+                        .max_by_key(|x|x.1).unwrap().0
+            }
+            &HoleChoice::MinCost => {
+                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
+                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
+                        .min_by_key(|x|x.1).unwrap().0
+            }
+            &HoleChoice::MaxLargestSubset => {
+                // todo warning this is extremely slow, partially bc of counts() but I think
+                // mainly because where there are like dozens of holes doing all these lookups and clones and hashmaps is a LOT
+                pattern.holes.iter().enumerate()
+                    .map(|(hole_idx,hole_zid)| (hole_idx, *pattern.match_locations.iter()
+                        .map(|loc| shared.arg_of_zid_node[*hole_zid][loc].node_type.clone()).counts().values().max().unwrap())).max_by_key(|&(_,max_count)| max_count).unwrap().0
+            }
+            _ => unimplemented!()
+        }
+    }
+}
+
+impl LabelledZId {
+    fn new(zid: ZId, ivar: usize) -> LabelledZId {
+        LabelledZId { zid: zid, ivar: ivar }
+    }
+}
+
+/// tells you which zid if any you would get if you extended the depth
+/// (of whatever the current zid is) with any of these znodes.
+#[derive(Clone,Debug)]
+struct ZIdExtension {
+    body: Option<ZId>,
+    arg: Option<ZId>,
+    func: Option<ZId>,
+}
+
+
+
+
+
+
+
+
+
 /// empties worklist_buf and donelist_buf into the shared worklist while holding the mutex, updates
 /// the donelist and cutoffs, and grabs and returns a new worklist item along with new cutoff bounds.
 fn get_worklist_item(
@@ -370,8 +623,6 @@ fn get_worklist_item(
     }
     // * MULTITHREADING: CRITICAL SECTION END *
 }
-
-
 
 
 fn stitch_search(
@@ -934,267 +1185,10 @@ fn assignments_of_pattern(
 
 }
 
-/// At the end of the day we convert our Inventions into InventionExprs to make
-/// them standalone without needing to carry the EGraph around to figure out what
-/// the body Id points to.
-#[derive(Debug, Clone)]
-pub struct Invention {
-    pub body: Expr, // invention body (not wrapped in lambdas)
-    pub arity: usize,
-    pub name: String,
-}
-impl Invention {
-    pub fn new(body: Expr, arity: usize, name: &str) -> Self {
-        Self { body, arity, name: String::from(name) }
-    }
-    /// replace any #i with args[i], returning a new expression
-    pub fn apply(&self, args: &[Expr]) -> Expr {
-        assert_eq!(args.len(), self.arity);
-        let map: HashMap<i32, Expr> = args.iter().enumerate().map(|(i,e)| (i as i32, e.clone())).collect();
-        ivar_replace(&self.body, self.body.root(), &map)
-    }
-}
-
-impl Display for Invention {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "[{} arity={}: {}]", self.name, self.arity, self.body)
-    }
-}
-
-
-/// Does debruijn index shifting of a subtree, incrementing all Vars by the given amount
-#[inline] // useful to inline since callsite can usually tell which Shift type is happening allowing further optimization
-pub fn shift(e: Id, incr_by: i32, egraph: &mut EGraph, cache: &mut Option<RecVarModCache>) -> Option<Id> {
-    let empty = &mut RecVarModCache::new();
-    let seen: &mut RecVarModCache = cache.as_mut().unwrap_or(empty);
-
-    recursive_var_mod(
-        |actual_idx, _depth, _which_upward_ref, egraph| {
-            Some(egraph.add(Lambda::Var(actual_idx + incr_by)))
-        },
-        false, // operate on Vars not IVars
-        e,egraph,seen
-    )
-}
-
-/// A node in an ZPath
-/// Ord: Func < Body < Arg
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-enum ZNode {
-    // * order of variants here is important because the derived Ord will use it
-    Func, // zipper went into the function, so Id is the arg
-    Body, 
-    Arg, // zipper went into the arg, so Id is the function
-}
-
-/// "zipper id" each unique zipper gets referred to by its zipper id
-type ZId = usize;
-
-/// a zid referencing a specific ZPath and a #i index
-#[derive(Debug,Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-struct LabelledZId {
-    zid: ZId,
-    ivar: usize // which #i argument this is, which also corresponds to args[i] ofc
-}
-
-/// Various tracking stats
-#[derive(Clone,Default, Debug)]
-struct Stats {
-    partial_invs: usize,
-    finished_invs: usize,
-    upper_bound_fired: usize,
-    free_vars_wip_fired: usize,
-    single_use_done_fired: usize,
-    single_task_done_fired: usize,
-    single_use_wip_fired: usize,
-    useless_abstract_fired: usize,
-}
-
-/// Args for compression step
-#[derive(Parser, Debug, Serialize, Clone)]
-#[clap(name = "Stitch")]
-pub struct CompressionStepConfig {
-    /// max arity of inventions to find (will find all from 0 to this number inclusive)
-    #[clap(short='a', long, default_value = "2")]
-    pub max_arity: usize,
-
-    /// num threads (no parallelism if set to 1)
-    #[clap(short='t', long, default_value = "1")]
-    pub threads: usize,
-
-    /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
-    /// unless --lossy-candidates is enabled.
-    #[clap(short='n', long, default_value = "1")]
-    pub inv_candidates: usize,
-
-    /// pattern or invention to track
-    #[clap(long, arg_enum, default_value = "min-cost")]
-    pub hole_choice: HoleChoice,
-
-    /// inventions cant start with a Lambda
-    #[clap(long)]
-    pub no_top_lambda: bool,
-
-    /// pattern or invention to track
-    #[clap(long)]
-    pub track: Option<String>,
-
-    /// print out each step of what gets popped off the worklist
-    #[clap(long)]
-    pub verbose_worklist: bool,
-
-    /// whenever a new best thing is found, print it
-    #[clap(long)]
-    pub verbose_best: bool,
-
-    /// 
-    #[clap(long)]
-    pub break_early_assignment: bool,
-
-    /// By default we use a LIFO worklist but this is certainly something to explore more
-    /// and this flag makes it fifo https://github.com/mlb2251/stitch/issues/31
-    #[clap(long)]
-    pub fifo_worklist: bool,
-
-    /// By default we sort the worklist in decreasing zipper order before starting to process it,
-    /// but this swaps it to increasing order. https://github.com/mlb2251/stitch/issues/31
-    #[clap(long)]
-    pub ascending_worklist: bool,
-
-    /// Turning this on means that only the top invention will be guaranteed to be the best invention,
-    /// and the 2nd best invention may not be the actual second best invention. Basically, this just enables
-    /// pruning of everything that's worse than the best invention which could cause speedups depending on the domain.
-    #[clap(long)]
-    pub lossy_candidates: bool,
-
-    /// disable caching (though caching isn't used for much currently)
-    #[clap(long)]
-    pub no_cache: bool,
-
-    /// print out programs rewritten under invention
-    #[clap(long,short='r')]
-    pub show_rewritten: bool,
-
-    /// disable the free variable pruning optimization
-    #[clap(long)]
-    pub no_opt_free_vars: bool,
-
-    /// disable the single usage pruning optimization
-    #[clap(long)]
-    pub no_opt_single_use: bool,
-
-    /// disable the single task pruning optimization
-    #[clap(long)]
-    pub no_opt_single_task: bool,
-
-    /// disable the upper bound pruning optimization
-    #[clap(long)]
-    pub no_opt_upper_bound: bool,
-
-    /// disable the force multiuse pruning optimization
-    #[clap(long)]
-    pub no_opt_force_multiuse: bool,
-
-    /// disable the useless abstraction pruning optimization
-    #[clap(long)]
-    pub no_opt_useless_abstract: bool,
-
-    /// Disable stat logging - note that stat logging in multithreading requires taking a mutex
-    /// so it could be a source of slowdown in the multithreaded case, hence this flag to disable it.
-    /// From some initial tests it seems to cause no slowdown anyways though.
-    #[clap(long)]
-    pub no_stats: bool,
-
-    /// disables other_utility so the only utility is based on compressivity
-    #[clap(long)]
-    pub no_other_util: bool,
-}
-
-impl CompressionStepConfig {
-    pub fn no_opt(&mut self) {
-        self.no_opt_free_vars = true;
-        self.no_opt_single_use = true;
-        self.no_opt_single_task = true;
-        self.no_opt_upper_bound = true;
-        self.no_opt_force_multiuse = true;
-        self.no_opt_useless_abstract = true;
-    }
-}
-
-/// a strategy for choosing which hole to expand next in a partial pattern
-#[derive(Debug, Clone, clap::ArgEnum, Serialize)]
-pub enum HoleChoice {
-    Random,
-    First,
-    Last,
-    MaxLargestSubset,
-    HighEntropy,
-    LowEntropy,
-    MaxCost,
-    MinCost,
-    ManyGroups,
-    FewGroups,
-    FewApps,
-}
-
-impl HoleChoice {
-    fn choose_hole(&self, pattern: &Pattern, shared: &SharedData) -> usize {
-        if pattern.holes.len() == 1 {
-            return 0;
-        }
-        match self {
-            &HoleChoice::First => 0,
-            &HoleChoice::Last => pattern.holes.len() - 1,
-            &HoleChoice::Random => {
-                let mut rng = rand::thread_rng();
-                rng.gen_range(0..pattern.holes.len())
-            },
-            &HoleChoice::FewApps => {
-                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().filter(|loc|shared.arg_of_zid_node[*hole_zid][loc].node_type == NodeType::App).count()))
-                        .min_by_key(|x|x.1).unwrap().0
-            }
-            &HoleChoice::MaxCost => {
-                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
-                        .max_by_key(|x|x.1).unwrap().0
-            }
-            &HoleChoice::MinCost => {
-                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
-                        .min_by_key(|x|x.1).unwrap().0
-            }
-            &HoleChoice::MaxLargestSubset => {
-                // todo warning this is extremely slow, partially bc of counts() but I think
-                // mainly because where there are like dozens of holes doing all these lookups and clones and hashmaps is a LOT
-                pattern.holes.iter().enumerate()
-                    .map(|(hole_idx,hole_zid)| (hole_idx, *pattern.match_locations.iter()
-                        .map(|loc| shared.arg_of_zid_node[*hole_zid][loc].node_type.clone()).counts().values().max().unwrap())).max_by_key(|&(_,max_count)| max_count).unwrap().0
-            }
-            _ => unimplemented!()
-        }
-    }
-}
-
-impl LabelledZId {
-    fn new(zid: ZId, ivar: usize) -> LabelledZId {
-        LabelledZId { zid: zid, ivar: ivar }
-    }
-}
-
-/// tells you which zid if any you would get if you extended the depth
-/// (of whatever the current zid is) with any of these znodes.
-#[derive(Clone,Debug)]
-struct ZIdExtension {
-    body: Option<ZId>,
-    arg: Option<ZId>,
-    func: Option<ZId>,
-}
-
 /// figure out all the N^2 zippers from choosing any given node and then choosing a descendant and returning the zipper from
 /// the node to the descendant. We also collect a bunch of other useful stuff like the argument you would get if you abstracted
 /// the descendant and introduced an invention rooted at the ancestor node.
-fn get_appzippers(
+fn get_zippers(
     treenodes: &[Id],
     cost_of_node_once: &HashMap<Id,i32>,
     no_cache: bool,
@@ -1624,8 +1618,8 @@ pub fn compression_step(
         arg_of_zid_node,
         zids_of_node,
         extensions_of_zid,
-        descendants_of_node) = get_appzippers(&treenodes, &cost_of_node_once, cfg.no_cache, &mut egraph, cfg);
-    println!("get_appzippers: {:?}ms", tstart.elapsed().as_millis());
+        descendants_of_node) = get_zippers(&treenodes, &cost_of_node_once, cfg.no_cache, &mut egraph, cfg);
+    println!("get_zippers: {:?}ms", tstart.elapsed().as_millis());
 
 
     println!("{} zips", zip_of_zid.len());

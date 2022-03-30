@@ -203,3 +203,18 @@ fn associate_task_rec(node: Id, egraph: &EGraph, task_id: usize, tasks_of_node: 
         associate_task_rec(*child, egraph, task_id, tasks_of_node);
     }
 }
+
+/// Does debruijn index shifting of a subtree, incrementing all Vars by the given amount
+#[inline] // useful to inline since callsite can usually tell which Shift type is happening allowing further optimization
+pub fn shift(e: Id, incr_by: i32, egraph: &mut EGraph, cache: &mut Option<RecVarModCache>) -> Option<Id> {
+    let empty = &mut RecVarModCache::new();
+    let seen: &mut RecVarModCache = cache.as_mut().unwrap_or(empty);
+
+    recursive_var_mod(
+        |actual_idx, _depth, _which_upward_ref, egraph| {
+            Some(egraph.add(Lambda::Var(actual_idx + incr_by)))
+        },
+        false, // operate on Vars not IVars
+        e,egraph,seen
+    )
+}
