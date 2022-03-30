@@ -241,6 +241,7 @@ struct SharedData {
     zids_of_node: HashMap<Id,Vec<ZId>>,
     zip_of_zid: Vec<Zip>,
     extensions_of_zid: Vec<ZIdExtension>,
+    descendants_of_node: HashMap<Id,Vec<Id>>,
     egraph: EGraph,
     num_paths_to_node: HashMap<Id,i32>,
     #[allow(dead_code)]
@@ -1216,13 +1217,14 @@ fn get_appzippers(
     no_cache: bool,
     egraph: &mut EGraph,
     _cfg: &CompressionStepConfig
-) -> (HashMap<Zip, ZId>, Vec<Zip>, Vec<HashMap<Id,Arg>>, HashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>) {
+) -> (HashMap<Zip, ZId>, Vec<Zip>, Vec<HashMap<Id,Arg>>, HashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>, HashMap<Id,Vec<Id>>) {
     let cache: &mut Option<RecVarModCache> = &mut if no_cache { None } else { Some(HashMap::new()) };
 
     let mut zid_of_zip: HashMap<Zip, ZId> = Default::default();
     let mut zip_of_zid: Vec<Zip> = Default::default();
     let mut arg_of_zid_node: Vec<HashMap<Id,Arg>> = Default::default();
     let mut zids_of_node: HashMap<Id,Vec<ZId>> = Default::default();
+    let mut descendants_of_node: HashMap<Id,Vec<Id>> = Default::default();
 
     zid_of_zip.insert(vec![], EMPTY_ZID);
     zip_of_zid.push(vec![]);
@@ -1241,6 +1243,8 @@ fn get_appzippers(
         let mut zids: Vec<ZId> = vec![EMPTY_ZID];
         arg_of_zid_node[EMPTY_ZID].insert(*treenode,
             Arg::new(*treenode, *treenode, cost_of_node_once[treenode], node_type_of_node(&node).unwrap()));
+        
+        descendants_of_node.insert(*treenode, vec![]);
 
         match node {
             Lambda::IVar(_) => { panic!("attempted to abstract an IVar") }
@@ -1282,6 +1286,10 @@ fn get_appzippers(
                     arg_of_zid_node[*zid].insert(*treenode, arg);
 
                 }
+                let mut descendants: Vec<Id> = descendants_of_node[&f].iter().chain(descendants_of_node[&x].iter()).cloned().collect();
+                descendants.push(x);
+                descendants.push(f);
+                descendants_of_node.get_mut(&treenode).unwrap().extend(descendants.into_iter());
             },
             Lambda::Lam([b]) => {
                 for b_zid in zids_of_node[&b].iter() {
@@ -1307,6 +1315,9 @@ fn get_appzippers(
                     arg.id = shift(arg.id, -1, egraph, cache).unwrap();
                     arg_of_zid_node[*zid].insert(*treenode, arg);
                 }
+                let mut descendants: Vec<Id> = descendants_of_node[&b].clone();
+                descendants.push(b);
+                descendants_of_node.get_mut(&treenode).unwrap().extend(descendants.into_iter());
             },
         }
         zids_of_node.insert(*treenode, zids);
@@ -1344,7 +1355,8 @@ fn get_appzippers(
     zip_of_zid,
     arg_of_zid_node,
     zids_of_node,
-    extensions_of_zid)
+    extensions_of_zid,
+    descendants_of_node)
 }
 
 #[derive(Debug, Clone)]
@@ -1645,7 +1657,8 @@ pub fn compression_step(
         zip_of_zid,
         arg_of_zid_node,
         zids_of_node,
-        extensions_of_zid) = get_appzippers(&treenodes, &cost_of_node_once, cfg.no_cache, &mut egraph, cfg);
+        extensions_of_zid,
+        descendants_of_node) = get_appzippers(&treenodes, &cost_of_node_once, cfg.no_cache, &mut egraph, cfg);
     println!("get_appzippers: {:?}ms", tstart.elapsed().as_millis());
 
 
@@ -1681,8 +1694,6 @@ pub fn compression_step(
 
     let stats: Stats = Default::default();
 
-
-
     println!("total prep: {:?}ms", tstart_total.elapsed().as_millis());
 
     println!("running pattern search...");
@@ -1697,6 +1708,7 @@ pub fn compression_step(
         zids_of_node,
         zip_of_zid,
         extensions_of_zid,
+        descendants_of_node,
         egraph,
         num_paths_to_node,
         tasks_of_node,
