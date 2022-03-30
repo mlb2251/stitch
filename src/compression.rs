@@ -159,6 +159,53 @@ impl Expr {
     }
 }
 
+/// returns the vec of zippers to each ivar
+fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &HashMap<Zip,ZId>) -> Vec<Vec<ZId>> {
+
+    // quickly determine arity
+    let mut arity = 0;
+    for node in expr.nodes.iter() {
+        if let Lambda::IVar(ivar) = node {
+            if ivar + 1 > arity {
+                arity = ivar + 1;
+            }
+        }
+    }
+
+    let mut curr_zip: Zip = vec![];
+    let mut zids_of_ivar = vec![vec![]; arity as usize];
+
+    fn helper(curr_node: Id, expr: &Expr, curr_zip: &mut Zip, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &HashMap<Zip,ZId>) {
+        match expr.get(curr_node) {
+            Lambda::Prim(_) => {},
+            Lambda::Var(_) => {},
+            Lambda::IVar(i) => {
+                zids_of_ivar[*i as usize].push(zid_of_zip[curr_zip]);
+            },
+            Lambda::Lam([b]) => {
+                curr_zip.push(ZNode::Body);
+                helper(*b, expr, curr_zip, zids_of_ivar, zid_of_zip);
+                curr_zip.pop();
+            }
+            Lambda::App([f,x]) => {
+                curr_zip.push(ZNode::Func);
+                helper(*f, expr, curr_zip, zids_of_ivar, zid_of_zip);
+                curr_zip.pop();
+                curr_zip.push(ZNode::Arg);
+                helper(*x, expr, curr_zip, zids_of_ivar, zid_of_zip);
+                curr_zip.pop();
+            }
+            _ => unreachable!(),
+        }
+        
+    }
+    // we can pick any match location
+    helper(expr.root(), expr, &mut curr_zip, &mut zids_of_ivar, zid_of_zip);
+
+    zids_of_ivar
+}
+
+
 impl Pattern {
     /// create a single hole pattern `??`
     fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
@@ -314,11 +361,30 @@ fn expands_to_of_node(node: &Lambda) -> ExpandsTo {
 
 /// Returns Some(ExpandsTo) for what we expect the hole to expand to to follow
 /// the target, and returns None if we expect it to become a ?# argchoice.
-fn tracked_expands_to(hole_zid: ZId, shared: &SharedData) -> ExpandsTo {
-    unimplemented!(); // todo we need to account for relabelling of ivars being equivalent
+fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData) -> ExpandsTo {
+    // apply the hole zipper to the original expr being tracked to get the subtree
+    // this will expand into, then get the ExpandsTo of that
     let id = shared.tracking.as_ref().unwrap().expr
         .apply_zipper(&shared.zip_of_zid[hole_zid]).unwrap();
-    expands_to_of_node(shared.tracking.as_ref().unwrap().expr.get(id))
+    match expands_to_of_node(shared.tracking.as_ref().unwrap().expr.get(id)) {
+        ExpandsTo::IVar(i) => {
+            // in the case where we're searching for an IVar we need to be robust to relabellings
+            // since this doesn't have to be canonical. What we can do is we can look over
+            // each ivar the the pattern has defined with a first zid in pattern.first_zid_of_ivar, and
+            // if our expressions' zids_of_ivar[i] contains this zid then we know these two ivars
+            // must correspond to each other in the pattern and the tracked expr and we can just return
+            // the pattern version (`j` below).
+            let zids = shared.tracking.as_ref().unwrap().zids_of_ivar[i as usize].clone();
+            for (j,zid) in pattern.first_zid_of_ivar.iter().enumerate() {
+                if zids.contains(zid) {
+                    return ExpandsTo::IVar(j as i32);
+                }
+            }
+            // it's a new ivar that hasnt been used already so it must take on the next largest var number
+            return ExpandsTo::IVar(pattern.first_zid_of_ivar.len() as i32);
+        }
+        e => e
+    }
 }
 
 /// The heap item used for heap-based worklists. Holds a pattern
@@ -369,6 +435,7 @@ struct SharedData {
     #[allow(dead_code)]
     zids_of_node: HashMap<Id,Vec<ZId>>,
     zip_of_zid: Vec<Zip>,
+    zid_of_zip: HashMap<Zip, ZId>,
     extensions_of_zid: Vec<ZIdExtension>,
     descendants_of_node: HashMap<Id,Vec<Id>>,
     egraph: EGraph,
@@ -387,6 +454,7 @@ struct SharedData {
 #[derive(Debug)]
 struct Tracking {
     expr: Expr,
+    zids_of_ivar: Vec<Vec<ZId>>,
 }
 
 impl CriticalMultithreadData {
@@ -700,7 +768,7 @@ fn stitch_search(
             .chain(ivars_expansions.into_iter())
         {
             // for debugging
-            let tracked = original_pattern.tracked && expands_to == tracked_expands_to(hole_zid, &shared);
+            let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, hole_zid, &shared);
 
             // check for arity 0 inventions; these were previously handled and can be skipped
             if holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar() {
@@ -1284,18 +1352,6 @@ pub fn compression_step(
     let tstart_total = std::time::Instant::now();
     let tstart = std::time::Instant::now();
 
-
-    // set up tracking if any
-    let tracking: Option<Tracking> = cfg.track.as_ref().map(|s|{
-        let mut s = s.clone();
-        for i in 0..30 {
-            // un-assign any ivars from #i back to ?#
-            s = replace_prim_with(&s, &format!("#{}",i),&format!("?#"));
-        }
-        let expr: Expr = s.parse().unwrap();
-        Tracking { expr }
-    });
-
     // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
     let mut egraph: EGraph = Default::default();
     let programs_node = egraph.add_expr(programs_expr.into());
@@ -1321,17 +1377,25 @@ pub fn compression_step(
     println!("set up low cost data structs: {:?}ms", tstart.elapsed().as_millis());
 
     let tstart = std::time::Instant::now();
-    let (_zid_of_zip,
+    let (zid_of_zip,
         zip_of_zid,
         arg_of_zid_node,
         zids_of_node,
         extensions_of_zid,
         descendants_of_node) = get_zippers(&treenodes, &cost_of_node_once, cfg.no_cache, &mut egraph, cfg);
+    
     println!("get_zippers: {:?}ms", tstart.elapsed().as_millis());
-
-
     println!("{} zips", zip_of_zid.len());
     println!("arg_of_zid_node size: {}", arg_of_zid_node.len());
+
+
+    // set up tracking if any
+    let tracking: Option<Tracking> = cfg.track.as_ref().map(|s|{
+        let expr: Expr = s.parse().unwrap();
+        let zids_of_ivar = zids_of_ivar_of_expr(&expr, &zid_of_zip);
+        Tracking { expr, zids_of_ivar }
+    });
+
 
     // define all the important data structures for compression
     let mut donelist: Vec<FinishedPattern> = Default::default(); // completed inventions will go here    
@@ -1392,6 +1456,7 @@ pub fn compression_step(
         treenodes: treenodes.clone(),
         zids_of_node,
         zip_of_zid,
+        zid_of_zip,
         extensions_of_zid,
         descendants_of_node,
         egraph,
