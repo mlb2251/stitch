@@ -226,10 +226,10 @@ pub type RecVarModCache = HashMap<(Id,i32),Option<Id>>;
 /// the enode data that tells us if there are no free variables in a branch (and thus it can be ignored),
 /// it operates on the structurally hashed form of the graph, etc.
 pub fn recursive_var_mod(
-    var_mod: impl Fn(i32, i32, i32, &mut EGraph) -> Option<Id>,
+    var_mod: impl Fn(i32, i32, i32, &mut crate::EGraph) -> Option<Id>,
     ivars: bool,
     eclass:Id,
-    egraph: &mut EGraph,
+    egraph: &mut crate::EGraph,
     seen: &mut RecVarModCache
     ) -> Option<Id>
     {
@@ -245,11 +245,11 @@ pub fn recursive_var_mod(
 
 /// see `recursive_var_mod`
 fn recursive_var_mod_helper(
-    var_mod: &impl Fn(i32, i32, i32, &mut EGraph) -> Option<Id>,
+    var_mod: &impl Fn(i32, i32, i32, &mut crate::EGraph) -> Option<Id>,
     ivars: bool, // whether to run this on vars or ivars
     eclass:Id,
     depth: i32,
-    egraph: &mut EGraph,
+    egraph: &mut crate::EGraph,
     seen : &mut RecVarModCache,
     ) -> Option<Id>
     {
@@ -348,12 +348,12 @@ pub fn group_by_key<T: Copy, U: Ord>(v: Vec<T>, key: impl Fn(&T)->U) -> Vec<Vec<
 
 /// Returns a hashmap from node id to number of places that node is used in the tree. Essentially this just
 /// follows all paths down from the root and logs how many times it encounters each node
-pub fn num_paths_to_node(roots: &[Id], treenodes: &Vec<Id>, egraph: &EGraph) -> HashMap<Id,i32> {
+pub fn num_paths_to_node(roots: &[Id], treenodes: &Vec<Id>, egraph: &crate::EGraph) -> HashMap<Id,i32> {
     let mut num_paths_to_node: HashMap<Id,i32> = HashMap::new();
     treenodes.iter().for_each(|treenode| {
         num_paths_to_node.insert(*treenode, 0);
     });
-    fn helper(num_paths_to_node: &mut HashMap<Id,i32>, node: &Id, egraph: &EGraph) {
+    fn helper(num_paths_to_node: &mut HashMap<Id,i32>, node: &Id, egraph: &crate::EGraph) {
         // num_paths_to_node.insert(*child, num_paths_to_node[node] + 1);
         *num_paths_to_node.get_mut(node).unwrap() += 1;
         for child in egraph[*node].nodes[0].children() {
@@ -365,3 +365,4 @@ pub fn num_paths_to_node(roots: &[Id], treenodes: &Vec<Id>, egraph: &EGraph) -> 
     });
     num_paths_to_node
 }
+

@@ -7,7 +7,7 @@ use compression::*;
 /// convert an egraph Id to an Expr. Assumes one node per class (just picks the first node). Note
 /// that this could cause an infinite loop if the egraph didnt just have a single node in a class
 /// and instead the first node had a self loop.
-pub fn extract(eclass: Id, egraph: &EGraph) -> Expr {
+pub fn extract(eclass: Id, egraph: &crate::EGraph) -> Expr {
     debug_assert!(egraph[eclass].nodes.len() == 1);
     match &egraph[eclass].nodes[0] {
         Lambda::Prim(p) => Expr::prim(*p),
@@ -70,7 +70,7 @@ pub fn rewrite_with_invention(
     e: Expr,
     inv: &Invention,
 ) -> Expr {
-    let mut egraph = EGraph::default();
+    let mut egraph = crate::EGraph::default();
     let root = egraph.add_expr(&e.into());
     rewrite_with_invention_egraph(root, inv, &mut egraph)
 }
@@ -79,7 +79,7 @@ pub fn rewrite_with_invention(
 pub fn rewrite_with_inventions_egraph(
     root: Id,
     invs: &[Invention],
-    egraph: &mut EGraph,
+    egraph: &mut crate::EGraph,
 ) -> Expr {
     let mut root = root;
     for inv in invs.iter() {
@@ -97,7 +97,7 @@ pub fn rewrite_with_inventions_egraph(
 pub fn rewrite_with_invention_egraph(
     root: Id,
     inv: &Invention,
-    egraph: &mut EGraph,
+    egraph: &mut crate::EGraph,
 ) -> Expr {
     let inv: PtrInvention = PtrInvention::new(egraph.add_expr(&inv.body.clone().into()), inv.arity, inv.name.clone());
 
@@ -171,7 +171,7 @@ fn extract_from_nodecosts(
     root: Id,
     inv: &PtrInvention,
     nodecost_of_treenode: &HashMap<Id,NodeCost>,
-    egraph: &EGraph,
+    egraph: &crate::EGraph,
 ) -> Expr {
 
     let target_cost = nodecost_of_treenode[&root].cost_under_inv(&inv);
@@ -266,7 +266,7 @@ fn match_expr_with_inv(
     root: Id,
     inv: &PtrInvention,
     best_inventions_of_treenode: &mut HashMap<Id, NodeCost>,
-    egraph: &mut EGraph,
+    egraph: &mut crate::EGraph,
 ) -> Option<Vec<Id>> {
     let mut args: Vec<Option<Id>> = vec![None;inv.arity];
     let threadables = threadables_of_inv(inv.clone(), egraph);
@@ -285,7 +285,7 @@ fn match_expr_with_inv_rec(
     args: &mut [Option<Id>],
     threadables: &HashSet<Id>,
     best_inventions_of_treenode: &mut HashMap<Id, NodeCost>,
-    egraph: &mut EGraph,
+    egraph: &mut crate::EGraph,
 ) -> bool {
     // println!("comparing:\n\t{}\n\t{}",
     //     extract(root, egraph).to_string(),
@@ -376,7 +376,7 @@ fn match_expr_with_inv_rec(
                 // 2. `root` has free variables but they all point outside the invention so are safe to decrement
                 
                 // copy the cost of the unshifted node to the shifted node (see PR#1 comments for why this is safe)
-                fn shift_and_fix(node: Id, depth: i32, best_inventions_of_treenode: &mut HashMap<Id,NodeCost>, egraph: &mut EGraph) -> Id {
+                fn shift_and_fix(node: Id, depth: i32, best_inventions_of_treenode: &mut HashMap<Id,NodeCost>, egraph: &mut crate::EGraph) -> Id {
                     let shifted_node = shift(node, -depth, egraph, &mut None).unwrap();
                     if best_inventions_of_treenode.contains_key(&shifted_node) {
                         return shifted_node; // this has already been handled
@@ -413,7 +413,7 @@ fn match_expr_with_inv_rec(
     }
 }
 
-fn threadables_of_inv(inv: PtrInvention, egraph: &EGraph) -> HashSet<Id> {
+fn threadables_of_inv(inv: PtrInvention, egraph: &crate::EGraph) -> HashSet<Id> {
     // a threadable is a (app #i $j) or (app <threadable> $j)
     // assert j > k sanity check
     // println!("Invention: {}", inv.to_expr(egraph));
