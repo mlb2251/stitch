@@ -1335,33 +1335,46 @@ pub fn compression_step(
 ) -> Vec<CompressionStepResult> {
 
     let tstart_total = std::time::Instant::now();
-    let tstart = std::time::Instant::now();
+    let tstart_prep = std::time::Instant::now();
+    let mut tstart = std::time::Instant::now();
 
     // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
     let mut egraph: EGraph = Default::default();
     let programs_node = egraph.add_expr(programs_expr.into());
     egraph.rebuild();
 
+    println!("set up egraph: {:?}ms", tstart.elapsed().as_millis());
+    tstart = std::time::Instant::now();
+
     let roots: Vec<Id> = egraph[programs_node].nodes[0].children().iter().cloned().collect();
 
     // all nodes in child-first order except for the Programs node
     let mut treenodes: Vec<Id> = topological_ordering(programs_node,&egraph);
     treenodes.retain(|id| *id != programs_node);
-    // assert!(usize::from(*treenodes.iter().max().unwrap()) == treenodes.len() - 1); // ensures we can safely just use Vecs of length treenodes.len() to store various nodewise things
-    // let treenodes_no_programs_node: Vec<Id> = treenodes.iter().filter(|&&id| id != programs_node).cloned().collect();
+
+    println!("got roots and treenodes: {:?}ms", tstart.elapsed().as_millis());
+    tstart = std::time::Instant::now();
 
     // populate num_paths_to_node so we know how many different parts of the programs tree
     // a node participates in (ie multiple uses within a single program or among programs)
     let num_paths_to_node: HashMap<Id,i32> = num_paths_to_node(&roots, &treenodes, &egraph);
+
+    println!("num_paths_to_node(): {:?}ms", tstart.elapsed().as_millis());
+    tstart = std::time::Instant::now();
+
     let tasks_of_node: HashMap<Id, HashSet<usize>> = associate_tasks(programs_node, &egraph, tasks);
+
+    println!("associate_tasks(): {:?}ms", tstart.elapsed().as_millis());
+    tstart = std::time::Instant::now();
+
     // cost of a single usage of a node (same as inventionless_cost)
     let cost_of_node_once: HashMap<Id,i32> = treenodes.iter().map(|node| (*node,egraph[*node].data.inventionless_cost)).collect();
     // cost of a single usage times number of paths to node
     let cost_of_node_all: HashMap<Id,i32> = treenodes.iter().map(|node| (*node,cost_of_node_once[node] * num_paths_to_node[node])).collect();
 
-    println!("set up low cost data structs: {:?}ms", tstart.elapsed().as_millis());
+    println!("cost_of_node structs: {:?}ms", tstart.elapsed().as_millis());
+    tstart = std::time::Instant::now();
 
-    let tstart = std::time::Instant::now();
     let (zid_of_zip,
         zip_of_zid,
         arg_of_zid_node,
@@ -1369,10 +1382,11 @@ pub fn compression_step(
         extensions_of_zid,
         descendants_of_node) = get_zippers(&treenodes, &cost_of_node_once, cfg.no_cache, &mut egraph, cfg);
     
-    println!("get_zippers: {:?}ms", tstart.elapsed().as_millis());
+    println!("get_zippers(): {:?}ms", tstart.elapsed().as_millis());
+    tstart = std::time::Instant::now();
+    
     println!("{} zips", zip_of_zid.len());
     println!("arg_of_zid_node size: {}", arg_of_zid_node.len());
-
 
     // set up tracking if any
     let tracking: Option<Tracking> = cfg.track.as_ref().map(|s|{
@@ -1381,11 +1395,11 @@ pub fn compression_step(
         Tracking { expr, zids_of_ivar }
     });
 
+    println!("Tracking setup: {:?}ms", tstart.elapsed().as_millis());
+    tstart = std::time::Instant::now();
 
     // define all the important data structures for compression
     let mut donelist: Vec<FinishedPattern> = Default::default(); // completed inventions will go here    
-
-    let tstart = std::time::Instant::now();
 
     // arity 0 inventions
     for node in treenodes.iter() {
@@ -1420,18 +1434,13 @@ pub fn compression_step(
         };
         donelist.push(finished_pattern);
     }
-    println!("got {} arity zero inventions in {:?}ms", donelist.len(), tstart.elapsed().as_millis());
 
+    println!("arity 0: {:?}ms", tstart.elapsed().as_millis());
+    tstart = std::time::Instant::now();
 
-    // sort and truncate
+    println!("got {} arity zero inventions", donelist.len());
 
     let stats: Stats = Default::default();
-
-    println!("total prep: {:?}ms", tstart_total.elapsed().as_millis());
-
-    println!("running pattern search...");
-    let tstart = std::time::Instant::now();
-
 
     let crit = CriticalMultithreadData::new(donelist, &treenodes, &cost_of_node_all, &num_paths_to_node, &egraph, &cfg);
     let shared = Arc::new(SharedData {
@@ -1453,13 +1462,20 @@ pub fn compression_step(
         tracking,
     });
 
+    println!("built SharedData: {:?}ms", tstart.elapsed().as_millis());
+    tstart = std::time::Instant::now();
+
     if cfg.verbose_best {
         let mut crit = shared.crit.lock();
         let best_util = crit.deref_mut().donelist.first().unwrap().utility;
         let best_expr: Expr = crit.deref_mut().donelist.first().unwrap().to_expr(&shared);
         println!("{} @ step=0 util={} for {}", "[new best utility]".blue(), best_util, best_expr);
     }
-    
+
+    println!("TOTAL PREP: {:?}ms", tstart_prep.elapsed().as_millis());
+
+    println!("running pattern search...");
+
     // *****************
     // * STITCH SEARCH *
     // *****************
@@ -1474,7 +1490,7 @@ pub fn compression_step(
             // clone the Arcs to have copies for this thread
             let shared = Arc::clone(&shared);
             
-            // launch thread to just call derive_inventions()
+            // launch thread to just call stitch_search()
             handles.push(thread::spawn(move || {
                 stitch_search(shared);
             }));
@@ -1484,6 +1500,11 @@ pub fn compression_step(
             handle.join().unwrap();
         }
     }
+
+    println!("TOTAL SEARCH: {:?}ms", tstart.elapsed().as_millis());
+    println!("TOTAL PREP + SEARCH: {:?}ms", tstart_total.elapsed().as_millis());    
+
+    tstart = std::time::Instant::now();
 
     // at this point we hold the only reference so we can get rid of the Arc
     let mut shared: SharedData = Arc::try_unwrap(shared).unwrap();
@@ -1495,11 +1516,6 @@ pub fn compression_step(
     assert!(shared.crit.lock().deref_mut().worklist.is_empty());
 
     let donelist: Vec<FinishedPattern> = shared.crit.lock().deref_mut().donelist.clone();
-
-    let elapsed_derive_inventions = tstart.elapsed().as_millis();
-
-    println!("\nstitch_search() done: {:?}ms\n", elapsed_derive_inventions);
-    println!("total everything: {:?}ms", tstart_total.elapsed().as_millis());    
 
     let orig_cost = shared.egraph[programs_node].data.inventionless_cost;
 
@@ -1516,10 +1532,7 @@ pub fn compression_step(
         }
         results.push(res);
     }
-
-
-    println!("Final donelist length: {}",donelist.len());
-    println!("derive_inventions() took: {}ms ***\n", elapsed_derive_inventions);
+    println!("post stuff: {:?}ms", tstart.elapsed().as_millis());
 
     results
 }
