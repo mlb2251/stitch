@@ -363,7 +363,7 @@ fn stitch_search(
     let mut donelist_buf: Vec<_> = Default::default();
 
     loop {
-        let (original_pattern, weak_utility_pruning_cutoff, weak_lowest_donelist_utility) =
+        let (original_pattern, mut weak_utility_pruning_cutoff, mut weak_lowest_donelist_utility) =
         match get_worklist_item(
             &mut worklist_buf,
             &mut donelist_buf,
@@ -479,8 +479,8 @@ fn stitch_search(
                     // if it's a finished pattern then we get the assignments
                     assignments_of_pattern(
                         new_pattern,
-                        weak_utility_pruning_cutoff,
-                        weak_lowest_donelist_utility,
+                        &mut weak_utility_pruning_cutoff,
+                        &mut weak_lowest_donelist_utility,
                         &mut worklist_buf,
                         &mut donelist_buf,
                         &shared,
@@ -516,8 +516,8 @@ fn stitch_search(
             
             assignments_of_pattern(
                 new_pattern,
-                weak_utility_pruning_cutoff,
-                weak_lowest_donelist_utility,
+                &mut weak_utility_pruning_cutoff,
+                &mut weak_lowest_donelist_utility,
                 &mut worklist_buf,
                 &mut donelist_buf,
                 &shared
@@ -750,8 +750,8 @@ impl Assignment {
 
 fn assignments_of_pattern(
     mut pattern: Pattern,
-    weak_utility_pruning_cutoff: i32,
-    weak_lowest_donelist_utility: i32,
+    weak_utility_pruning_cutoff: &mut i32,
+    weak_lowest_donelist_utility: &mut i32,
     worklist_buf: &mut Vec<HeapItem>,
     donelist_buf: &mut Vec<FinishedPattern>,
     shared: &Arc<SharedData>,
@@ -806,14 +806,14 @@ fn assignments_of_pattern(
 
         // check upper bound, and discard + add to bad prefix list if it fails
         let utility_upper_bound: i32 = utility_upper_bound(asn.match_locations.last().unwrap(), pattern.body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
-        if utility_upper_bound < weak_utility_pruning_cutoff {
+        if utility_upper_bound < *weak_utility_pruning_cutoff {
             asn.prune_branch(&mut pattern);
             if pattern.tracked { println!("prune by upper bound: {:?}", asn.ivars); }
             continue;
         }
 
         // if its a finished pattern and doesnt beat the lowest donelist utility, itll never survive
-        if is_finished_pattern && utility_upper_bound <= weak_lowest_donelist_utility {
+        if is_finished_pattern && utility_upper_bound <= *weak_lowest_donelist_utility {
             if pattern.tracked { println!("prune by lowest_donelist_utility: {:?}", asn.ivars); }
             asn.prune_branch(&mut pattern);
             continue
