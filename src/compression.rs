@@ -55,16 +55,6 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub break_early_assignment: bool,
 
-    /// By default we use a LIFO worklist but this is certainly something to explore more
-    /// and this flag makes it fifo https://github.com/mlb2251/stitch/issues/31
-    #[clap(long)]
-    pub fifo_worklist: bool,
-
-    /// By default we sort the worklist in decreasing zipper order before starting to process it,
-    /// but this swaps it to increasing order. https://github.com/mlb2251/stitch/issues/31
-    #[clap(long)]
-    pub ascending_worklist: bool,
-
     /// Turning this on means that only the top invention will be guaranteed to be the best invention,
     /// and the 2nd best invention may not be the actual second best invention. Basically, this just enables
     /// pruning of everything that's worse than the best invention which could cause speedups depending on the domain.
