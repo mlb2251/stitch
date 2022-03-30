@@ -39,10 +39,6 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_top_lambda: bool,
 
-    /// build out partial patterns with #i instead of ?#
-    #[clap(long)]
-    pub choose_vars_early: bool,
-
     /// pattern or invention to track
     #[clap(long)]
     pub track: Option<String>,
@@ -54,10 +50,6 @@ pub struct CompressionStepConfig {
     /// whenever a new best thing is found, print it
     #[clap(long)]
     pub verbose_best: bool,
-
-    /// 
-    #[clap(long)]
-    pub break_early_assignment: bool,
 
     /// Turning this on means that only the top invention will be guaranteed to be the best invention,
     /// and the 2nd best invention may not be the actual second best invention. Basically, this just enables
@@ -169,7 +161,7 @@ impl Expr {
 
 impl Pattern {
     /// create a single hole pattern `??`
-    fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &EGraph, cfg: &CompressionStepConfig) -> Self {
+    fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
         let body_utility = 0;
         let mut match_locations = treenodes.clone();
         if cfg.no_top_lambda {
@@ -400,7 +392,7 @@ struct Tracking {
 impl CriticalMultithreadData {
     /// Create a new mutable multithread data struct with
     /// a worklist that just has a single hole on it
-    fn new(donelist: Vec<FinishedPattern>, treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &EGraph, cfg: &CompressionStepConfig) -> Self {
+    fn new(donelist: Vec<FinishedPattern>, treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
         // push an empty hole onto a new worklist
         let mut worklist = BinaryHeap::new();
         worklist.push(HeapItem::new(Pattern::single_hole(treenodes, cost_of_node_all, num_paths_to_node, egraph, cfg)));
@@ -479,14 +471,14 @@ struct LabelledZId {
 /// Various tracking stats
 #[derive(Clone,Default, Debug)]
 struct Stats {
-    partial_invs: usize,
-    finished_invs: usize,
+    worklist_steps: usize,
+    finished: usize,
     upper_bound_fired: usize,
-    free_vars_wip_fired: usize,
-    single_use_done_fired: usize,
-    single_task_done_fired: usize,
-    single_use_wip_fired: usize,
+    free_vars_fired: usize,
+    single_task_fired: usize,
+    single_use_fired: usize,
     useless_abstract_fired: usize,
+    force_multiuse_fired: usize,
 }
 
 /// a strategy for choosing which hole to expand next in a partial pattern
@@ -584,12 +576,12 @@ fn get_worklist_item(
     let old_donelist_len = crit.donelist.len();
     // drain from donelist_buf into the actual donelist
     crit.donelist.extend(donelist_buf.drain(..).filter(|done| done.utility > lowest_donelist_utility));
-    if !shared.cfg.no_stats { shared.stats.lock().deref_mut().finished_invs += crit.donelist.len() - old_donelist_len; };
+    if !shared.cfg.no_stats { shared.stats.lock().deref_mut().finished += crit.donelist.len() - old_donelist_len; };
     // sort + truncate + update utility_pruning_cutoff and lowest_donelist_utility
     crit.update(&shared.cfg); // this also updates utility_pruning_cutoff
 
     if shared.cfg.verbose_best && crit.donelist.first().map(|x|x.utility).unwrap_or(0) > old_best_utility {
-        println!("{} @ step={} util={} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().partial_invs, crit.donelist.first().unwrap().utility, crit.donelist.first().unwrap().to_expr(shared));
+        println!("{} @ step={} util={} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, crit.donelist.first().unwrap().utility, crit.donelist.first().unwrap().to_expr(shared));
     }
 
     // pull out the newer versions of these now that theyve been updated, since we're returning them at the end
@@ -653,7 +645,7 @@ fn stitch_search(
                 None => return,
         };
 
-        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().partial_invs += 1; };
+        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
 
         if shared.cfg.verbose_worklist {
             println!("[prio={}; uses={}] chose: {}", original_pattern.match_locations.len() as i32 * original_pattern.body_utility, original_pattern.match_locations.len(), original_pattern.to_expr(&shared));
@@ -701,7 +693,8 @@ fn stitch_search(
         }
 
         // for each way of expanding the hole...
-        for (expands_to, locs) in match_locations.into_iter()
+        'outer:
+            for (expands_to, locs) in match_locations.into_iter()
             .group_by(|loc| arg_of_loc[loc].expands_to.clone()).into_iter()
             .map(|(expands_to, locs)| (expands_to, locs.collect::<Vec<Id>>()))
             .chain(ivars_expansions.into_iter())
@@ -717,7 +710,7 @@ fn stitch_search(
             // check for inventions that are only useful at a single node. And invention that is arity>0 but is only useful at a single
             // structurally hashed node must not do any actual useful abstraction so we can discard it
             if !shared.cfg.no_opt_single_use && locs.len() < 2 {
-                if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_wip_fired += 1; };
+                if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_fired += 1; };
                 if tracked { println!("{} single use pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
                 continue; // too few uses
             }
@@ -727,7 +720,7 @@ fn stitch_search(
             if !shared.cfg.no_opt_free_vars {
                 if let ExpandsTo::Var(i) = expands_to {
                     if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
-                        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_wip_fired += 1; };
+                        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
                         if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
                         continue; // free var
                     }
@@ -736,7 +729,8 @@ fn stitch_search(
 
             // check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
             // because subsetting of match_locations can turn previously useful abstractions into useless ones.
-            if original_pattern.arg_choices.iter()
+            if !shared.cfg.no_opt_useless_abstract &&
+                original_pattern.arg_choices.iter()
                 .any(|argchoice| locs.iter()
                     .map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].id.clone()).all_equal())
             {
@@ -791,6 +785,26 @@ fn stitch_search(
                 }
             }
 
+            // if two different ivars #i and #j have the same arg at every location, then we can prune this pattern
+            // because there must exist another pattern where theyre just both the same ivar. Note that this pruning
+            // happens here and not just at the ivar creation point because new subsetting can happen
+            if !shared.cfg.no_opt_force_multiuse {
+                // for all pairs of ivars #i and #j, get the first zipper and compare the arg value across all locations
+                for (i,ivar_zid_1) in first_zid_of_ivar.iter().enumerate() {
+                    let ref arg_of_loc_1 = shared.arg_of_zid_node[*ivar_zid_1];
+                    for ivar_zid_2 in first_zid_of_ivar.iter().skip(i+1) {
+                        let ref arg_of_loc_2 = shared.arg_of_zid_node[*ivar_zid_2];
+                        if locs.iter().all(|loc|
+                            arg_of_loc_1[loc].id == arg_of_loc_2[loc].id)
+                        {
+                            if !shared.cfg.no_stats { shared.stats.lock().deref_mut().force_multiuse_fired += 1; };
+                            if tracked { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
+                            continue 'outer;
+                        }
+                    }
+                }
+            }
+
             // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
             // from the old pattern.
             let new_pattern = Pattern {
@@ -803,6 +817,7 @@ fn stitch_search(
                 body_utility,
                 tracked
             };
+
 
             if new_pattern.holes.is_empty() {
                 // it's a finished pattern
@@ -885,7 +900,7 @@ fn get_zippers(
     treenodes: &[Id],
     cost_of_node_once: &HashMap<Id,i32>,
     no_cache: bool,
-    egraph: &mut EGraph,
+    egraph: &mut crate::EGraph,
     _cfg: &CompressionStepConfig
 ) -> (HashMap<Zip, ZId>, Vec<Zip>, Vec<HashMap<Id,Arg>>, HashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>, HashMap<Id,Vec<Id>>) {
     let cache: &mut Option<RecVarModCache> = &mut if no_cache { None } else { Some(HashMap::new()) };

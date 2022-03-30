@@ -206,7 +206,7 @@ fn associate_task_rec(node: Id, egraph: &EGraph, task_id: usize, tasks_of_node: 
 
 /// Does debruijn index shifting of a subtree, incrementing all Vars by the given amount
 #[inline] // useful to inline since callsite can usually tell which Shift type is happening allowing further optimization
-pub fn shift(e: Id, incr_by: i32, egraph: &mut EGraph, cache: &mut Option<RecVarModCache>) -> Option<Id> {
+pub fn shift(e: Id, incr_by: i32, egraph: &mut crate::EGraph, cache: &mut Option<RecVarModCache>) -> Option<Id> {
     let empty = &mut RecVarModCache::new();
     let seen: &mut RecVarModCache = cache.as_mut().unwrap_or(empty);
 
