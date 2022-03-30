@@ -122,14 +122,12 @@ impl CompressionStepConfig {
 /// `holes` is the list of zippers that point from the root of the pattern to the holes.
 /// `arg_choices` is the same as `holes` but for the invention arguments like #i
 /// `body_utility` is the cost of the non-hole non-argchoice parts of the pattern so far
-/// `pruned_assignment_prefixes` is an implementation detail for optimizing variable assignments
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Pattern {
     holes: Vec<ZId>, // in order of when theyre added NOT left to right
     arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an argchoice, again these are in order of when they were added
     first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index of the first use of #i in arg_choices
     match_locations: Vec<Id>, // places where it applies
-    pruned_assignment_prefixes: Vec<Vec<i32>>,
     utility_upper_bound: i32,
     body_utility: i32, // the size (in `cost`) of a single use of the pattern body so far
     tracked: bool, // for debugging
@@ -220,7 +218,6 @@ impl Pattern {
             arg_choices: vec![],
             first_zid_of_ivar: vec![],
             match_locations, // single hole matches everywhere
-            pruned_assignment_prefixes: vec![],
             utility_upper_bound,
             body_utility, // 0 body utility
             tracked: cfg.track.is_some(),
@@ -734,12 +731,6 @@ fn stitch_search(
         let mut match_locations = original_pattern.match_locations.clone();
         match_locations.sort_unstable_by_key(|loc| arg_of_loc[loc].expands_to.clone());
 
-        // add the argchoice! Leave everything else as-is, just push the old hole zipper onto the argchoice zipper list
-        // let mut arg_choices = original_pattern.arg_choices.clone();
-        // let mut arg_assignments = original_pattern.arg_assignments.clone();
-        // let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
-        // todo arg_choices.push(hole_zid);
-
         let mut ivars_expansions = vec![];
 
         // consider all ivars used previously
@@ -880,7 +871,6 @@ fn stitch_search(
                 arg_choices,
                 first_zid_of_ivar,
                 match_locations: locs,
-                pruned_assignment_prefixes: original_pattern.pruned_assignment_prefixes.clone(),
                 utility_upper_bound,
                 body_utility,
                 tracked
@@ -1422,7 +1412,6 @@ pub fn compression_step(
             arg_choices: vec![],
             first_zid_of_ivar: vec![],
             match_locations,
-            pruned_assignment_prefixes: vec![],
             utility_upper_bound: utility,
             body_utility,
             tracked: false,
