@@ -27,7 +27,6 @@ pub struct CompressionStepConfig {
     pub threads: usize,
 
     /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
-    /// unless --lossy-candidates is enabled.
     #[clap(short='n', long, default_value = "1")]
     pub inv_candidates: usize,
 
@@ -50,12 +49,6 @@ pub struct CompressionStepConfig {
     /// whenever a new best thing is found, print it
     #[clap(long)]
     pub verbose_best: bool,
-
-    /// Turning this on means that only the top invention will be guaranteed to be the best invention,
-    /// and the 2nd best invention may not be the actual second best invention. Basically, this just enables
-    /// pruning of everything that's worse than the best invention which could cause speedups depending on the domain.
-    #[clap(long)]
-    pub lossy_candidates: bool,
 
     /// disable caching (though caching isn't used for much currently)
     #[clap(long)]
@@ -416,7 +409,6 @@ impl HeapItem {
 struct CriticalMultithreadData {
     donelist: Vec<FinishedPattern>,
     worklist: BinaryHeap<HeapItem>,
-    lowest_donelist_utility:i32,
     utility_pruning_cutoff: i32,
     active_threads: HashSet<std::thread::ThreadId>, // list of threads currently holding worklist items
 }
@@ -465,22 +457,21 @@ impl CriticalMultithreadData {
         let mut res = CriticalMultithreadData {
             donelist,
             worklist,
-            lowest_donelist_utility: 0,
             utility_pruning_cutoff: 0,
             active_threads: HashSet::new(),
         };
         res.update(cfg);
         res
     }
-    /// sort the donelist by utility, truncate to cfg.inv_candidates, update the lowest_donelist_utility to be the lowest utility,
-    /// update utility_pruning_cutoff to be the highest utility if --lossy-candidates is set else the lowest utility
+    /// sort the donelist by utility, truncate to cfg.inv_candidates, update 
+    /// update utility_pruning_cutoff to be the lowest utility
     fn update(&mut self, cfg: &CompressionStepConfig) {
         // sort in decreasing order by utility primarily, and break ties using the argchoice zids (just in order to be deterministic!)
         // let old_best = self.donelist.first().map(|x|x.utility).unwrap_or(0);
         self.donelist.sort_unstable_by(|a,b| (b.utility,&b.pattern.arg_choices).cmp(&(a.utility,&a.pattern.arg_choices)));
         self.donelist.truncate(cfg.inv_candidates);
-        self.lowest_donelist_utility = self.donelist.last().map(|x|x.utility).unwrap_or(0);
-        self.utility_pruning_cutoff = if cfg.lossy_candidates { self.donelist.first().map(|x|x.utility).unwrap_or(0) } else { self.lowest_donelist_utility };
+        // the cutoff is the lowest utility
+        self.utility_pruning_cutoff = self.donelist.last().map(|x|x.utility).unwrap_or(0);
     }
 }
 
@@ -630,27 +621,26 @@ fn get_worklist_item(
     worklist_buf: &mut Vec<HeapItem>,
     donelist_buf: &mut Vec<FinishedPattern>,
     shared: &Arc<SharedData>,
-) -> Option<(Pattern,i32,i32)> {
+) -> Option<(Pattern,i32)> {
 
     // * MULTITHREADING: CRITICAL SECTION START *
     // take the lock, which will be released immediately when this scope exits
     let mut shared_guard = shared.crit.lock();
     let mut crit: &mut CriticalMultithreadData = shared_guard.deref_mut();
-    let lowest_donelist_utility = crit.lowest_donelist_utility;
     let old_best_utility = crit.donelist.first().map(|x|x.utility).unwrap_or(0);
     let old_donelist_len = crit.donelist.len();
+    let old_utility_pruning_cutoff = crit.utility_pruning_cutoff;
     // drain from donelist_buf into the actual donelist
-    crit.donelist.extend(donelist_buf.drain(..).filter(|done| done.utility > lowest_donelist_utility));
+    crit.donelist.extend(donelist_buf.drain(..).filter(|done| done.utility > old_utility_pruning_cutoff));
     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().finished += crit.donelist.len() - old_donelist_len; };
-    // sort + truncate + update utility_pruning_cutoff and lowest_donelist_utility
+    // sort + truncate + update utility_pruning_cutoff
     crit.update(&shared.cfg); // this also updates utility_pruning_cutoff
 
     if shared.cfg.verbose_best && crit.donelist.first().map(|x|x.utility).unwrap_or(0) > old_best_utility {
         println!("{} @ step={} util={} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, crit.donelist.first().unwrap().utility, crit.donelist.first().unwrap().to_expr(shared));
     }
 
-    // pull out the newer versions of these now that theyve been updated, since we're returning them at the end
-    let mut lowest_donelist_utility = crit.lowest_donelist_utility;
+    // pull out the newer version of this now that its been updated, since we're returning it at the end
     let mut utility_pruning_cutoff = crit.utility_pruning_cutoff;
 
     let old_worklist_len = crit.worklist.len();
@@ -671,8 +661,7 @@ fn get_worklist_item(
             drop(shared_guard);
             shared_guard = shared.crit.lock();
             crit = shared_guard.deref_mut();
-            // update our cutoffs in case they changed
-            lowest_donelist_utility = crit.lowest_donelist_utility;
+            // update our cutoff in case it changed
             utility_pruning_cutoff = crit.utility_pruning_cutoff;
         }
         
@@ -681,7 +670,7 @@ fn get_worklist_item(
         if shared.cfg.no_opt_upper_bound || heap_item.pattern.utility_upper_bound > utility_pruning_cutoff {
             // we got one!
             crit.active_threads.insert(thread::current().id());
-            return Some((heap_item.pattern, utility_pruning_cutoff, lowest_donelist_utility));
+            return Some((heap_item.pattern, utility_pruning_cutoff));
         }
         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
     }
@@ -700,7 +689,7 @@ fn stitch_search(
     loop {
 
         // get a new worklist item along with pruning cutoffs
-        let (original_pattern, mut weak_utility_pruning_cutoff, mut weak_lowest_donelist_utility) =
+        let (original_pattern, mut weak_utility_pruning_cutoff) =
             match get_worklist_item(
                 &mut worklist_buf,
                 &mut donelist_buf,
@@ -814,7 +803,7 @@ fn stitch_search(
             }
 
             // branch and bound: if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
-            if !shared.cfg.no_opt_upper_bound && utility_upper_bound < weak_utility_pruning_cutoff {
+            if !shared.cfg.no_opt_upper_bound && utility_upper_bound <= weak_utility_pruning_cutoff {
                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
                 if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), utility_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
                 continue; // too low utility
@@ -894,6 +883,12 @@ fn stitch_search(
                     println!("{} pushed {} to donelist", "----->".yellow().bold(), new_pattern.to_expr(&shared));
                 }
                 let finished_pattern = FinishedPattern::new(new_pattern, &shared);
+
+                if shared.cfg.inv_candidates == 1 {
+                    // if we're only looking for one invention, we can directly update our cutoff here
+                    weak_utility_pruning_cutoff = finished_pattern.utility;
+                }
+
                 donelist_buf.push(finished_pattern);
 
             } else {
