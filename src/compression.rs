@@ -202,6 +202,7 @@ impl Pattern {
     fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
         let body_utility = 0;
         let mut match_locations = treenodes.clone();
+        match_locations.sort(); // we assume match_locations is always sorted
         if cfg.no_top_lambda {
             match_locations.retain(|node| expands_to_of_node(&egraph[*node].nodes[0]) != ExpandsTo::Lam);
         }
@@ -421,6 +422,7 @@ struct SharedData {
     arg_of_zid_node: Vec<HashMap<Id,Arg>>,
     #[allow(dead_code)]
     treenodes: Vec<Id>,
+    programs_node: Id,
     #[allow(dead_code)]
     zids_of_node: HashMap<Id,Vec<ZId>>,
     zip_of_zid: Vec<Zip>,
@@ -702,7 +704,7 @@ fn stitch_search(
         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
 
         if shared.cfg.verbose_worklist {
-            println!("[prio={}; uses={}] chose: {}", original_pattern.match_locations.len() as i32 * original_pattern.body_utility, original_pattern.match_locations.len(), original_pattern.to_expr(&shared));
+            println!("[prio={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.len(), original_pattern.to_expr(&shared));
         }
 
         // choose which hole we're going to expand
@@ -717,8 +719,9 @@ fn stitch_search(
 
         // sort the match locations by node type (ie what theyll expand into) so that we can do a group_by() on
         // node type in order to iterate over all the different expansions
+        // We also sort secondarily by `loc` to ensure each groupby subsequence has the locations in sorted order
         let mut match_locations = original_pattern.match_locations.clone();
-        match_locations.sort_unstable_by_key(|loc| arg_of_loc[loc].expands_to.clone());
+        match_locations.sort_unstable_by_key(|loc| (arg_of_loc[loc].expands_to.clone(), *loc));
 
         let mut ivars_expansions = vec![];
 
@@ -919,14 +922,8 @@ impl FinishedPattern {
     fn new(pattern: Pattern, shared: &SharedData) -> Self {
         let arity = pattern.first_zid_of_ivar.len();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[loc]).sum();
-        let compressive_utility = compressive_utility(
-            &pattern.arg_choices,
-            &pattern.first_zid_of_ivar,
-            arity,
-            pattern.body_utility,
-            &pattern.match_locations,
-            shared
-        );
+        let compressive_utility = compressive_utility(&pattern,shared);
+
         let noncompressive_utility = noncompressive_utility(pattern.body_utility, &shared.cfg);
         FinishedPattern {
             pattern,
@@ -1175,52 +1172,6 @@ impl fmt::Display for CompressionStepResult {
     }
 }
 
-
-
-/// This utility directly corresponds to decrease in program cost of the
-/// final program tree once it has been rewritten with the invention. Program
-/// cost is leaf_nodes * 100 + non_leaf_nodes * 1, so dividing a cost (or a utility)
-/// by 100 will give approximately the number of leaf nodes.
-/// 
-/// At a very high level, we can calculate this utility as:
-///     (num places the invention is useful) * (size of invention body)
-/// However it's a little more complicated due to inventions re-using their variables
-/// and the slight cost of using the invention primitive itself.
-fn compressive_utility(
-    labelled_zids: &Vec<LabelledZId>,
-    first_zid_of_ivar: &Vec<ZId>, // [i] gives the zid for the first instance of #i
-    arity: usize,
-    body_utility: i32,
-    match_locations: &Vec<Id>,
-    shared: &SharedData,
-) -> i32 {
-
-    // get a list of (ivar,usages-1) filtering out things that are only used once
-    let ivar_multiuses: Vec<(usize,i32)> = labelled_zids.iter().map(|labelled|labelled.ivar).counts()
-        .iter().filter_map(|(ivar,count)| if *count > 1 { Some((*ivar, (*count-1) as i32)) } else { None }).collect();
-
-    // removed: ctx_thread_penalty
-
-    // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
-    // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
-    let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * arity as i32);
-
-    let compressive_utility = match_locations.iter().map(|loc|{
-        // compressivity of body minus slight penalty from the application
-        let base_utility = body_utility + app_penalty;
-        // for each extra usage of an argument, we gain the cost of that argument as
-        // extra utility. Note we use `first_zid_of_ivar` since it doesn't matter which
-        // of the zids we use as long as it corresponds to the right ivar
-        let multiuse_utility = ivar_multiuses.iter().map(|(ivar,count)|
-            count * shared.arg_of_zid_node[first_zid_of_ivar[*ivar]][loc].cost
-        ).sum::<i32>();
-        // multiply all this utility by the number of times this node shows up
-        (base_utility + multiuse_utility) * shared.num_paths_to_node[loc]
-    }).sum::<i32>();
-
-    compressive_utility
-}
-
 /// calculates the total upper bound on compressive + noncompressive utility
 #[inline]
 fn utility_upper_bound(
@@ -1274,6 +1225,163 @@ fn noncompressive_utility_upper_bound(
     let structure_penalty = - (body_utility * 3 / 2);
     structure_penalty
 }
+
+fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> i32 {
+
+    // * BASIC CALCULATION:
+
+    // get a list of (ivar,usages-1) filtering out things that are only used once
+    let ivar_multiuses: Vec<(usize,i32)> = pattern.arg_choices.iter().map(|labelled|labelled.ivar).counts()
+        .iter().filter_map(|(ivar,count)| if *count > 1 { Some((*ivar, (*count-1) as i32)) } else { None }).collect();
+
+    // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
+    // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
+    let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * pattern.first_zid_of_ivar.len() as i32);
+
+
+    let utility_of_loc_once: Vec<i32> = pattern.match_locations.iter().map(|loc| {
+        // compressivity of body minus slight penalty from the application
+        let base_utility = pattern.body_utility + app_penalty;
+        // for each extra usage of an argument, we gain the cost of that argument as
+        // extra utility. Note we use `first_zid_of_ivar` since it doesn't matter which
+        // of the zids we use as long as it corresponds to the right ivar
+        let multiuse_utility = ivar_multiuses.iter().map(|(ivar,count)|
+            count * shared.arg_of_zid_node[pattern.first_zid_of_ivar[*ivar]][loc].cost
+        ).sum::<i32>();
+        // multiply all this utility by the number of times this node shows up
+        base_utility + multiuse_utility
+        }).collect();
+
+
+    let compressive_utility: i32 = pattern.match_locations.iter()
+        .zip(utility_of_loc_once.iter())
+        .map(|(loc,utility)| utility * shared.num_paths_to_node[loc])
+        .sum();
+
+    // * ACCOUNTING FOR USE CONFLICTS:
+
+    // todo opt include holes too
+    let zips: Vec<Zip> = pattern.arg_choices.iter().map(|labelled_zid| shared.zip_of_zid[labelled_zid.zid].clone()).collect();
+    
+    {
+        // assertion to make sure pattern.match_locations is sorted (for binary searching + bottom up iterating)
+        let mut largest_seen = -1;
+        assert!(pattern.match_locations.iter().all(|x| {
+            let res = largest_seen < usize::from(*x) as i32;
+            largest_seen = usize::from(*x) as i32;
+            res
+            }));
+    }
+
+    // the idea here is we want the fast-path to be the case where no conflicts happen. If no conflicts happen, there should be
+    // zero heap allocations in this whole section! Since empty vecs and hashmaps dont cause allocations yet.
+    let mut corrected_utils: HashMap<Id,CorrectedUtil> = Default::default();
+    let mut global_correction = 0; // this is going to get added to the compressive_utility at the end to correct for use-conflicts
+
+    // bottom up traversal since we assume match_locations is sorted
+    for (loc_idx,loc) in pattern.match_locations.iter().enumerate() {
+        // get all the nodes this could conflict with (by idx within `locs` not by id)
+        let mut conflict_idxs: Vec<(Id,usize)> = vec![];
+        for zip in zips.iter().filter(|zip| !zip.is_empty()) {
+            let mut id = loc;
+            // for all except the last node in the zipper, push the childs location on as a potential conflict
+            for znode in zip[..zip.len()-1].iter() {
+                // step one deeper
+                id = match (znode, &shared.egraph[*id].nodes[0]) {
+                    (ZNode::Body, Lambda::Lam([b])) => b,
+                    (ZNode::Func, Lambda::App([f,_])) => f,
+                    (ZNode::Arg, Lambda::App([_,x])) => x,
+                    _ => unreachable!()
+                };
+                // if its also a location, push it to the conflicts list (do NOT dedup)
+                if let Ok(idx) = pattern.match_locations.binary_search(id) {
+                    conflict_idxs.push((*id,idx));
+                }
+            }
+        }
+
+        // common case: no conflcits
+        if conflict_idxs.is_empty() { continue; }
+
+        // now we basically record how much we would affect global utility by if we accept vs reject vs choose the best of those options.
+        // and recording this will let us change our mind later if we decide to force-reject something
+
+        // if we reject using the invention at this node, we just lose its utility
+        let reject = - utility_of_loc_once[loc_idx];
+        
+        // if we accept using the invention at this node everywhere, we lose the util of the difference of the best choice of each descendant vs the reject choice
+        // so for example if all the conflicts had chosen to Reject anyways then this would be 0 (optimal)
+        // but if some chose to Accept then our Accept correction will include the difference caused by forcing them to reject
+        // This is easiest to understand if you think of reject as "the effect on global util of rejecting at a single location"
+        // and likewise for accept and best.
+        let accept = conflict_idxs.iter()
+            .map(|(id,idx)|
+                corrected_utils.get(id).map(|x|x.change_to_reject)
+                // if it's not in corrected_utils, it must have had no conflicts so we must be switching from accept to reject with no other side effects
+                // so we do (reject - accept) = (- util(idx) - 0) = - util(idx)
+                // where accept was 0 since it caused no conflicts
+                .unwrap_or_else(|| - utility_of_loc_once[*idx]) 
+            ).sum();
+
+        // lets accept the less negative of the options
+        let best = std::cmp::max(reject,accept);
+
+        // update global correction with this applied to all our nodes (note that the same choice makes sense for all nodes
+        // from the point of view of this being the top of the tree - it's our parents job to use change_to_reject if they
+        // want to reject only certain ones of us)
+        global_correction += best * shared.num_paths_to_node[loc];
+
+        let change_to_reject = reject - best;
+
+        corrected_utils.insert(*loc, CorrectedUtil {
+            reject,
+            accept,
+            best,
+            change_to_reject
+        });
+
+        // Involved example:
+        // A -> B -> C  (ie A conflicts with B conflicts with C; and A is the parent)
+        // and also A -> C
+        // 
+        // First we calculate C.accept C.reject
+        // B.reject as - util(B)
+        // B.accept as (C.reject - C.best)
+        // A.reject as - util(A)
+        // A.accept as (B.reject - B.best) + (C.reject - C.best)
+        // did we double count C in here since it was a child of both B and A (I mean literally a child of both not just when struct hashed)
+        // if B.best was B.reject, then it would involve allowing C.best to happen so that's good that we have the (C.reject - C.best) term
+        //
+        // if B.best = B.reject:
+        // A.accept = (B.reject - B.best) + (C.reject - C.best)
+        //          = (C.reject - C.best) = force C to reject
+        // which is good because since B was `reject` then yes A needs to include the C rejection term
+        //
+        // if B.best = B.accept:
+        // A.accept = (B.reject - B.best) + (C.reject - C.best)
+        //          = (B.reject - B.accept) + (C.reject - C.best)
+        //          = (B.reject - (C.reject - C.best)) + (C.reject - C.best)
+        //          = B.reject = - util(B)
+        // which is good because we've already modified the global util to incorporate C rejection when we decided that B.best 
+        // was B.accept, so it's good that the C terms cancel out here. You can think of what happened like this: we force-reject C
+        // which creates a (C.reject - C.best) term, but then we force reject B and since B.best was B.accept which involved C rejection,
+        // we get another (C.reject - C.best) term that cancels out the first
+        //
+        // if B.best was B.accept, then (B.reject - B.best) = (B.reject - B.accept) = (B.reject - (C.reject - C.best))
+
+    }
+
+    compressive_utility + global_correction
+}
+
+struct CorrectedUtil {
+    reject: i32,
+    accept: i32,
+    best: i32,
+    change_to_reject: i32,
+}
+
+
 
 /// Multistep compression. See `compression_step` if you'd just like to do a single step of compression.
 pub fn compression(
@@ -1447,6 +1555,7 @@ pub fn compression_step(
         crit: Mutex::new(crit),
         arg_of_zid_node,
         treenodes: treenodes.clone(),
+        programs_node,
         zids_of_node,
         zip_of_zid,
         zid_of_zip,
