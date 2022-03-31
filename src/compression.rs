@@ -799,6 +799,8 @@ fn stitch_search(
             // update the upper bound
             let utility_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
 
+            assert!(utility_upper_bound <= original_pattern.utility_upper_bound);
+
             // prune if utility upper bound is negative
             if utility_upper_bound <= 0 {
                 if tracked { println!("{} <= 0 utility pruned ({}) when expanding {} to {}", "[TRACK]".red().bold(), utility_upper_bound, original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
@@ -923,11 +925,12 @@ impl FinishedPattern {
         let arity = pattern.first_zid_of_ivar.len();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[loc]).sum();
         let compressive_utility = compressive_utility(&pattern,shared);
-
         let noncompressive_utility = noncompressive_utility(pattern.body_utility, &shared.cfg);
+        let utility = noncompressive_utility + compressive_utility;
+        assert!(utility <= pattern.utility_upper_bound);
         FinishedPattern {
             pattern,
-            utility: compressive_utility + noncompressive_utility,
+            utility,
             compressive_utility,
             arity,
             usages,
