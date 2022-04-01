@@ -874,11 +874,10 @@ fn stitch_search(
 
                 }
 
-                if tracked {
-                    println!("{} pushed {} to donelist", "[TRACK:DONE]".green().bold(), new_pattern.to_expr(&shared));
-                }
                 let finished_pattern = FinishedPattern::new(new_pattern, &shared);
-
+                if tracked {
+                    println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);
+                }
                 if shared.cfg.inv_candidates == 1 {
                     // if we're only looking for one invention, we can directly update our cutoff here
                     weak_utility_pruning_cutoff = finished_pattern.utility;
@@ -888,7 +887,7 @@ fn stitch_search(
 
             } else {
                 // it's a partial pattern so just add it to the worklist
-                if tracked { println!("{} pushed {} to worklist", "[TRACK]".green().bold(), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
+                if tracked { println!("{} pushed {} to worklist (bound: {})", "[TRACK]".green().bold(), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to)), new_pattern.utility_upper_bound); }
                 worklist_buf.push(HeapItem::new(new_pattern))
             }
         }
