@@ -116,14 +116,14 @@ impl CompressionStepConfig {
 /// `arg_choices` is the same as `holes` but for the invention arguments like #i
 /// `body_utility` is the cost of the non-hole non-argchoice parts of the pattern so far
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct Pattern {
-    holes: Vec<ZId>, // in order of when theyre added NOT left to right
+pub struct Pattern {
+    pub holes: Vec<ZId>, // in order of when theyre added NOT left to right
     arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an argchoice, again these are in order of when they were added
-    first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index of the first use of #i in arg_choices
-    match_locations: Vec<Id>, // places where it applies
-    utility_upper_bound: i32,
-    body_utility: i32, // the size (in `cost`) of a single use of the pattern body so far
-    tracked: bool, // for debugging
+    pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index of the first use of #i in arg_choices
+    pub match_locations: Vec<Id>, // places where it applies
+    pub utility_upper_bound: i32,
+    pub body_utility: i32, // the size (in `cost`) of a single use of the pattern body so far
+    pub tracked: bool, // for debugging
 }
 
 impl Expr {
@@ -263,7 +263,7 @@ impl Pattern {
 /// The child-ignoring value of a node in the original set of programs. This tells us
 /// what the hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
-enum ExpandsTo {
+pub enum ExpandsTo {
     Lam,
     App,
     Var(i32),
@@ -305,29 +305,19 @@ impl std::fmt::Display for ExpandsTo {
 }
 
 /// a list of znodes, representing a path through a tree (a zipper)
-type Zip = Vec<ZNode>;
+pub type Zip = Vec<ZNode>;
 /// the index of the empty zid `[]` in the list of zippers
 const EMPTY_ZID: ZId = 0;
 
 /// an argument to an abstraction. `id` is the main field here, we can use
 /// it to lookup the corresponding tree using egraph[id]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct Arg {
-    id: Id,
-    unshifted_id: Id, // in case `id` was shifted to make it an arg not sure if this will end up being useful
-    cost: i32,
-    expands_to: ExpandsTo,
-}
-
-impl Arg {
-    fn new(id: Id, unshifted_id: Id, cost: i32, expands_to: ExpandsTo) -> Self {
-        Arg {
-            id,
-            unshifted_id,
-            cost,
-            expands_to
-        }
-    }
+pub struct Arg {
+    pub id: Id,
+    pub unshifted_id: Id, // in case `id` was shifted to make it an arg not sure if this will end up being useful
+    pub shift: i32,
+    pub cost: i32,
+    pub expands_to: ExpandsTo,
 }
 
 /// ExpandsTo from a &Lambda node. Returns None if this is
@@ -380,7 +370,7 @@ fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData) -> 
 
 /// The heap item used for heap-based worklists. Holds a pattern
 #[derive(Debug,Clone, Eq, PartialEq)]
-struct HeapItem {
+pub struct HeapItem {
     key: i32,
     pattern: Pattern,
 }
@@ -407,7 +397,7 @@ impl HeapItem {
 
 /// This is the multithread data locked during the critical section of the algorithm.
 #[derive(Debug, Clone)]
-struct CriticalMultithreadData {
+pub struct CriticalMultithreadData {
     donelist: Vec<FinishedPattern>,
     worklist: BinaryHeap<HeapItem>,
     utility_pruning_cutoff: i32,
@@ -417,33 +407,30 @@ struct CriticalMultithreadData {
 /// All the data shared among threads, mostly read-only
 /// except for the mutexes
 #[derive(Debug)]
-struct SharedData {
-    crit: Mutex<CriticalMultithreadData>,
-    arg_of_zid_node: Vec<HashMap<Id,Arg>>,
-    #[allow(dead_code)]
-    treenodes: Vec<Id>,
-    programs_node: Id,
-    #[allow(dead_code)]
-    zids_of_node: HashMap<Id,Vec<ZId>>,
-    zip_of_zid: Vec<Zip>,
-    zid_of_zip: HashMap<Zip, ZId>,
-    extensions_of_zid: Vec<ZIdExtension>,
-    descendants_of_node: HashMap<Id,Vec<Id>>,
-    egraph: EGraph,
-    num_paths_to_node: HashMap<Id,i32>,
-    #[allow(dead_code)]
-    tasks_of_node: HashMap<Id, HashSet<usize>>,
-    #[allow(dead_code)]
-    cost_of_node_once: HashMap<Id,i32>,
-    cost_of_node_all: HashMap<Id,i32>,
-    stats: Mutex<Stats>,
-    cfg: CompressionStepConfig,
-    tracking: Option<Tracking>,
+pub struct SharedData {
+    pub crit: Mutex<CriticalMultithreadData>,
+    pub arg_of_zid_node: Vec<HashMap<Id,Arg>>,
+    pub treenodes: Vec<Id>,
+    pub programs_node: Id,
+    pub roots: Vec<Id>,
+    pub zids_of_node: HashMap<Id,Vec<ZId>>,
+    pub zip_of_zid: Vec<Zip>,
+    pub zid_of_zip: HashMap<Zip, ZId>,
+    pub extensions_of_zid: Vec<ZIdExtension>,
+    pub descendants_of_node: HashMap<Id,Vec<Id>>,
+    pub egraph: EGraph,
+    pub num_paths_to_node: HashMap<Id,i32>,
+    pub tasks_of_node: HashMap<Id, HashSet<usize>>,
+    pub cost_of_node_once: HashMap<Id,i32>,
+    pub cost_of_node_all: HashMap<Id,i32>,
+    pub stats: Mutex<Stats>,
+    pub cfg: CompressionStepConfig,
+    pub tracking: Option<Tracking>,
 }
 
 /// Used for debugging tracking information
 #[derive(Debug)]
-struct Tracking {
+pub struct Tracking {
     expr: Expr,
     zids_of_ivar: Vec<Vec<ZId>>,
 }
@@ -517,7 +504,7 @@ enum ZNode {
 }
 
 /// "zipper id" each unique zipper gets referred to by its zipper id
-type ZId = usize;
+pub type ZId = usize;
 
 /// a zid referencing a specific ZPath and a #i index
 #[derive(Debug,Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -528,7 +515,7 @@ struct LabelledZId {
 
 /// Various tracking stats
 #[derive(Clone,Default, Debug)]
-struct Stats {
+pub struct Stats {
     worklist_steps: usize,
     finished: usize,
     upper_bound_fired: usize,
@@ -603,7 +590,7 @@ impl LabelledZId {
 /// tells you which zid if any you would get if you extended the depth
 /// (of whatever the current zid is) with any of these znodes.
 #[derive(Clone,Debug)]
-struct ZIdExtension {
+pub struct ZIdExtension {
     body: Option<ZId>,
     arg: Option<ZId>,
     func: Option<ZId>,
@@ -874,14 +861,17 @@ fn stitch_search(
             if new_pattern.holes.is_empty() {
                 // it's a finished pattern
 
-                // check if any negative vars in args
+                // check if free vars (including negatives) in args
                 // todo change this to be negative ivars + add refinement
-                if new_pattern.first_zid_of_ivar.iter().any(|zid|
-                    shared.egraph[shared.arg_of_zid_node[*zid][&new_pattern.match_locations[0]].id].data.free_vars.iter().any(|free_var|
-                        *free_var < 0))
-                {
-                    if tracked { println!("{} discarding finished_pattern because one of its args has negative vars: {}", "[TRACK]".red().bold(), new_pattern.to_expr(&shared)); }
-                    continue;
+                for zid in new_pattern.first_zid_of_ivar.iter() {
+                    let ref arg_of_node = shared.arg_of_zid_node[*zid];
+                    for loc in new_pattern.match_locations.iter() {
+                        if shared.egraph[arg_of_node[loc].id].data.free_vars.iter().any(|var| *var < 0) {
+                            if tracked { println!("{} discarding finished_pattern because one of its args has negative vars: {}", "[TRACK]".red().bold(), new_pattern.to_expr(&shared)); }
+                            continue 'outer;
+                        }
+                    }
+
                 }
 
                 if tracked {
@@ -911,13 +901,14 @@ fn stitch_search(
 
 
 /// A finished invention
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FinishedPattern {
-    pattern: Pattern,
-    utility: i32,
-    compressive_utility: i32,
-    arity: usize,
-    usages: i32,
+    pub pattern: Pattern,
+    pub utility: i32,
+    pub compressive_utility: i32,
+    pub util_calc: UtilityCalculation,
+    pub arity: usize,
+    pub usages: i32,
 }
 
 impl FinishedPattern {
@@ -926,21 +917,22 @@ impl FinishedPattern {
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[loc]).sum();
         let compressive_utility = compressive_utility(&pattern,shared);
         let noncompressive_utility = noncompressive_utility(pattern.body_utility, &shared.cfg);
-        let utility = noncompressive_utility + compressive_utility;
+        let utility = noncompressive_utility + compressive_utility.util;
         assert!(utility <= pattern.utility_upper_bound);
         FinishedPattern {
             pattern,
             utility,
-            compressive_utility,
+            compressive_utility: compressive_utility.util,
+            util_calc: compressive_utility,
             arity,
             usages,
         }
     }
     // convert finished invention to an Expr
-    fn to_expr(&self, shared: &SharedData) -> Expr {
+    pub fn to_expr(&self, shared: &SharedData) -> Expr {
         self.pattern.to_expr(shared)
     }
-    fn to_invention(&self, name: &str, shared: &SharedData) -> Invention {
+    pub fn to_invention(&self, name: &str, shared: &SharedData) -> Invention {
         Invention::new(self.to_expr(shared), self.arity, name)
     }
 
@@ -981,7 +973,7 @@ fn get_zippers(
         // any node can become the identity function (the empty zipper with itself as the arg)
         let mut zids: Vec<ZId> = vec![EMPTY_ZID];
         arg_of_zid_node[EMPTY_ZID].insert(*treenode,
-            Arg::new(*treenode, *treenode, cost_of_node_once[treenode], expands_to_of_node(&node)));
+            Arg { id: *treenode, unshifted_id: *treenode, shift: 0, cost: cost_of_node_once[treenode], expands_to: expands_to_of_node(&node) });
         
         descendants_of_node.insert(*treenode, vec![]);
 
@@ -1048,6 +1040,7 @@ fn get_zippers(
                     // shift the arg but keep the unshifted part the sam
                     let mut arg: Arg = arg_of_zid_node[*b_zid][&b].clone();
                     arg.id = shift(arg.id, -1, egraph, cache).unwrap();
+                    arg.shift -= 1;
                     arg_of_zid_node[*zid].insert(*treenode, arg);
                 }
                 let mut descendants: Vec<Id> = descendants_of_node[&b].clone();
@@ -1107,7 +1100,8 @@ impl CompressionStepResult {
         let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { initial_cost };
 
         let inv = done.to_invention(inv_name, shared);
-        let rewritten: Expr = rewrite_with_invention_egraph(programs_node, &inv, &mut shared.egraph);
+        let rewritten = Expr::programs(rewrite_fast(&done, &shared, &inv.name));
+
 
         let expected_cost = initial_cost - done.compressive_utility;
         let final_cost = rewritten.cost();
@@ -1229,7 +1223,7 @@ fn noncompressive_utility_upper_bound(
     structure_penalty
 }
 
-fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> i32 {
+fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
     // * BASIC CALCULATION:
 
@@ -1319,7 +1313,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> i32 {
         // and likewise for accept and best.
         let accept = conflict_idxs.iter()
             .map(|(id,idx)|
-                corrected_utils.get(id).map(|x|x.change_to_reject)
+                corrected_utils.get(id).map(|x|x.util_change_to_reject)
                 // if it's not in corrected_utils, it must have had no conflicts so we must be switching from accept to reject with no other side effects
                 // so we do (reject - accept) = (- util(idx) - 0) = - util(idx)
                 // where accept was 0 since it caused no conflicts
@@ -1327,20 +1321,19 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> i32 {
             ).sum();
 
         // lets accept the less negative of the options
-        let best = std::cmp::max(reject,accept);
+        let best_util_correction = std::cmp::max(reject,accept);
 
         // update global correction with this applied to all our nodes (note that the same choice makes sense for all nodes
         // from the point of view of this being the top of the tree - it's our parents job to use change_to_reject if they
         // want to reject only certain ones of us)
-        global_correction += best * shared.num_paths_to_node[loc];
+        global_correction += best_util_correction * shared.num_paths_to_node[loc];
 
-        let change_to_reject = reject - best;
+        let util_change_to_reject = reject - best_util_correction;
 
         corrected_utils.insert(*loc, CorrectedUtil {
-            reject,
-            accept,
-            best,
-            change_to_reject
+            accept: best_util_correction == accept,
+            best_util_correction,
+            util_change_to_reject
         });
 
         // Involved example:
@@ -1374,14 +1367,20 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> i32 {
 
     }
 
-    compressive_utility + global_correction
+    UtilityCalculation { util: (compressive_utility + global_correction), corrected_utils}
 }
 
-struct CorrectedUtil {
-    reject: i32,
-    accept: i32,
-    best: i32,
-    change_to_reject: i32,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UtilityCalculation {
+    pub util: i32,
+    pub corrected_utils: HashMap<Id,CorrectedUtil>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CorrectedUtil {
+    pub accept: bool, // whether it's the best choice to accept applying the invention at this node when there are no other parent nodes above us (ignoring context, would this be the right choice?)
+    pub best_util_correction: i32, // the change in utility that this choice would cause. Always <= 0
+    pub util_change_to_reject: i32, // if accept=false this is 0 otherwise it's the difference in utility between accept and reject. Always <= 0.
 }
 
 
@@ -1540,6 +1539,7 @@ pub fn compression_step(
             pattern,
             utility,
             compressive_utility,
+            util_calc: UtilityCalculation { util: compressive_utility, corrected_utils: Default::default()},
             arity: 0,
             usages: num_paths_to_node[node]
         };
@@ -1559,6 +1559,7 @@ pub fn compression_step(
         arg_of_zid_node,
         treenodes: treenodes.clone(),
         programs_node,
+        roots,
         zids_of_node,
         zip_of_zid,
         zid_of_zip,

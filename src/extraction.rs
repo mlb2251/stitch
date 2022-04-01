@@ -31,6 +31,72 @@ pub fn extract_enode(enode: &Lambda, egraph: &EGraph) -> Expr {
     }
 }
 
+
+
+pub fn rewrite_fast(
+    pattern: &FinishedPattern,
+    shared: &SharedData,
+    inv_name: &str,
+) -> Vec<Expr>
+{
+    fn helper(
+        pattern: &FinishedPattern,
+        shared: &SharedData,
+        unshifted_id: Id,
+        shift: i32,
+        inv_name: &str,
+    ) -> Expr
+    {
+        // we search using the the *unshifted* one since its an original program tree node
+        if pattern.pattern.match_locations.binary_search(&unshifted_id).is_ok() // if the pattern matches here
+           && (!pattern.util_calc.corrected_utils.contains_key(&unshifted_id) // and either we have no conflict (ie corrected_utils doesnt have an entry)
+             || pattern.util_calc.corrected_utils[&unshifted_id].accept) // or we have a conflict but we choose to accept it (which is contextless in this top down approach so its the right move)
+        { 
+            let mut expr = Expr::prim(inv_name.into());
+            // wrap the prim in all the Apps to args
+            for zid in pattern.pattern.first_zid_of_ivar.iter() {
+                let ref arg: Arg = shared.arg_of_zid_node[*zid][&unshifted_id];
+                let shift = shift + arg.shift;
+                let rewritten_arg = helper(pattern, shared, arg.id, shift, inv_name);
+                expr = Expr::app(expr, rewritten_arg);
+            }
+            return expr
+        }
+
+        match &shared.egraph[unshifted_id].nodes[0] {
+            Lambda::Prim(p) => Expr::prim(*p),
+            Lambda::Var(i) => Expr::var(*i + shift), // we extract from the *shifted* one since thats the real one
+            Lambda::App([unshifted_f,unshifted_x]) => {
+                Expr::app(
+                    helper(pattern, shared, *unshifted_f, shift, inv_name),
+                    helper(pattern, shared, *unshifted_x, shift, inv_name),
+                )
+            },
+            Lambda::Lam([unshifted_b]) => {
+                Expr::lam(helper(pattern, shared, *unshifted_b, shift, inv_name))
+            },
+            _ => unreachable!(),
+        }
+    }
+
+    let init_cost: i32 = shared.roots.iter().map(|r| shared.egraph[*r].data.inventionless_cost).sum();
+
+    let rewritten_exprs: Vec<Expr> = shared.roots.iter().map(|root| {
+        helper(pattern, shared, *root, 0, inv_name)
+    }).collect();
+
+    assert_eq!(
+        rewritten_exprs.iter().map(|e|e.cost()).sum::<i32>(),
+        init_cost - pattern.util_calc.util,
+        "\n{}\n", pattern.to_invention(inv_name, shared)
+    );
+    rewritten_exprs
+}
+
+
+
+
+
 /// These are like Inventions but with a pointer to the body instead of an Expr
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 struct PtrInvention {
