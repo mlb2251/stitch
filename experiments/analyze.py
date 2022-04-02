@@ -2,6 +2,7 @@ import json
 import sys
 import os
 import re
+from turtle import reset
 from typing import *
 from pathlib import Path
 
@@ -288,6 +289,90 @@ def stitch_to_invention_info(stitch_json):
         }
 
 
+def process_dreamcoder_inventions(in_file, out_file):
+    in_json = load(in_file)
+    out_json = load(out_file)
+    stitch_dsl_input = to_stitch_dsl(in_json)
+    stitch_dsl_output = to_stitch_dsl(out_json)
+    stitch_invs = diff(stitch_dsl_input,stitch_dsl_output)
+    
+    all_programs_out = [programs['program'] for f in out_json['frontiers'] for programs in f['programs']]
+    stitch_programs_out = [to_stitch_program(p,stitch_dsl_output) for p in all_programs_out]
+    stitch_programs_cost_out = sum([stitch_cost(p) for p in stitch_programs_out])
+    
+    all_programs_in = [programs['program'] for f in in_json['frontiers'] for programs in f['programs']]
+    stitch_programs_in = [to_stitch_program(p,stitch_dsl_input) for p in all_programs_in]
+    stitch_programs_cost_in = sum([stitch_cost(p) for p in stitch_programs_in])
+
+    invs = []
+    for inv in stitch_invs:
+        invs.append({
+            'name': inv['name'],
+            'stitch_uncanonical': inv['stitch_uncanonical'],
+            'stitch_canonical': inv['stitch_canonical'],
+            'dreamcoder': inv['dreamcoder'],
+            'partial_pcfg_score': None,
+            'partial_compression_ratio': None,
+            'partial_compression_utility': None,
+            'partial_stitch_utility': None,
+            'num_usages': None, # usages(inv["name"], stitch_programs_out) # gets us num usages in FINAL set of programs not including internal usages
+        })
+    
+    compression_utility = (stitch_programs_cost_in - stitch_programs_cost_out)
+    compression_ratio = stitch_programs_cost_in / stitch_programs_cost_out
+
+    stitch_utility = None
+
+    return {
+        'metrics': {
+            'compression_utility': compression_utility,
+            'compression_ratio': compression_ratio,
+            'stitch_utility': stitch_utility,
+        },
+        'inventions': invs,
+    }
+
+
+def process_stitch_inventions(in_file, out_file):
+    in_json = load(in_file)
+    stitch_json = load(out_file)
+    stitch_dsl_input = to_stitch_dsl(in_json)
+
+    all_programs_in = [programs['program'] for f in in_json['frontiers'] for programs in f['programs']]
+    stitch_programs_in = [to_stitch_program(p,stitch_dsl_input) for p in all_programs_in]
+    stitch_programs_cost_in = sum([stitch_cost(p) for p in stitch_programs_in])
+    assert stitch_programs_cost_in == stitch_json["original_cost"]
+
+    invs = []
+    for inv in stitch_json['invs']:
+        invs.append({
+            'name': inv['name'],
+            'stitch_uncanonical': inv['body'],
+            'stitch_canonical': canonicalize(inv['body']),
+            'dreamcoder': inv['dreamcoder'],
+            'partial_pcfg_score': None,
+            'partial_compression_ratio': inv["multiplier"],
+            'partial_compression_utility': None,
+            'partial_stitch_utility': inv["utility"],
+            'num_usages': inv['num_uses'],
+        })
+    
+    compression_utility = (stitch_programs_cost_in - invs[-1]['final_cost'])
+    assert compression_utility ==  stitch_json["original_cost"] - stitch_json['invs'][-1]["final_cost"]
+
+    compression_ratio = stitch_json['invs'][-1]["multiplier_wrt_orig"]
+    stitch_utility = None
+    pcfg_score = None
+    return {
+        'metrics': {
+            'compression_utility': compression_utility,
+            'compression_ratio': compression_ratio,
+            'stitch_utility': stitch_utility,
+        },
+        'inventions': invs,
+    }
+
+
 def usages(fn_name, stitch_programs):
     # we count name + closeparen or name + space so that fn_1 doesnt get counted for things like fn_10
     return sum([p.count(f'{fn_name})') + p.count(f'{fn_name} ') for p in stitch_programs])
@@ -436,6 +521,101 @@ if __name__ == '__main__':
                 print("===DREAMCODER===")
                 for k,v in d.items():
                     print(f"{k}: {v}")
+    
+    elif mode == 'process':
+        mode = sys.argv[2]
+        assert mode in ['stitch','dreamcoder']
+        # dir like benches/fake_logo_2019-03-23T18:06:23.106382/out/dc/2021-03-02_00-00-00/
+        run_dir = Path(sys.argv[3])
+        raw_path = run_dir / 'raw'
+        stderr_path = run_dir / 'stderr'
+        processed_path = run_dir / 'processed'
+        if not raw_path.exists():
+            print("Can't find raw/ directory, did you provide a path like benches/bench_name/out/dc/2021-03-02_00-00-00/ ?")
+        if not processed_path.exists():
+            processed_path.mkdir()
+        bench_dir = run_dir.parent.parent.parent
+        bench_group = bench_dir.name # eg fake_logo_2019-03-23T18:06:23.106382
+        assert bench_dir.parent.name == 'benches'
+        bench_names = [] # eg ["bench000_iteration_0", ...]
+        for file in bench_dir.glob('bench*.json'):
+            bench_names.append(file.stem)
+        assert len(bench_names) > 0
+        bench_names.sort()
+        num_benches = len(bench_names)
+        for i,bench in enumerate(bench_names):
+            assert bench.startswith(f'bench{i:03d}')
+        
+        for bench in bench_names:
+            print(f'processing {bench}')
+            if not (raw_path / f'{bench}.json').exists():
+                continue # this bench wasnt done in this run
+
+            processed = {
+                'bench_group': bench_group,
+                'bench': bench,
+                'mode': mode,
+                'run': str(run_dir),
+                'metrics': {
+                    'time_binary_seconds': None,
+                    'time_total_seconds': None,
+                    'time_candidates_seconds': None,
+                    'time_middle_rewrite_seconds': None,
+                    'time_final_rewrite_seconds': None,
+                    'mem_peak_kb': None,
+                    'compression_ratio': None,
+                    'compression_utility': None, # integer version of the ratio
+                    'stitch_utility': None,
+                    'pcfg_score': None,
+                },
+                'num_inventions': None,
+                'inventions': {},
+            }
+
+            raw = load(raw_path / f'{bench}.json')
+            with open(stderr_path / f'{bench}.stderr') as f:
+                stderr = f.read().split('\n')
+
+            # time_binary_seconds: wall clock on the whole binary running - not super precise but okay
+            [x] = [l for l in stderr if 'Elapsed (wall clock) time' in l]
+            x = x.split(' ')[-1]
+            if x.count(':') == 1:
+                # m:s format
+                mins,secs = x.split(':')
+                processed['metrics']['time_binary_seconds'] = int(mins) * 60 + float(secs)
+            elif x.count(':') == 2:
+                # h:m:s format
+                hours,mins,secs = x.split(':')
+                processed['metrics']['time_binary_seconds'] = int(hours) * 3600 + int(mins) * 60 + float(secs)
+            else:
+                assert False
+            
+            # mem_peak_kb: memory use
+            [x] = [l for l in stderr if 'Maximum resident set size (kbytes)' in l]
+            processed['metrics']['mem_peak_kb'] = int(x.split(' ')[-1])
+
+            # process the output dsls to get inventions and scores
+            if mode == "dreamcoder":
+                res = process_dreamcoder_inventions(bench_dir / f'{bench}.json', raw_path / f'{bench}.json')
+            elif mode == "stitch":
+                res = process_stitch_inventions(bench_dir / f'{bench}.json', raw_path / f'{bench}.json')
+            else:
+                assert False
+            
+            for k,v in res['metrics'].items():
+                processed['metrics'][k] = v
+            
+            processed['inventions'] = res['inventions']
+            processed['num_inventions'] = len(processed['inventions'])
+            
+
+
+            save(processed, processed_path / f'{bench}.json')
+
+
+
+
+
 
 
 
