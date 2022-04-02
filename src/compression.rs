@@ -42,6 +42,10 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub track: Option<String>,
 
+    /// pattern or invention to track
+    #[clap(long)]
+    pub follow_track: bool,
+
     /// print out each step of what gets popped off the worklist
     #[clap(long)]
     pub verbose_worklist: bool,
@@ -671,7 +675,7 @@ fn get_worklist_item(
     // * MULTITHREADING: CRITICAL SECTION END *
 }
 
-
+/// The core top down branch and bound search
 fn stitch_search(
     shared: Arc<SharedData>,
 ) {
@@ -736,7 +740,6 @@ fn stitch_search(
         }
 
         let mut found_tracked = false;
-
         // for each way of expanding the hole...
         'outer:
             for (expands_to, locs) in match_locations.into_iter()
@@ -747,6 +750,7 @@ fn stitch_search(
             // for debugging
             let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, hole_zid, &shared);
             if tracked { found_tracked = true; }
+            if shared.cfg.follow_track && !tracked { continue; }
 
             // check for arity 0 inventions; these were previously handled and can be skipped
             if holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar() {
@@ -1407,6 +1411,18 @@ pub fn compression(
     tasks: &Vec<String>,
     num_prior_inventions: usize,
 ) -> Vec<CompressionStepResult> {
+
+    if cfg.follow_track && !(
+           cfg.no_opt_free_vars
+        && cfg.no_opt_single_use
+        && cfg.no_opt_single_task
+        && cfg.no_opt_upper_bound
+        && cfg.no_opt_force_multiuse
+        && cfg.no_opt_useless_abstract)
+    {
+        println!("{} you often want to run --follow-track with --no-opt otherwise your target may get pruned", "[WARNING]".yellow());
+    }
+
     let mut rewritten: Expr = programs_expr.clone();
     let mut step_results: Vec<CompressionStepResult> = Default::default();
 
