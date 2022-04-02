@@ -1,0 +1,393 @@
+{
+    "num_expected_new_fns": [
+        0,
+        8,
+        0,
+        11,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    ],
+    "total_new_fns": 19,
+    "num_tasks_solved": [
+        32,
+        73,
+        92,
+        114,
+        128,
+        149,
+        151,
+        151,
+        151,
+        149,
+        151,
+        150,
+        151,
+        150,
+        150,
+        151,
+        149,
+        151,
+        151
+    ],
+    "num_programs": [
+        148,
+        337,
+        423,
+        526,
+        571,
+        697,
+        724,
+        716,
+        720,
+        712,
+        731,
+        718,
+        706,
+        715,
+        723,
+        719,
+        721,
+        718,
+        725
+    ],
+    "iterations": [
+        {
+            "iteration": 0,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_0.json",
+            "dsl_len": 0,
+            "num_tasks_solved": 32,
+            "num_programs": 148,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 1,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_1.json",
+            "dsl_len": 0,
+            "num_tasks_solved": 73,
+            "num_programs": 337,
+            "num_expected_new_fns": 8,
+            "expected_new_fns": [
+                {
+                    "name": "fn_0",
+                    "dreamcoder": "#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0)))))))",
+                    "with_sub_inventions": "#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0)))))))",
+                    "stitch_uncanonical": "(logo_forLoop #0 (lam (lam (logo_FWRT #2 #1 $0))))",
+                    "stitch_canonical": "(logo_forLoop #0 (lam (lam (logo_FWRT #1 #2 $0))))",
+                    "arity": 3
+                },
+                {
+                    "name": "fn_1",
+                    "dreamcoder": "#(logo_DIVA logo_UA 4)",
+                    "with_sub_inventions": "#(logo_DIVA logo_UA 4)",
+                    "stitch_uncanonical": "(logo_DIVA logo_UA 4)",
+                    "stitch_canonical": "(logo_DIVA logo_UA 4)",
+                    "arity": 0
+                },
+                {
+                    "name": "fn_2",
+                    "dreamcoder": "#(lambda (logo_forLoop 7 (lambda (lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) 7 logo_epsA (logo_MULL logo_epsL $2) $0)))))",
+                    "with_sub_inventions": "#(lambda (logo_forLoop 7 (lambda (lambda (fn_0 7 logo_epsA (logo_MULL logo_epsL $2) $0)))))",
+                    "stitch_uncanonical": "(logo_forLoop 7 (lam (lam (fn_0 7 logo_epsA (logo_MULL logo_epsL #0) $0))))",
+                    "stitch_canonical": "(logo_forLoop 7 (lam (lam (fn_0 7 logo_epsA (logo_MULL logo_epsL #0) $0))))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_3",
+                    "dreamcoder": "#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL $0)))",
+                    "with_sub_inventions": "#(lambda (fn_0 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL $0)))",
+                    "stitch_uncanonical": "(fn_0 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL #0))",
+                    "stitch_canonical": "(fn_0 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_4",
+                    "dreamcoder": "#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA (logo_MULL logo_epsL $0)))",
+                    "with_sub_inventions": "#(lambda (fn_0 logo_IFTY logo_epsA (logo_MULL logo_epsL $0)))",
+                    "stitch_uncanonical": "(fn_0 logo_IFTY logo_epsA (logo_MULL logo_epsL #0))",
+                    "stitch_canonical": "(fn_0 logo_IFTY logo_epsA (logo_MULL logo_epsL #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_5",
+                    "dreamcoder": "#(lambda (lambda (lambda (logo_forLoop $1 (lambda (lambda (logo_FWRT (logo_MULL $2 $1) $4 $0)))))))",
+                    "with_sub_inventions": "#(lambda (lambda (lambda (logo_forLoop $1 (lambda (lambda (logo_FWRT (logo_MULL $2 $1) $4 $0)))))))",
+                    "stitch_uncanonical": "(logo_forLoop #1 (lam (lam (logo_FWRT (logo_MULL #2 $1) #0 $0))))",
+                    "stitch_canonical": "(logo_forLoop #0 (lam (lam (logo_FWRT (logo_MULL #1 $1) #2 $0))))",
+                    "arity": 3
+                },
+                {
+                    "name": "fn_6",
+                    "dreamcoder": "#(lambda (logo_FWRT logo_ZL (logo_DIVA logo_UA $0)))",
+                    "with_sub_inventions": "#(lambda (logo_FWRT logo_ZL (logo_DIVA logo_UA $0)))",
+                    "stitch_uncanonical": "(logo_FWRT logo_ZL (logo_DIVA logo_UA #0))",
+                    "stitch_canonical": "(logo_FWRT logo_ZL (logo_DIVA logo_UA #0))",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_7",
+                    "dreamcoder": "#(logo_FWRT logo_UL logo_UA)",
+                    "with_sub_inventions": "#(logo_FWRT logo_UL logo_UA)",
+                    "stitch_uncanonical": "(logo_FWRT logo_UL logo_UA)",
+                    "stitch_canonical": "(logo_FWRT logo_UL logo_UA)",
+                    "arity": 0
+                }
+            ]
+        },
+        {
+            "iteration": 2,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_2.json",
+            "dsl_len": 8,
+            "num_tasks_solved": 92,
+            "num_programs": 423,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 3,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_3.json",
+            "dsl_len": 8,
+            "num_tasks_solved": 114,
+            "num_programs": 526,
+            "num_expected_new_fns": 11,
+            "expected_new_fns": [
+                {
+                    "name": "fn_8",
+                    "dreamcoder": "#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (#(lambda (logo_FWRT logo_ZL (logo_DIVA logo_UA $0))) $2 (logo_GETSET $3 $0))))))))",
+                    "with_sub_inventions": "#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (fn_6 $2 (logo_GETSET $3 $0))))))))",
+                    "stitch_uncanonical": "(logo_forLoop #0 (lam (lam (fn_6 #2 (logo_GETSET #1 $0)))))",
+                    "stitch_canonical": "(logo_forLoop #0 (lam (lam (fn_6 #1 (logo_GETSET #2 $0)))))",
+                    "arity": 3
+                },
+                {
+                    "name": "fn_9",
+                    "dreamcoder": "#(logo_PT (lambda (#(logo_FWRT logo_UL logo_UA) $0)))",
+                    "with_sub_inventions": "#(logo_PT (lambda (fn_7 $0)))",
+                    "stitch_uncanonical": "(logo_PT (lam (fn_7 $0)))",
+                    "stitch_canonical": "(logo_PT (lam (fn_7 $0)))",
+                    "arity": 0
+                },
+                {
+                    "name": "fn_10",
+                    "dreamcoder": "#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY (logo_DIVA #(logo_DIVA logo_UA 4) logo_IFTY) logo_epsL)",
+                    "with_sub_inventions": "#(fn_0 logo_IFTY (logo_DIVA fn_1 logo_IFTY) logo_epsL)",
+                    "stitch_uncanonical": "(fn_0 logo_IFTY (logo_DIVA fn_1 logo_IFTY) logo_epsL)",
+                    "stitch_canonical": "(fn_0 logo_IFTY (logo_DIVA fn_1 logo_IFTY) logo_epsL)",
+                    "arity": 0
+                },
+                {
+                    "name": "fn_11",
+                    "dreamcoder": "#(#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA (logo_MULL logo_epsL $0))) 1)",
+                    "with_sub_inventions": "#(fn_4 1)",
+                    "stitch_uncanonical": "(fn_4 1)",
+                    "stitch_canonical": "(fn_4 1)",
+                    "arity": 0
+                },
+                {
+                    "name": "fn_12",
+                    "dreamcoder": "#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) 4 #(logo_DIVA logo_UA 4))",
+                    "with_sub_inventions": "#(fn_0 4 fn_1)",
+                    "stitch_uncanonical": "(fn_0 4 fn_1)",
+                    "stitch_canonical": "(fn_0 4 fn_1)",
+                    "arity": 0
+                },
+                {
+                    "name": "fn_13",
+                    "dreamcoder": "#(lambda (#(lambda (lambda (lambda (logo_forLoop $1 (lambda (lambda (logo_FWRT (logo_MULL $2 $1) $4 $0))))))) (logo_MULA logo_epsA $0) logo_IFTY logo_epsL))",
+                    "with_sub_inventions": "#(lambda (fn_5 (logo_MULA logo_epsA $0) logo_IFTY logo_epsL))",
+                    "stitch_uncanonical": "(fn_5 (logo_MULA logo_epsA #0) logo_IFTY logo_epsL)",
+                    "stitch_canonical": "(fn_5 (logo_MULA logo_epsA #0) logo_IFTY logo_epsL)",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_14",
+                    "dreamcoder": "#(logo_forLoop 3 (lambda (lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY (logo_DIVA #(logo_DIVA logo_UA 4) logo_IFTY) logo_epsL) (#(lambda (logo_FWRT logo_ZL (logo_DIVA logo_UA $0))) 4 $0)))))",
+                    "with_sub_inventions": "#(logo_forLoop 3 (lambda (lambda (fn_10 (fn_6 4 $0)))))",
+                    "stitch_uncanonical": "(logo_forLoop 3 (lam (lam (fn_10 (fn_6 4 $0)))))",
+                    "stitch_canonical": "(logo_forLoop 3 (lam (lam (fn_10 (fn_6 4 $0)))))",
+                    "arity": 0
+                },
+                {
+                    "name": "fn_15",
+                    "dreamcoder": "#(lambda (#(lambda (logo_forLoop 7 (lambda (lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) 7 logo_epsA (logo_MULL logo_epsL $2) $0))))) 1 $0))",
+                    "with_sub_inventions": "#(lambda (fn_2 1 $0))",
+                    "stitch_uncanonical": "(fn_2 1 #0)",
+                    "stitch_canonical": "(fn_2 1 #0)",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_16",
+                    "dreamcoder": "#(lambda (#(lambda (lambda (lambda (logo_forLoop $1 (lambda (lambda (logo_FWRT (logo_MULL $2 $1) $4 $0))))))) #(logo_DIVA logo_UA 4) $0 logo_UL))",
+                    "with_sub_inventions": "#(lambda (fn_5 fn_1 $0 logo_UL))",
+                    "stitch_uncanonical": "(fn_5 fn_1 #0 logo_UL)",
+                    "stitch_canonical": "(fn_5 fn_1 #0 logo_UL)",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_17",
+                    "dreamcoder": "#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) $0 (logo_DIVA logo_UA $0) logo_UL))",
+                    "with_sub_inventions": "#(lambda (fn_0 $0 (logo_DIVA logo_UA $0) logo_UL))",
+                    "stitch_uncanonical": "(fn_0 #0 (logo_DIVA logo_UA #0) logo_UL)",
+                    "stitch_canonical": "(fn_0 #0 (logo_DIVA logo_UA #0) logo_UL)",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_18",
+                    "dreamcoder": "#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (#(lambda (logo_FWRT logo_ZL (logo_DIVA logo_UA $0))) $2 (logo_GETSET $3 $0)))))))) 8 $0 6))",
+                    "with_sub_inventions": "#(lambda (fn_8 8 $0 6))",
+                    "stitch_uncanonical": "(fn_8 8 #0 6)",
+                    "stitch_canonical": "(fn_8 8 #0 6)",
+                    "arity": 1
+                }
+            ]
+        },
+        {
+            "iteration": 4,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_4.json",
+            "dsl_len": 19,
+            "num_tasks_solved": 128,
+            "num_programs": 571,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 5,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_5.json",
+            "dsl_len": 19,
+            "num_tasks_solved": 149,
+            "num_programs": 697,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 6,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_6.json",
+            "dsl_len": 19,
+            "num_tasks_solved": 151,
+            "num_programs": 724,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 7,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_7.json",
+            "dsl_len": 19,
+            "num_tasks_solved": 151,
+            "num_programs": 716,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 8,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_8.json",
+            "dsl_len": 19,
+            "num_tasks_solved": 151,
+            "num_programs": 720,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 9,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_9.json",
+            "dsl_len": 19,
+            "num_tasks_solved": 149,
+            "num_programs": 712,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 10,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_10.json",
+            "dsl_len": 19,
+            "num_tasks_solved": 151,
+            "num_programs": 731,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 11,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_11.json",
+            "dsl_len": 19,
+            "num_tasks_solved": 150,
+            "num_programs": 718,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 12,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_12.json",
+            "dsl_len": 19,
+            "num_tasks_solved": 151,
+            "num_programs": 706,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 13,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_13.json",
+            "dsl_len": 19,
+            "num_tasks_solved": 150,
+            "num_programs": 715,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 14,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_14.json",
+            "dsl_len": 19,
+            "num_tasks_solved": 150,
+            "num_programs": 723,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 15,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_15.json",
+            "dsl_len": 19,
+            "num_tasks_solved": 151,
+            "num_programs": 719,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 16,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_16.json",
+            "dsl_len": 19,
+            "num_tasks_solved": 149,
+            "num_programs": 721,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 17,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_17.json",
+            "dsl_len": 19,
+            "num_tasks_solved": 151,
+            "num_programs": 718,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 18,
+            "file": "data/logo/2019-03-23T18:13:43.818837/iteration_18.json",
+            "dsl_len": 19,
+            "num_tasks_solved": 151,
+            "num_programs": 725,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        }
+    ]
+}
