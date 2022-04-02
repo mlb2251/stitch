@@ -2,7 +2,6 @@ import json
 import sys
 import os
 import re
-from turtle import reset
 from typing import *
 from pathlib import Path
 
@@ -357,10 +356,13 @@ def process_stitch_inventions(in_file, out_file):
             'num_usages': inv['num_uses'],
         })
     
-    compression_utility = (stitch_programs_cost_in - invs[-1]['final_cost'])
-    assert compression_utility ==  stitch_json["original_cost"] - stitch_json['invs'][-1]["final_cost"]
-
-    compression_ratio = stitch_json['invs'][-1]["multiplier_wrt_orig"]
+    if len(invs) != 0:
+        compression_utility = (stitch_programs_cost_in - stitch_json['invs'][-1]['final_cost'])
+        assert compression_utility ==  stitch_json["original_cost"] - stitch_json['invs'][-1]["final_cost"]
+        compression_ratio = stitch_json['invs'][-1]["multiplier_wrt_orig"]
+    else:
+        compression_utility = 0
+        compression_ratio = 1.
     stitch_utility = None
     pcfg_score = None
     return {
@@ -611,6 +613,25 @@ if __name__ == '__main__':
 
 
             save(processed, processed_path / f'{bench}.json')
+    elif mode == 'iteration_budget':
+        """
+        analyze.py iteration_budget <dreamcoder dir to compare to> <specific benchmark json to compare on>
+        or compare against "none" for 20 iterations automatically
+        """
+        if sys.argv[2] == 'none':
+            print(20)
+            sys.exit(0)
+        compare_to = Path(sys.argv[2])
+        bench = Path(sys.argv[3])
+        assert str(bench).endswith('.json')
+        num_invs = load(compare_to / 'processed' / bench.name)['num_inventions']
+        print(num_invs)
+        sys.exit(0)
+
+
+
+    else:
+        assert False, f"mode not recognized: {mode}"
 
 
 
