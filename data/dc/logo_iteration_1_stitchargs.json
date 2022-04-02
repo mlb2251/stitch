@@ -1,5 +1,5 @@
 {
-    "stitch_args": "-a3 -t8 --fmt=dreamcoder",
+    "stitch_args": "data/dc/logo_iteration_1_stitchargs.json -a3 -t8 --fmt=dreamcoder --dreamcoder-drop-last --no-mismatch-check",
     "arity": 3,
     "topK": 2,
     "pseudoCounts": 30.0,

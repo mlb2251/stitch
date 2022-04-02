@@ -59,6 +59,13 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub verbose_best: bool,
 
+    /// for dreamcoder comparison only: this makes stitch drop its final searchh
+    /// result and return one less invention than you asked for while still
+    /// doing the work of finding that last invention. This simulations how dreamcoder
+    /// finds and rejects its final candidate
+    #[clap(long)]
+    pub dreamcoder_drop_last: bool,
+
     /// disable caching (though caching isn't used for much currently)
     #[clap(long)]
     pub no_cache: bool,
@@ -1455,6 +1462,11 @@ pub fn compression(
             println!("No inventions found at iteration {}",i);
             break;
         }
+    }
+
+    if cfg.dreamcoder_drop_last {
+        println!("{}",format!("{}","[--dreamcoder-drop-last] dropping final invention".yellow().bold()));
+        step_results.pop();
     }
 
     println!("{}","\n=======Compression Summary=======".blue().bold());
