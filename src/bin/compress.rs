@@ -43,10 +43,10 @@ pub struct Args {
     #[clap(long)]
     pub no_opt: bool,
 
-    /// extracts argument values from the json; specifically assumes theres a
-    /// "stitch_args" key at the top dict of the json holding a string that can
-    /// be parsed like "-a3 --no-opt". Note that ALL other commandline args
-    /// provided outside of the json will be ignored.
+    /// extracts argument values from the json; specifically assumes a key value pair like
+    ///     "stitch_args": "data/dc/logo_iteration_1_stitchargs.json -a3 -t8 --fmt=dreamcoder --dreamcoder-drop-last --no-mismatch-check",
+    /// in the toplevel dictionary of the json. All other commandline args get discarded when
+    /// you specify this option.
     #[clap(long)]
     pub args_from_json: bool,
 
