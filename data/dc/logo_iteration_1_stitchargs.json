@@ -1,4 +1,5 @@
 {
+    "stitch_args": "-a3 -t8 --fmt=dreamcoder",
     "arity": 3,
     "topK": 2,
     "pseudoCounts": 30.0,

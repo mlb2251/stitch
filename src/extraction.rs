@@ -85,11 +85,13 @@ pub fn rewrite_fast(
         helper(pattern, shared, *root, 0, inv_name)
     }).collect();
 
-    assert_eq!(
-        rewritten_exprs.iter().map(|e|e.cost()).sum::<i32>(),
-        init_cost - pattern.util_calc.util,
-        "\n{}\n", pattern.to_invention(inv_name, shared)
-    );
+    if !shared.cfg.no_mismatch_check {
+        assert_eq!(
+            rewritten_exprs.iter().map(|e|e.cost()).sum::<i32>(),
+            init_cost - pattern.util_calc.util,
+            "\n{}\n", pattern.to_invention(inv_name, shared)
+        );
+    }
     rewritten_exprs
 }
 

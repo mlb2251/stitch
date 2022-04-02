@@ -34,6 +34,11 @@ pub struct CompressionStepConfig {
     #[clap(long, arg_enum, default_value = "min-cost")]
     pub hole_choice: HoleChoice,
 
+    /// disables the safety check for the utility being correct; you only want
+    /// to do this if you truly dont mind unsoundness for a minute
+    #[clap(long)]
+    pub no_mismatch_check: bool,
+
     /// inventions cant start with a Lambda
     #[clap(long)]
     pub no_top_lambda: bool,

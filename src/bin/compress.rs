@@ -43,6 +43,13 @@ pub struct Args {
     #[clap(long)]
     pub no_opt: bool,
 
+    /// extracts argument values from the json; specifically assumes theres a
+    /// "stitch_args" key at the top dict of the json holding a string that can
+    /// be parsed like "-a3 --no-opt". Note that ALL other commandline args
+    /// provided outside of the json will be ignored.
+    #[clap(long)]
+    pub args_from_json: bool,
+
     #[clap(flatten)]
     pub step: CompressionStepConfig,
 
@@ -51,6 +58,15 @@ pub struct Args {
 fn main() {
     // procspawn::init();
     let mut args = Args::parse();
+    if args.args_from_json {
+        let json = std::fs::read_to_string(&args.file).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&json).unwrap();
+        // we want something that looks like "ignored_binary_name -a3 -t2"
+        let mut args_str = String::from("compress ");
+        args_str.push_str(json["stitch_args"].as_str().unwrap());
+        args = Args::parse_from(args_str.split_whitespace());
+    }
+
     if args.no_opt {
         args.step.no_opt();
     }
