@@ -1103,14 +1103,11 @@ fn get_zippers(
     descendants_of_node)
 }
 
-/// the complete result of a single step of compression, this is a somewhat expensive data structure
-/// to create.
 #[derive(Debug, Clone)]
-pub struct CompressionStepResult {
-    pub inv: Invention,
+pub struct CompressionStepData {
     pub rewritten: Expr,
     pub rewritten_dreamcoder: Vec<String>,
-    pub done: FinishedPattern,
+    pub initial_cost: i32,
     pub expected_cost: i32,
     pub final_cost: i32,
     pub multiplier: f64,
@@ -1118,16 +1115,14 @@ pub struct CompressionStepResult {
     pub uses: i32,
     pub use_exprs: Vec<Expr>,
     pub use_args: Vec<Vec<Expr>>,
-    pub dc_inv_str: String,
-    pub initial_cost: i32,
 }
 
-impl CompressionStepResult {
-    fn new(done: FinishedPattern, programs_node: Id, inv_name: &str, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>) -> Self {
+impl CompressionStepData {
+    fn new(done: FinishedPattern, programs_node: Id, inv_name: &str, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>, very_first_cost: Option<i32>) -> Self {
         let initial_cost = shared.egraph[programs_node].data.inventionless_cost;
 
         // cost of the very first initial program before any inventions
-        let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { initial_cost };
+        let very_first_cost = very_first_cost.unwrap_or(initial_cost);
 
         let inv = done.to_invention(inv_name, shared);
         let rewritten = Expr::programs(rewrite_fast(&done, &shared, &inv.name));
@@ -1164,21 +1159,17 @@ impl CompressionStepResult {
             res
         }).collect();
 
-        CompressionStepResult { inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost }
+        CompressionStepData {rewritten, rewritten_dreamcoder, initial_cost, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args }
     }
-    pub fn json(&self) -> serde_json::Value {        
+
+    pub fn json(&self, inv_name: &str) -> serde_json::Value {        
         let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| expr.to_string()).collect();
-        let use_args: Vec<String> = self.use_args.iter().map(|args| format!("{} {}", self.inv.name, args.iter().map(|expr| expr.to_string()).collect::<Vec<String>>().join(" "))).collect();
+        let use_args: Vec<String> = self.use_args.iter().map(|args| format!("{} {}", inv_name, args.iter().map(|expr| expr.to_string()).collect::<Vec<String>>().join(" "))).collect();
         let all_uses: Vec<serde_json::Value> = use_exprs.iter().zip(use_args.iter()).sorted().map(|(expr,args)| json!({args: expr})).collect();
 
         json!({            
-            "body": self.inv.body.to_string(),
-            "dreamcoder": self.dc_inv_str,
-            "arity": self.inv.arity,
-            "name": self.inv.name,
             "rewritten": self.rewritten.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
             "rewritten_dreamcoder": self.rewritten_dreamcoder,
-            "utility": self.done.utility,
             "expected_cost": self.expected_cost,
             "final_cost": self.final_cost,
             "multiplier": self.multiplier,
@@ -1189,13 +1180,63 @@ impl CompressionStepResult {
     }
 }
 
+/// the complete result of a single step of compression, this is a somewhat expensive data structure
+/// to create.
+#[derive(Debug, Clone)]
+pub struct CompressionStepResult {
+    pub inv: Invention,
+    pub done: FinishedPattern,
+    pub dc_inv_str: String,
+    pub train_data: CompressionStepData,
+    pub test_data: Option<CompressionStepData>,
+}
+
+impl CompressionStepResult {
+    fn new(done: FinishedPattern, train_programs_node: Id, test_programs_node: Option<Id>, inv_name: &str, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>, first_train_cost: Option<i32>, first_test_cost: Option<i32>) -> Self {
+
+        let inv = done.to_invention(inv_name, shared);
+
+        let train_data = CompressionStepData::new(done.clone(), train_programs_node, inv_name, shared, past_invs, first_train_cost);
+        let test_data = test_programs_node.map(|n| CompressionStepData::new(done.clone(), n, inv_name, shared, past_invs, first_test_cost));
+
+        let dc_inv_str: String = dc_inv_str(&inv, past_invs);
+
+        CompressionStepResult { inv, done, dc_inv_str, train_data, test_data }
+    }
+
+    pub fn json(&self) -> serde_json::Value {        
+
+        json!({            
+            "body": self.inv.body.to_string(),
+            "dreamcoder": self.dc_inv_str,
+            "arity": self.inv.arity,
+            "name": self.inv.name,
+            "utility": self.done.utility,
+            "train_result": self.train_data.json(&self.inv.name),
+            "test_result": if let Some(d) = &self.test_data { d.json(&self.inv.name).to_string() } else { "N/A".to_string() },
+        })
+    }
+}
+
 impl fmt::Display for CompressionStepResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.expected_cost != self.final_cost {
-            write!(f,"[cost mismatch of {}] ", self.expected_cost - self.final_cost)?;
+        if self.train_data.expected_cost != self.train_data.final_cost {
+            write!(f,"[cost mismatch of {} in training data] ", self.train_data.expected_cost - self.train_data.final_cost)?;
         }
-        write!(f, "utility: {} | final_cost: {} | {:.2}x | uses: {} | body: {}",
-            self.done.utility, self.final_cost, self.multiplier, self.uses, self.inv)
+        if let Some(test_d) = &self.test_data {
+            if test_d.expected_cost != test_d.final_cost {
+                write!(f,"[cost mismatch of {} in test data] ", test_d.expected_cost - test_d.final_cost);
+            }
+        }
+        write!(f, "utility: {} | final_cost (train): {} | multiplier (train): {:.2}x | uses (train): {} | final_cost(test): {} | multiplier (test): {:.2}x | uses (test): {} | body: {}",
+            self.done.utility,
+            self.train_data.final_cost,
+            self.train_data.multiplier,
+            self.train_data.uses,
+            if let Some(d) = &self.test_data { d.final_cost.to_string() } else { "N/A".to_string() },
+            if let Some(d) = &self.test_data { d.multiplier.to_string() } else { "N/A".to_string() },
+            if let Some(d) = &self.test_data { d.uses.to_string() } else { "N/A".to_string() },
+            self.inv)
     }
 }
 
@@ -1417,7 +1458,8 @@ pub struct CorrectedUtil {
 
 /// Multistep compression. See `compression_step` if you'd just like to do a single step of compression.
 pub fn compression(
-    programs_expr: &Expr,
+    train_programs_expr: &Expr,
+    test_programs_expr: &Option<Expr>,
     iterations: usize,
     cfg: &CompressionStepConfig,
     tasks: &Vec<String>,
@@ -1435,7 +1477,8 @@ pub fn compression(
         println!("{} you often want to run --follow-track with --no-opt otherwise your target may get pruned", "[WARNING]".yellow());
     }
 
-    let mut rewritten: Expr = programs_expr.clone();
+    let mut train_rewritten: Expr = train_programs_expr.clone();
+    let mut test_rewritten: Option<Expr> = test_programs_expr.clone();
     let mut step_results: Vec<CompressionStepResult> = Default::default();
 
     let tstart = std::time::Instant::now();
@@ -1446,7 +1489,8 @@ pub fn compression(
 
         // call actual compression
         let res: Vec<CompressionStepResult> = compression_step(
-            &rewritten,
+            &train_rewritten,
+            &test_rewritten,
             &inv_name,
             &cfg,
             &step_results,
@@ -1455,7 +1499,8 @@ pub fn compression(
         if !res.is_empty() {
             // rewrite with the invention
             let res: CompressionStepResult = res[0].clone();
-            rewritten = res.rewritten.clone();
+            train_rewritten = res.train_data.rewritten.clone();
+            test_rewritten = if let Some(d) = &res.test_data { Some(d.rewritten.clone()) } else { None };
             println!("Chose Invention {}: {}", res.inv.name, res);
             step_results.push(res);
         } else {
@@ -1471,20 +1516,28 @@ pub fn compression(
 
     println!("{}","\n=======Compression Summary=======".blue().bold());
     println!("Found {} inventions", step_results.len());
-    println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(programs_expr,&rewritten), programs_expr.cost(), rewritten.cost());
+    println!("Cost Improvement (train): ({:.2}x better) {} -> {}", compression_factor(train_programs_expr, &train_rewritten), train_programs_expr.cost(), train_rewritten.cost());
+    println!("Cost Improvement (test): {}",
+        if let Some(e) = test_programs_expr { format!("{:.2}x better) {} -> {}", compression_factor(e, &test_rewritten.as_ref().unwrap()), e.cost(), test_rewritten.unwrap().cost()) } else { "N/A".to_string() }
+    );
     for i in 0..step_results.len() {
         let res = &step_results[i];
-        println!("{} ({:.2}x wrt orig): {}" ,res.inv.name.clone().blue(), compression_factor(programs_expr, &res.rewritten), res);
+        println!("train: {} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(train_programs_expr, &res.train_data.rewritten), res);
+        println!("test: {}",
+            if let Some(e) = test_programs_expr { format!("{} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(e, &res.test_data.as_ref().unwrap().rewritten), res) } else { "N/A".to_string() }
+        );
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
     step_results
 }
 
-/// Takes a set of programs as an Expr with Programs as its root, and does one full step of compresison.
+/// Takes a training set of programs as an Expr with Programs as its root, and does one full step of compresison.
 /// Returns the top Inventions and the Expr rewritten under that invention along with other useful info in CompressionStepResult
-/// The number of inventions returned is based on cfg.inv_candidates
+/// The number of inventions returned is based on cfg.inv_candidates.
+/// If test_programs_expr is not None, the test programs will also be rewritten under the chosen invention(s).
 pub fn compression_step(
-    programs_expr: &Expr,
+    train_programs_expr: &Expr,
+    test_programs_expr: &Option<Expr>,
     new_inv_name: &str, // name of the new invention, like "inv4"
     cfg: &CompressionStepConfig,
     past_invs: &Vec<CompressionStepResult>, // past inventions we've found
@@ -1497,17 +1550,18 @@ pub fn compression_step(
 
     // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
     let mut egraph: EGraph = Default::default();
-    let programs_node = egraph.add_expr(programs_expr.into());
+    let train_programs_node = egraph.add_expr(train_programs_expr.into());
+    let test_programs_node = if let Some(e) = test_programs_expr { Some(egraph.add_expr(e.into())) } else { None };
     egraph.rebuild();
 
     println!("set up egraph: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
-    let roots: Vec<Id> = egraph[programs_node].nodes[0].children().iter().cloned().collect();
+    let roots: Vec<Id> = egraph[train_programs_node].nodes[0].children().iter().cloned().collect();
 
     // all nodes in child-first order except for the Programs node
-    let mut treenodes: Vec<Id> = topological_ordering(programs_node,&egraph);
-    treenodes.retain(|id| *id != programs_node);
+    let mut treenodes: Vec<Id> = topological_ordering(train_programs_node,&egraph);
+    treenodes.retain(|id| *id != train_programs_node);
 
     println!("got roots and treenodes: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
@@ -1519,7 +1573,7 @@ pub fn compression_step(
     println!("num_paths_to_node(): {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
-    let tasks_of_node: HashMap<Id, HashSet<usize>> = associate_tasks(programs_node, &egraph, tasks);
+    let tasks_of_node: HashMap<Id, HashSet<usize>> = associate_tasks(train_programs_node, &egraph, tasks);
 
     println!("associate_tasks(): {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
@@ -1605,7 +1659,7 @@ pub fn compression_step(
         crit: Mutex::new(crit),
         arg_of_zid_node,
         treenodes: treenodes.clone(),
-        programs_node,
+        programs_node: train_programs_node,
         roots,
         zids_of_node,
         zip_of_zid,
@@ -1677,18 +1731,41 @@ pub fn compression_step(
 
     let donelist: Vec<FinishedPattern> = shared.crit.lock().deref_mut().donelist.clone();
 
-    let orig_cost = shared.egraph[programs_node].data.inventionless_cost;
+    let orig_cost = shared.egraph[train_programs_node].data.inventionless_cost;
 
     let mut results: Vec<CompressionStepResult> = vec![];
 
     // construct CompressionStepResults and print some info about them)
     println!("Cost before: {}", orig_cost);
+    let mut first_train_cost = None;
+    let mut first_test_cost = None;
     for (i,done) in donelist.iter().enumerate() {
-        let res = CompressionStepResult::new(done.clone(), programs_node, new_inv_name, &mut shared, past_invs);
+        let res = CompressionStepResult::new(
+            done.clone(),
+            train_programs_node,
+            test_programs_node,
+            new_inv_name,
+            &mut shared,
+            past_invs,
+            first_train_cost,
+            first_test_cost);
+
+        // Update initial costs if this was the first step of compression
+        if first_train_cost == None {
+            first_train_cost = Some(res.train_data.initial_cost);
+        }
+        if first_test_cost == None {
+            if let Some(d) = &res.test_data {
+                first_test_cost = Some(d.initial_cost);
+            }
+        }
 
         println!("{}: {}", i, res);
         if cfg.show_rewritten {
-            println!("rewritten:\n{}", res.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"));
+            println!("rewritten (train):\n{}", &res.train_data.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"));
+            println!("rewritten (test):\n{}",
+                if let Some(d) = &res.test_data { d.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n") } else { "N/A".to_string() }
+            );
         }
         results.push(res);
     }
