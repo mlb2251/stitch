@@ -4,7 +4,7 @@ import os
 import re
 from typing import *
 from pathlib import Path
-
+import shutil
 
 RUNS = {
     'list': [
@@ -712,6 +712,27 @@ if __name__ == '__main__':
             plt.savefig(bench_dir / 'plots' / f'{metric}_{bench_group}.png',dpi=400)
             print("wrote to " + str(bench_dir / 'plots' / f'{metric}_{bench_group}.png'))
             
+
+    elif mode == 'artifact_to_bench':
+        """
+        convert from dirs that ./extract_all_data.sh outputs to a benches/ benchmark.
+        """
+
+        for domain in ('logo','regex'):
+            flat_bench_group = Path('benches') / f'{domain}_all'
+            flat_bench_group.mkdir(exist_ok=True)
+            for run_i,run in enumerate(RUNS[domain]):
+                assert (Path('data') / domain / run / 'iteration_0.json').exists()
+                bench_group = Path('benches') / f'{domain}_{run}'
+                bench_group.mkdir(exist_ok=True)
+                for i in range(20):
+                    iteration_json = Path('data') / domain / run / f'iteration_{i}.json'
+                    if not iteration_json.exists():
+                        break
+                    shutil.copy(iteration_json, bench_group / f'bench{i:03d}_it{i}.json')
+                    shutil.copy(iteration_json, flat_bench_group / f'bench{i:03d}_it{i}_run{run_i}.json')
+
+
 
 
 
