@@ -732,7 +732,20 @@ if __name__ == '__main__':
                     shutil.copy(iteration_json, bench_group / f'bench{i:03d}_it{i}.json')
                     shutil.copy(iteration_json, flat_bench_group / f'bench{i:03d}_it{i}_run{run_i}.json')
 
-
+    elif mode == 'artifact_rec-fp':
+        source = Path('data/rec-fp/iteration=10_2019-07-11T19:49:10.899159')
+        bench_group_arity4 = Path('benches/rec-fp_arity4_2019-07-11T19:49:10.899159')
+        bench_group_arity3 = Path('benches/rec-fp_arity4_2019-07-11T19:49:10.899159')
+        bench_group_arity4.mkdir(exist_ok=True)
+        bench_group_arity3.mkdir(exist_ok=True)
+        for i in range(20):
+            iteration_json = source / f'iteration_{i}.json'
+            if not iteration_json.exists():
+                break
+            shutil.copy(iteration_json, bench_group_arity4 / f'bench{i:03d}_it{i}.json')
+            d = load(iteration_json)
+            d['arity'] = 3
+            save(d, bench_group_arity3 / f'bench{i:03d}_it{i}.json')
 
 
 
@@ -744,7 +757,6 @@ if __name__ == '__main__':
 
     else:
         assert False, f"mode not recognized: {mode}"
-
 
 
 
