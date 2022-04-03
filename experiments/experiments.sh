@@ -21,5 +21,5 @@ python3 analyze.py graphs bar "benches/fake_logo_2019-03-23T18:06:23.106382/out/
 # launching on stitch commit e9b0b142 and stitch_dreamcoder commit 3387fd2f
 ./bench_dreamcoder.sh benches/logo_all
 ./bench_dreamcoder.sh benches/regex_all
-
+./bench_dreamcoder.sh benches/rec-fp_arity3_2019-07-11T19:49:10.899159
 

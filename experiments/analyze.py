@@ -735,7 +735,7 @@ if __name__ == '__main__':
     elif mode == 'artifact_rec-fp':
         source = Path('data/rec-fp/iteration=10_2019-07-11T19:49:10.899159')
         bench_group_arity4 = Path('benches/rec-fp_arity4_2019-07-11T19:49:10.899159')
-        bench_group_arity3 = Path('benches/rec-fp_arity4_2019-07-11T19:49:10.899159')
+        bench_group_arity3 = Path('benches/rec-fp_arity3_2019-07-11T19:49:10.899159')
         bench_group_arity4.mkdir(exist_ok=True)
         bench_group_arity3.mkdir(exist_ok=True)
         for i in range(20):
