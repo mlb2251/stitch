@@ -14,17 +14,35 @@ then
 fi
 
 BENCH_DIR=$1
-OUT_DIR="${BENCH_DIR}/out/dc/$(TZ='America/New_York' date '+%Y-%m-%d_%H-%M-%S')"
 
-mkdir -p $OUT_DIR/raw
-mkdir -p $OUT_DIR/stderr
+if [ -z $2 ]
+then
+    OUT_DIR="${BENCH_DIR}/out/dc/$(TZ='America/New_York' date '+%Y-%m-%d_%H-%M-%S')"
+    mkdir -p $OUT_DIR/raw
+    mkdir -p $OUT_DIR/stderr
+    echo "Starting a new run: $OUT_DIR"
+else
+    OUT_DIR=$2
+    echo "Resuming previous run: $OUT_DIR"
+fi
+
+
 
 # run Dreamcoder on all the input files from the benchmark
 for BENCH_PATH in $BENCH_DIR/bench*.json; do
     BENCH=$(basename -s .json $BENCH_PATH)
-    echo "[bench_dreamcoder.sh] Running Dreamcoder with on: $BENCH"
+    RAW="$OUT_DIR/raw/$BENCH.json"
+    STDERR="$OUT_DIR/stderr/$BENCH.stderr"
 
-    /usr/bin/time -v $COMPRESSION_BIN $BENCH_PATH > $OUT_DIR/raw/$BENCH.json 2> >(tee $OUT_DIR/stderr/$BENCH.stderr >&2)
+    if [ -s $RAW ] # check if file exists and nonempty
+    then
+        echo "Found existing output, skipping $BENCH"
+        continue
+    fi
+    echo "[bench_dreamcoder.sh] Running Dreamcoder on: $BENCH"
+
+
+    /usr/bin/time -v $COMPRESSION_BIN $BENCH_PATH > $RAW 2> >(tee $STDERR >&2)
 done
 
 echo "Done: $OUT_DIR"

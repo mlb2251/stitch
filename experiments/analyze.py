@@ -721,6 +721,7 @@ if __name__ == '__main__':
         for domain in ('logo','regex'):
             flat_bench_group = Path('benches') / f'{domain}_all'
             flat_bench_group.mkdir(exist_ok=True)
+            flat_i = 0
             for run_i,run in enumerate(RUNS[domain]):
                 assert (Path('data') / domain / run / 'iteration_0.json').exists()
                 bench_group = Path('benches') / f'{domain}_{run}'
@@ -730,7 +731,8 @@ if __name__ == '__main__':
                     if not iteration_json.exists():
                         break
                     shutil.copy(iteration_json, bench_group / f'bench{i:03d}_it{i}.json')
-                    shutil.copy(iteration_json, flat_bench_group / f'bench{i:03d}_it{i}_run{run_i}.json')
+                    shutil.copy(iteration_json, flat_bench_group / f'bench{flat_i:03d}_it{i}_run{run_i}.json')
+                    flat_i += 1
 
     elif mode == 'artifact_rec-fp':
         source = Path('data/rec-fp/iteration=10_2019-07-11T19:49:10.899159')
