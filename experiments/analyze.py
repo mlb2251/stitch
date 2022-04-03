@@ -553,9 +553,9 @@ if __name__ == '__main__':
         bench_names = get_benches(bench_dir)
         
         for bench in bench_names:
+            if not (raw_path / f'{bench}.json').exists() or os.stat(raw_path / f'{bench}.json').st_size == 0:
+                continue # this bench was missing or empty
             print(f'processing {bench}')
-            if not (raw_path / f'{bench}.json').exists():
-                continue # this bench wasnt done in this run
 
             processed = {
                 'bench_group': bench_group,
@@ -628,6 +628,11 @@ if __name__ == '__main__':
         compare_to = Path(sys.argv[2])
         bench = Path(sys.argv[3])
         assert str(bench).endswith('.json')
+        if not (compare_to / 'processed' / bench.name).exists():
+            if sys.argv[4] == "loose":
+                print(0)
+                sys.exit(0)
+            print(f"Cant find {compare_to}/processed/{bench.name}; run with `loose` to set iter budget to 0")
         num_invs = load(compare_to / 'processed' / bench.name)['num_inventions']
         print(num_invs)
         sys.exit(0)
@@ -642,7 +647,7 @@ if __name__ == '__main__':
 
         type = sys.argv[2]
         assert type in ('bar','line')
-        run_dirs = [Path(x) for x in sys.argv[3:]]
+        run_dirs = [Path(x).absolute() for x in sys.argv[3:]]
 
         bench_dir = run_dirs[0].parent.parent.parent
         assert all([str(x.parent.parent.parent) == str(bench_dir) for x in run_dirs]), "not all came from same benchmark group"
