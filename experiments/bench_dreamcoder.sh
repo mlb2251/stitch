@@ -27,7 +27,9 @@ for BENCH_PATH in $BENCH_DIR/bench*.json; do
     /usr/bin/time -v $COMPRESSION_BIN $BENCH_PATH > $OUT_DIR/raw/$BENCH.json 2> >(tee $OUT_DIR/stderr/$BENCH.stderr >&2)
 done
 
-python analyze.py process dc $OUT_DIR
-
 echo "Done: $OUT_DIR"
+
+python analyze.py process dreamcoder $OUT_DIR
+
+echo "you can compare to stitch with: ./bench_stitch.sh $BENCH_DIR $OUT_DIR"
 

@@ -40,6 +40,7 @@ python analyze.py process stitch $OUT_DIR
 
 echo "Done: $OUT_DIR"
 
+echo "You can graph with: python3 analyze.py graphs bar $OUT_DIR $COMPARE_TO"
 
 
 # python3 analyze.py run_invention_info_stitch out/$DOMAIN/$RUN
