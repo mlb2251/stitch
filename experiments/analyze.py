@@ -5,6 +5,7 @@ import re
 from typing import *
 from pathlib import Path
 
+
 RUNS = {
     'list': [
         '2019-02-15T16:31:58.353555',
@@ -436,6 +437,17 @@ def run_info(dir):
     }
     return res
 
+def get_benches(bench_dir):
+    assert bench_dir.parent.name == 'benches'
+    bench_names = [] # eg ["bench000_iteration_0", ...]
+    for file in bench_dir.glob('bench*.json'):
+        bench_names.append(file.stem)
+    assert len(bench_names) > 0
+    bench_names.sort()
+    for i,bench in enumerate(bench_names):
+        assert bench.startswith(f'bench{i:03d}')
+    return bench_names
+
 if __name__ == '__main__':
     mode = sys.argv[1]
     if mode == 'dsl':
@@ -538,15 +550,7 @@ if __name__ == '__main__':
             processed_path.mkdir()
         bench_dir = run_dir.parent.parent.parent
         bench_group = bench_dir.name # eg fake_logo_2019-03-23T18:06:23.106382
-        assert bench_dir.parent.name == 'benches'
-        bench_names = [] # eg ["bench000_iteration_0", ...]
-        for file in bench_dir.glob('bench*.json'):
-            bench_names.append(file.stem)
-        assert len(bench_names) > 0
-        bench_names.sort()
-        num_benches = len(bench_names)
-        for i,bench in enumerate(bench_names):
-            assert bench.startswith(f'bench{i:03d}')
+        bench_names = get_benches(bench_dir)
         
         for bench in bench_names:
             print(f'processing {bench}')
@@ -627,6 +631,93 @@ if __name__ == '__main__':
         num_invs = load(compare_to / 'processed' / bench.name)['num_inventions']
         print(num_invs)
         sys.exit(0)
+    elif mode == 'graphs':
+        """
+        python3 analyze.py graphs bar <run dir 1> <run dir 2> <run dir 3> ...
+        where a run_dir is a timestamped dir like benches/fake_logo_2019-03-23T18:06:23.106382/out/dc/2021-03-02_00-00-00/
+        and alternatively use "line" instead of "bar"
+        """
+        import matplotlib.pyplot as plt
+
+
+        type = sys.argv[2]
+        assert type in ('bar','line')
+        run_dirs = [Path(x) for x in sys.argv[3:]]
+
+        bench_dir = run_dirs[0].parent.parent.parent
+        assert all([str(x.parent.parent.parent) == str(bench_dir) for x in run_dirs]), "not all came from same benchmark group"
+        bench_group = bench_dir.name # eg fake_logo_2019-03-23T18:06:23.106382
+        bench_names = get_benches(bench_dir)
+
+        # pool all metrics that are non-none for at least one run of one benchmark
+        metrics = []
+        for bench in bench_names:
+            for run_dir in run_dirs:
+                if not (run_dir / 'processed' / f'{bench}.json').exists():
+                    continue
+                processed = load(run_dir / 'processed' / f'{bench}.json')
+                metrics.extend([metric for metric,val in processed['metrics'].items() if val is not None])
+        metrics = sorted(list(set(metrics)))
+
+
+        num_runs = len(run_dirs)
+        num_benches = len(bench_names)
+        bar_width = (1/(num_runs+1))
+
+        MEMORY = 'mem_peak_kb'
+        TIME_BINARY = 'time_binary_seconds'
+        TIME_TOTAL = 'time_total_seconds'
+        TIME_CANDIDATES = 'time_candidates_seconds'
+        TIME_MIDDLE_REWRITE = 'time_middle_rewrite_seconds'
+        TIME_FINAL_REWRITE = 'time_final_rewrite_seconds'
+        COMPRESSION_RATIO = 'compression_ratio'
+        COMPRESSION_UTILITY = 'compression_utility'
+        STITCH_UTILITY = 'stitch_utility'
+        PCFG_SCORE = 'pcfg_score'
+
+        # for each metric, make a bar graph with the bench name on the
+        # x axis and the metric value on the y axis, with one bar per run
+        for metric in metrics:
+            plt.clf()
+            fig,ax = plt.subplots()
+            for i,run_dir in enumerate(run_dirs):
+                bar_heights = []
+                for bench in bench_names:
+                    if not (run_dir / 'processed' / f'{bench}.json').exists():
+                        bar_heights.append(0)
+                    else:
+                        bar_heights.append(load(run_dir / 'processed' / f'{bench}.json')['metrics'][metric])
+                
+                xs = [j + i * bar_width for j in range(num_benches)]
+                
+                # print(f'plotted {run_dir.parent.name}')
+                ax.bar(xs, bar_heights, width = bar_width, label=f'{run_dir.parent.name}/{run_dir.name}')
+
+            # set y axis to start at 1
+            if metric == COMPRESSION_RATIO:
+                ax.set_ylim(bottom=1)
+            
+            if metric in (MEMORY,TIME_BINARY):
+                ax.set_yscale('log')
+
+            plt.xlabel('benchmark')
+            plt.ylabel(metric)
+            plt.title(f'{metric} {bench_group}')
+            xs = [j + (bar_width*(num_runs-1))/2 for j in range(num_benches)]
+            plt.xticks(xs, bench_names, rotation=90, fontsize=8)
+            plt.legend()
+            plt.tight_layout()
+
+            os.makedirs(bench_dir / 'plots', exist_ok=True)
+            plt.savefig(bench_dir / 'plots' / f'{metric}_{bench_group}.png',dpi=400)
+            print("wrote to " + str(bench_dir / 'plots' / f'{metric}_{bench_group}.png'))
+            
+
+
+
+            
+
+
 
 
 
@@ -637,25 +728,6 @@ if __name__ == '__main__':
 
 
 
-
-
-
-"""
-Unified single step output format for exactly 1 new invention
-invention_info.json
-
-name
-stitch_uncanonical
-stitch_canonical
-dreamcoder
-dreamcoder_frontiers_score
-stitch_frontiers_cost
-compressivity
-stitch_utility (null for now)
-stitch_frontiers
-dreamcoder_frontiers
-
-"""
 
 
 
