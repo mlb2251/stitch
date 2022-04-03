@@ -109,3 +109,160 @@ fn main() {
     std::fs::write(out_path, serde_json::to_string_pretty(&out).unwrap()).unwrap();
     println!("Wrote to {:?}", out_path);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+
+    /**
+     * Regression test.
+     * Tests whether the top 10 inventions found after 10 iterations on data/dc/logo_iteration_1.json
+     * matches those expected.
+     */
+    #[test]
+    fn dc_logo_it_1_top_10_match_expected() {
+    
+        let input_file = std::path::Path::new("data/dc/logo_iteration_1.json");
+        let (programs, tasks, num_prior_inventions) = InputFormat::Dreamcoder.load_programs_and_tasks(input_file).unwrap();
+    
+        let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
+        let programs: Expr = Expr::programs(programs);
+
+        // Run compression with the default argument values
+        let step_results = compression(
+            &programs,
+            10,
+            &CompressionStepConfig {
+                max_arity: 2,
+                threads: 1,
+                inv_candidates: 1,
+                hole_choice: HoleChoice::MinCost,
+                no_top_lambda: false,
+                track: None,
+                verbose_worklist: false,
+                verbose_best: false,
+                no_cache: false,
+                show_rewritten: false,
+                no_opt_free_vars: false,
+                no_opt_single_use: false,
+                no_opt_single_task: false,
+                no_opt_upper_bound: false,
+                no_opt_force_multiuse: false,
+                no_opt_useless_abstract: false,
+                no_stats: false,
+                no_other_util: false,
+            },
+            &tasks,
+            num_prior_inventions);
+
+        let inventions = step_results.iter().take(10).map(|inv| inv.inv.body.to_string()).collect::<Vec<String>>();
+        let expected_inventions = vec!["(lam (logo_forLoop #0 (lam (lam (#1 $0))) $0))", "(logo_FWRT #0 (logo_DIVA logo_UA #1))", "(logo_MULL logo_UL)", "(logo_FWRT logo_UL)", "(logo_FWRT (logo_MULL logo_epsL #0))", "(fn_9 #0 (lam (logo_GETSET (lam (#1 $0)) (fn_10 logo_ZL #0 $0))))", "(logo_DIVL logo_UL)", "(fn_9 #0 (logo_FWRT (fn_11 4) (logo_MULA (logo_DIVA logo_UA #0) #1)))", "(logo_PT (lam (fn_12 #0 $0)))", "(logo_forLoop logo_IFTY (lam (lam (logo_FWRT #0 #1 $0))))"];
+
+        // Assert single threaded results match expected results
+        assert_eq!(inventions, expected_inventions);
+    }
+
+    /**
+     * Regression test.
+     * Tests whether the top 10 inventions found after 10 iterations on data/dc/logo_iteration_1.json
+     * are the same both for single-threaded and 4-threaded runs.
+     */
+    #[test]
+    fn dc_logo_it_1_top_10_st_match_mt() {
+
+        let input_file = std::path::Path::new("data/dc/logo_iteration_1.json");
+        let (programs, tasks, num_prior_inventions) = InputFormat::Dreamcoder.load_programs_and_tasks(input_file).unwrap();
+    
+        let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
+        let programs: Expr = Expr::programs(programs);
+
+        let step_results = compression(
+            &programs,
+            10,
+            &CompressionStepConfig {
+                max_arity: 2,
+                threads: 1,
+                inv_candidates: 1,
+                hole_choice: HoleChoice::MinCost,
+                no_top_lambda: false,
+                track: None,
+                verbose_worklist: false,
+                verbose_best: false,
+                no_cache: false,
+                show_rewritten: false,
+                no_opt_free_vars: false,
+                no_opt_single_use: false,
+                no_opt_single_task: false,
+                no_opt_upper_bound: false,
+                no_opt_force_multiuse: false,
+                no_opt_useless_abstract: false,
+                no_stats: false,
+                no_other_util: false,
+            },
+            &tasks,
+            num_prior_inventions);
+
+        let singlethreaded_inventions = step_results.iter().take(10).map(|inv| inv.inv.body.to_string()).collect::<Vec<String>>();
+
+        let step_results = compression(
+            &programs,
+            10,
+            &CompressionStepConfig {
+                max_arity: 2,
+                threads: 4,
+                inv_candidates: 1,
+                hole_choice: HoleChoice::MinCost,
+                no_top_lambda: false,
+                track: None,
+                verbose_worklist: false,
+                verbose_best: false,
+                no_cache: false,
+                show_rewritten: false,
+                no_opt_free_vars: false,
+                no_opt_single_use: false,
+                no_opt_single_task: false,
+                no_opt_upper_bound: false,
+                no_opt_force_multiuse: false,
+                no_opt_useless_abstract: false,
+                no_stats: false,
+                no_other_util: false,
+            },
+            &tasks,
+            num_prior_inventions);
+
+        let multithreaded_inventions = step_results.iter().take(10).map(|inv| inv.inv.body.to_string()).collect::<Vec<String>>();
+
+        // Assert single threaded results match multithreaded results
+        assert_eq!(singlethreaded_inventions, multithreaded_inventions);
+    }
+
+    /**
+     * Regression test.
+     * Test whether context threading works by matching against expected inventions found
+     * in data/basic/ctx_thread_1.json.
+     */
+    #[test]
+    fn ctx_thread_1_match_expected() {
+    
+        let input_file = std::path::Path::new("data/basic/ctx_thread_1.json");
+        let (programs, tasks, num_prior_inventions) = InputFormat::ProgramsList.load_programs_and_tasks(input_file).unwrap();
+    
+        let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
+        let programs: Expr = Expr::programs(programs);
+
+        // Run compression with the default argument values
+        let step_results = compression(
+            &programs,
+            10,
+            &CompressionStepConfig::parse_from("compress".split_whitespace()),
+            &tasks,
+            num_prior_inventions);
+
+        let inventions = step_results.iter().take(2).map(|inv| inv.inv.body.to_string()).collect::<Vec<String>>();
+        let expected_inventions = vec!["(+ #0 #0)", "(A (lam (lam (fn_0 (a b #0 $0 f)))))"];
+
+        // Assert single threaded results match expected results
+        assert_eq!(inventions, expected_inventions);
+    }
+}
