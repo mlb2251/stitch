@@ -24,7 +24,9 @@ then
 else
     OUT_DIR=$2
     echo "Resuming previous run: $OUT_DIR"
-    if ! [[ $OUT_DIR == $BENCH_DIR* ]]; then
+    ROUT_DIR=$(realpath $OUT_DIR)
+    RBENCH_DIR=$(realpath $BENCH_DIR)
+    if ! [[ $ROUT_DIR == $RBENCH_DIR* ]]; then
         echo "The output doesnt match with the bench dir"
         exit 1
     fi
