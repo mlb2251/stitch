@@ -433,7 +433,6 @@ pub struct SharedData {
     pub arg_of_zid_node: Vec<HashMap<Id,Arg>>,
     pub treenodes: Vec<Id>,
     pub programs_node: Id,
-    pub roots: Vec<Id>,
     pub zids_of_node: HashMap<Id,Vec<ZId>>,
     pub zip_of_zid: Vec<Zip>,
     pub zid_of_zip: HashMap<Zip, ZId>,
@@ -1118,14 +1117,15 @@ pub struct CompressionStepData {
 }
 
 impl CompressionStepData {
-    fn new(done: FinishedPattern, programs_node: Id, inv_name: &str, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>, very_first_cost: Option<i32>) -> Self {
+    fn new(done: FinishedPattern, programs_node: Id, inv: &Invention, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>, very_first_cost: Option<i32>) -> Self {
         let initial_cost = shared.egraph[programs_node].data.inventionless_cost;
+        let roots: Vec<Id> = shared.egraph[programs_node].nodes[0].children().iter().cloned().collect();
 
         // cost of the very first initial program before any inventions
         let very_first_cost = very_first_cost.unwrap_or(initial_cost);
 
-        let inv = done.to_invention(inv_name, shared);
-        let rewritten = Expr::programs(rewrite_fast(&done, &shared, &inv.name));
+        let inv_name = &inv.name;
+        let rewritten = Expr::programs(rewrite_fast(&done, roots, &shared, inv_name));
 
 
         let expected_cost = initial_cost - done.compressive_utility;
@@ -1153,7 +1153,7 @@ impl CompressionStepData {
                 // res = res.replace(&format!("{})",past_inv.inv.name), &format!("{})",past_inv.dc_inv_str));
                 // res = res.replace(&format!("{} ",past_inv.inv.name), &format!("{} ",past_inv.dc_inv_str));
             }
-            res = replace_prim_with(&res, &inv_name, &dc_inv_str);
+            res = replace_prim_with(&res, inv_name, &dc_inv_str);
             // res = res.replace(&format!("{})",inv_name), &format!("{})",dc_inv_str));
             // res = res.replace(&format!("{} ",inv_name), &format!("{} ",dc_inv_str));
             res
@@ -1196,8 +1196,8 @@ impl CompressionStepResult {
 
         let inv = done.to_invention(inv_name, shared);
 
-        let train_data = CompressionStepData::new(done.clone(), train_programs_node, inv_name, shared, past_invs, first_train_cost);
-        let test_data = test_programs_node.map(|n| CompressionStepData::new(done.clone(), n, inv_name, shared, past_invs, first_test_cost));
+        let train_data = CompressionStepData::new(done.clone(), train_programs_node, &inv, shared, past_invs, first_train_cost);
+        let test_data = test_programs_node.map(|n| CompressionStepData::new(done.clone(), n, &inv, shared, past_invs, first_test_cost));
 
         let dc_inv_str: String = dc_inv_str(&inv, past_invs);
 
@@ -1660,7 +1660,6 @@ pub fn compression_step(
         arg_of_zid_node,
         treenodes: treenodes.clone(),
         programs_node: train_programs_node,
-        roots,
         zids_of_node,
         zip_of_zid,
         zid_of_zip,
