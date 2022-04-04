@@ -1233,9 +1233,9 @@ impl fmt::Display for CompressionStepResult {
             self.train_data.final_cost,
             self.train_data.multiplier,
             self.train_data.uses,
-            inspect_or(&self.test_data, "N/A".to_string(), |d| d.final_cost.to_string()),
-            inspect_or(&self.test_data, "N/A".to_string(), |d| d.multiplier.to_string()),
-            inspect_or(&self.test_data, "N/A".to_string(), |d| d.uses.to_string()),
+            inspect_or(&self.test_data, "null".to_string(), |d| d.final_cost.to_string()),
+            inspect_or(&self.test_data, "null".to_string(), |d| d.multiplier.to_string()),
+            inspect_or(&self.test_data, "null".to_string(), |d| d.uses.to_string()),
             self.inv)
     }
 }
@@ -1518,13 +1518,13 @@ pub fn compression(
     println!("Found {} inventions", step_results.len());
     println!("Cost Improvement (train): ({:.2}x better) {} -> {}", compression_factor(train_programs_expr, &train_rewritten), train_programs_expr.cost(), train_rewritten.cost());
     println!("Cost Improvement (test): {}",
-        if let Some(e) = test_programs_expr { format!("{:.2}x better) {} -> {}", compression_factor(e, &test_rewritten.as_ref().unwrap()), e.cost(), test_rewritten.unwrap().cost()) } else { "N/A".to_string() }
+        if let Some(e) = test_programs_expr { format!("{:.2}x better) {} -> {}", compression_factor(e, &test_rewritten.as_ref().unwrap()), e.cost(), test_rewritten.unwrap().cost()) } else { "null".to_string() }
     );
     for i in 0..step_results.len() {
         let res = &step_results[i];
         println!("train: {} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(train_programs_expr, &res.train_data.rewritten), res);
         println!("test: {}",
-            if let Some(e) = test_programs_expr { format!("{} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(e, &res.test_data.as_ref().unwrap().rewritten), res) } else { "N/A".to_string() }
+            if let Some(e) = test_programs_expr { format!("{} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(e, &res.test_data.as_ref().unwrap().rewritten), res) } else { "null".to_string() }
         );
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
@@ -1762,7 +1762,7 @@ pub fn compression_step(
         if cfg.show_rewritten {
             println!("rewritten (train):\n{}", &res.train_data.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"));
             println!("rewritten (test):\n{}",
-                inspect_or(&res.test_data, "N/A".to_string(), |d| d.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"))
+                inspect_or(&res.test_data, "null".to_string(), |d| d.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"))
             );
         }
         results.push(res);
