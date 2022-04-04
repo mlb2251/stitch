@@ -1518,13 +1518,13 @@ pub fn compression(
     println!("Found {} inventions", step_results.len());
     println!("Cost Improvement (train): ({:.2}x better) {} -> {}", compression_factor(train_programs_expr, &train_rewritten), train_programs_expr.cost(), train_rewritten.cost());
     println!("Cost Improvement (test): {}",
-        if let Some(e) = test_programs_expr { format!("{:.2}x better) {} -> {}", compression_factor(e, &test_rewritten.as_ref().unwrap()), e.cost(), test_rewritten.unwrap().cost()) } else { "null".to_string() }
+        inspect_or(test_programs_expr, "null".to_string(), |e| format!("({:.2}x better) {} -> {}", compression_factor(e, &test_rewritten.as_ref().unwrap()), e.cost(), test_rewritten.unwrap().cost()))
     );
     for i in 0..step_results.len() {
         let res = &step_results[i];
         println!("train: {} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(train_programs_expr, &res.train_data.rewritten), res);
         println!("test: {}",
-            if let Some(e) = test_programs_expr { format!("{} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(e, &res.test_data.as_ref().unwrap().rewritten), res) } else { "null".to_string() }
+            inspect_or(test_programs_expr, "null".to_string(), |e| format!("{} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(e, &res.test_data.as_ref().unwrap().rewritten), res))
         );
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
@@ -1551,7 +1551,7 @@ pub fn compression_step(
     // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
     let mut egraph: EGraph = Default::default();
     let train_programs_node = egraph.add_expr(train_programs_expr.into());
-    let test_programs_node = if let Some(e) = test_programs_expr { Some(egraph.add_expr(e.into())) } else { None };
+    let test_programs_node = inspect(test_programs_expr, |e| egraph.add_expr(e.into()));
     egraph.rebuild();
 
     println!("set up egraph: {:?}ms", tstart.elapsed().as_millis());
@@ -1560,7 +1560,7 @@ pub fn compression_step(
     let roots: Vec<Id> = egraph[train_programs_node].nodes[0].children().iter().cloned().collect();
 
     // all nodes in child-first order except for the Programs node
-    let mut treenodes: Vec<Id> = topological_ordering(train_programs_node,&egraph);
+    let mut treenodes: Vec<Id> = topological_ordering(train_programs_node, &egraph);
     treenodes.retain(|id| *id != train_programs_node);
 
     println!("got roots and treenodes: {:?}ms", tstart.elapsed().as_millis());

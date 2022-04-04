@@ -93,7 +93,7 @@ fn main() {
     
     // parse the program strings into expressions
     let train_programs: Vec<Expr> = train_programs.iter().map(|p| p.parse().unwrap()).collect();
-    let test_programs: Option<Vec<Expr>> = if let Some(ps) = test_programs { Some(ps.iter().map(|p| p.parse().unwrap()).collect()) } else { None };
+    let test_programs: Option<Vec<Expr>> = test_programs.map(|ps| ps.iter().map(|p| p.parse().unwrap()).collect());
     
 
     // for prog in programs.iter() {
