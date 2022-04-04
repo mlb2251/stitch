@@ -777,6 +777,15 @@ fn stitch_search(
                 continue; // too few uses
             }
 
+            // prune inventions specific to one single task
+            if !shared.cfg.no_opt_single_task
+                    && locs.iter().all(|node| shared.tasks_of_node[&node].len() == 1)
+                    && locs.iter().all(|node| shared.tasks_of_node[&locs[0]].iter().next() == shared.tasks_of_node[&node].iter().next()) {
+                if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
+                if tracked { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
+                continue;
+            }
+
             // check for free variables: if an invention has free variables in the body then it's not a real function and we can discard it
             // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
             if !shared.cfg.no_opt_free_vars {
@@ -1553,6 +1562,9 @@ pub fn compression_step(
     });
 
     println!("Tracking setup: {:?}ms", tstart.elapsed().as_millis());
+
+    let mut stats: Stats = Default::default();
+
     tstart = std::time::Instant::now();
 
     // define all the important data structures for compression
@@ -1560,8 +1572,19 @@ pub fn compression_step(
 
     // arity 0 inventions
     for node in treenodes.iter() {
-        if !egraph[*node].data.free_vars.is_empty() { continue; }
-        if tasks_of_node[&node].len() < 2 { continue; }
+
+        // check for free vars: inventions with free vars in the body are not well-defined functions
+        // and should thus be discarded
+        if !cfg.no_opt_free_vars && !egraph[*node].data.free_vars.is_empty() {
+            if !cfg.no_stats { stats.free_vars_fired += 1; };
+            continue;
+        }
+
+        // check whether this invention is useful in > 1 task
+        if !cfg.no_opt_single_task && tasks_of_node[&node].len() < 2 {
+            if !cfg.no_stats { stats.single_task_fired += 1; };
+            continue;
+        }
         // Note that "single use" pruning is intentionally not done here,
         // since any invention specific to a node will by definition only
         // be useful at that node
@@ -1597,8 +1620,6 @@ pub fn compression_step(
     tstart = std::time::Instant::now();
 
     println!("got {} arity zero inventions", donelist.len());
-
-    let stats: Stats = Default::default();
 
     let crit = CriticalMultithreadData::new(donelist, &treenodes, &cost_of_node_all, &num_paths_to_node, &egraph, &cfg);
     let shared = Arc::new(SharedData {
