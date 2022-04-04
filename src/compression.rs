@@ -1213,7 +1213,7 @@ impl CompressionStepResult {
             "name": self.inv.name,
             "utility": self.done.utility,
             "train_result": self.train_data.json(&self.inv.name),
-            "test_result": if let Some(d) = &self.test_data { d.json(&self.inv.name).to_string() } else { "N/A".to_string() },
+            "test_result": inspect(&self.test_data, |d| d.json(&self.inv.name).to_string()),
         })
     }
 }
@@ -1233,9 +1233,9 @@ impl fmt::Display for CompressionStepResult {
             self.train_data.final_cost,
             self.train_data.multiplier,
             self.train_data.uses,
-            if let Some(d) = &self.test_data { d.final_cost.to_string() } else { "N/A".to_string() },
-            if let Some(d) = &self.test_data { d.multiplier.to_string() } else { "N/A".to_string() },
-            if let Some(d) = &self.test_data { d.uses.to_string() } else { "N/A".to_string() },
+            inspect_or(&self.test_data, "N/A".to_string(), |d| d.final_cost.to_string()),
+            inspect_or(&self.test_data, "N/A".to_string(), |d| d.multiplier.to_string()),
+            inspect_or(&self.test_data, "N/A".to_string(), |d| d.uses.to_string()),
             self.inv)
     }
 }
@@ -1500,7 +1500,7 @@ pub fn compression(
             // rewrite with the invention
             let res: CompressionStepResult = res[0].clone();
             train_rewritten = res.train_data.rewritten.clone();
-            test_rewritten = if let Some(d) = &res.test_data { Some(d.rewritten.clone()) } else { None };
+            test_rewritten = inspect(&res.test_data, |d| d.rewritten.clone());
             println!("Chose Invention {}: {}", res.inv.name, res);
             step_results.push(res);
         } else {
@@ -1755,16 +1755,14 @@ pub fn compression_step(
             first_train_cost = Some(res.train_data.initial_cost);
         }
         if first_test_cost == None {
-            if let Some(d) = &res.test_data {
-                first_test_cost = Some(d.initial_cost);
-            }
+            first_test_cost = inspect(&res.test_data, |d| d.initial_cost);
         }
 
         println!("{}: {}", i, res);
         if cfg.show_rewritten {
             println!("rewritten (train):\n{}", &res.train_data.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"));
             println!("rewritten (test):\n{}",
-                if let Some(d) = &res.test_data { d.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n") } else { "N/A".to_string() }
+                inspect_or(&res.test_data, "N/A".to_string(), |d| d.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"))
             );
         }
         results.push(res);

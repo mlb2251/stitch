@@ -115,7 +115,7 @@ fn main() {
     // different parts of the same programs the same way that we treat different parts of different programs, so
     // treating everything as one big expression makes sense.
     let train_programs: Expr = Expr::programs(train_programs);
-    let test_programs: Option<Expr> = if let Some(ps) = test_programs { Some(Expr::programs(ps)) } else { None };
+    let test_programs: Option<Expr> = test_programs.map(|ps|Expr::programs(ps));
 
     if train_programs.to_string_curried(None).contains("(app (lam")  {
         println!("Normal dreamcoder programs never have unapplied lambdas in them! Who knows what might happen if you run this. Probably it will be fine");
@@ -129,8 +129,8 @@ fn main() {
         "args": args,
         "train_original_cost": train_programs.cost(),
         "train_original": train_programs.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
-        "test_original_cost": if let Some(ps) = &test_programs { ps.cost() } else { -1 },
-        "test_original": if let Some(ps) = &test_programs { ps.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>() } else { vec![] },
+        "test_original_cost": inspect(&test_programs, |ps| ps.cost()),
+        "test_original": inspect(&test_programs, |ps| ps.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>()),
         "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
     });
 
