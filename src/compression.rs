@@ -1225,7 +1225,7 @@ impl fmt::Display for CompressionStepResult {
         }
         if let Some(test_d) = &self.test_data {
             if test_d.expected_cost != test_d.final_cost {
-                write!(f,"[cost mismatch of {} in test data] ", test_d.expected_cost - test_d.final_cost);
+                write!(f,"[cost mismatch of {} in test data] ", test_d.expected_cost - test_d.final_cost)?;
             }
         }
         write!(f, "utility: {} | final_cost (train): {} | multiplier (train): {:.2}x | uses (train): {} | final_cost(test): {} | multiplier (test): {:.2}x | uses (test): {} | body: {}",
