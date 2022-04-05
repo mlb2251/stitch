@@ -129,8 +129,8 @@ fn main() {
         "args": args,
         "train_original_cost": train_programs.cost(),
         "train_original": train_programs.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
-        "test_original_cost": inspect(&test_programs, |ps| ps.cost()),
-        "test_original": inspect(&test_programs, |ps| ps.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>()),
+        "test_original_cost": test_programs.as_ref().map(|ps| ps.cost()),
+        "test_original": test_programs.as_ref().map(|ps| ps.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>()),
         "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
     });
 

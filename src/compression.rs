@@ -1213,7 +1213,7 @@ impl CompressionStepResult {
             "name": self.inv.name,
             "utility": self.done.utility,
             "train_result": self.train_data.json(&self.inv.name),
-            "test_result": inspect(&self.test_data, |d| d.json(&self.inv.name).to_string()),
+            "test_result": self.test_data.as_ref().map(|d| d.json(&self.inv.name).to_string()),
         })
     }
 }
@@ -1233,9 +1233,9 @@ impl fmt::Display for CompressionStepResult {
             self.train_data.final_cost,
             self.train_data.multiplier,
             self.train_data.uses,
-            inspect_or(&self.test_data, "null".to_string(), |d| d.final_cost.to_string()),
-            inspect_or(&self.test_data, "null".to_string(), |d| d.multiplier.to_string()),
-            inspect_or(&self.test_data, "null".to_string(), |d| d.uses.to_string()),
+            self.test_data.as_ref().map_or("null".to_string(), |d| d.final_cost.to_string()),
+            self.test_data.as_ref().map_or("null".to_string(), |d| d.multiplier.to_string()),
+            self.test_data.as_ref().map_or("null".to_string(), |d| d.uses.to_string()),
             self.inv)
     }
 }
@@ -1500,7 +1500,7 @@ pub fn compression(
             // rewrite with the invention
             let res: CompressionStepResult = res[0].clone();
             train_rewritten = res.train_data.rewritten.clone();
-            test_rewritten = inspect(&res.test_data, |d| d.rewritten.clone());
+            test_rewritten = res.test_data.as_ref().map(|d| d.rewritten.clone());
             println!("Chose Invention {}: {}", res.inv.name, res);
             step_results.push(res);
         } else {
@@ -1518,13 +1518,13 @@ pub fn compression(
     println!("Found {} inventions", step_results.len());
     println!("Cost Improvement (train): ({:.2}x better) {} -> {}", compression_factor(train_programs_expr, &train_rewritten), train_programs_expr.cost(), train_rewritten.cost());
     println!("Cost Improvement (test): {}",
-        inspect_or(test_programs_expr, "null".to_string(), |e| format!("({:.2}x better) {} -> {}", compression_factor(e, &test_rewritten.as_ref().unwrap()), e.cost(), test_rewritten.unwrap().cost()))
+        test_programs_expr.as_ref().map_or("null".to_string(), |e| format!("({:.2}x better) {} -> {}", compression_factor(e, &test_rewritten.as_ref().unwrap()), e.cost(), test_rewritten.unwrap().cost()))
     );
     for i in 0..step_results.len() {
         let res = &step_results[i];
         println!("train: {} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(train_programs_expr, &res.train_data.rewritten), res);
         println!("test: {}",
-            inspect_or(test_programs_expr, "null".to_string(), |e| format!("{} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(e, &res.test_data.as_ref().unwrap().rewritten), res))
+            test_programs_expr.as_ref().map_or("null".to_string(), |e| format!("{} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(e, &res.test_data.as_ref().unwrap().rewritten), res))
         );
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
@@ -1551,7 +1551,7 @@ pub fn compression_step(
     // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
     let mut egraph: EGraph = Default::default();
     let train_programs_node = egraph.add_expr(train_programs_expr.into());
-    let test_programs_node = inspect(test_programs_expr, |e| egraph.add_expr(e.into()));
+    let test_programs_node = test_programs_expr.as_ref().map(|e| egraph.add_expr(e.into()));
     egraph.rebuild();
 
     println!("set up egraph: {:?}ms", tstart.elapsed().as_millis());
@@ -1754,14 +1754,14 @@ pub fn compression_step(
             first_train_cost = Some(res.train_data.initial_cost);
         }
         if first_test_cost == None {
-            first_test_cost = inspect(&res.test_data, |d| d.initial_cost);
+            first_test_cost = res.test_data.as_ref().map(|d| d.initial_cost);
         }
 
         println!("{}: {}", i, res);
         if cfg.show_rewritten {
             println!("rewritten (train):\n{}", &res.train_data.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"));
             println!("rewritten (test):\n{}",
-                inspect_or(&res.test_data, "null".to_string(), |d| d.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"))
+                res.test_data.as_ref().map_or("null".to_string(), |d| d.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"))
             );
         }
         results.push(res);

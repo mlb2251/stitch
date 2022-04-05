@@ -365,22 +365,3 @@ pub fn num_paths_to_node(roots: &[Id], treenodes: &Vec<Id>, egraph: &crate::EGra
     });
     num_paths_to_node
 }
-
-// These should be replaced by Option::inspect and Option::inspect_or once
-// those are in the stable Rust build. I think the functionality will be equivalent,
-// although they might be implemented differently (I didn't look at the proposed source code)
-pub fn inspect<T, Out>(it: &Option<T>, f: impl FnOnce(&T) -> Out) -> Option<Out> {
-    if let Some(ref it) = it {
-        Some(f(it))
-    } else {
-        None
-    }
-}
-
-pub fn inspect_or<T, Out>(it: &Option<T>, default: Out, f: impl FnOnce(&T) -> Out) -> Out {
-    if let Some(ref it) = it {
-        f(it)
-    } else {
-        default
-    }
-}
