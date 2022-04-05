@@ -817,20 +817,20 @@ fn stitch_search(
             };
 
             // update the upper bound
-            let utility_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
+            let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
 
-            assert!(utility_upper_bound <= original_pattern.utility_upper_bound);
+            assert!(util_upper_bound <= original_pattern.utility_upper_bound);
 
             // prune if utility upper bound is negative
-            if utility_upper_bound <= 0 {
-                if tracked { println!("{} <= 0 utility pruned ({}) when expanding {} to {}", "[TRACK]".red().bold(), utility_upper_bound, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+            if util_upper_bound <= 0 {
+                if tracked { println!("{} <= 0 utility pruned ({}) when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
                 continue; // too low utility
             }
 
             // branch and bound: if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
-            if !shared.cfg.no_opt_upper_bound && utility_upper_bound <= weak_utility_pruning_cutoff {
+            if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-                if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), utility_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+                if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
                 continue; // too low utility
             }
 
@@ -880,12 +880,12 @@ fn stitch_search(
 
             // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
             // from the old pattern.
-            let new_pattern = Pattern {
+            let mut new_pattern = Pattern {
                 holes,
                 arg_choices,
                 first_zid_of_ivar,
                 match_locations: locs,
-                utility_upper_bound,
+                utility_upper_bound: util_upper_bound,
                 body_utility,
                 tracked
             };
@@ -893,19 +893,30 @@ fn stitch_search(
 
             if new_pattern.holes.is_empty() {
                 // it's a finished pattern
+                let mut recalculate_utility = false;
 
-                // check if free vars (including negatives) in args
+                // check if negative vars in args (ie over shifted things) and discard those locations (but keep the overall invention)
                 // todo change this to be negative ivars + add refinement
                 for zid in new_pattern.first_zid_of_ivar.iter() {
                     let ref arg_of_node = shared.arg_of_zid_node[*zid];
-                    for loc in new_pattern.match_locations.iter() {
-                        if shared.egraph[arg_of_node[loc].id].data.free_vars.iter().any(|var| *var < 0) {
-                            if tracked { println!("{} discarding finished_pattern because one of its args has negative vars: {}", "[TRACK]".red().bold(), new_pattern.to_expr(&shared)); }
-                            continue 'outer;
-                        }
-                    }
-
+                    new_pattern.match_locations.retain(|loc|{
+                       let ok = shared.egraph[arg_of_node[loc].id].data.free_vars.iter().all(|var| *var >= 0);
+                       if !ok { recalculate_utility = true; } // we returned false at least once, so we need to recalculate the utility at the end of this
+                       ok
+                    });
                 }
+
+                // recalculate upper bound now that match_locations may have changed, and redo bound check
+                if recalculate_utility {
+                    new_pattern.utility_upper_bound = utility_upper_bound(&new_pattern.match_locations, new_pattern.body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
+                    // more branch and bound
+                    if !shared.cfg.no_opt_upper_bound && new_pattern.utility_upper_bound <= weak_utility_pruning_cutoff {
+                        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
+                        if tracked { println!("{} upper bound ({} < {}) pruned AFTER negative var retain() when expanding {} to {}", "[TRACK]".red().bold(), new_pattern.utility_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+                        continue; // too low utility
+                    }
+                }
+
 
                 let finished_pattern = FinishedPattern::new(new_pattern, &shared);
                 if tracked {

@@ -44,6 +44,7 @@ pub fn rewrite_fast(
         shared: &SharedData,
         unshifted_id: Id,
         shift: i32,
+        depth: i32,
         inv_name: &str,
     ) -> Expr
     {
@@ -51,13 +52,22 @@ pub fn rewrite_fast(
         if pattern.pattern.match_locations.binary_search(&unshifted_id).is_ok() // if the pattern matches here
            && (!pattern.util_calc.corrected_utils.contains_key(&unshifted_id) // and either we have no conflict (ie corrected_utils doesnt have an entry)
              || pattern.util_calc.corrected_utils[&unshifted_id].accept) // or we have a conflict but we choose to accept it (which is contextless in this top down approach so its the right move)
+        //    && !pattern.pattern.first_zid_of_ivar.iter().any(|zid| // and there are no negative vars anywhere in the arguments
+        //         shared.egraph[shared.arg_of_zid_node[*zid][&unshifted_id].id].data.free_vars.iter().any(|var| *var < 0))
         { 
             let mut expr = Expr::prim(inv_name.into());
             // wrap the prim in all the Apps to args
             for zid in pattern.pattern.first_zid_of_ivar.iter() {
                 let ref arg: Arg = shared.arg_of_zid_node[*zid][&unshifted_id];
-                let shift = shift + arg.shift;
-                let rewritten_arg = helper(pattern, shared, arg.id, shift, inv_name);
+                assert!(shared.egraph[arg.id].data.free_vars.iter().all(|v| *v >= 0));
+                // if arg.shift != 0 && shift != 0 {
+                //     panic!("ayo") // doesnt happen
+                // }
+                // assert!(arg.id == egraphs::shift(arg.unshifted_id, arg.shift, &shared.egraph, None).unwrap());
+                println!("shifting {} by {}", extract(arg.id,&shared.egraph), shift + arg.shift);
+
+                // resetting the depth to 0 should be safe here
+                let rewritten_arg = helper(pattern, shared, arg.unshifted_id, shift + arg.shift, 0, inv_name);
                 expr = Expr::app(expr, rewritten_arg);
             }
             return expr
@@ -65,15 +75,22 @@ pub fn rewrite_fast(
 
         match &shared.egraph[unshifted_id].nodes[0] {
             Lambda::Prim(p) => Expr::prim(*p),
-            Lambda::Var(i) => Expr::var(*i + shift), // we extract from the *shifted* one since thats the real one
+            Lambda::Var(i) => {
+                if *i > depth {
+                    assert!(*i + shift >= 0, "{}", shift);
+                    Expr::var(*i + shift)
+                } else {
+                    Expr::var(*i)
+                }
+            }, // we extract from the *shifted* one since thats the real one
             Lambda::App([unshifted_f,unshifted_x]) => {
                 Expr::app(
-                    helper(pattern, shared, *unshifted_f, shift, inv_name),
-                    helper(pattern, shared, *unshifted_x, shift, inv_name),
+                    helper(pattern, shared, *unshifted_f, shift, depth, inv_name),
+                    helper(pattern, shared, *unshifted_x, shift, depth, inv_name),
                 )
             },
             Lambda::Lam([unshifted_b]) => {
-                Expr::lam(helper(pattern, shared, *unshifted_b, shift, inv_name))
+                Expr::lam(helper(pattern, shared, *unshifted_b, shift, depth + 1, inv_name))
             },
             _ => unreachable!(),
         }
@@ -82,7 +99,7 @@ pub fn rewrite_fast(
     let init_cost: i32 = shared.roots.iter().map(|r| shared.egraph[*r].data.inventionless_cost).sum();
 
     let rewritten_exprs: Vec<Expr> = shared.roots.iter().map(|root| {
-        helper(pattern, shared, *root, 0, inv_name)
+        helper(pattern, shared, *root, 0, 0, inv_name)
     }).collect();
 
     if !shared.cfg.no_mismatch_check {
