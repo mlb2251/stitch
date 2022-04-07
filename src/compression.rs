@@ -67,6 +67,10 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub verbose_best: bool,
 
+    /// print stats this often (0 means never)
+    #[clap(long, default_value = "0")]
+    pub print_stats: usize,
+
     /// for dreamcoder comparison only: this makes stitch drop its final searchh
     /// result and return one less invention than you asked for while still
     /// doing the work of finding that last invention. This simulations how dreamcoder
@@ -738,6 +742,7 @@ fn stitch_search(
         for original_pattern in patterns {
 
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
+            if !shared.cfg.no_stats { if shared.cfg.print_stats > 0 &&  shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 { println!("{:?}",shared.stats.lock().deref_mut()); }};
 
             if shared.cfg.verbose_worklist {
                 println!("[prio={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.len(), original_pattern.to_expr(&shared));
