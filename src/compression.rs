@@ -672,6 +672,7 @@ fn get_worklist_item(
         while crit.worklist.is_empty() {
             if !returned_items.is_empty() {
                 // give up and return whatever we've got
+                crit.active_threads.insert(thread::current().id());
                 return Some((returned_items, utility_pruning_cutoff));
             }
             if crit.active_threads.is_empty() {
