@@ -30,6 +30,10 @@ pub struct CompressionStepConfig {
     #[clap(short='b', long, default_value = "1")]
     pub batch: usize,
 
+    /// threads will autoadjust how large their batches are based on the worklist size
+    #[clap(long)]
+    pub dynamic_batch: bool,
+
     /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
     #[clap(short='n', long, default_value = "1")]
     pub inv_candidates: usize,
@@ -410,10 +414,12 @@ impl Ord for HeapItem {
     }
 }
 impl HeapItem {
-    fn new(pattern: Pattern) -> Self {
+    fn new(pattern: Pattern, num_paths_to_node: &HashMap<Id,i32>) -> Self {
         HeapItem {
-            // key: pattern.body_utility * pattern.match_locations.len() as i32,
+            // key: pattern.body_utility * pattern.match_locations.iter().map(|loc|num_paths_to_node[loc]).sum::<i32>(),
             key: pattern.utility_upper_bound,
+            // system time is suuuper slow btw you want to do something else
+            // key: std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap().as_nanos() as i32,
             pattern
         }
     }
@@ -466,7 +472,7 @@ impl CriticalMultithreadData {
     fn new(donelist: Vec<FinishedPattern>, treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
         // push an empty hole onto a new worklist
         let mut worklist = BinaryHeap::new();
-        worklist.push(HeapItem::new(Pattern::single_hole(treenodes, cost_of_node_all, num_paths_to_node, egraph, cfg)));
+        worklist.push(HeapItem::new(Pattern::single_hole(treenodes, cost_of_node_all, num_paths_to_node, egraph, cfg),num_paths_to_node));
         
         let mut res = CriticalMultithreadData {
             donelist,
@@ -668,6 +674,10 @@ fn get_worklist_item(
 
     // try to get a new worklist item
     crit.active_threads.remove(&thread::current().id()); // remove ourself from the active threads
+    // println!("worklist len: {}", crit.worklist.len());
+
+    // with dynamic batch size, take worklist_size/num_threads items from the worklist
+    let batch_size = if shared.cfg.dynamic_batch { std::cmp::max(1, crit.worklist.len() / shared.cfg.threads ) } else { shared.cfg.batch };
     loop {
         while crit.worklist.is_empty() {
             if !returned_items.is_empty() {
@@ -691,7 +701,7 @@ fn get_worklist_item(
         if shared.cfg.no_opt_upper_bound || heap_item.pattern.utility_upper_bound > utility_pruning_cutoff {
             // we got one!
             returned_items.push(heap_item.pattern);
-            if returned_items.len() == shared.cfg.batch {
+            if returned_items.len() == batch_size {
                 // we got enough, so return it
                 crit.active_threads.insert(thread::current().id());
                 return Some((returned_items, utility_pruning_cutoff));
@@ -939,7 +949,7 @@ fn stitch_search(
                 } else {
                     // it's a partial pattern so just add it to the worklist
                     if tracked { println!("{} pushed {} to worklist (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(hole_zid, &shared), new_pattern.utility_upper_bound); }
-                    worklist_buf.push(HeapItem::new(new_pattern))
+                    worklist_buf.push(HeapItem::new(new_pattern, &shared.num_paths_to_node))
                 }
             }
 
