@@ -481,7 +481,7 @@ impl CriticalMultithreadData {
         self.donelist.sort_unstable_by(|a,b| (b.utility,&b.pattern.arg_choices).cmp(&(a.utility,&a.pattern.arg_choices)));
         self.donelist.truncate(cfg.inv_candidates);
         // the cutoff is the lowest utility
-        self.utility_pruning_cutoff = self.donelist.last().map(|x|x.utility).unwrap_or(0);
+        self.utility_pruning_cutoff = if cfg.no_opt_upper_bound { 0 } else { self.donelist.last().map(|x|x.utility).unwrap_or(0) };
     }
 }
 
