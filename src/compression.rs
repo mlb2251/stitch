@@ -106,6 +106,10 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_opt_useless_abstract: bool,
 
+    /// disable the arity zero priming optimization
+    #[clap(long)]
+    pub no_opt_arity_zero: bool,
+
     /// Disable stat logging - note that stat logging in multithreading requires taking a mutex
     /// so it could be a source of slowdown in the multithreaded case, hence this flag to disable it.
     /// From some initial tests it seems to cause no slowdown anyways though.
@@ -124,6 +128,7 @@ impl CompressionStepConfig {
         self.no_opt_upper_bound = true;
         self.no_opt_force_multiuse = true;
         self.no_opt_useless_abstract = true;
+        self.no_opt_arity_zero = true;
     }
 }
 
@@ -1456,16 +1461,6 @@ pub fn compression(
     num_prior_inventions: usize,
 ) -> Vec<CompressionStepResult> {
 
-    if cfg.follow_track && !(
-           cfg.no_opt_free_vars
-        && cfg.no_opt_single_task
-        && cfg.no_opt_upper_bound
-        && cfg.no_opt_force_multiuse
-        && cfg.no_opt_useless_abstract)
-    {
-        println!("{} you often want to run --follow-track with --no-opt otherwise your target may get pruned", "[WARNING]".yellow());
-    }
-
     let mut rewritten: Expr = programs_expr.clone();
     let mut step_results: Vec<CompressionStepResult> = Default::default();
 
@@ -1508,6 +1503,16 @@ pub fn compression(
         println!("{} ({:.2}x wrt orig): {}" ,res.inv.name.clone().blue(), compression_factor(programs_expr, &res.rewritten), res);
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
+    if cfg.follow_track && !(
+        cfg.no_opt_free_vars
+        && cfg.no_opt_single_task
+        && cfg.no_opt_upper_bound
+        && cfg.no_opt_force_multiuse
+        && cfg.no_opt_useless_abstract
+        && cfg.no_opt_arity_zero)
+    {
+        println!("{} you often want to run --follow-track with --no-opt otherwise your target may get pruned", "[WARNING]".yellow());
+    }
     step_results
 }
 
@@ -1593,49 +1598,51 @@ pub fn compression_step(
     let mut donelist: Vec<FinishedPattern> = Default::default(); // completed inventions will go here    
 
     // arity 0 inventions
-    for node in treenodes.iter() {
+    if !cfg.no_opt_arity_zero {
+        for node in treenodes.iter() {
 
-        // check for free vars: inventions with free vars in the body are not well-defined functions
-        // and should thus be discarded
-        if !cfg.no_opt_free_vars && !egraph[*node].data.free_vars.is_empty() {
-            if !cfg.no_stats { stats.free_vars_fired += 1; };
-            continue;
+            // check for free vars: inventions with free vars in the body are not well-defined functions
+            // and should thus be discarded
+            if !cfg.no_opt_free_vars && !egraph[*node].data.free_vars.is_empty() {
+                if !cfg.no_stats { stats.free_vars_fired += 1; };
+                continue;
+            }
+
+            // check whether this invention is useful in > 1 task
+            if !cfg.no_opt_single_task && tasks_of_node[&node].len() < 2 {
+                if !cfg.no_stats { stats.single_task_fired += 1; };
+                continue;
+            }
+            // Note that "single use" pruning is intentionally not done here,
+            // since any invention specific to a node will by definition only
+            // be useful at that node
+
+            let match_locations = vec![*node];
+            let body_utility = cost_of_node_once[node];
+            // compressive_utility for arity-0 is cost_of_node_all[node] minus the penalty of using the new prim
+            let compressive_utility = cost_of_node_all[node] - num_paths_to_node[node] * COST_TERMINAL;
+            let utility = compressive_utility + noncompressive_utility(body_utility, cfg);
+            if utility <= 0 { continue; }
+
+            let pattern = Pattern {
+                holes: vec![],
+                arg_choices: vec![],
+                first_zid_of_ivar: vec![],
+                match_locations,
+                utility_upper_bound: utility,
+                body_utility,
+                tracked: false,
+            };
+            let finished_pattern = FinishedPattern {
+                pattern,
+                utility,
+                compressive_utility,
+                util_calc: UtilityCalculation { util: compressive_utility, corrected_utils: Default::default()},
+                arity: 0,
+                usages: num_paths_to_node[node]
+            };
+            donelist.push(finished_pattern);
         }
-
-        // check whether this invention is useful in > 1 task
-        if !cfg.no_opt_single_task && tasks_of_node[&node].len() < 2 {
-            if !cfg.no_stats { stats.single_task_fired += 1; };
-            continue;
-        }
-        // Note that "single use" pruning is intentionally not done here,
-        // since any invention specific to a node will by definition only
-        // be useful at that node
-
-        let match_locations = vec![*node];
-        let body_utility = cost_of_node_once[node];
-        // compressive_utility for arity-0 is cost_of_node_all[node] minus the penalty of using the new prim
-        let compressive_utility = cost_of_node_all[node] - num_paths_to_node[node] * COST_TERMINAL;
-        let utility = compressive_utility + noncompressive_utility(body_utility, cfg);
-        if utility <= 0 { continue; }
-
-        let pattern = Pattern {
-            holes: vec![],
-            arg_choices: vec![],
-            first_zid_of_ivar: vec![],
-            match_locations,
-            utility_upper_bound: utility,
-            body_utility,
-            tracked: false,
-        };
-        let finished_pattern = FinishedPattern {
-            pattern,
-            utility,
-            compressive_utility,
-            util_calc: UtilityCalculation { util: compressive_utility, corrected_utils: Default::default()},
-            arity: 0,
-            usages: num_paths_to_node[node]
-        };
-        donelist.push(finished_pattern);
     }
 
     println!("arity 0: {:?}ms", tstart.elapsed().as_millis());
