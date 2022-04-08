@@ -90,10 +90,6 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_opt_free_vars: bool,
 
-    /// disable the single usage pruning optimization
-    #[clap(long)]
-    pub no_opt_single_use: bool,
-
     /// disable the single task pruning optimization
     #[clap(long)]
     pub no_opt_single_task: bool,
@@ -124,7 +120,6 @@ pub struct CompressionStepConfig {
 impl CompressionStepConfig {
     pub fn no_opt(&mut self) {
         self.no_opt_free_vars = true;
-        self.no_opt_single_use = true;
         self.no_opt_single_task = true;
         self.no_opt_upper_bound = true;
         self.no_opt_force_multiuse = true;
@@ -495,7 +490,7 @@ impl CriticalMultithreadData {
         self.donelist.sort_unstable_by(|a,b| (b.utility,&b.pattern.arg_choices).cmp(&(a.utility,&a.pattern.arg_choices)));
         self.donelist.truncate(cfg.inv_candidates);
         // the cutoff is the lowest utility
-        self.utility_pruning_cutoff = if cfg.no_opt_upper_bound { 0 } else { self.donelist.last().map(|x|x.utility).unwrap_or(0) };
+        self.utility_pruning_cutoff = if cfg.no_opt_upper_bound { 0 } else { std::cmp::max(0,self.donelist.last().map(|x|x.utility).unwrap_or(0)) };
     }
 }
 
@@ -797,19 +792,6 @@ fn stitch_search(
                 if tracked { found_tracked = true; }
                 if shared.cfg.follow_track && !tracked { continue; }
 
-                // check for arity 0 inventions; these were previously handled and can be skipped
-                if holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar() {
-                    continue; 
-                }
-
-                // check for inventions that are only useful at a single node. And invention that is arity>0 but is only useful at a single
-                // structurally hashed node must not do any actual useful abstraction so we can discard it
-                if !shared.cfg.no_opt_single_use && locs.len() < 2 {
-                    if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_fired += 1; };
-                    if tracked { println!("{} single use pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
-                    continue; // too few uses
-                }
-
                 // prune inventions specific to one single task
                 if !shared.cfg.no_opt_single_task
                         && locs.iter().all(|node| shared.tasks_of_node[&node].len() == 1)
@@ -854,18 +836,18 @@ fn stitch_search(
 
                 assert!(utility_upper_bound <= original_pattern.utility_upper_bound);
 
-                // prune if utility upper bound is negative
-                if utility_upper_bound <= 0 {
-                    if tracked { println!("{} <= 0 utility pruned ({}) when expanding {} to {}", "[TRACK]".red().bold(), utility_upper_bound, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
-                    continue; // too low utility
-                }
-
                 // branch and bound: if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
                 if !shared.cfg.no_opt_upper_bound && utility_upper_bound <= weak_utility_pruning_cutoff {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
                     if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), utility_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
                     continue; // too low utility
                 }
+
+                // fairly technical sanity checks, don't worry about these
+                assert!(shared.cfg.no_opt_upper_bound || !(holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
+                        "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
+                assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
+                        "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)");
 
                 // add any new holes to the list of holes
                 let mut holes = holes_after_pop.clone();
@@ -1469,7 +1451,6 @@ pub fn compression(
 
     if cfg.follow_track && !(
            cfg.no_opt_free_vars
-        && cfg.no_opt_single_use
         && cfg.no_opt_single_task
         && cfg.no_opt_upper_bound
         && cfg.no_opt_force_multiuse
