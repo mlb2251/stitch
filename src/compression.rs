@@ -286,6 +286,9 @@ impl Pattern {
         s = s.replace(&"<REPLACE>", &format!("{}",tracked_expands_to(self, hole_zid, shared)).clone().magenta().bold().to_string());
         s
     }
+    pub fn info(&self, shared: &SharedData) -> String {
+        format!("{}: utility_upper_bound={}, body_utility={}, match_locations={}, usages={}",self.to_expr(shared), self.utility_upper_bound, self.body_utility, self.match_locations.len(), self.match_locations.iter().map(|loc|shared.num_paths_to_node[loc]).sum::<i32>())
+    }
 }
 
 /// The child-ignoring value of a node in the original set of programs. This tells us
@@ -990,6 +993,9 @@ impl FinishedPattern {
     }
     pub fn to_invention(&self, name: &str, shared: &SharedData) -> Invention {
         Invention::new(self.to_expr(shared), self.arity, name)
+    }
+    pub fn info(&self, shared: &SharedData) -> String {
+        format!("{} -> finished: utility={}, compressive_utility={}, arity={}, usages={}",self.pattern.info(shared), self.utility, self.compressive_utility, self.arity, self.usages)
     }
 
 }
