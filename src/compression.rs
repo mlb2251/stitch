@@ -551,7 +551,6 @@ pub struct Stats {
     upper_bound_fired: usize,
     free_vars_fired: usize,
     single_task_fired: usize,
-    single_use_fired: usize,
     useless_abstract_fired: usize,
     force_multiuse_fired: usize,
 }
@@ -831,8 +830,11 @@ fn stitch_search(
                     ExpandsTo::IVar(_) => 0,
                 };
 
+                // minor optimization to prune single match locations slightly faster in the cases where you can
+                let upper_bound_body_utility = if locs.len() > 1 { body_utility } else { shared.cost_of_node_once[&locs[0]] };
+
                 // update the upper bound
-                let utility_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
+                let utility_upper_bound: i32 = utility_upper_bound(&locs, upper_bound_body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
 
                 assert!(utility_upper_bound <= original_pattern.utility_upper_bound);
 
@@ -843,11 +845,10 @@ fn stitch_search(
                     continue; // too low utility
                 }
 
-                // fairly technical sanity checks, don't worry about these
                 assert!(shared.cfg.no_opt_upper_bound || !(holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
                         "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
                 assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
-                        "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)");
+                        "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  utility_upper_bound, weak_utility_pruning_cutoff);
 
                 // add any new holes to the list of holes
                 let mut holes = holes_after_pop.clone();
