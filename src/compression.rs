@@ -849,14 +849,14 @@ fn stitch_search(
                 // branch and bound: if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
                 if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-                    if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), utility_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+                    if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
                     continue; // too low utility
                 }
 
                 assert!(shared.cfg.no_opt_upper_bound || !(holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
                         "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
                 assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
-                        "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  utility_upper_bound, weak_utility_pruning_cutoff);
+                        "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
 
                 // add any new holes to the list of holes
                 let mut holes = holes_after_pop.clone();
@@ -942,9 +942,21 @@ fn stitch_search(
                 }
 
 
+                let finished_pattern = FinishedPattern::new(new_pattern, &shared);
                 if tracked {
                     println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);
-                let finished_pattern = FinishedPattern::new(new_pattern, &shared);
+                }
+                if shared.cfg.inv_candidates == 1 {
+                    // if we're only looking for one invention, we can directly update our cutoff here
+                    weak_utility_pruning_cutoff = finished_pattern.utility;
+                }
+
+                donelist_buf.push(finished_pattern);
+
+                } else {
+                    // it's a partial pattern so just add it to the worklist
+                    if tracked { println!("{} pushed {} to worklist (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(hole_zid, &shared), new_pattern.utility_upper_bound); }
+                    worklist_buf.push(HeapItem::new(new_pattern, &shared.num_paths_to_node))
                 }
             }
 
