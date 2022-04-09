@@ -1198,6 +1198,7 @@ impl CompressionStepResult {
             res = replace_prim_with(&res, &inv_name, &dc_inv_str);
             // res = res.replace(&format!("{})",inv_name), &format!("{})",dc_inv_str));
             // res = res.replace(&format!("{} ",inv_name), &format!("{} ",dc_inv_str));
+            res = res.replace("(lam ","(lambda ");
             res
         }).collect();
 
