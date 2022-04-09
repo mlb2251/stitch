@@ -993,7 +993,7 @@ impl FinishedPattern {
         let compressive_utility = compressive_utility(&pattern,shared);
         let noncompressive_utility = noncompressive_utility(pattern.body_utility, &shared.cfg);
         let utility = noncompressive_utility + compressive_utility.util;
-        assert!(utility <= pattern.utility_upper_bound);
+        assert!(utility <= pattern.utility_upper_bound, "{} BUT utility is higher: {}", pattern.info(&shared), utility);
         FinishedPattern {
             pattern,
             utility,
@@ -1115,10 +1115,18 @@ fn get_zippers(
                     });
                     // add new zid to this node
                     zids.push(*zid);
-                    // shift the arg but keep the unshifted part the sam
+                    // shift the arg but keep the unshifted part the same
                     let mut arg: Arg = arg_of_zid_node[*b_zid][&b].clone();
-                    arg.id = shift(arg.id, -1, egraph, cache).unwrap();
-                    arg.shift -= 1;
+                    if !egraph[arg.id].data.free_vars.is_empty() {
+                        // println!("stepping from child: {}", extract(b, egraph));
+                        // println!("stepping to parent : {}", extract(*treenode, egraph));
+                        // println!("b_zid: {}; b_zip: {:?}", b_zid, zip_of_zid[*b_zid]);
+                        // println!("shift from: {}", extract(arg.id, egraph));
+                        // println!("shift to:   {}", extract(arg.id, egraph));
+                        // println!("total shift: {}", arg.shift);
+                        arg.id = shift(arg.id, -1, egraph, cache).unwrap();
+                        arg.shift -= 1;
+                    }
                     arg_of_zid_node[*zid].insert(*treenode, arg);
                 }
                 let mut descendants: Vec<Id> = descendants_of_node[&b].clone();

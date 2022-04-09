@@ -31,7 +31,14 @@ pub fn extract_enode(enode: &Lambda, egraph: &EGraph) -> Expr {
     }
 }
 
-
+/// a rule for determining when to shift and by how much.
+/// if anything points above the `depth_cutoff` (absolute depth
+/// of lambdas from the top of the program) it gets shifted by `shift`. If
+/// more than one ShiftRule applies then more then one shift will happen.
+struct ShiftRule {
+    depth_cutoff: i32, 
+    shift: i32,
+}
 
 pub fn rewrite_fast(
     pattern: &FinishedPattern,
@@ -39,12 +46,14 @@ pub fn rewrite_fast(
     inv_name: &str,
 ) -> Vec<Expr>
 {
+    println!("rewriting with {}", pattern.info(&shared));
     fn helper(
         pattern: &FinishedPattern,
         shared: &SharedData,
         unshifted_id: Id,
         shift: i32,
-        depth: i32,
+        total_depth: i32, // depth from the very root of the program down
+        shift_rules: Vec<ShiftRule>,
         inv_name: &str,
     ) -> Expr
     {
@@ -54,7 +63,8 @@ pub fn rewrite_fast(
              || pattern.util_calc.corrected_utils[&unshifted_id].accept) // or we have a conflict but we choose to accept it (which is contextless in this top down approach so its the right move)
         //    && !pattern.pattern.first_zid_of_ivar.iter().any(|zid| // and there are no negative vars anywhere in the arguments
         //         shared.egraph[shared.arg_of_zid_node[*zid][&unshifted_id].id].data.free_vars.iter().any(|var| *var < 0))
-        { 
+        {
+            println!("inv applies at unshifted={} with shift={}", extract(unshifted_id,&shared.egraph), shift);
             let mut expr = Expr::prim(inv_name.into());
             // wrap the prim in all the Apps to args
             for zid in pattern.pattern.first_zid_of_ivar.iter() {
@@ -64,7 +74,9 @@ pub fn rewrite_fast(
                 //     panic!("ayo") // doesnt happen
                 // }
                 // assert!(arg.id == egraphs::shift(arg.unshifted_id, arg.shift, &shared.egraph, None).unwrap());
-                println!("shifting {} by {}", extract(arg.id,&shared.egraph), shift + arg.shift);
+                if shift + arg.shift != 0 {
+                    println!("shifting {} by {} to get {} unshifted free vars: {:?} shifted free vars: {:?}", extract(arg.unshifted_id,&shared.egraph), shift + arg.shift, extract(arg.id,&shared.egraph), shared.egraph[arg.unshifted_id].data.free_vars, shared.egraph[arg.id].data.free_vars);
+                }
 
                 // resetting the depth to 0 should be safe here
                 let rewritten_arg = helper(pattern, shared, arg.unshifted_id, shift + arg.shift, 0, inv_name);
@@ -109,6 +121,8 @@ pub fn rewrite_fast(
             "\n{}\n", pattern.info(shared)
         );
     }
+    let mut egraph = EGraph::default();
+    egraph.add_expr(&Expr::programs(rewritten_exprs.clone()).into()); // todo REMOVE THIs it's just a temporary check for free vars same w egraph creation on prev line
     rewritten_exprs
 }
 
