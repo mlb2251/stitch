@@ -106,7 +106,7 @@ pub fn rewrite_fast(
         assert_eq!(
             rewritten_exprs.iter().map(|e|e.cost()).sum::<i32>(),
             init_cost - pattern.util_calc.util,
-            "\n{}\n", pattern.to_invention(inv_name, shared)
+            "\n{}\n", pattern.info(shared)
         );
     }
     rewritten_exprs
