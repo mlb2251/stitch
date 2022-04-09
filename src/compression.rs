@@ -842,21 +842,21 @@ fn stitch_search(
                 let upper_bound_body_utility = if locs.len() > 1 { body_utility } else { shared.cost_of_node_once[&locs[0]] };
 
                 // update the upper bound
-                let utility_upper_bound: i32 = utility_upper_bound(&locs, upper_bound_body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
+                let util_upper_bound: i32 = utility_upper_bound(&locs, upper_bound_body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
 
-                assert!(utility_upper_bound <= original_pattern.utility_upper_bound);
+                assert!(util_upper_bound <= original_pattern.utility_upper_bound);
 
                 // branch and bound: if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
-                if !shared.cfg.no_opt_upper_bound && utility_upper_bound <= weak_utility_pruning_cutoff {
+                if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-                    if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), utility_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+                    if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
                     continue; // too low utility
                 }
 
                 assert!(shared.cfg.no_opt_upper_bound || !(holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
                         "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
                 assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
-                        "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  utility_upper_bound, weak_utility_pruning_cutoff);
+                        "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
 
                 // add any new holes to the list of holes
                 let mut holes = holes_after_pop.clone();
@@ -902,45 +902,56 @@ fn stitch_search(
                     }
                 }
 
-                // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
-                // from the old pattern.
-                let new_pattern = Pattern {
-                    holes,
-                    arg_choices,
-                    first_zid_of_ivar,
-                    match_locations: locs,
-                    utility_upper_bound,
-                    body_utility,
-                    tracked
-                };
+            // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
+            // from the old pattern.
+            let mut new_pattern = Pattern {
+                holes,
+                arg_choices,
+                first_zid_of_ivar,
+                match_locations: locs,
+                utility_upper_bound: util_upper_bound,
+                body_utility,
+                tracked
+            };
 
 
-                if new_pattern.holes.is_empty() {
-                    // it's a finished pattern
+            if new_pattern.holes.is_empty() {
+                // it's a finished pattern
+                let mut recalculate_utility = false;
 
-                    // check if free vars (including negatives) in args
-                    // todo change this to be negative ivars + add refinement
-                    for zid in new_pattern.first_zid_of_ivar.iter() {
-                        let ref arg_of_node = shared.arg_of_zid_node[*zid];
-                        for loc in new_pattern.match_locations.iter() {
-                            if shared.egraph[arg_of_node[loc].id].data.free_vars.iter().any(|var| *var < 0) {
-                                if tracked { println!("{} discarding finished_pattern because one of its args has negative vars: {}", "[TRACK]".red().bold(), new_pattern.to_expr(&shared)); }
-                                continue 'outer;
-                            }
-                        }
+                // check if negative vars in args (ie over shifted things) and discard those locations (but keep the overall invention)
+                // todo change this to be negative ivars + add refinement
+                for zid in new_pattern.first_zid_of_ivar.iter() {
+                    let ref arg_of_node = shared.arg_of_zid_node[*zid];
+                    new_pattern.match_locations.retain(|loc|{
+                       let ok = shared.egraph[arg_of_node[loc].id].data.free_vars.iter().all(|var| *var >= 0);
+                       if !ok { recalculate_utility = true; } // we returned false at least once, so we need to recalculate the utility at the end of this
+                       ok
+                    });
+                }
 
+                // recalculate upper bound now that match_locations may have changed, and redo bound check
+                if recalculate_utility {
+                    new_pattern.utility_upper_bound = utility_upper_bound(&new_pattern.match_locations, new_pattern.body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
+                    // more branch and bound
+                    if !shared.cfg.no_opt_upper_bound && new_pattern.utility_upper_bound <= weak_utility_pruning_cutoff {
+                        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
+                        if tracked { println!("{} upper bound ({} < {}) pruned AFTER negative var retain() when expanding {} to {}", "[TRACK]".red().bold(), new_pattern.utility_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+                        continue; // too low utility
                     }
+                }
 
-                    let finished_pattern = FinishedPattern::new(new_pattern, &shared);
-                    if tracked {
-                        println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);
-                    }
-                    if shared.cfg.inv_candidates == 1 {
-                        // if we're only looking for one invention, we can directly update our cutoff here
-                        weak_utility_pruning_cutoff = finished_pattern.utility;
-                    }
 
-                    donelist_buf.push(finished_pattern);
+                let finished_pattern = FinishedPattern::new(new_pattern, &shared);
+                if tracked {
+                    println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);
+                }
+                if shared.cfg.inv_candidates == 1 {
+                    // if we're only looking for one invention, we can directly update our cutoff here
+                    weak_utility_pruning_cutoff = finished_pattern.utility;
+                }
+
+                donelist_buf.push(finished_pattern);
 
                 } else {
                     // it's a partial pattern so just add it to the worklist
@@ -982,7 +993,7 @@ impl FinishedPattern {
         let compressive_utility = compressive_utility(&pattern,shared);
         let noncompressive_utility = noncompressive_utility(pattern.body_utility, &shared.cfg);
         let utility = noncompressive_utility + compressive_utility.util;
-        assert!(utility <= pattern.utility_upper_bound);
+        assert!(utility <= pattern.utility_upper_bound, "{} BUT utility is higher: {}", pattern.info(&shared), utility);
         FinishedPattern {
             pattern,
             utility,
@@ -1104,10 +1115,18 @@ fn get_zippers(
                     });
                     // add new zid to this node
                     zids.push(*zid);
-                    // shift the arg but keep the unshifted part the sam
+                    // shift the arg but keep the unshifted part the same
                     let mut arg: Arg = arg_of_zid_node[*b_zid][&b].clone();
-                    arg.id = shift(arg.id, -1, egraph, cache).unwrap();
-                    arg.shift -= 1;
+                    if !egraph[arg.id].data.free_vars.is_empty() {
+                        // println!("stepping from child: {}", extract(b, egraph));
+                        // println!("stepping to parent : {}", extract(*treenode, egraph));
+                        // println!("b_zid: {}; b_zip: {:?}", b_zid, zip_of_zid[*b_zid]);
+                        // println!("shift from: {}", extract(arg.id, egraph));
+                        // println!("shift to:   {}", extract(arg.id, egraph));
+                        // println!("total shift: {}", arg.shift);
+                        arg.id = shift(arg.id, -1, egraph, cache).unwrap();
+                        arg.shift -= 1;
+                    }
                     arg_of_zid_node[*zid].insert(*treenode, arg);
                 }
                 let mut descendants: Vec<Id> = descendants_of_node[&b].clone();
