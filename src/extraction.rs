@@ -46,7 +46,7 @@ pub fn rewrite_fast(
     inv_name: &str,
 ) -> Vec<Expr>
 {
-    println!("rewriting with {}", pattern.info(&shared));
+    // println!("rewriting with {}", pattern.info(&shared));
     fn helper(
         pattern: &FinishedPattern,
         shared: &SharedData,
