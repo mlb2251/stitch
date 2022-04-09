@@ -1292,9 +1292,11 @@ fn noncompressive_utility_upper_bound(
 
 fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
-    // * BASIC CALCULATION:
+    // * BASIC CALCULATION
+    // Roughly speaking compressive utility is num_usages(invention) * size(invention), however there are a few extra
+    // terms we need to take care of too.
 
-    // get a list of (ivar,usages-1) filtering out things that are only used once
+    // get a list of (ivar,usages-1) filtering out things that are only used once, this will come in handy for adding multi-use utility later
     let ivar_multiuses: Vec<(usize,i32)> = pattern.arg_choices.iter().map(|labelled|labelled.ivar).counts()
         .iter().filter_map(|(ivar,count)| if *count > 1 { Some((*ivar, (*count-1) as i32)) } else { None }).collect();
 
@@ -1364,7 +1366,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
             }
         }
 
-        // common case: no conflcits
+        // common case: no conflicts
         if conflict_idxs.is_empty() { continue; }
 
         // now we basically record how much we would affect global utility by if we accept vs reject vs choose the best of those options.
@@ -1372,6 +1374,19 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
 
         // if we reject using the invention at this node, we just lose its utility
         let reject = - utility_of_loc_once[loc_idx];
+
+        // Rare case: when utility_of_loc_once is <=0, then reject is >=0 and of course we should do it
+        // (it benefits us or rather brings us back to 0, and leaves maximal flexibility for other things to be accepted/rejected).
+        // and theres nothing else we need to account for here.
+        if reject >= 0 {
+            global_correction += reject * shared.num_paths_to_node[loc];
+            corrected_utils.insert(*loc, CorrectedUtil {
+                accept: false, // we rejected
+                best_util_correction: reject, // we rejected
+                util_change_to_reject: 0 // we rejected so no change to reject
+            });
+            continue
+        }
         
         // if we accept using the invention at this node everywhere, we lose the util of the difference of the best choice of each descendant vs the reject choice
         // so for example if all the conflicts had chosen to Reject anyways then this would be 0 (optimal)
