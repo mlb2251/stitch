@@ -1,5 +1,5 @@
 {
-    "verbose": true,
+    "verbose": false,
     "arity": 4,
     "topK": 5,
     "pseudoCounts": 30.0,
@@ -7,7 +7,7 @@
     "bs": 1000000,
     "topI": 300,
     "structurePenalty": 1.0,
-    "CPUs": 1,
+    "CPUs": 8,
     "lc_score": 0.0,
     "DSL": {
         "logVariable": 0.0,

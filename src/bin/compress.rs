@@ -43,6 +43,13 @@ pub struct Args {
     #[clap(long)]
     pub no_opt: bool,
 
+    /// extracts argument values from the json; specifically assumes a key value pair like
+    ///     "stitch_args": "data/dc/logo_iteration_1_stitchargs.json -a3 -t8 --fmt=dreamcoder --dreamcoder-drop-last --no-mismatch-check",
+    /// in the toplevel dictionary of the json. All other commandline args get discarded when
+    /// you specify this option.
+    #[clap(long)]
+    pub args_from_json: bool,
+
     #[clap(flatten)]
     pub step: CompressionStepConfig,
 
@@ -51,6 +58,15 @@ pub struct Args {
 fn main() {
     // procspawn::init();
     let mut args = Args::parse();
+    if args.args_from_json {
+        let json = std::fs::read_to_string(&args.file).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&json).unwrap();
+        // we want something that looks like "ignored_binary_name -a3 -t2"
+        let mut args_str = String::from("compress ");
+        args_str.push_str(json["stitch_args"].as_str().unwrap());
+        args = Args::parse_from(args_str.split_whitespace());
+    }
+
     if args.no_opt {
         args.step.no_opt();
     }
@@ -133,32 +149,24 @@ mod tests {
         let step_results = compression(
             &programs,
             10,
-            &CompressionStepConfig {
-                max_arity: 2,
-                threads: 1,
-                inv_candidates: 1,
-                hole_choice: HoleChoice::MinCost,
-                no_top_lambda: false,
-                track: None,
-                verbose_worklist: false,
-                verbose_best: false,
-                no_cache: false,
-                show_rewritten: false,
-                no_opt_free_vars: false,
-                no_opt_single_use: false,
-                no_opt_single_task: false,
-                no_opt_upper_bound: false,
-                no_opt_force_multiuse: false,
-                no_opt_useless_abstract: false,
-                no_stats: false,
-                no_other_util: false,
-            },
+            &CompressionStepConfig::parse_from("compress -a2 ".split_whitespace()),
             &tasks,
             num_prior_inventions);
 
         let inventions = step_results.iter().take(10).map(|inv| inv.inv.body.to_string()).collect::<Vec<String>>();
-        let expected_inventions = vec!["(lam (logo_forLoop #0 (lam (lam (#1 $0))) $0))", "(logo_FWRT #0 (logo_DIVA logo_UA #1))", "(logo_MULL logo_UL)", "(logo_FWRT logo_UL)", "(logo_FWRT (logo_MULL logo_epsL #0))", "(fn_9 #0 (lam (logo_GETSET (lam (#1 $0)) (fn_10 logo_ZL #0 $0))))", "(logo_DIVL logo_UL)", "(fn_9 #0 (logo_FWRT (fn_11 4) (logo_MULA (logo_DIVA logo_UA #0) #1)))", "(logo_PT (lam (fn_12 #0 $0)))", "(logo_forLoop logo_IFTY (lam (lam (logo_FWRT #0 #1 $0))))"];
-
+        // let expected_inventions = vec!["(lam (logo_forLoop #0 (lam (lam (#1 $0))) $0))", "(logo_FWRT #0 (logo_DIVA logo_UA #1))", "(logo_MULL logo_UL)", "(logo_FWRT logo_UL)", "(logo_FWRT (logo_MULL logo_epsL #0))", "(fn_9 #0 (lam (logo_GETSET (lam (#1 $0)) (fn_10 logo_ZL #0 $0))))", "(logo_DIVL logo_UL)", "(fn_9 #0 (logo_FWRT (fn_11 4) (logo_MULA (logo_DIVA logo_UA #0) #1)))", "(logo_PT (lam (fn_12 #0 $0)))", "(logo_forLoop logo_IFTY (lam (lam (logo_FWRT #0 #1 $0))))"];
+        // let expected_inventions = vec!["(lam (logo_forLoop #0 (lam (lam (#1 $0))) $0))", "(logo_FWRT #0 (logo_DIVA logo_UA #1))", "(logo_MULL logo_UL)", "(logo_FWRT logo_UL)", "(logo_FWRT (logo_MULL logo_epsL #0))", "(fn_9 #0 (lam (logo_GETSET (lam (#1 $0)) (fn_10 logo_ZL #0 $0))))", "(logo_DIVL logo_UL)", "(fn_9 #0 (logo_FWRT (fn_11 4) (logo_MULA (logo_DIVA logo_UA #0) #1)))", "(logo_PT (lam (fn_12 #0 $0)))", "(logo_forLoop logo_IFTY (lam (lam (logo_FWRT #0 #1 $0))))"];
+        let expected_inventions = vec!["(lam (logo_forLoop #0 (lam #1) $0))",
+                                                "(lam (logo_FWRT #1 #0 $0))",
+                                                "(fn_9 #0 (lam (logo_GETSET (fn_10 #1 logo_UL) (logo_FWRT logo_ZL (logo_DIVA logo_UA #0) $0))))",
+                                                "(logo_DIVA logo_UA)",
+                                                "(logo_MULL logo_UL)",
+                                                "(fn_9 logo_IFTY (fn_10 #1 (logo_MULL logo_epsL #0)))",
+                                                "(logo_DIVL logo_UL)",
+                                                "(fn_9 #0 (fn_10 #1 (fn_13 4)))",
+                                                "(lam (logo_FWRT logo_ZL #1 (#0 $0)))",
+                                                "(logo_MULL logo_epsL)"];
+        
         // Assert single threaded results match expected results
         assert_eq!(inventions, expected_inventions);
     }
@@ -180,26 +188,7 @@ mod tests {
         let step_results = compression(
             &programs,
             10,
-            &CompressionStepConfig {
-                max_arity: 2,
-                threads: 1,
-                inv_candidates: 1,
-                hole_choice: HoleChoice::MinCost,
-                no_top_lambda: false,
-                track: None,
-                verbose_worklist: false,
-                verbose_best: false,
-                no_cache: false,
-                show_rewritten: false,
-                no_opt_free_vars: false,
-                no_opt_single_use: false,
-                no_opt_single_task: false,
-                no_opt_upper_bound: false,
-                no_opt_force_multiuse: false,
-                no_opt_useless_abstract: false,
-                no_stats: false,
-                no_other_util: false,
-            },
+            &CompressionStepConfig::parse_from("compress -a2 ".split_whitespace()),
             &tasks,
             num_prior_inventions);
 
@@ -208,26 +197,7 @@ mod tests {
         let step_results = compression(
             &programs,
             10,
-            &CompressionStepConfig {
-                max_arity: 2,
-                threads: 4,
-                inv_candidates: 1,
-                hole_choice: HoleChoice::MinCost,
-                no_top_lambda: false,
-                track: None,
-                verbose_worklist: false,
-                verbose_best: false,
-                no_cache: false,
-                show_rewritten: false,
-                no_opt_free_vars: false,
-                no_opt_single_use: false,
-                no_opt_single_task: false,
-                no_opt_upper_bound: false,
-                no_opt_force_multiuse: false,
-                no_opt_useless_abstract: false,
-                no_stats: false,
-                no_other_util: false,
-            },
+            &CompressionStepConfig::parse_from("compress -a2 -t4".split_whitespace()),
             &tasks,
             num_prior_inventions);
 

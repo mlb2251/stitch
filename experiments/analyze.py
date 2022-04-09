@@ -4,6 +4,7 @@ import os
 import re
 from typing import *
 from pathlib import Path
+import shutil
 
 RUNS = {
     'list': [
@@ -288,6 +289,93 @@ def stitch_to_invention_info(stitch_json):
         }
 
 
+def process_dreamcoder_inventions(in_file, out_file):
+    in_json = load(in_file)
+    out_json = load(out_file)
+    stitch_dsl_input = to_stitch_dsl(in_json)
+    stitch_dsl_output = to_stitch_dsl(out_json)
+    stitch_invs = diff(stitch_dsl_input,stitch_dsl_output)
+    
+    all_programs_out = [programs['program'] for f in out_json['frontiers'] for programs in f['programs']]
+    stitch_programs_out = [to_stitch_program(p,stitch_dsl_output) for p in all_programs_out]
+    stitch_programs_cost_out = sum([stitch_cost(p) for p in stitch_programs_out])
+    
+    all_programs_in = [programs['program'] for f in in_json['frontiers'] for programs in f['programs']]
+    stitch_programs_in = [to_stitch_program(p,stitch_dsl_input) for p in all_programs_in]
+    stitch_programs_cost_in = sum([stitch_cost(p) for p in stitch_programs_in])
+
+    invs = []
+    for inv in stitch_invs:
+        invs.append({
+            'name': inv['name'],
+            'stitch_uncanonical': inv['stitch_uncanonical'],
+            'stitch_canonical': inv['stitch_canonical'],
+            'dreamcoder': inv['dreamcoder'],
+            'partial_pcfg_score': None,
+            'partial_compression_ratio': None,
+            'partial_compression_utility': None,
+            'partial_stitch_utility': None,
+            'num_usages': None, # usages(inv["name"], stitch_programs_out) # gets us num usages in FINAL set of programs not including internal usages
+        })
+    
+    compression_utility = (stitch_programs_cost_in - stitch_programs_cost_out)
+    compression_ratio = stitch_programs_cost_in / stitch_programs_cost_out
+
+    stitch_utility = None
+
+    return {
+        'metrics': {
+            'compression_utility': compression_utility,
+            'compression_ratio': compression_ratio,
+            'stitch_utility': stitch_utility,
+        },
+        'inventions': invs,
+    }
+
+
+def process_stitch_inventions(in_file, out_file):
+    in_json = load(in_file)
+    stitch_json = load(out_file)
+    stitch_dsl_input = to_stitch_dsl(in_json)
+
+    all_programs_in = [programs['program'] for f in in_json['frontiers'] for programs in f['programs']]
+    stitch_programs_in = [to_stitch_program(p,stitch_dsl_input) for p in all_programs_in]
+    stitch_programs_cost_in = sum([stitch_cost(p) for p in stitch_programs_in])
+    assert stitch_programs_cost_in == stitch_json["original_cost"]
+
+    invs = []
+    for inv in stitch_json['invs']:
+        invs.append({
+            'name': inv['name'],
+            'stitch_uncanonical': inv['body'],
+            'stitch_canonical': canonicalize(inv['body']),
+            'dreamcoder': inv['dreamcoder'],
+            'partial_pcfg_score': None,
+            'partial_compression_ratio': inv["multiplier"],
+            'partial_compression_utility': None,
+            'partial_stitch_utility': inv["utility"],
+            'num_usages': inv['num_uses'],
+        })
+    
+    if len(invs) != 0:
+        compression_utility = (stitch_programs_cost_in - stitch_json['invs'][-1]['final_cost'])
+        assert compression_utility ==  stitch_json["original_cost"] - stitch_json['invs'][-1]["final_cost"]
+        compression_ratio = stitch_json['invs'][-1]["multiplier_wrt_orig"]
+    else:
+        compression_utility = 0
+        compression_ratio = 1.
+    stitch_utility = None
+    pcfg_score = None
+    return {
+        'metrics': {
+            'compression_utility': compression_utility,
+            'compression_ratio': compression_ratio,
+            'stitch_utility': stitch_utility,
+        },
+        'inventions': invs,
+    }
+
+
 def usages(fn_name, stitch_programs):
     # we count name + closeparen or name + space so that fn_1 doesnt get counted for things like fn_10
     return sum([p.count(f'{fn_name})') + p.count(f'{fn_name} ') for p in stitch_programs])
@@ -348,6 +436,17 @@ def run_info(dir):
         'iterations':runs,
     }
     return res
+
+def get_benches(bench_dir):
+    assert bench_dir.parent.name == 'benches'
+    bench_names = [] # eg ["bench000_iteration_0", ...]
+    for file in bench_dir.glob('bench*.json'):
+        bench_names.append(file.stem)
+    assert len(bench_names) > 0
+    bench_names.sort()
+    for i,bench in enumerate(bench_names):
+        assert bench.startswith(f'bench{i:03d}')
+    return bench_names
 
 if __name__ == '__main__':
     mode = sys.argv[1]
@@ -436,25 +535,239 @@ if __name__ == '__main__':
                 print("===DREAMCODER===")
                 for k,v in d.items():
                     print(f"{k}: {v}")
+    
+    elif mode == 'process':
+        mode = sys.argv[2]
+        assert mode in ['stitch','dreamcoder']
+        # dir like benches/fake_logo_2019-03-23T18:06:23.106382/out/dc/2021-03-02_00-00-00/
+        run_dir = Path(sys.argv[3])
+        raw_path = run_dir / 'raw'
+        stderr_path = run_dir / 'stderr'
+        processed_path = run_dir / 'processed'
+        if not raw_path.exists():
+            print("Can't find raw/ directory, did you provide a path like benches/bench_name/out/dc/2021-03-02_00-00-00/ ?")
+        if not processed_path.exists():
+            processed_path.mkdir()
+        bench_dir = run_dir.parent.parent.parent
+        bench_group = bench_dir.name # eg fake_logo_2019-03-23T18:06:23.106382
+        bench_names = get_benches(bench_dir)
+        
+        for bench in bench_names:
+            if not (raw_path / f'{bench}.json').exists() or os.stat(raw_path / f'{bench}.json').st_size == 0:
+                continue # this bench was missing or empty
+            print(f'processing {bench}')
+
+            processed = {
+                'bench_group': bench_group,
+                'bench': bench,
+                'mode': mode,
+                'run': str(run_dir),
+                'metrics': {
+                    'time_binary_seconds': None,
+                    'time_total_seconds': None,
+                    'time_candidates_seconds': None,
+                    'time_middle_rewrite_seconds': None,
+                    'time_final_rewrite_seconds': None,
+                    'mem_peak_kb': None,
+                    'compression_ratio': None,
+                    'compression_utility': None, # integer version of the ratio
+                    'stitch_utility': None,
+                    'pcfg_score': None,
+                },
+                'num_inventions': None,
+                'inventions': {},
+            }
+
+            raw = load(raw_path / f'{bench}.json')
+            with open(stderr_path / f'{bench}.stderr') as f:
+                stderr = f.read().split('\n')
+
+            # time_binary_seconds: wall clock on the whole binary running - not super precise but okay
+            [x] = [l for l in stderr if 'Elapsed (wall clock) time' in l]
+            x = x.split(' ')[-1]
+            if x.count(':') == 1:
+                # m:s format
+                mins,secs = x.split(':')
+                processed['metrics']['time_binary_seconds'] = int(mins) * 60 + float(secs)
+            elif x.count(':') == 2:
+                # h:m:s format
+                hours,mins,secs = x.split(':')
+                processed['metrics']['time_binary_seconds'] = int(hours) * 3600 + int(mins) * 60 + float(secs)
+            else:
+                assert False
+            
+            # mem_peak_kb: memory use
+            [x] = [l for l in stderr if 'Maximum resident set size (kbytes)' in l]
+            processed['metrics']['mem_peak_kb'] = int(x.split(' ')[-1])
+
+            # process the output dsls to get inventions and scores
+            if mode == "dreamcoder":
+                res = process_dreamcoder_inventions(bench_dir / f'{bench}.json', raw_path / f'{bench}.json')
+            elif mode == "stitch":
+                res = process_stitch_inventions(bench_dir / f'{bench}.json', raw_path / f'{bench}.json')
+            else:
+                assert False
+            
+            for k,v in res['metrics'].items():
+                processed['metrics'][k] = v
+            
+            processed['inventions'] = res['inventions']
+            processed['num_inventions'] = len(processed['inventions'])
+            
+
+
+            save(processed, processed_path / f'{bench}.json')
+    elif mode == 'iteration_budget':
+        """
+        analyze.py iteration_budget <dreamcoder dir to compare to> <specific benchmark json to compare on>
+        or compare against "none" for 20 iterations automatically
+        """
+        if sys.argv[2] == 'none':
+            print(20)
+            sys.exit(0)
+        compare_to = Path(sys.argv[2])
+        bench = Path(sys.argv[3])
+        assert str(bench).endswith('.json')
+        if not (compare_to / 'processed' / bench.name).exists():
+            if sys.argv[4] == "loose":
+                print(0)
+                sys.exit(0)
+            print(f"Cant find {compare_to}/processed/{bench.name}; run with `loose` to set iter budget to 0")
+        num_invs = load(compare_to / 'processed' / bench.name)['num_inventions']
+        print(num_invs)
+        sys.exit(0)
+    elif mode == 'graphs':
+        """
+        python3 analyze.py graphs bar <run dir 1> <run dir 2> <run dir 3> ...
+        where a run_dir is a timestamped dir like benches/fake_logo_2019-03-23T18:06:23.106382/out/dc/2021-03-02_00-00-00/
+        and alternatively use "line" instead of "bar"
+        """
+        import matplotlib.pyplot as plt
+
+
+        type = sys.argv[2]
+        assert type in ('bar','line')
+        run_dirs = [Path(x).absolute() for x in sys.argv[3:]]
+
+        bench_dir = run_dirs[0].parent.parent.parent
+        assert all([str(x.parent.parent.parent) == str(bench_dir) for x in run_dirs]), "not all came from same benchmark group"
+        bench_group = bench_dir.name # eg fake_logo_2019-03-23T18:06:23.106382
+        bench_names = get_benches(bench_dir)
+
+        # pool all metrics that are non-none for at least one run of one benchmark
+        metrics = []
+        for bench in bench_names:
+            for run_dir in run_dirs:
+                if not (run_dir / 'processed' / f'{bench}.json').exists():
+                    continue
+                processed = load(run_dir / 'processed' / f'{bench}.json')
+                metrics.extend([metric for metric,val in processed['metrics'].items() if val is not None])
+        metrics = sorted(list(set(metrics)))
+
+
+        num_runs = len(run_dirs)
+        num_benches = len(bench_names)
+        bar_width = (1/(num_runs+1))
+
+        MEMORY = 'mem_peak_kb'
+        TIME_BINARY = 'time_binary_seconds'
+        TIME_TOTAL = 'time_total_seconds'
+        TIME_CANDIDATES = 'time_candidates_seconds'
+        TIME_MIDDLE_REWRITE = 'time_middle_rewrite_seconds'
+        TIME_FINAL_REWRITE = 'time_final_rewrite_seconds'
+        COMPRESSION_RATIO = 'compression_ratio'
+        COMPRESSION_UTILITY = 'compression_utility'
+        STITCH_UTILITY = 'stitch_utility'
+        PCFG_SCORE = 'pcfg_score'
+
+        # for each metric, make a bar graph with the bench name on the
+        # x axis and the metric value on the y axis, with one bar per run
+        for metric in metrics:
+            plt.clf()
+            fig,ax = plt.subplots()
+            for i,run_dir in enumerate(run_dirs):
+                bar_heights = []
+                for bench in bench_names:
+                    if not (run_dir / 'processed' / f'{bench}.json').exists():
+                        bar_heights.append(0)
+                    else:
+                        bar_heights.append(load(run_dir / 'processed' / f'{bench}.json')['metrics'][metric])
+                
+                xs = [j + i * bar_width for j in range(num_benches)]
+                
+                # print(f'plotted {run_dir.parent.name}')
+                ax.bar(xs, bar_heights, width = bar_width, label=f'{run_dir.parent.name}/{run_dir.name}')
+
+            # set y axis to start at 1
+            if metric == COMPRESSION_RATIO:
+                ax.set_ylim(bottom=1)
+            
+            if metric in (MEMORY,TIME_BINARY):
+                ax.set_yscale('log')
+
+            plt.xlabel('benchmark')
+            plt.ylabel(metric)
+            plt.title(f'{metric} {bench_group}')
+            xs = [j + (bar_width*(num_runs-1))/2 for j in range(num_benches)]
+            plt.xticks(xs, bench_names, rotation=90, fontsize=8)
+            plt.legend()
+            plt.tight_layout()
+
+            os.makedirs(bench_dir / 'plots', exist_ok=True)
+            plt.savefig(bench_dir / 'plots' / f'{metric}_{bench_group}.png',dpi=400)
+            print("wrote to " + str(bench_dir / 'plots' / f'{metric}_{bench_group}.png'))
+            
+
+    elif mode == 'artifact_to_bench':
+        """
+        convert from dirs that ./extract_all_data.sh outputs to a benches/ benchmark.
+        """
+
+        for domain in ('logo','regex'):
+            flat_bench_group = Path('benches') / f'{domain}_all'
+            flat_bench_group.mkdir(exist_ok=True)
+            flat_i = 0
+            for run_i,run in enumerate(RUNS[domain]):
+                assert (Path('data') / domain / run / 'iteration_0.json').exists()
+                bench_group = Path('benches') / f'{domain}_{run}'
+                bench_group.mkdir(exist_ok=True)
+                for i in range(20):
+                    iteration_json = Path('data') / domain / run / f'iteration_{i}.json'
+                    if not iteration_json.exists():
+                        break
+                    shutil.copy(iteration_json, bench_group / f'bench{i:03d}_it{i}.json')
+                    shutil.copy(iteration_json, flat_bench_group / f'bench{flat_i:03d}_it{i}_run{run_i}.json')
+                    flat_i += 1
+
+    elif mode == 'artifact_rec-fp':
+        source = Path('data/rec-fp/iteration=10_2019-07-11T19:49:10.899159')
+        bench_group_arity4 = Path('benches/rec-fp_arity4_2019-07-11T19:49:10.899159')
+        bench_group_arity3 = Path('benches/rec-fp_arity3_2019-07-11T19:49:10.899159')
+        bench_group_arity4.mkdir(exist_ok=True)
+        bench_group_arity3.mkdir(exist_ok=True)
+        for i in range(20):
+            iteration_json = source / f'iteration_{i}.json'
+            if not iteration_json.exists():
+                break
+            shutil.copy(iteration_json, bench_group_arity4 / f'bench{i:03d}_it{i}.json')
+            d = load(iteration_json)
+            d['arity'] = 3
+            save(d, bench_group_arity3 / f'bench{i:03d}_it{i}.json')
 
 
 
-"""
-Unified single step output format for exactly 1 new invention
-invention_info.json
+            
 
-name
-stitch_uncanonical
-stitch_canonical
-dreamcoder
-dreamcoder_frontiers_score
-stitch_frontiers_cost
-compressivity
-stitch_utility (null for now)
-stitch_frontiers
-dreamcoder_frontiers
 
-"""
+
+
+
+    else:
+        assert False, f"mode not recognized: {mode}"
+
+
+
+
 
 
 

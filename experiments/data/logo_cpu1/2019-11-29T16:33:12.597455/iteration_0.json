@@ -1,0 +1,1368 @@
+{
+    "verbose": true,
+    "arity": 3,
+    "topK": 2,
+    "pseudoCounts": 30.0,
+    "aic": 1.0,
+    "bs": 1000000,
+    "topI": 300,
+    "structurePenalty": 1.5,
+    "CPUs": 1,
+    "lc_score": 0.0,
+    "DSL": {
+        "logVariable": 0.0,
+        "productions": [
+            {
+                "expression": "logo_UA",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_UL",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_ZA",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_ZL",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_DIVA",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_MULA",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_DIVL",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_MULL",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_ADDA",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_SUBA",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_PT",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_FWRT",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_GETSET",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_IFTY",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_epsA",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_epsL",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "logo_forLoop",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "0",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "1",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "2",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "3",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "4",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "5",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "6",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "7",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "8",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "9",
+                "logProbability": 0.0
+            }
+        ],
+        "continuationType": {
+            "constructor": "turtle",
+            "arguments": []
+        }
+    },
+    "iterations": 20,
+    "frontiers": [
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "6-gon 1l",
+            "programs": [
+                {
+                    "program": "(lambda (logo_PT (lambda $0) (logo_forLoop 6 (lambda (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 6) $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 6 (lambda (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 6) $0))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "right semicircle of size 1",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_ZL logo_epsA (logo_FWRT logo_epsL logo_ZA $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_FWRT logo_ZL logo_epsA (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL logo_epsA $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL (logo_SUBA logo_ZA logo_epsA) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL (logo_SUBA logo_UA logo_epsA) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_ZL logo_epsA (logo_FWRT logo_epsL logo_UA $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "left semicircle of size 2",
+            "programs": [
+                {
+                    "program": "(lambda (logo_PT (lambda $0) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 2) logo_epsA $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 2) logo_epsA $0))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "left semicircle of size 4",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 4) logo_epsA $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_PT (lambda $0) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 5) logo_epsA $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_PT (lambda $0) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 4) logo_epsA $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 5) logo_epsA $0))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "left semicircle of size 6",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 6) logo_epsA $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_PT (lambda $0) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 6) logo_epsA $0))) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "3-gon 1l slanted 8",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT logo_ZL logo_epsA $0))) (logo_forLoop 3 (lambda (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 3) $0))) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "5-gon 1l",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 5) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT logo_UL (logo_MULA logo_epsA 8) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_GETSET (lambda $0) (logo_forLoop 5 (lambda (lambda (logo_FWRT logo_UL (logo_MULA logo_epsA 8) $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_GETSET (lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 5) $0))) $0)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_GETSET (lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT logo_UL (logo_MULA logo_epsA 8) $0))) $0)) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "8-gon (/d 1d 2)",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 2) (logo_DIVA logo_UA 8) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 2) (logo_MULA logo_epsA 5) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 2) (logo_DIVA logo_UA 8) $0))) (logo_GETSET (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 2) (logo_DIVA logo_UA 8) $0))) (logo_PT (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 2) (logo_DIVA logo_UA 8) (logo_PT (lambda $0) $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "right angle",
+            "programs": [
+                {
+                    "program": "(lambda (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) (logo_FWRT logo_UL logo_UA $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) (logo_FWRT logo_UL logo_ZA $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) (logo_FWRT logo_UL logo_epsA $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 3 (lambda (lambda (logo_FWRT logo_UL (logo_DIVA (logo_MULA logo_UA $1) 4) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 3 (lambda (lambda (logo_FWRT logo_UL (logo_MULA (logo_DIVA logo_UA 4) $1) $0))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "line segment",
+            "programs": [
+                {
+                    "program": "(lambda (logo_FWRT logo_UL logo_UA $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_FWRT logo_UL logo_ZA $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_FWRT logo_UL logo_epsA $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_FWRT logo_UL logo_ZA (logo_GETSET (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_FWRT logo_UL logo_epsA (logo_GETSET (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "Greek spiral 7",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 7 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $1) (logo_DIVA logo_UA 4) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_GETSET (lambda $0) (logo_forLoop 7 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $1) (logo_DIVA logo_UA 4) $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_GETSET (lambda (logo_forLoop 7 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $1) (logo_DIVA logo_UA 4) $0))) $0)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_PT (lambda $0) (logo_forLoop 7 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $1) (logo_DIVA logo_UA 4) $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 7 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $1) (logo_DIVA logo_UA 4) $0))) (logo_PT (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "Greek spiral 8",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $1) (logo_DIVA logo_UA 4) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $1) (logo_DIVA logo_UA 4) $0))) (logo_GETSET (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $1) (logo_DIVA logo_UA 4) $0))) (logo_PT (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $1) (logo_DIVA logo_UA 4) (logo_GETSET (lambda $0) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $1) (logo_DIVA logo_UA 4) (logo_PT (lambda $0) $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "smooth spiral 5",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL $1) (logo_DIVA logo_UA 8) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL $1) (logo_MULA logo_epsA 5) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_GETSET (lambda $0) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL $1) (logo_MULA logo_epsA 5) $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_GETSET (lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL $1) (logo_DIVA logo_UA 8) $0))) $0)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_GETSET (lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL $1) (logo_MULA logo_epsA 5) $0))) $0)) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "star 9",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 9 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 4) (logo_DIVA (logo_MULA logo_UA 4) 9) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 9 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 4) (logo_MULA (logo_DIVA logo_UA 9) 4) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 9 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 4) (logo_MULA (logo_ADDA (logo_DIVA logo_UA 9) logo_UA) 4) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 9 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 4) (logo_MULA (logo_SUBA (logo_DIVA logo_UA 9) logo_UA) 4) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 9 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 4) (logo_SUBA (logo_MULA (logo_DIVA logo_UA 9) 4) logo_UA) $0))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "leaf iteration 1.1",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL (logo_DIVA logo_epsA 2) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_GETSET (lambda $0) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL (logo_DIVA logo_epsA 2) $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_GETSET (lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL (logo_DIVA logo_epsA 2) $0))) $0)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_PT (lambda $0) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL (logo_DIVA logo_epsA 2) $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL (logo_DIVA logo_epsA 2) (logo_GETSET (lambda $0) $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "leaf iteration 1.2",
+            "programs": [
+                {
+                    "program": "(lambda (logo_FWRT logo_epsL (logo_DIVA logo_UA 2) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL (logo_DIVA logo_epsA 2) $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_ZL logo_epsA $0))) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL (logo_DIVA logo_epsA 2) $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_ZL (logo_DIVA logo_UA 2) (logo_FWRT logo_epsL (logo_DIVA (logo_ADDA logo_UA logo_epsA) 2) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_ZL (logo_DIVA logo_UA 2) (logo_FWRT logo_epsL (logo_DIVA (logo_SUBA logo_epsA logo_UA) 2) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_ZL (logo_MULA logo_epsA 9) $0))) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL (logo_DIVA logo_epsA 2) $0))) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "staircase 5",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 4) (logo_FWRT logo_UL (logo_SUBA logo_UA (logo_DIVA logo_UA 4)) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 4) (logo_FWRT logo_UL (logo_SUBA logo_ZA (logo_DIVA logo_UA 4)) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 4) (logo_FWRT logo_UL (logo_MULA (logo_DIVA logo_UA 4) 3) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 4) (logo_FWRT logo_UL (logo_MULA (logo_DIVA logo_UA 4) 7) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 4) (logo_FWRT logo_UL (logo_MULA (logo_DIVA logo_UA 8) 6) $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "left semicircle of size 1",
+            "programs": [
+                {
+                    "program": "(lambda (logo_FWRT logo_ZL (logo_DIVA logo_UA 8) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL logo_epsA $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_FWRT logo_ZL (logo_MULA logo_epsA 5) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL logo_epsA $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT logo_ZL logo_epsA $0))) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL logo_epsA $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_FWRT logo_ZL (logo_MULA logo_epsA 5) (logo_GETSET (lambda $0) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL logo_epsA $0))) $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_FWRT logo_ZL (logo_MULA logo_epsA 5) (logo_PT (lambda $0) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL logo_epsA $0))) $0))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "circle of size 1",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL logo_epsA (logo_FWRT logo_epsL logo_epsA $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT logo_epsL logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 6 (lambda (lambda (logo_forLoop 7 (lambda (lambda (logo_FWRT logo_epsL logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT logo_epsL logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_forLoop 2 (lambda (lambda (logo_FWRT logo_epsL logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "right semicircle of size 2",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 2) (logo_SUBA logo_UA logo_epsA) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 2) (logo_SUBA logo_ZA logo_epsA) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_FWRT logo_ZL logo_epsA (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 2) logo_epsA $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_ZL logo_epsA (logo_FWRT (logo_MULL logo_epsL 2) logo_UA $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_ZL logo_epsA (logo_FWRT (logo_MULL logo_epsL 2) logo_ZA $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "left semicircle of size 3",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 3) logo_epsA $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_GETSET (lambda $0) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 3) logo_epsA $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_GETSET (lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 3) logo_epsA $0))) $0)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_GETSET (lambda $0) (logo_FWRT (logo_MULL logo_epsL 3) logo_epsA $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_PT (lambda $0) (logo_FWRT (logo_MULL logo_epsL 3) logo_epsA $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "circle of size 3",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 2 (lambda (lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 3) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 3) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 7 (lambda (lambda (logo_forLoop 6 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 3) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 3) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_forLoop 2 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 3) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "right semicircle of size 4",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 5) (logo_SUBA logo_UA logo_epsA) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 5) (logo_SUBA logo_ZA logo_epsA) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 4) (logo_SUBA logo_UA logo_epsA) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 4) (logo_SUBA logo_ZA logo_epsA) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_FWRT logo_ZL logo_epsA (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 5) logo_epsA $0))) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "circle of size 4",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 2 (lambda (lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 4) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 4) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 5) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 4) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_forLoop 2 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 5) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "left semicircle of size 5",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 4) logo_epsA $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_GETSET (lambda $0) (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_PT (lambda $0) (logo_FWRT (logo_DIVL logo_UL 4) logo_epsA $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_PT (lambda $0) (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "circle of size 5",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 2 (lambda (lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 4) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 4) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_forLoop 2 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 4) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "right semicircle of size 6",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 6) (logo_SUBA logo_UA logo_epsA) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 6) (logo_SUBA logo_ZA logo_epsA) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_FWRT logo_ZL logo_epsA (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 6) logo_epsA $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_ZL logo_epsA (logo_FWRT (logo_MULL logo_epsL 6) logo_UA $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_ZL logo_epsA (logo_FWRT (logo_MULL logo_epsL 6) logo_ZA $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "circle of size 6",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 2 (lambda (lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 6) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 6) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 7 (lambda (lambda (logo_forLoop 6 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 6) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 8 (lambda (lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 6) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_forLoop 2 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 6) logo_epsA $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "5 enclosed circles",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL $5) logo_epsA $0))) $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL $5) logo_epsA $0))) $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL $5) (logo_ADDA logo_epsA logo_UA) $0))) $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL $5) (logo_SUBA logo_epsA logo_UA) $0))) $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL $5) (logo_ADDA logo_epsA logo_UA) $0))) $0))) $0))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "3 dashed lines of size (/d 1d 2)",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 3 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 2) logo_UA (logo_PT (lambda (logo_FWRT logo_UL logo_UA $0)) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 3 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 2) logo_UA (logo_PT (lambda (logo_FWRT logo_UL logo_ZA $0)) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 3 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 2) logo_ZA (logo_PT (lambda (logo_FWRT logo_UL logo_UA $0)) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 3 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 2) logo_ZA (logo_PT (lambda (logo_FWRT logo_UL logo_ZA $0)) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 3 (lambda (lambda (logo_PT (lambda (logo_FWRT logo_UL logo_ZA $0)) (logo_FWRT (logo_DIVL logo_UL 2) logo_ZA $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "row of 4 dashes",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_PT (lambda (logo_FWRT (logo_MULL logo_UL $2) (logo_DIVA logo_UA 4) $0)) (logo_FWRT logo_UL (logo_DIVA logo_UA 4) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_PT (lambda (logo_FWRT (logo_MULL logo_UL $2) (logo_DIVA logo_UA 4) $0)) (logo_FWRT (logo_MULL logo_epsL logo_IFTY) (logo_DIVA logo_UA 4) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_PT (lambda (logo_FWRT (logo_MULL logo_UL $2) (logo_DIVA logo_UA 4) $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 2) 2) (logo_DIVA logo_UA 4) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_PT (lambda (logo_FWRT (logo_MULL logo_UL $2) (logo_DIVA logo_UA 4) $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 3) 3) (logo_DIVA logo_UA 4) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_PT (lambda (logo_FWRT (logo_MULL logo_UL $2) (logo_DIVA logo_UA 4) $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 4) 4) (logo_DIVA logo_UA 4) $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "7-empty snowflake",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 7 (lambda (lambda (logo_FWRT logo_ZL (logo_DIVA logo_UA 7) (logo_GETSET (lambda (logo_FWRT logo_UL logo_UA $0)) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 7 (lambda (lambda (logo_FWRT logo_ZL (logo_DIVA logo_UA 7) (logo_GETSET (lambda (logo_FWRT logo_UL logo_ZA $0)) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 7 (lambda (lambda (logo_FWRT logo_ZL (logo_DIVA logo_UA 7) (logo_GETSET (lambda (logo_FWRT logo_UL logo_epsA $0)) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 7 (lambda (lambda (logo_GETSET (lambda (logo_FWRT logo_UL logo_UA $0)) (logo_FWRT logo_ZL (logo_DIVA logo_UA 7) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 7 (lambda (lambda (logo_GETSET (lambda (logo_FWRT logo_UL logo_ZA $0)) (logo_FWRT logo_ZL (logo_DIVA logo_UA 7) $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "square of size 2",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 4) (logo_FWRT logo_UL logo_UA $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 4) (logo_FWRT logo_UL logo_ZA $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_FWRT logo_UL logo_UA (logo_FWRT logo_UL (logo_DIVA logo_UA 4) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_FWRT logo_UL logo_ZA (logo_FWRT logo_UL (logo_DIVA logo_UA 4) $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "turtle",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "square of size 3",
+            "programs": [
+                {
+                    "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 3) (logo_DIVA logo_UA 4) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_GETSET (lambda $0) (logo_forLoop 4 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 3) (logo_DIVA logo_UA 4) $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_GETSET (lambda (logo_forLoop 4 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 3) (logo_DIVA logo_UA 4) $0))) $0)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_PT (lambda $0) (logo_forLoop 4 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 3) (logo_DIVA logo_UA 4) $0))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 3) (logo_DIVA logo_UA 4) $0))) (logo_PT (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        }
+    ]
+}

@@ -10,8 +10,7 @@
     "lc_score": 0.0,
     "DSL": {
         "logVariable": -0.5229609747639952,
-        "productions": [
-            {
+        "productions": [{
                 "expression": "#(lambda (#(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT $4 logo_epsA $0))) $0))))) (logo_MULL logo_epsL $0)))",
                 "logProbability": -1.194253007668455
             },
@@ -162,12 +161,10 @@
         }
     },
     "iterations": 20,
-    "frontiers": [
-        {
+    "frontiers": [{
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -178,8 +175,7 @@
                 ]
             },
             "task": "3-gon (*d 1l 2)",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 3 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 2) (logo_MULA (logo_DIVA logo_UA 3) 4) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -204,8 +200,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -216,8 +211,7 @@
                 ]
             },
             "task": "4-gon (*d 1d 4)",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 4) (logo_ADDA (logo_DIVA logo_UA 4) logo_UA) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -242,8 +236,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -254,8 +247,7 @@
                 ]
             },
             "task": "5-gon (*d 1d 2)",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 5) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -272,8 +264,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -284,8 +275,7 @@
                 ]
             },
             "task": "7-gon (*d 1d 3)",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 7 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 3) (logo_ADDA (logo_DIVA logo_UA 7) logo_UA) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -310,8 +300,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -322,8 +311,7 @@
                 ]
             },
             "task": "Greek spiral 6",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 6 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $1) (logo_SUBA (logo_DIVA logo_UA 4) logo_UA) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -348,8 +336,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -360,8 +347,7 @@
                 ]
             },
             "task": "Greek spiral 9",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 9 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $1) (logo_ADDA (logo_DIVA logo_UA 4) logo_UA) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -386,8 +372,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -398,8 +383,7 @@
                 ]
             },
             "task": "smooth spiral 2",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL $1) (logo_DIVA logo_UA logo_IFTY) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -412,8 +396,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -424,8 +407,7 @@
                 ]
             },
             "task": "smooth spiral 4",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL $1) (logo_MULA logo_epsA 4) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -442,8 +424,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -454,8 +435,7 @@
                 ]
             },
             "task": "star 3",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 3 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 4) (logo_MULA (logo_DIVA logo_UA 3) 4) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -480,8 +460,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -492,8 +471,7 @@
                 ]
             },
             "task": "star 7",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 7 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 4) (logo_MULA (logo_SUBA logo_ZA (logo_DIVA logo_UA 7)) 4) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -518,8 +496,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -530,8 +507,7 @@
                 ]
             },
             "task": "right semicircle of size 1",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL (logo_SUBA logo_UA logo_epsA) $0))) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_ZL logo_epsA $0))) $0)))",
                     "logLikelihood": 0.0
                 },
@@ -556,8 +532,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -568,8 +543,7 @@
                 ]
             },
             "task": "left semicircle of size 2",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 2) (logo_ADDA logo_epsA logo_UA) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -594,8 +568,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -606,8 +579,7 @@
                 ]
             },
             "task": "circle of size 2",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 2) logo_epsA $0))) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -632,8 +604,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -644,8 +615,7 @@
                 ]
             },
             "task": "right semicircle of size 3",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 3) (logo_SUBA logo_UA logo_epsA) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -670,8 +640,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -682,8 +651,7 @@
                 ]
             },
             "task": "left semicircle of size 4",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 4) (logo_SUBA logo_epsA logo_UA) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -708,8 +676,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -720,8 +687,7 @@
                 ]
             },
             "task": "right semicircle of size 5",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 4) (logo_SUBA logo_ZA (logo_ADDA logo_epsA logo_UA)) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -746,8 +712,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -758,8 +723,7 @@
                 ]
             },
             "task": "left semicircle of size 6",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT (logo_MULL logo_epsL 6) (logo_SUBA logo_ZA (logo_SUBA logo_ZA logo_epsA)) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -784,8 +748,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -796,8 +759,7 @@
                 ]
             },
             "task": "6 enclosed circles",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 6 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT (logo_MULL logo_epsL $5) logo_epsA $0))) $0))) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -810,8 +772,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -822,8 +783,7 @@
                 ]
             },
             "task": "1-semicircle sequence L=1",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL logo_epsA $0))) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL (logo_SUBA logo_ZA logo_epsA) $0))) (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_ZL logo_epsA $0))) $0))))",
                     "logLikelihood": 0.0
                 },
@@ -848,8 +808,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -860,8 +819,7 @@
                 ]
             },
             "task": "row of 3 lines",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 3 (lambda (lambda (logo_FWRT logo_UL logo_UA (logo_PT (lambda (logo_FWRT logo_UL logo_UA $0)) $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -886,8 +844,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -898,8 +855,7 @@
                 ]
             },
             "task": "4 dashed lines of size (/d 1d 3)",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 3) logo_UA (logo_PT (lambda (logo_FWRT logo_UL logo_UA $0)) $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -924,8 +880,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -936,8 +891,7 @@
                 ]
             },
             "task": "3-empty snowflake",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 3 (lambda (lambda (logo_GETSET (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 7) $0)) (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -962,8 +916,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -974,8 +927,7 @@
                 ]
             },
             "task": "5-empty snowflake",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_GETSET (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 8) $0)) (logo_FWRT logo_ZL (logo_DIVA logo_UA 5) $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -1000,8 +952,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1012,8 +963,7 @@
                 ]
             },
             "task": "6-empty snowflake",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 6 (lambda (lambda (logo_GETSET (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 7) $0)) (logo_FWRT logo_ZL (logo_DIVA logo_UA 6) $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -1038,8 +988,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1050,8 +999,7 @@
                 ]
             },
             "task": "2x2 grid",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_GETSET (lambda (logo_FWRT logo_UL (logo_DIVA logo_UA 4) (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) $0))) (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -1076,8 +1024,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1088,8 +1035,7 @@
                 ]
             },
             "task": "square of size 4",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 4) (logo_ADDA (logo_DIVA logo_UA 4) logo_UA) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -1114,8 +1060,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1126,8 +1071,7 @@
                 ]
             },
             "task": "square of size 5",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_FWRT (logo_MULL logo_UL 5) (logo_DIVA logo_UA 4) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -1152,8 +1096,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1164,8 +1107,7 @@
                 ]
             },
             "task": "7-concentric squares",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 7 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $1) (logo_DIVA logo_UA 4) (logo_forLoop 3 (lambda (lambda (logo_FWRT (logo_MULL logo_UL $3) (logo_DIVA logo_UA 4) $0))) $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -1190,8 +1132,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1202,18 +1143,15 @@
                 ]
             },
             "task": "3-gon 1l slanted 8",
-            "programs": [
-                {
-                    "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) 5 logo_epsA logo_ZL (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) $0 (logo_DIVA logo_UA $0))) 3 logo_UL $0)))",
-                    "logLikelihood": 0.0
-                }
-            ]
+            "programs": [{
+                "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) 5 logo_epsA logo_ZL (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) $0 (logo_DIVA logo_UA $0))) 3 logo_UL $0)))",
+                "logLikelihood": 0.0
+            }]
         },
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1224,8 +1162,7 @@
                 ]
             },
             "task": "4-gon (*d 1d 3)",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) $0 (logo_DIVA logo_UA $0))) 4 (logo_MULL logo_UL 3) $0))",
                     "logLikelihood": 0.0
                 },
@@ -1250,8 +1187,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1262,8 +1198,7 @@
                 ]
             },
             "task": "5-gon 1l",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) $0 (logo_DIVA logo_UA $0))) 5 logo_UL $0))",
                     "logLikelihood": 0.0
                 },
@@ -1288,8 +1223,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1300,8 +1234,7 @@
                 ]
             },
             "task": "6-gon (*d 1d 2) slanted 5",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) 8 logo_epsA logo_ZL (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) $0 (logo_DIVA logo_UA $0))) 6 (logo_MULL logo_UL 2) $0)))",
                     "logLikelihood": 0.0
                 },
@@ -1326,8 +1259,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1338,8 +1270,7 @@
                 ]
             },
             "task": "7-gon 1l",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) $0 (logo_DIVA logo_UA $0))) 7 logo_UL $0))",
                     "logLikelihood": 0.0
                 },
@@ -1364,8 +1295,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1376,8 +1306,7 @@
                 ]
             },
             "task": "8-gon (/d 1d 2)",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) $0 (logo_DIVA logo_UA $0))) 8 (logo_DIVL logo_UL 2) $0))",
                     "logLikelihood": 0.0
                 },
@@ -1402,8 +1331,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1414,8 +1342,7 @@
                 ]
             },
             "task": "upwards",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $0 (lambda (lambda (logo_FWRT (logo_MULL $4 $1) $3 $0))))))) logo_UL #(logo_DIVA logo_UA 4) 2 $0))",
                     "logLikelihood": 0.0
                 },
@@ -1440,8 +1367,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1452,8 +1378,7 @@
                 ]
             },
             "task": "right angle",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_FWRT (logo_MULL logo_UL 2) #(logo_DIVA logo_UA 4) (logo_FWRT logo_UL logo_UA $0)))",
                     "logLikelihood": 0.0
                 },
@@ -1478,8 +1403,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1490,8 +1414,7 @@
                 ]
             },
             "task": "right angle epsilon",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) 2 #(logo_DIVA logo_UA 4) logo_epsL $0))",
                     "logLikelihood": 0.0
                 },
@@ -1516,8 +1439,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1528,8 +1450,7 @@
                 ]
             },
             "task": "line segment",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_FWRT logo_UL logo_UA $0))",
                     "logLikelihood": 0.0
                 },
@@ -1554,8 +1475,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1566,8 +1486,7 @@
                 ]
             },
             "task": "square slanted by 2pi/3",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_FWRT logo_ZL (logo_DIVA #(logo_DIVA logo_UA 4) 3) (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) $0 (logo_DIVA logo_UA $0))) 4 logo_UL $0)))",
                     "logLikelihood": 0.0
                 },
@@ -1592,8 +1511,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1604,8 +1522,7 @@
                 ]
             },
             "task": "semicircle slanted by 2pi/5",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) 7 logo_epsA logo_ZL (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY (logo_SUBA logo_ZA logo_epsA) (logo_MULL logo_epsL $0))) 4 $0)))",
                     "logLikelihood": 0.0
                 },
@@ -1630,8 +1547,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1642,8 +1558,7 @@
                 ]
             },
             "task": "slanted line",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $0 (lambda (lambda (logo_FWRT (logo_MULL $4 $1) $3 $0))))))) (logo_MULL logo_UL 3) (logo_DIVA #(logo_DIVA logo_UA 4) 2) 2 $0))",
                     "logLikelihood": 0.0
                 },
@@ -1668,8 +1583,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1680,8 +1594,7 @@
                 ]
             },
             "task": "Greek spiral 7",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $0 (lambda (lambda (logo_FWRT (logo_MULL $4 $1) $3 $0))))))) logo_UL #(logo_DIVA logo_UA 4) 7 $0))",
                     "logLikelihood": 0.0
                 },
@@ -1706,8 +1619,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1718,8 +1630,7 @@
                 ]
             },
             "task": "Greek spiral 8",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $0 (lambda (lambda (logo_FWRT (logo_MULL $4 $1) $3 $0))))))) logo_UL #(logo_DIVA logo_UA 4) 8 $0))",
                     "logLikelihood": 0.0
                 },
@@ -1744,8 +1655,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1756,8 +1666,7 @@
                 ]
             },
             "task": "smooth spiral 3",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $0 (lambda (lambda (logo_FWRT (logo_MULL $4 $1) $3 $0))))))) logo_epsL (logo_MULA logo_epsA 3) logo_IFTY $0))",
                     "logLikelihood": 0.0
                 },
@@ -1782,8 +1691,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1794,8 +1702,7 @@
                 ]
             },
             "task": "smooth spiral 5",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $0 (lambda (lambda (logo_FWRT (logo_MULL $4 $1) $3 $0))))))) logo_epsL (logo_DIVA logo_UA 8) logo_IFTY $0))",
                     "logLikelihood": 0.0
                 },
@@ -1820,8 +1727,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1832,8 +1738,7 @@
                 ]
             },
             "task": "star 5",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) 5 (logo_DIVA (logo_ADDA logo_UA logo_UA) 5) (logo_MULL logo_UL 4) $0))",
                     "logLikelihood": 0.0
                 },
@@ -1858,8 +1763,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1870,8 +1774,7 @@
                 ]
             },
             "task": "star 9",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) 9 (logo_DIVA (logo_MULA logo_UA 4) 9) (logo_MULL logo_UL 4) $0))",
                     "logLikelihood": 0.0
                 },
@@ -1896,8 +1799,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1908,8 +1810,7 @@
                 ]
             },
             "task": "leaf iteration 1.1",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY (logo_DIVA logo_epsA 2) logo_epsL) $0))",
                     "logLikelihood": 0.0
                 },
@@ -1934,8 +1835,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1946,8 +1846,7 @@
                 ]
             },
             "task": "leaf iteration 1.2",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_FWRT logo_epsL (logo_DIVA logo_UA 2) (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY (logo_DIVA logo_epsA 2) logo_epsL) $0)))",
                     "logLikelihood": 0.0
                 },
@@ -1972,8 +1871,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -1984,8 +1882,7 @@
                 ]
             },
             "task": "leaf iteration 2.1",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY (logo_DIVA logo_epsA 2) logo_epsL) (logo_FWRT logo_ZL #(logo_DIVA logo_UA 4) (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY (logo_DIVA logo_epsA 2) logo_epsL) $0))))",
                     "logLikelihood": 0.0
                 },
@@ -2010,8 +1907,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2022,8 +1918,7 @@
                 ]
             },
             "task": "staircase 5",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 5 (lambda (lambda (logo_FWRT logo_UL #(logo_DIVA logo_UA 4) (logo_FWRT logo_UL (logo_SUBA logo_UA #(logo_DIVA logo_UA 4)) $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2048,8 +1943,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2060,8 +1954,7 @@
                 ]
             },
             "task": "left semicircle of size 1",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_FWRT logo_ZL (logo_DIVA logo_UA 8) (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) logo_epsL $0)))",
                     "logLikelihood": 0.0
                 },
@@ -2086,8 +1979,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2098,8 +1990,7 @@
                 ]
             },
             "task": "circle of size 1",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop logo_IFTY (lambda (lambda (logo_FWRT logo_epsL logo_epsA (logo_FWRT logo_epsL logo_epsA $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2124,8 +2015,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2136,8 +2026,7 @@
                 ]
             },
             "task": "right semicircle of size 2",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL 2) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2162,8 +2051,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2174,8 +2062,7 @@
                 ]
             },
             "task": "left semicircle of size 3",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) (logo_MULL logo_epsL 3) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2200,8 +2087,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2212,8 +2098,7 @@
                 ]
             },
             "task": "circle of size 3",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 2 (lambda (lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) (logo_MULL logo_epsL 3) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2238,8 +2123,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2250,8 +2134,7 @@
                 ]
             },
             "task": "right semicircle of size 4",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_DIVL logo_UL 5) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2276,8 +2159,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2288,8 +2170,7 @@
                 ]
             },
             "task": "circle of size 4",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 2 (lambda (lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) (logo_MULL logo_epsL 4) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2314,8 +2195,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2326,8 +2206,7 @@
                 ]
             },
             "task": "left semicircle of size 5",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) (logo_DIVL logo_UL 4) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2352,8 +2231,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2364,8 +2242,7 @@
                 ]
             },
             "task": "circle of size 5",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 2 (lambda (lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) (logo_MULL logo_epsL 5) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2390,8 +2267,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2402,8 +2278,7 @@
                 ]
             },
             "task": "right semicircle of size 6",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL 6) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2428,8 +2303,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2440,8 +2314,7 @@
                 ]
             },
             "task": "circle of size 6",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 2 (lambda (lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) (logo_MULL logo_epsL 6) $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2466,8 +2339,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2478,8 +2350,7 @@
                 ]
             },
             "task": "5 enclosed circles",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 5 (lambda (lambda (#(lambda (#(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT $4 logo_epsA $0))) $0))))) (logo_MULL logo_epsL $0))) $1 $0))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2504,8 +2375,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2516,8 +2386,7 @@
                 ]
             },
             "task": "3-circle flower l=1",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 3 (lambda (lambda (#(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT $4 logo_epsA $0))) $0))))) logo_epsL (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2542,8 +2411,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2554,8 +2422,7 @@
                 ]
             },
             "task": "3-semicircle sequence L=1",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 3 (lambda (lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) logo_epsL (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY (logo_SUBA logo_ZA logo_epsA) (logo_MULL logo_epsL $0))) 1 $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2580,8 +2447,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2592,8 +2458,7 @@
                 ]
             },
             "task": "2-semicircle sequence L=2",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 2 (lambda (lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) (logo_MULL logo_epsL 2) (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY (logo_SUBA logo_ZA logo_epsA) (logo_MULL logo_epsL $0))) 2 $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2610,8 +2475,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2622,8 +2486,7 @@
                 ]
             },
             "task": "1-semicircle sequence L=3",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) (logo_MULL logo_epsL 3) (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY (logo_SUBA logo_ZA logo_epsA) (logo_MULL logo_epsL $0))) 3 $0)))",
                     "logLikelihood": 0.0
                 },
@@ -2648,8 +2511,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2660,8 +2522,7 @@
                 ]
             },
             "task": "row of 2 circles",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT $4 logo_epsA $0))) $0))))) logo_epsL (logo_PT (lambda (logo_FWRT logo_UL logo_UA $0)) (#(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT $4 logo_epsA $0))) $0))))) logo_epsL $0))))",
                     "logLikelihood": 0.0
                 },
@@ -2686,8 +2547,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2698,8 +2558,7 @@
                 ]
             },
             "task": "row of 2 lines",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_FWRT logo_UL logo_UA (logo_PT (lambda (logo_FWRT logo_UL logo_UA $0)) (logo_FWRT logo_UL #(logo_DIVA logo_UA 4) $0))))",
                     "logLikelihood": 0.0
                 },
@@ -2724,8 +2583,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2736,8 +2594,7 @@
                 ]
             },
             "task": "3 dashed lines of size (/d 1d 2)",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 3 (lambda (lambda (logo_FWRT (logo_DIVL logo_UL 2) logo_UA (logo_PT (lambda (logo_FWRT logo_UL logo_UA $0)) $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2762,8 +2619,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2774,8 +2630,7 @@
                 ]
             },
             "task": "broken circle",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) logo_epsL (logo_PT (lambda (logo_FWRT logo_UL logo_UA $0)) (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) logo_epsL $0))))",
                     "logLikelihood": 0.0
                 },
@@ -2800,8 +2655,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2812,8 +2666,7 @@
                 ]
             },
             "task": "circle next to semicircle",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) logo_epsL (logo_PT (lambda (logo_FWRT logo_UL logo_UA $0)) (#(lambda (logo_forLoop 5 (lambda (lambda (logo_forLoop 8 (lambda (lambda (logo_FWRT $4 logo_epsA $0))) $0))))) logo_epsL $0))))",
                     "logLikelihood": 0.0
                 },
@@ -2838,8 +2691,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2850,8 +2702,7 @@
                 ]
             },
             "task": "row of 4 dashes",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 4 (lambda (lambda (logo_PT (lambda (logo_FWRT (logo_MULL logo_UL $2) #(logo_DIVA logo_UA 4) $0)) (logo_FWRT logo_UL #(logo_DIVA logo_UA 4) $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2876,8 +2727,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2888,18 +2738,15 @@
                 ]
             },
             "task": "row of 5 semicircles",
-            "programs": [
-                {
-                    "program": "(lambda (logo_forLoop 5 (lambda (lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) logo_epsL (logo_PT (lambda (logo_FWRT logo_UL logo_UA (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) logo_epsL $0))) $0)))) $0))",
-                    "logLikelihood": 0.0
-                }
-            ]
+            "programs": [{
+                "program": "(lambda (logo_forLoop 5 (lambda (lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) logo_epsL (logo_PT (lambda (logo_FWRT logo_UL logo_UA (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) logo_epsL $0))) $0)))) $0))",
+                "logLikelihood": 0.0
+            }]
         },
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2910,8 +2757,7 @@
                 ]
             },
             "task": "7-empty snowflake",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 7 (lambda (lambda (logo_FWRT logo_ZL (logo_DIVA logo_UA 7) (logo_GETSET (lambda (logo_FWRT logo_UL logo_UA $0)) $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2936,8 +2782,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2948,8 +2793,7 @@
                 ]
             },
             "task": "4-row of squares",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 4 (lambda (lambda (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) $0 (logo_DIVA logo_UA $0))) 4 logo_UL (logo_FWRT logo_UL logo_UA $0)))) $0))",
                     "logLikelihood": 0.0
                 },
@@ -2974,8 +2818,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -2986,8 +2829,7 @@
                 ]
             },
             "task": "square of size 1",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) $0 (logo_DIVA logo_UA $0))) 4 logo_UL $0))",
                     "logLikelihood": 0.0
                 },
@@ -3012,8 +2854,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -3024,8 +2865,7 @@
                 ]
             },
             "task": "square of size 2",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) 4 #(logo_DIVA logo_UA 4) (logo_MULL logo_UL 2) $0))",
                     "logLikelihood": 0.0
                 },
@@ -3050,8 +2890,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -3062,8 +2901,7 @@
                 ]
             },
             "task": "square of size 3",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) $0 (logo_DIVA logo_UA $0))) 4 (logo_MULL logo_UL 3) $0))",
                     "logLikelihood": 0.0
                 },
@@ -3088,8 +2926,7 @@
         {
             "request": {
                 "constructor": "->",
-                "arguments": [
-                    {
+                "arguments": [{
                         "constructor": "turtle",
                         "arguments": []
                     },
@@ -3100,8 +2937,7 @@
                 ]
             },
             "task": "5-concentric squares",
-            "programs": [
-                {
+            "programs": [{
                     "program": "(lambda (logo_forLoop 5 (lambda (lambda (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) $0 (logo_DIVA logo_UA $0))) 4 (logo_MULL logo_UL $1) $0))) $0))",
                     "logLikelihood": 0.0
                 },
