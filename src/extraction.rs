@@ -70,9 +70,6 @@ pub fn rewrite_fast(
                 let ref arg: Arg = shared.arg_of_zid_node[*zid][&unshifted_id];
                 assert!(shared.egraph[arg.id].data.free_vars.iter().all(|v| *v >= 0));
                 // assert!(arg.id == egraphs::shift(arg.unshifted_id, arg.shift, &shared.egraph, None).unwrap());
-                // if shift + arg.shift != 0 {
-                //     println!("shifting {} by {} to get {} unshifted free vars: {:?} shifted free vars: {:?}", extract(arg.unshifted_id,&shared.egraph), shift + arg.shift, extract(arg.id,&shared.egraph), shared.egraph[arg.unshifted_id].data.free_vars, shared.egraph[arg.id].data.free_vars);
-                // }
 
                 if arg.shift != 0 {
                     shift_rules.push(ShiftRule{depth_cutoff: total_depth, shift: arg.shift});
@@ -92,6 +89,7 @@ pub fn rewrite_fast(
                 let mut j = *i;
                 for rule in shift_rules.iter() {
                     // take "i" steps upward from current depth and see if you meet or pass the cutoff.
+                    // exactly equaling the cutoff counts as needing shifting.
                     if total_depth - i <= rule.depth_cutoff {
                         j += rule.shift;
                     }
@@ -114,8 +112,9 @@ pub fn rewrite_fast(
 
     let init_cost: i32 = shared.roots.iter().map(|r| shared.egraph[*r].data.inventionless_cost).sum();
 
+    let shift_rules = &mut vec![];
     let rewritten_exprs: Vec<Expr> = shared.roots.iter().map(|root| {
-        helper(pattern, shared, *root, 0, &mut vec![], inv_name)
+        helper(pattern, shared, *root, 0, shift_rules, inv_name)
     }).collect();
 
     if !shared.cfg.no_mismatch_check {
@@ -125,8 +124,7 @@ pub fn rewrite_fast(
             "\n{}\n", pattern.info(shared)
         );
     }
-    let mut egraph = EGraph::default();
-    egraph.add_expr(&Expr::programs(rewritten_exprs.clone()).into()); // todo REMOVE THIs it's just a temporary check for free vars same w egraph creation on prev line
+
     rewritten_exprs
 }
 
