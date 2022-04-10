@@ -36,7 +36,15 @@ pub struct CompressionStepConfig {
 
     /// disables refinement
     #[clap(long)]
-    pub no_refine: bool,
+    pub refine: bool,
+
+    /// max refinement size
+    #[clap(long)]
+    pub max_refinement_size: Option<i32>,
+
+    /// max number of refined out args that can be passed into a #i
+    #[clap(long, default_value = "2")]
+    pub max_refinement_arity: usize,
 
     /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
     #[clap(short='n', long, default_value = "1")]
@@ -874,7 +882,7 @@ fn stitch_search(
                         // if its the same arg in every place
                         if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
                             // AND there's no potential for refining that arg
-                            && (shared.cfg.no_refine || shared.egraph[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].data.free_ivars.is_empty())
+                            && (!shared.cfg.refine || shared.egraph[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].data.free_ivars.is_empty())
                         {
                             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
                             continue; // useless abstraction
@@ -974,7 +982,7 @@ fn stitch_search(
                 // it's a finished pattern
                 // refinement
 
-                if !shared.cfg.no_refine {
+                if shared.cfg.refine {
                     if tracked {
                         println!("{} refining {}", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared));
                     }
@@ -997,12 +1005,11 @@ fn stitch_search(
                         }
                     }
 
-                    let max_refine = 2;
                     let mut num_refinements = 0;
 
                     for refinements in refinements_by_arg.into_iter()
                         .map(|refinements|
-                                (1..=max_refine).map(move |k| refinements.clone().into_iter()
+                                (1..=shared.cfg.max_refinement_arity).map(move |k| refinements.clone().into_iter()
                                     .combinations(k))
                                 .flatten()
                                 .map(|r| Some(r))
@@ -1027,6 +1034,7 @@ fn stitch_search(
                         }
                         if tracked {
                             println!("{} refined to {} (util: {})", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared), utility);
+                            println!("{:?}", refinements);
                             if let Some(track_refined) = &shared.tracking.as_ref().unwrap().refined {
                                 let refined = new_pattern.to_expr(&shared).to_string();
                                 let track_refined = track_refined.to_string();
@@ -1142,6 +1150,13 @@ fn get_refinements_of_shifted_id(shifted_id: Id, egraph: &crate::EGraph, cfg: &C
         if !egraph[id].data.free_vars.is_empty() {
             return; // if something has free vars and theyre not turned into ivars they must either be refs to lambdas within the arg or refs ABOVE the invention which in either case we can't refine
         }
+
+        // let cutoff = 2 * COST_NONTERMINAL + 3 * COST_TERMINAL;
+        let cutoff = COST_NONTERMINAL + COST_TERMINAL * 2;
+        if egraph[id].data.inventionless_cost > cfg.max_refinement_size.unwrap_or(i32::MAX) {
+            return // todo limitation: limit on max size of what gets threaded
+        }
+
         // ivar!
         refinements.push(id);
         for child in egraph[id].nodes[0].children().iter() {
@@ -1269,7 +1284,7 @@ fn get_zippers(
                         }
                         arg.shifted_id = shift(arg.shifted_id, -1, egraph, cache).unwrap();
                         arg.shift -= 1;
-                        if !cfg.no_refine {
+                        if cfg.refine {
                             // refinements:
                             if !uses_of_shifted_arg_refinement.contains_key(&arg.shifted_id) {
                                 uses_of_shifted_arg_refinement.insert(arg.shifted_id,get_refinements_of_shifted_id(arg.shifted_id, &egraph, cfg));
