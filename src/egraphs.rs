@@ -218,3 +218,87 @@ pub fn shift(e: Id, incr_by: i32, egraph: &mut crate::EGraph, cache: &mut Option
         e,egraph,seen
     )
 }
+
+/// replaces upward refs to 0 with negative ivar
+#[inline]
+pub fn insert_arg_ivars(e: Id, set_to: i32, egraph: &mut crate::EGraph) -> Option<Id> {
+    recursive_var_mod(
+        |actual_idx, _depth, which_upward_ref, egraph| {
+            if which_upward_ref == 0 {
+                Some(egraph.add(Lambda::IVar(set_to)))
+            } else {
+                // leave unchanged
+                Some(egraph.add(Lambda::Var(actual_idx)))
+            }
+        },
+        false, // operate on Vars not IVars
+        e,egraph,&mut RecVarModCache::new()
+    )
+}
+
+// remap #i to $(i+depth) where depth is depth of #i in `e`
+pub fn arg_ivars_to_vars(e: &mut Expr) {
+    fn helper(id: Id, e: &mut Expr, depth: i32) {
+        // println!("expr: {}", e.to_string_uncurried(Some(id)));
+
+        match e.nodes[usize::from(id)].clone() {
+            Lambda::Prim(_) | Lambda::Var(_) => {},
+            Lambda::IVar(i) => {
+                e.nodes[usize::from(id)] = Lambda::Var(i+depth)
+            },
+            Lambda::App([f,x]) => {
+                helper(f, e, depth);
+                helper(x, e, depth);
+            },
+            Lambda::Lam([b]) => {
+                helper(b, e, depth+1);
+            },
+            _ => unreachable!()
+        }
+    }
+    // println!("expr: {}", e);
+    helper(e.root(), e, 0);
+}
+
+pub fn has_free_ivars(shifted_arg: Id, refinements: &Option<Vec<Id>>, egraph: &EGraph) -> bool {
+    if refinements.is_none() {
+        return !egraph[shifted_arg].data.free_ivars.is_empty();
+    }
+    let refinements = refinements.as_ref().unwrap();
+    fn helper(id: Id, refinements: &Vec<Id>, egraph: &EGraph) -> bool {
+        if refinements.contains(&id) {
+            return false; // refinement itself is safe!
+        }
+        if egraph[id].data.free_ivars.is_empty() {
+            return false; // no free ivars in this subtree
+        }
+        return match egraph[id].nodes[0] {
+            Lambda::Prim(_) | Lambda::Var(_) => false,
+            Lambda::IVar(_) => true, // found an ivar!
+            Lambda::App([f,x]) => helper(f, refinements, egraph) || helper(x, refinements, egraph),
+            Lambda::Lam([b]) => helper(b, refinements, egraph),
+            _ => unreachable!()
+        }
+    }
+    helper(shifted_arg, &refinements, egraph)
+}
+
+#[inline]
+pub fn is_descendant(descendant: Id, ancestor: Id, egraph: &EGraph) -> bool {
+    if descendant >= ancestor {
+        return false; // by how structural hashing works descendants are always lower numbers
+    }
+    fn helper(descendant: Id, ancestor: Id, egraph: &EGraph) -> bool {
+        if descendant == ancestor {
+            return true;
+        }
+        match egraph[ancestor].nodes[0] {
+            Lambda::Prim(_) | Lambda::Var(_) => false,
+            Lambda::IVar(_) => false,
+            Lambda::App([f,x]) => helper(descendant, f, egraph) || helper(descendant, x, egraph),
+            Lambda::Lam([b]) => helper(descendant, b, egraph),
+            _ => unreachable!()
+        }
+    }
+    helper(descendant, ancestor, egraph)
+}

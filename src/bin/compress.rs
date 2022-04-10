@@ -156,16 +156,16 @@ mod tests {
         let inventions = step_results.iter().take(10).map(|inv| inv.inv.body.to_string()).collect::<Vec<String>>();
         // let expected_inventions = vec!["(lam (logo_forLoop #0 (lam (lam (#1 $0))) $0))", "(logo_FWRT #0 (logo_DIVA logo_UA #1))", "(logo_MULL logo_UL)", "(logo_FWRT logo_UL)", "(logo_FWRT (logo_MULL logo_epsL #0))", "(fn_9 #0 (lam (logo_GETSET (lam (#1 $0)) (fn_10 logo_ZL #0 $0))))", "(logo_DIVL logo_UL)", "(fn_9 #0 (logo_FWRT (fn_11 4) (logo_MULA (logo_DIVA logo_UA #0) #1)))", "(logo_PT (lam (fn_12 #0 $0)))", "(logo_forLoop logo_IFTY (lam (lam (logo_FWRT #0 #1 $0))))"];
         // let expected_inventions = vec!["(lam (logo_forLoop #0 (lam (lam (#1 $0))) $0))", "(logo_FWRT #0 (logo_DIVA logo_UA #1))", "(logo_MULL logo_UL)", "(logo_FWRT logo_UL)", "(logo_FWRT (logo_MULL logo_epsL #0))", "(fn_9 #0 (lam (logo_GETSET (lam (#1 $0)) (fn_10 logo_ZL #0 $0))))", "(logo_DIVL logo_UL)", "(fn_9 #0 (logo_FWRT (fn_11 4) (logo_MULA (logo_DIVA logo_UA #0) #1)))", "(logo_PT (lam (fn_12 #0 $0)))", "(logo_forLoop logo_IFTY (lam (lam (logo_FWRT #0 #1 $0))))"];
-        let expected_inventions = vec!["(lam (logo_forLoop #0 (lam #1) $0))",
+        let expected_inventions = vec!["(lam (logo_forLoop #0 #1 $0))",
                                                 "(lam (logo_FWRT #1 #0 $0))",
-                                                "(fn_9 #0 (lam (logo_GETSET (fn_10 #1 logo_UL) (logo_FWRT logo_ZL (logo_DIVA logo_UA #0) $0))))",
+                                                "(fn_9 #0 (lam (lam (logo_GETSET (fn_10 #1 logo_UL) (logo_FWRT logo_ZL (logo_DIVA logo_UA #0) $0)))))",
+                                                "(fn_10 #1 (logo_MULL logo_UL #0))",
                                                 "(logo_DIVA logo_UA)",
-                                                "(logo_MULL logo_UL)",
-                                                "(fn_9 logo_IFTY (fn_10 #1 (logo_MULL logo_epsL #0)))",
+                                                "(fn_9 logo_IFTY (lam (fn_10 #1 (logo_MULL logo_epsL #0))))",
                                                 "(logo_DIVL logo_UL)",
-                                                "(fn_9 #0 (fn_10 #1 (fn_13 4)))",
                                                 "(lam (logo_FWRT logo_ZL #1 (#0 $0)))",
-                                                "(logo_MULL logo_epsL)"];
+                                                "(logo_MULL logo_epsL)",
+                                                "(logo_PT (fn_10 #0 logo_UL))"];
         
         // Assert single threaded results match expected results
         assert_eq!(inventions, expected_inventions);

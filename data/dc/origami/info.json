@@ -1,0 +1,204 @@
+{
+    "num_expected_new_fns": [
+        3,
+        6,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+    ],
+    "total_new_fns": 11,
+    "num_tasks_solved": [
+        11,
+        16,
+        18,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20
+    ],
+    "num_programs": [
+        49,
+        80,
+        90,
+        96,
+        100,
+        100,
+        100,
+        100,
+        100
+    ],
+    "iterations": [{
+            "iteration": 0,
+            "file": "data/rec-fp/iteration=10_2019-07-11T19:49:10.899159/iteration_0.json",
+            "dsl_len": 0,
+            "num_tasks_solved": 11,
+            "num_programs": 49,
+            "num_expected_new_fns": 3,
+            "expected_new_fns": [{
+                    "name": "fn_0",
+                    "dreamcoder": "#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0)))))))))",
+                    "with_sub_inventions": "#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0)))))))))",
+                    "stitch_uncanonical": "(fix1 #0 (lam (lam (if (empty? $0) #2 (#1 ($1 (cdr $0)) (car $0))))))",
+                    "stitch_canonical": "(fix1 #0 (lam (lam (if (empty? $0) #1 (#2 ($1 (cdr $0)) (car $0))))))",
+                    "arity": 3
+                },
+                {
+                    "name": "fn_1",
+                    "dreamcoder": "#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0)))))))))))",
+                    "with_sub_inventions": "#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0)))))))))))",
+                    "stitch_uncanonical": "(fix1 #0 (lam (lam (if (#3 $0) empty (cons (#2 $0) ($1 (#1 $0)))))))",
+                    "stitch_canonical": "(fix1 #0 (lam (lam (if (#1 $0) empty (cons (#2 $0) ($1 (#3 $0)))))))",
+                    "arity": 4
+                },
+                {
+                    "name": "fn_2",
+                    "dreamcoder": "#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty)))",
+                    "with_sub_inventions": "#(lambda (lambda (fn_0 $1 (lambda (lambda (cons ($2 $0) $1))) empty)))",
+                    "stitch_uncanonical": "(fn_0 #0 (lam (lam (cons (#1 $0) $1))) empty)",
+                    "stitch_canonical": "(fn_0 #0 (lam (lam (cons (#1 $0) $1))) empty)",
+                    "arity": 2
+                }
+            ]
+        },
+        {
+            "iteration": 1,
+            "file": "data/rec-fp/iteration=10_2019-07-11T19:49:10.899159/iteration_1.json",
+            "dsl_len": 3,
+            "num_tasks_solved": 16,
+            "num_programs": 80,
+            "num_expected_new_fns": 6,
+            "expected_new_fns": [{
+                    "name": "fn_3",
+                    "dreamcoder": "#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (if ($3 $0) $1 (cons $0 $1)))) empty)))",
+                    "with_sub_inventions": "#(lambda (lambda (fn_0 $0 (lambda (lambda (if ($3 $0) $1 (cons $0 $1)))) empty)))",
+                    "stitch_uncanonical": "(fn_0 #1 (lam (lam (if (#0 $0) $1 (cons $0 $1)))) empty)",
+                    "stitch_canonical": "(fn_0 #0 (lam (lam (if (#1 $0) $1 (cons $0 $1)))) empty)",
+                    "arity": 2
+                },
+                {
+                    "name": "fn_4",
+                    "dreamcoder": "#(lambda (lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $1 (lambda ($3 $0 1)) (lambda $0) (lambda (eq? $0 $1))))))",
+                    "with_sub_inventions": "#(lambda (lambda (lambda (fn_1 $1 (lambda ($3 $0 1)) (lambda $0) (lambda (eq? $0 $1))))))",
+                    "stitch_uncanonical": "(fn_1 #1 (lam (#0 $0 1)) (lam $0) (lam (eq? $0 #2)))",
+                    "stitch_canonical": "(fn_1 #0 (lam (#1 $0 1)) (lam $0) (lam (eq? $0 #2)))",
+                    "arity": 3
+                },
+                {
+                    "name": "fn_5",
+                    "dreamcoder": "#(#(lambda (lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $1 (lambda ($3 $0 1)) (lambda $0) (lambda (eq? $0 $1)))))) (lambda (lambda (+ $1 $0))) 0)",
+                    "with_sub_inventions": "#(fn_4 (lambda (lambda (+ $1 $0))) 0)",
+                    "stitch_uncanonical": "(fn_4 (lam (lam (+ $1 $0))) 0)",
+                    "stitch_canonical": "(fn_4 (lam (lam (+ $1 $0))) 0)",
+                    "arity": 0
+                },
+                {
+                    "name": "fn_6",
+                    "dreamcoder": "#(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (+ 1 $1))) 0))",
+                    "with_sub_inventions": "#(lambda (fn_0 $0 (lambda (lambda (+ 1 $1))) 0))",
+                    "stitch_uncanonical": "(fn_0 #0 (lam (lam (+ 1 $1))) 0)",
+                    "stitch_canonical": "(fn_0 #0 (lam (lam (+ 1 $1))) 0)",
+                    "arity": 1
+                },
+                {
+                    "name": "fn_7",
+                    "dreamcoder": "#(lambda (lambda (#(lambda (lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $1 (lambda ($3 $0 1)) (lambda $0) (lambda (eq? $0 $1)))))) (lambda (lambda (- $1 $0))) ($1 $0) $0)))",
+                    "with_sub_inventions": "#(lambda (lambda (fn_4 (lambda (lambda (- $1 $0))) ($1 $0) $0)))",
+                    "stitch_uncanonical": "(fn_4 (lam (lam (- $1 $0))) (#0 #1) #1)",
+                    "stitch_canonical": "(fn_4 (lam (lam (- $1 $0))) (#0 #1) #1)",
+                    "arity": 2
+                },
+                {
+                    "name": "fn_8",
+                    "dreamcoder": "#(lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 (lambda ($2 (cdr $0))) (lambda (car $0)))))",
+                    "with_sub_inventions": "#(lambda (lambda (fn_1 $0 (lambda ($2 (cdr $0))) (lambda (car $0)))))",
+                    "stitch_uncanonical": "(fn_1 #1 (lam (#0 (cdr $0))) (lam (car $0)))",
+                    "stitch_canonical": "(fn_1 #0 (lam (#1 (cdr $0))) (lam (car $0)))",
+                    "arity": 2
+                }
+            ]
+        },
+        {
+            "iteration": 2,
+            "file": "data/rec-fp/iteration=10_2019-07-11T19:49:10.899159/iteration_2.json",
+            "dsl_len": 9,
+            "num_tasks_solved": 18,
+            "num_programs": 90,
+            "num_expected_new_fns": 1,
+            "expected_new_fns": [{
+                "name": "fn_9",
+                "dreamcoder": "#(lambda (lambda (car (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) (#(#(lambda (lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $1 (lambda ($3 $0 1)) (lambda $0) (lambda (eq? $0 $1)))))) (lambda (lambda (+ $1 $0))) 0) $1) (lambda (lambda (cdr $1))) $0))))",
+                "with_sub_inventions": "#(lambda (lambda (car (fn_0 (fn_5 $1) (lambda (lambda (cdr $1))) $0))))",
+                "stitch_uncanonical": "(car (fn_0 (fn_5 #0) (lam (lam (cdr $1))) #1))",
+                "stitch_canonical": "(car (fn_0 (fn_5 #0) (lam (lam (cdr $1))) #1))",
+                "arity": 2
+            }]
+        },
+        {
+            "iteration": 3,
+            "file": "data/rec-fp/iteration=10_2019-07-11T19:49:10.899159/iteration_3.json",
+            "dsl_len": 10,
+            "num_tasks_solved": 20,
+            "num_programs": 96,
+            "num_expected_new_fns": 1,
+            "expected_new_fns": [{
+                "name": "fn_10",
+                "dreamcoder": "#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) (#(#(lambda (lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $1 (lambda ($3 $0 1)) (lambda $0) (lambda (eq? $0 $1)))))) (lambda (lambda (+ $1 $0))) 0) (#(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (+ 1 $1))) 0)) $2)) (lambda ($2 (#(lambda (lambda (car (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) (#(#(lambda (lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $1 (lambda ($3 $0 1)) (lambda $0) (lambda (eq? $0 $1)))))) (lambda (lambda (+ $1 $0))) 0) $1) (lambda (lambda (cdr $1))) $0)))) $0 $1) (#(lambda (lambda (car (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) (#(#(lambda (lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $1 (lambda ($3 $0 1)) (lambda $0) (lambda (eq? $0 $1)))))) (lambda (lambda (+ $1 $0))) 0) $1) (lambda (lambda (cdr $1))) $0)))) $0 $3)))))))",
+                "with_sub_inventions": "#(lambda (lambda (lambda (fn_2 (fn_5 (fn_6 $2)) (lambda ($2 (fn_9 $0 $1) (fn_9 $0 $3)))))))",
+                "stitch_uncanonical": "(fn_2 (fn_5 (fn_6 #0)) (lam (#1 (fn_9 $0 #2) (fn_9 $0 #0))))",
+                "stitch_canonical": "(fn_2 (fn_5 (fn_6 #0)) (lam (#1 (fn_9 $0 #2) (fn_9 $0 #0))))",
+                "arity": 3
+            }]
+        },
+        {
+            "iteration": 4,
+            "file": "data/rec-fp/iteration=10_2019-07-11T19:49:10.899159/iteration_4.json",
+            "dsl_len": 11,
+            "num_tasks_solved": 20,
+            "num_programs": 100,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 5,
+            "file": "data/rec-fp/iteration=10_2019-07-11T19:49:10.899159/iteration_5.json",
+            "dsl_len": 11,
+            "num_tasks_solved": 20,
+            "num_programs": 100,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 6,
+            "file": "data/rec-fp/iteration=10_2019-07-11T19:49:10.899159/iteration_6.json",
+            "dsl_len": 11,
+            "num_tasks_solved": 20,
+            "num_programs": 100,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 7,
+            "file": "data/rec-fp/iteration=10_2019-07-11T19:49:10.899159/iteration_7.json",
+            "dsl_len": 11,
+            "num_tasks_solved": 20,
+            "num_programs": 100,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        },
+        {
+            "iteration": 8,
+            "file": "data/rec-fp/iteration=10_2019-07-11T19:49:10.899159/iteration_8.json",
+            "dsl_len": 11,
+            "num_tasks_solved": 20,
+            "num_programs": 100,
+            "num_expected_new_fns": 0,
+            "expected_new_fns": []
+        }
+    ]
+}
