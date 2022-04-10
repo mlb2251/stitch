@@ -59,6 +59,10 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub track: Option<String>,
 
+    /// refined version of pattern or invention to track
+    #[clap(long)]
+    pub track_refined: Option<String>,
+
     /// pattern or invention to track
     #[clap(long)]
     pub follow_track: bool,
@@ -495,6 +499,7 @@ pub struct SharedData {
 pub struct Tracking {
     expr: Expr,
     zids_of_ivar: Vec<Vec<ZId>>,
+    refined: Option<Expr>,
 }
 
 impl CriticalMultithreadData {
@@ -847,7 +852,7 @@ fn stitch_search(
 
                 // check for free variables: if an invention has free variables in the body then it's not a real function and we can discard it
                 // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
-                if !shared.cfg.no_opt_free_vars {
+                if true || !shared.cfg.no_opt_free_vars {
                     if let ExpandsTo::Var(i) = expands_to {
                         if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
                             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
@@ -983,6 +988,9 @@ fn stitch_search(
                 // refinement
 
                 if !shared.cfg.no_refine {
+                    if tracked {
+                        println!("{} refining {}", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared));
+                    }
                     // refinements!
                     for (i,zid) in new_pattern.first_zid_of_ivar.iter().enumerate() { // for each arg
                         if new_pattern.arg_choices.iter().filter(|l |l.ivar == i).count() > 1 {
@@ -1015,6 +1023,18 @@ fn stitch_search(
                                 best_refinement = Some(refinement);
                                 best_utility = utility;
                             }
+                            if tracked {
+                                println!("{} refined to {} (util: {})", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared), utility);
+                                if let Some(track_refined) = &shared.tracking.as_ref().unwrap().refined {
+                                    let refined = new_pattern.to_expr(&shared).to_string();
+                                    let track_refined = track_refined.to_string();
+                                    if refined == track_refined {
+                                        println!("{} previous refinement was the tracked one! Forcing it to accept that one", "[TRACK:REFINE]".green().bold());
+                                        best_refinement = Some(refinement);
+                                        break;
+                                    }
+                                }
+                            }
                             // reset body utility
                             new_pattern.refinement_body_utility = original_refinement_body_utility;
                         }
@@ -1029,12 +1049,10 @@ fn stitch_search(
 
                 let finished_pattern = FinishedPattern::new(new_pattern, &shared);
 
-
-
                 if tracked {
                     println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);
                 }
-                if shared.cfg.inv_candidates == 1 {
+                if shared.cfg.inv_candidates == 1 && finished_pattern.utility > weak_utility_pruning_cutoff {
                     // if we're only looking for one invention, we can directly update our cutoff here
                     weak_utility_pruning_cutoff = finished_pattern.utility;
                 }
@@ -1116,7 +1134,7 @@ fn get_refinements_of_shifted_id(shifted_id: Id, egraph: &crate::EGraph, cfg: &C
     fn helper(id: Id, egraph: &crate::EGraph, cfg: &CompressionStepConfig, refinements: &mut Vec<Id>) {
         let ivars =  egraph[id].data.free_ivars.len();
         if ivars == 0 {
-            return; // todo limitation: we dont thread things that dont have ivars, for sortof good reasons
+            return; // todo limitation: we dont thread things that dont have ivars, for sortof good reasons.
         }
         
         if !egraph[id].data.free_vars.is_empty() {
@@ -1796,7 +1814,8 @@ pub fn compression_step(
     let tracking: Option<Tracking> = cfg.track.as_ref().map(|s|{
         let expr: Expr = s.parse().unwrap();
         let zids_of_ivar = zids_of_ivar_of_expr(&expr, &zid_of_zip);
-        Tracking { expr, zids_of_ivar }
+        let refined = cfg.track_refined.as_ref().map(|s| s.parse().unwrap());
+        Tracking { expr, zids_of_ivar, refined }
     });
 
     println!("Tracking setup: {:?}ms", tstart.elapsed().as_millis());
