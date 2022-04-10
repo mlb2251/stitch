@@ -260,13 +260,13 @@ pub fn arg_ivars_to_vars(e: &mut Expr) {
     helper(e.root(), e, 0);
 }
 
-pub fn has_free_ivars(shifted_arg: Id, refinement: Option<Id>, egraph: &EGraph) -> bool {
-    if refinement.is_none() {
+pub fn has_free_ivars(shifted_arg: Id, refinements: &Option<Vec<Id>>, egraph: &EGraph) -> bool {
+    if refinements.is_none() {
         return !egraph[shifted_arg].data.free_ivars.is_empty();
     }
-    let refinement = refinement.unwrap();
-    fn helper(id: Id, refinement: Id, egraph: &EGraph) -> bool {
-        if id == refinement {
+    let refinements = refinements.as_ref().unwrap();
+    fn helper(id: Id, refinements: &Vec<Id>, egraph: &EGraph) -> bool {
+        if refinements.contains(&id) {
             return false; // refinement itself is safe!
         }
         if egraph[id].data.free_ivars.is_empty() {
@@ -275,10 +275,30 @@ pub fn has_free_ivars(shifted_arg: Id, refinement: Option<Id>, egraph: &EGraph) 
         return match egraph[id].nodes[0] {
             Lambda::Prim(_) | Lambda::Var(_) => false,
             Lambda::IVar(_) => true, // found an ivar!
-            Lambda::App([f,x]) => helper(f, refinement, egraph) || helper(x, refinement, egraph),
-            Lambda::Lam([b]) => helper(b, refinement, egraph),
+            Lambda::App([f,x]) => helper(f, refinements, egraph) || helper(x, refinements, egraph),
+            Lambda::Lam([b]) => helper(b, refinements, egraph),
             _ => unreachable!()
         }
     }
-    helper(shifted_arg, refinement, egraph)
+    helper(shifted_arg, &refinements, egraph)
+}
+
+#[inline]
+pub fn is_descendant(descendant: Id, ancestor: Id, egraph: &EGraph) -> bool {
+    if descendant >= ancestor {
+        return false; // by how structural hashing works descendants are always lower numbers
+    }
+    fn helper(descendant: Id, ancestor: Id, egraph: &EGraph) -> bool {
+        if descendant == ancestor {
+            return true;
+        }
+        match egraph[ancestor].nodes[0] {
+            Lambda::Prim(_) | Lambda::Var(_) => false,
+            Lambda::IVar(_) => false,
+            Lambda::App([f,x]) => helper(descendant, f, egraph) || helper(descendant, x, egraph),
+            Lambda::Lam([b]) => helper(descendant, b, egraph),
+            _ => unreachable!()
+        }
+    }
+    helper(descendant, ancestor, egraph)
 }

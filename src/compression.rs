@@ -160,7 +160,7 @@ pub struct Pattern {
     pub holes: Vec<ZId>, // in order of when theyre added NOT left to right
     arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an argchoice, again these are in order of when they were added
     pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index of the first use of #i in arg_choices
-    pub refinements: Vec<Option<Id>>, // refinements[i] gives the list of refinements for #i
+    pub refinements: Vec<Option<Vec<Id>>>, // refinements[i] gives the list of refinements for #i
     pub match_locations: Vec<Id>, // places where it applies
     pub utility_upper_bound: i32,
     pub body_utility_no_refinement: i32, // the size (in `cost`) of a single use of the pattern body so far
@@ -268,12 +268,17 @@ impl Pattern {
         // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
         let zips: Vec<(Zip,Expr)> = self.holes.iter().map(|zid| (shared.zip_of_zid[*zid].clone(), Expr::prim("??".into())))
             .chain(self.arg_choices.iter().map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(),
-                if let Some(refinement) = self.refinements[labelled_zid.ivar] {
+                if let Some(refinements) = self.refinements[labelled_zid.ivar].as_ref() {
 
                     // extract the refinement and remap #i to $(i+depth) where depth is depth of #i in `extracted`
-                    let mut extracted = extract(refinement, &shared.egraph);
-                    arg_ivars_to_vars(&mut extracted);
-                    Expr::app(Expr::ivar(labelled_zid.ivar as i32), extracted)
+                    let mut extracted = refinements.iter().map(|refinement| extract(*refinement, &shared.egraph)).collect::<Vec<_>>();
+                    extracted.iter_mut().for_each(|e| arg_ivars_to_vars(e));
+                    let mut expr = Expr::ivar(labelled_zid.ivar as i32);
+                    // todo are these applied in the right order?
+                    for e in extracted {
+                        expr = Expr::app(expr,e);
+                    }
+                    expr
                 } else {
                     Expr::ivar(labelled_zid.ivar as i32)
                 }))).collect();
@@ -864,14 +869,20 @@ fn stitch_search(
 
                 // check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
                 // because subsetting of match_locations can turn previously useful abstractions into useless ones.
-                if !shared.cfg.no_opt_useless_abstract &&
-                    original_pattern.arg_choices.iter()
-                    .any(|argchoice| locs.iter()
-                        .map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id.clone()).all_equal())
-                {
-                    if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
-                    continue; // useless abstraction
+                if !shared.cfg.no_opt_useless_abstract {
+                    for argchoice in original_pattern.arg_choices.iter(){
+                        // if its the same arg in every place
+                        if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
+                            // AND there's no potential for refining that arg
+                            && (shared.cfg.no_refine || shared.egraph[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].data.free_ivars.is_empty())
+                        {
+                            if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
+                            continue; // useless abstraction
+                        }
+                    }
+
                 }
+
 
                 // update the body utility
                 let body_utility_no_refinement = original_pattern.body_utility_no_refinement +  match expands_to {
@@ -998,7 +1009,7 @@ fn stitch_search(
                         }
 
                         // initially our bests are just whatever no refinement would have given us
-                        let mut best_refinement: Option<Id> = None;
+                        let mut best_refinement: Option<Vec<Id>> = None;
                         let mut best_utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
                         let original_refinement_body_utility = new_pattern.refinement_body_utility;
                 
@@ -1013,37 +1024,41 @@ fn stitch_search(
                         // so we can group_by over them 
                         // refinements.sort_unstable_by_key(|refinement| refinement.refined_subtree);
                         // for (refined_subtree, refinements) in refinements.into_iter().group_by(|refinement| refinement.refined_subtree).into_iter() {
-                        for refinement in refinements {
-                            // insert the refinement
-                            new_pattern.refinements[i] = Some(refinement);
-                            // body grows by an APP and the refined out subtree's size
-                            new_pattern.refinement_body_utility += COST_NONTERMINAL + shared.egraph[refinement].data.inventionless_cost;
-                            let utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
-                            if utility > best_utility {
-                                best_refinement = Some(refinement);
-                                best_utility = utility;
-                            }
-                            if tracked {
-                                println!("{} refined to {} (util: {})", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared), utility);
-                                if let Some(track_refined) = &shared.tracking.as_ref().unwrap().refined {
-                                    let refined = new_pattern.to_expr(&shared).to_string();
-                                    let track_refined = track_refined.to_string();
-                                    if refined == track_refined {
-                                        println!("{} previous refinement was the tracked one! Forcing it to accept that one", "[TRACK:REFINE]".green().bold());
-                                        best_refinement = Some(refinement);
-                                        break;
+                        'combos: for combinations_of in 1..=2 {
+                            for refinements in refinements.iter().cloned().combinations(combinations_of) {
+                                // insert the refinement
+                                new_pattern.refinements[i] = Some(refinements.clone());
+                                // body grows by an APP and the refined out subtree's size
+                                new_pattern.refinement_body_utility += refinements.iter().map(|r| COST_NONTERMINAL + shared.egraph[*r].data.inventionless_cost).sum::<i32>();
+
+                                let utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
+                                if utility > best_utility {
+                                    best_refinement = Some(refinements.clone());
+                                    best_utility = utility;
+                                }
+                                if tracked {
+                                    println!("{} refined to {} (util: {})", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared), utility);
+                                    if let Some(track_refined) = &shared.tracking.as_ref().unwrap().refined {
+                                        let refined = new_pattern.to_expr(&shared).to_string();
+                                        let track_refined = track_refined.to_string();
+                                        if refined == track_refined {
+                                            println!("{} previous refinement was the tracked one! Forcing it to accept that one", "[TRACK:REFINE]".green().bold());
+                                            best_refinement = Some(refinements);
+                                            new_pattern.refinement_body_utility = original_refinement_body_utility;
+                                            break 'combos;
+                                        }
                                     }
                                 }
+                                // reset body utility
+                                new_pattern.refinement_body_utility = original_refinement_body_utility;
                             }
-                            // reset body utility
-                            new_pattern.refinement_body_utility = original_refinement_body_utility;
                         }
 
                         // set to the best
-                        new_pattern.refinements[i] = best_refinement;
-                        if let Some(refinement) = best_refinement {
-                            new_pattern.refinement_body_utility += COST_NONTERMINAL + shared.egraph[refinement].data.inventionless_cost;
+                        if let Some(refinements) = best_refinement.as_ref() {
+                            new_pattern.refinement_body_utility += refinements.iter().map(|r| COST_NONTERMINAL + shared.egraph[*r].data.inventionless_cost).sum::<i32>();
                         }
+                        new_pattern.refinements[i] = best_refinement;
                     }
                 }
 
@@ -1465,11 +1480,22 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     let ivar_multiuses: Vec<(usize,i32)> = pattern.arg_choices.iter().map(|labelled|labelled.ivar).counts()
         .iter().filter_map(|(ivar,count)| if *count > 1 { Some((*ivar, (*count-1) as i32)) } else { None }).collect();
 
+    // (parent,child) show up in here if they conflict
+    let mut refinement_conflicts: HashSet<(Id,Id)> = Default::default();
+    for r in pattern.refinements.iter().filter_map(|r|r.as_ref()) {
+        for ancestor in r.iter() {
+            for descendant in r.iter() {
+                if ancestor != descendant && is_descendant(*descendant, *ancestor, &shared.egraph) {
+                    refinement_conflicts.insert((*ancestor, *descendant));
+                }
+            }
+        }
+    }
+
     // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
     // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
     // Also an extra COST_NONTERMINAL for each argument that is refined (for the lambda).
-    // todo limitation: assumes refinements take a single arg
-    let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * pattern.first_zid_of_ivar.len() as i32 + COST_NONTERMINAL * pattern.refinements.iter().filter(|r|r.is_some()).count() as i32);
+    let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * pattern.first_zid_of_ivar.len() as i32 + COST_NONTERMINAL * pattern.refinements.iter().map(|r|if let Some(refinements) = r {refinements.len() as i32} else {0}).sum::<i32>());
 
 
     let utility_of_loc_once: Vec<i32> = pattern.match_locations.iter().map(|loc| {
@@ -1478,14 +1504,24 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
 
         // each use of the refined out arg gives a benefit equal to the size of the arg
         let refinement_utility: i32 = pattern.refinements.iter().enumerate().filter(|(_,r)| r.is_some()).map(|(ivar,r)| {
-            let refinement = r.unwrap();
+            let refinements = r.as_ref().unwrap();
             // grab shifted arg
             let shifted_arg: Id = shared.arg_of_zid_node[pattern.first_zid_of_ivar[ivar]][loc].shifted_id;
             if let Some(uses_of_refinement) =  shared.uses_of_shifted_arg_refinement.get(&shifted_arg) {
-                if let Some(uses) = uses_of_refinement.get(&refinement) {
-                    // we subtract COST_TERMINAL because we need to leave behind a $i in place of it in the arg
-                    return (*uses as i32) * (shared.egraph[refinement].data.inventionless_cost - COST_TERMINAL)
-                }
+                return refinements.iter().map(|refinement| {
+                    if let Some(uses) = uses_of_refinement.get(&refinement) {
+                        // we subtract COST_TERMINAL because we need to leave behind a $i in place of it in the arg
+                        let mut util = (*uses as i32) * (shared.egraph[*refinement].data.inventionless_cost - COST_TERMINAL);
+                        for r in refinements.iter().filter(|r| refinement_conflicts.contains(&(*refinement,**r))) {
+                            // we (an ancestor) conflicted with a descendant so we lose some of that descendants util
+                            // todo: importantly this doesnt when a grandparent negates both a parent and a child... 
+                            // todo that would be necessary for 3+ refinements and would be closer to our full conflict resolution setup
+                            assert!(refinements.len() < 3);
+                            util -=  (*uses as i32) * (shared.egraph[*r].data.inventionless_cost - COST_TERMINAL);
+                        }
+                        util
+                    } else { 0 }
+                }).sum::<i32>()
             }
             // if uses_of_shifted_arg_refinement lacks this shifted_arg then it must not have any refinements so we must not be getting any refinement gain here
             // likewise if the inner hashmap uses_of_shifted_arg_refinement[shifted_arg] lacks this refinement then we wont get any benefit
@@ -1496,7 +1532,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         // is one) then we can't apply this invention here so *total* util should be 0
         for (ivar,zid) in pattern.first_zid_of_ivar.iter().enumerate() {
             let shifted_arg = shared.arg_of_zid_node[*zid][loc].shifted_id;
-            if has_free_ivars(shifted_arg, pattern.refinements[ivar], &shared.egraph) {
+            if has_free_ivars(shifted_arg, &pattern.refinements[ivar], &shared.egraph) {
                 return 0; // set whole util to 0 for this loc, causing an autoreject
             }
         }
