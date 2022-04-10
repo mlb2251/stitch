@@ -1151,10 +1151,8 @@ fn get_refinements_of_shifted_id(shifted_id: Id, egraph: &crate::EGraph, cfg: &C
             return; // if something has free vars and theyre not turned into ivars they must either be refs to lambdas within the arg or refs ABOVE the invention which in either case we can't refine
         }
 
-        // let cutoff = 2 * COST_NONTERMINAL + 3 * COST_TERMINAL;
-        let cutoff = COST_NONTERMINAL + COST_TERMINAL * 2;
         if egraph[id].data.inventionless_cost > cfg.max_refinement_size.unwrap_or(i32::MAX) {
-            return // todo limitation: limit on max size of what gets threaded
+            return
         }
 
         // ivar!

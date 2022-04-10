@@ -81,7 +81,6 @@ pub fn rewrite_fast(
                 let rewritten_arg = if let Some(refinements) = pattern.pattern.refinements[ivar].as_ref() {
                     // enter refinement mode! We actually recurse on *shifted_id* intentionally here so we can find
                     // the refinement itself which is a subtree of the shifted_id, and we forbid further rewriting within this call
-                    // todo limitation: wrapping in only one lam so only one var is refined out
                     // println!("refinement recurison for {} in {}", extract(refinement, &shared.egraph), extract(unshifted_id, &shared.egraph));
                     
                     let mut e = helper(pattern, shared, arg.shifted_id, total_depth, shift_rules, inv_name, Some((refinements,total_depth)));
@@ -129,8 +128,6 @@ pub fn rewrite_fast(
                         // j is pointing above the invention so we need to upshift it a bit to account for the new lambdas we added
                         j += refinements.len() as i32;
                     }
-                    // todo limitation: assuming refinement only takes 1 arg so it only wraps in 1 lambda
-                    j += 1 // we wrapped in a lam() for the refinement hence this increment
                 }
                 assert!(j >= 0);
                 Expr::var(j)
