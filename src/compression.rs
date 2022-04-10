@@ -972,94 +972,81 @@ fn stitch_search(
 
             if new_pattern.holes.is_empty() {
                 // it's a finished pattern
-                // let mut recalculate_utility = false;
-
-                // check if negative vars in args (ie over shifted things) and discard those locations (but keep the overall invention)
-                // todo change this to be negative ivars + add refinement
-                // for zid in new_pattern.first_zid_of_ivar.iter() {
-                //     let ref arg_of_node = shared.arg_of_zid_node[*zid];
-                //     new_pattern.match_locations.retain(|loc|{
-                //        let ok = shared.egraph[arg_of_node[loc].shifted_id].data.free_vars.iter().all(|var| *var >= 0);
-                //        if !ok { recalculate_utility = true; } // we returned false at least once, so we need to recalculate the utility at the end of this
-                //        ok
-                //     });
-                // }
-
-                // // recalculate upper bound now that match_locations may have changed, and redo bound check
-                // if recalculate_utility {
-                //     new_pattern.utility_upper_bound = utility_upper_bound(&new_pattern.match_locations, new_pattern.body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
-                //     // more branch and bound
-                //     if !shared.cfg.no_opt_upper_bound && new_pattern.utility_upper_bound <= weak_utility_pruning_cutoff {
-                //         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-                //         if tracked { println!("{} upper bound ({} < {}) pruned AFTER negative var retain() when expanding {} to {}", "[TRACK]".red().bold(), new_pattern.utility_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
-                //         continue; // too low utility
-                //     }
-                // }
-
                 // refinement
 
                 if !shared.cfg.no_refine {
                     if tracked {
                         println!("{} refining {}", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared));
                     }
-                    // refinements!
-                    for (i,zid) in new_pattern.first_zid_of_ivar.iter().enumerate() { // for each arg
-                        if new_pattern.arg_choices.iter().filter(|l |l.ivar == i).count() > 1 {
-                            continue; // todo limitation: we dont refine multiuse
-                        }
 
-                        // initially our bests are just whatever no refinement would have given us
-                        let mut best_refinement: Option<Vec<Id>> = None;
-                        let mut best_utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
-                        let original_refinement_body_utility = new_pattern.refinement_body_utility;
-                
-                        // gather all possible things we could refine out, using refs since it's cheaper
-                        let refinements: HashSet<Id> = new_pattern.match_locations.iter().flat_map(|loc|
+                    let mut best_refinement: Vec<Option<Vec<Id>>> = new_pattern.refinements.clone(); // initially all Nones
+                    let mut best_utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
+                    let mut best_refinement_body_utility = 0;
+                    assert!(new_pattern.refinement_body_utility == 0);
+                    assert!(new_pattern.refinements.iter().all(|refinement| refinement.is_none()));
+
+                    // get all refinement options for each arg, deduped
+                    let mut refinements_by_arg: Vec<Vec<Id>> = new_pattern.first_zid_of_ivar.iter().map(|zid| 
+                        new_pattern.match_locations.iter().flat_map(|loc|
                             shared.uses_of_shifted_arg_refinement.get(&shared.arg_of_zid_node[*zid][loc].shifted_id).map(|uses_of_refinement| uses_of_refinement.keys())
-                        ).flatten().cloned().collect();
-                        // for loc in new_pattern.match_locations.iter() { // for each match location
-                        //     refinements.extend(shared.refinables_of_shifted_arg[&shared.arg_of_zid_node[*zid][loc].shifted_id].iter());
-                        // }
-                        // sort so that refinements with the same thing refined out are grouped together
-                        // so we can group_by over them 
-                        // refinements.sort_unstable_by_key(|refinement| refinement.refined_subtree);
-                        // for (refined_subtree, refinements) in refinements.into_iter().group_by(|refinement| refinement.refined_subtree).into_iter() {
-                        'combos: for combinations_of in 1..=2 {
-                            for refinements in refinements.iter().cloned().combinations(combinations_of) {
-                                // insert the refinement
-                                new_pattern.refinements[i] = Some(refinements.clone());
-                                // body grows by an APP and the refined out subtree's size
-                                new_pattern.refinement_body_utility += refinements.iter().map(|r| COST_NONTERMINAL + shared.egraph[*r].data.inventionless_cost).sum::<i32>();
+                        ).flatten().cloned().collect::<HashSet<_>>().into_iter().collect()).collect();
 
-                                let utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
-                                if utility > best_utility {
-                                    best_refinement = Some(refinements.clone());
-                                    best_utility = utility;
+                    for (i,_) in new_pattern.first_zid_of_ivar.iter().enumerate() { // for each arg
+                        if new_pattern.arg_choices.iter().filter(|l |l.ivar == i).count() > 1 {
+                            refinements_by_arg[i] = Vec::new(); // todo limitation: we dont refine multiuse
+                        }
+                    }
+
+                    let max_refine = 2;
+                    let mut num_refinements = 0;
+
+                    for refinements in refinements_by_arg.into_iter()
+                        .map(|refinements|
+                                (1..=max_refine).map(move |k| refinements.clone().into_iter()
+                                    .combinations(k))
+                                .flatten()
+                                .map(|r| Some(r))
+                                .chain(std::iter::once(None))
+                                )
+                        .multi_cartesian_product()
+                    {
+                        num_refinements += 1;
+                        // insert the refinement
+                        new_pattern.refinements = refinements.clone();
+                        // body grows by an APP and the refined out subtree's size
+                        new_pattern.refinement_body_utility = refinements.iter()
+                            .flat_map(|r| r)
+                            .map(|r| r.iter()
+                                .map(|r_id| COST_NONTERMINAL + shared.egraph[*r_id].data.inventionless_cost).sum::<i32>()).sum::<i32>();
+
+                        let utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
+                        if utility > best_utility {
+                            best_refinement = refinements.clone();
+                            best_utility = utility;
+                            best_refinement_body_utility = new_pattern.refinement_body_utility;
+                        }
+                        if tracked {
+                            println!("{} refined to {} (util: {})", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared), utility);
+                            if let Some(track_refined) = &shared.tracking.as_ref().unwrap().refined {
+                                let refined = new_pattern.to_expr(&shared).to_string();
+                                let track_refined = track_refined.to_string();
+                                if refined == track_refined {
+                                    println!("{} previous refinement was the tracked one! Forcing it to accept that one", "[TRACK:REFINE]".green().bold());
+                                    best_refinement = refinements.clone();
+                                    best_refinement_body_utility = new_pattern.refinement_body_utility;
+                                    new_pattern.refinement_body_utility = 0;
+                                    break;
                                 }
-                                if tracked {
-                                    println!("{} refined to {} (util: {})", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared), utility);
-                                    if let Some(track_refined) = &shared.tracking.as_ref().unwrap().refined {
-                                        let refined = new_pattern.to_expr(&shared).to_string();
-                                        let track_refined = track_refined.to_string();
-                                        if refined == track_refined {
-                                            println!("{} previous refinement was the tracked one! Forcing it to accept that one", "[TRACK:REFINE]".green().bold());
-                                            best_refinement = Some(refinements);
-                                            new_pattern.refinement_body_utility = original_refinement_body_utility;
-                                            break 'combos;
-                                        }
-                                    }
-                                }
-                                // reset body utility
-                                new_pattern.refinement_body_utility = original_refinement_body_utility;
                             }
                         }
-
-                        // set to the best
-                        if let Some(refinements) = best_refinement.as_ref() {
-                            new_pattern.refinement_body_utility += refinements.iter().map(|r| COST_NONTERMINAL + shared.egraph[*r].data.inventionless_cost).sum::<i32>();
-                        }
-                        new_pattern.refinements[i] = best_refinement;
+                        // reset body utility
+                        new_pattern.refinement_body_utility = 0;
                     }
+                    println!("tried {} refinements for {}", num_refinements, new_pattern.to_expr(&shared));
+
+                    // set to the best
+                    new_pattern.refinements = best_refinement.clone();
+                    new_pattern.refinement_body_utility = best_refinement_body_utility;
                 }
 
                 let finished_pattern = FinishedPattern::new(new_pattern, &shared);
