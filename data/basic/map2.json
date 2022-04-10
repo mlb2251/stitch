@@ -1,0 +1,4 @@
+[
+    "(Y (lam (lam (if (nil? $0) nil (cons (+ 2 (car $0) (car $0)) (r (cdr $0)))))))",
+    "(Y (lam (lam (if (nil? $0) nil (cons (- (car $0) (car $0) 3 (car $0) 4) (r (cdr $0)))))))"
+]

@@ -1,0 +1,739 @@
+{
+    "verbose": false,
+    "arity": 4,
+    "topK": 5,
+    "pseudoCounts": 30.0,
+    "aic": 1.0,
+    "bs": 1000000,
+    "topI": 300,
+    "structurePenalty": 1.0,
+    "CPUs": 8,
+    "lc_score": 0.0,
+    "DSL": {
+        "logVariable": -0.4512910174132534,
+        "productions": [{
+                "expression": "#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty)))",
+                "logProbability": -0.7960356520414633
+            },
+            {
+                "expression": "#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0)))))))))))",
+                "logProbability": -0.7662052939928401
+            },
+            {
+                "expression": "#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0)))))))))",
+                "logProbability": -1.276344230217774
+            },
+            {
+                "expression": "empty",
+                "logProbability": -0.8267835415750651
+            },
+            {
+                "expression": "cons",
+                "logProbability": -0.7661600833935376
+            },
+            {
+                "expression": "car",
+                "logProbability": -1.3071158819399176
+            },
+            {
+                "expression": "cdr",
+                "logProbability": -0.7329197837838146
+            },
+            {
+                "expression": "empty?",
+                "logProbability": -0.28766460659428006
+            },
+            {
+                "expression": "fix1",
+                "logProbability": -1.338839788118845
+            },
+            {
+                "expression": "gt?",
+                "logProbability": -0.3829607351629045
+            },
+            {
+                "expression": "if",
+                "logProbability": -1.3388397880641976
+            },
+            {
+                "expression": "eq?",
+                "logProbability": -0.3184494451204425
+            },
+            {
+                "expression": "+",
+                "logProbability": -0.7863866190642792
+            },
+            {
+                "expression": "-",
+                "logProbability": -0.873604716398587
+            },
+            {
+                "expression": "0",
+                "logProbability": -0.7625319260488839
+            },
+            {
+                "expression": "1",
+                "logProbability": -0.8110905955647469
+            }
+        ]
+    },
+    "iterations": 10,
+    "frontiers": [{
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    },
+                    {
+                        "constructor": "int",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "length int",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (+ $1 1))) 0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (+ 1 $1))) 0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) (cdr $0) (lambda (lambda (+ $1 1))) 1))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) (cdr $0) (lambda (lambda (+ 1 $1))) 1))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (+ ($3 (cdr $2)) 1))) 0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "list",
+                            "arguments": [{
+                                "constructor": "int",
+                                "arguments": []
+                            }]
+                        }]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    }
+                ]
+            },
+            "task": "map length",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (+ $1 1))) 0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (+ 1 $1))) 0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) (cdr $0) (lambda (lambda (+ $1 1))) 1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) (cdr $0) (lambda (lambda (+ 1 $1))) 1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (- 0 (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (- $1 1))) 0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    }
+                ]
+            },
+            "task": "remove 0s",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (if (eq? $0 0) $1 (cons $0 $1)))) empty))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (if (eq? 0 $0) $1 (cons $0 $1)))) empty))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (if (gt? $0 0) (cons $0 $1) $1))) empty))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (if (gt? 1 $0) $1 (cons $0 $1)))) empty))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (if (eq? $0 0) $1 (cons $0 ($3 $1))))) empty)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    }
+                ]
+            },
+            "task": "remove non-positives",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (if (gt? $0 1) $1 (cons $0 $1)))) empty))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (if (gt? $0 1) $1 (cons $0 $1)))) (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) empty (lambda $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (if (gt? (+ 1 1) $0) (cons $0 $1) $1))) empty))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (if (gt? $0 1) $1 (cons $0 ($3 $1))))) empty)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (if (gt? $0 1) ($3 $1) (cons $0 $1)))) empty)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "int",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    }
+                ]
+            },
+            "task": "countdown",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 (lambda (- $0 1)) (lambda (+ 1 $0)) (lambda (eq? 0 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) (+ $0 1) (lambda (- $0 1)) (lambda $0) (lambda (eq? $0 1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) (+ $0 1) (lambda (- $0 1)) (lambda $0) (lambda (eq? 1 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) (+ 1 $0) (lambda (- $0 1)) (lambda $0) (lambda (eq? $0 1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) (+ 1 $0) (lambda (- $0 1)) (lambda $0) (lambda (eq? 1 $0))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "int",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    }
+                ]
+            },
+            "task": "weird count",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 (lambda (+ $0 1)) (lambda (- 0 $0)) (lambda (eq? 0 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 (lambda (+ 1 $0)) (lambda (- 0 $0)) (lambda (eq? $0 0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 (lambda (+ 1 $0)) (lambda (- 0 $0)) (lambda (eq? 0 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) (- 0 $0) (lambda (- $0 1)) (lambda $0) (lambda (eq? $0 0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) (- 0 $0) (lambda (- $0 1)) (lambda $0) (lambda (eq? 0 $0))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    }
+                ]
+            },
+            "task": "take every other",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 (lambda (cdr (cdr $0))) (lambda (car $0)) (lambda (empty? $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (cons $0 ($3 (cdr (cdr $2)))))) empty)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (cons $0 ($3 (cdr (cdr $2)))))) $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (cons (car $2) ($3 (cdr (cdr $2)))))) empty)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    }
+                ]
+            },
+            "task": "drop last element",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 (lambda (cdr $0)) (lambda (car $0)) (lambda (empty? (cdr $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 (lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) (cdr $0) (lambda $0))) (lambda (car $0)) (lambda (empty? (cdr $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 (lambda (cdr (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda $0)))) (lambda (car $0)) (lambda (empty? (cdr $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) (cdr $0) (lambda (lambda (cons (car $2) ($3 (cdr $2))))) empty)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fix1 $0 (lambda (lambda (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0))))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "int",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    }
+                ]
+            },
+            "task": "range",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) 0 (lambda (+ $0 1)) (lambda $0) (lambda (eq? $0 $1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) 0 (lambda (+ $0 1)) (lambda $0) (lambda (eq? $1 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) 0 (lambda (+ 1 $0)) (lambda $0) (lambda (eq? $0 $1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) 0 (lambda (+ 1 $0)) (lambda $0) (lambda (eq? $1 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) (- $0 $0) (lambda (+ $0 1)) (lambda $0) (lambda (eq? $0 $1))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "int",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    }
+                ]
+            },
+            "task": "range inclusive",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) 0 (lambda (+ $0 1)) (lambda $0) (lambda (gt? $0 $1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) 0 (lambda (+ 1 $0)) (lambda $0) (lambda (gt? $0 $1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) (- $0 $0) (lambda (+ $0 1)) (lambda $0) (lambda (gt? $0 $1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) (- $0 $0) (lambda (+ 1 $0)) (lambda $0) (lambda (gt? $0 $1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) 0 (lambda (+ $0 1)) (lambda $0) (lambda (eq? $0 (+ $1 1)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    }
+                ]
+            },
+            "task": "stutter",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (cons $0 (cons $0 $1)))) empty))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (cons $0 (cons $0 $1)))) (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) empty (lambda $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (cons $0 (cons $0 $1)))) (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) empty (lambda 0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (cons $0 (cons $0 $1)))) (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) empty (lambda 1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (cons $0 (cons $0 (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $1 (lambda $0)))))) empty))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    },
+                    {
+                        "constructor": "int",
+                        "arguments": []
+                    }
+                ]
+            },
+            "task": "sum",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (+ $0 $1))) 0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (+ $1 $0))) 0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (- $0 (- 0 $1)))) 0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (+ $0 ($3 (cdr $2))))) 0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (+ ($3 (cdr $2)) $0))) 0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    }
+                ]
+            },
+            "task": "append constant 0",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (cons $0 $1))) (cons 0 empty)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (cons $0 $1))) (cons (- 1 1) empty)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (cons $0 $1))) (cons 0 (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) empty (lambda $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (cons $0 $1))) (cons 0 (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) empty (lambda 0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (cons $0 $1))) (cons 0 (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) empty (lambda 1)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    }
+                ]
+            },
+            "task": "map double",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (+ $0 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (- $0 (- 0 $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (+ $0 $0))) (lambda $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda $0)) (lambda (+ $0 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (+ $0 (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) empty (lambda (lambda 0)) $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    }
+                ]
+            },
+            "task": "map increment",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (+ $0 1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (+ 1 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (- $0 (- 0 1)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (- 1 (- 0 $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (+ 1 $0))) (lambda $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "request": {
+                "constructor": "->",
+                "arguments": [{
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [{
+                            "constructor": "int",
+                            "arguments": []
+                        }]
+                    }
+                ]
+            },
+            "task": "map negation",
+            "programs": [{
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (- 0 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (- $0 (+ $0 $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (- (- $0 $0) $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (- 1 (+ $0 1)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 (lambda (- 1 (+ 1 $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        }
+    ]
+}
