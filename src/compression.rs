@@ -43,7 +43,7 @@ pub struct CompressionStepConfig {
     pub max_refinement_size: Option<i32>,
 
     /// max number of refined out args that can be passed into a #i
-    #[clap(long, default_value = "2")]
+    #[clap(long, default_value = "1")]
     pub max_refinement_arity: usize,
 
     /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
@@ -1050,7 +1050,9 @@ fn stitch_search(
                         // reset body utility
                         new_pattern.refinement_body_utility = 0;
                     }
-                    println!("tried {} refinements for {}", num_refinements, new_pattern.to_expr(&shared));
+                    if num_refinements > 1000 {
+                        println!("[many refinements] tried {} refinements for {}", num_refinements, new_pattern.to_expr(&shared));
+                    }
 
                     // set to the best
                     new_pattern.refinements = best_refinement.clone();
@@ -1151,12 +1153,11 @@ fn get_refinements_of_shifted_id(shifted_id: Id, egraph: &crate::EGraph, cfg: &C
             return; // if something has free vars and theyre not turned into ivars they must either be refs to lambdas within the arg or refs ABOVE the invention which in either case we can't refine
         }
 
-        if egraph[id].data.inventionless_cost > cfg.max_refinement_size.unwrap_or(i32::MAX) {
-            return
+        if egraph[id].data.inventionless_cost <= cfg.max_refinement_size.unwrap_or(i32::MAX) {
+            refinements.push(id);
         }
 
         // ivar!
-        refinements.push(id);
         for child in egraph[id].nodes[0].children().iter() {
             helper(*child, egraph, cfg, refinements);
         }
@@ -1499,8 +1500,10 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
 
 
     let utility_of_loc_once: Vec<i32> = pattern.match_locations.iter().map(|loc| {
+        // println!("calculating util of {}", extract(*loc, &shared.egraph));
         // compressivity of body (no refinement) minus slight penalty from the application
         let base_utility = pattern.body_utility_no_refinement + app_penalty;
+        // println!("base {}", base_utility);
 
         // each use of the refined out arg gives a benefit equal to the size of the arg
         let refinement_utility: i32 = pattern.refinements.iter().enumerate().filter(|(_,r)| r.is_some()).map(|(ivar,r)| {
@@ -1512,6 +1515,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
                     if let Some(uses) = uses_of_refinement.get(&refinement) {
                         // we subtract COST_TERMINAL because we need to leave behind a $i in place of it in the arg
                         let mut util = (*uses as i32) * (shared.egraph[*refinement].data.inventionless_cost - COST_TERMINAL);
+                        // println!("gained util {} from {}", util, extract(*refinement, &shared.egraph));
                         for r in refinements.iter().filter(|r| refinement_conflicts.contains(&(*refinement,**r))) {
                             // we (an ancestor) conflicted with a descendant so we lose some of that descendants util
                             // todo: importantly this doesnt when a grandparent negates both a parent and a child... 
@@ -1528,6 +1532,9 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
             0 
         }).sum();
 
+        // println!("refinement {}", refinement_utility);
+
+
         // the bad refinement override: if there are any free ivars in the arg at this location (ignoring the refinement itself if there
         // is one) then we can't apply this invention here so *total* util should be 0
         for (ivar,zid) in pattern.first_zid_of_ivar.iter().enumerate() {
@@ -1543,6 +1550,8 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         let multiuse_utility = ivar_multiuses.iter().map(|(ivar,count)|
             count * shared.arg_of_zid_node[pattern.first_zid_of_ivar[*ivar]][loc].cost
         ).sum::<i32>();
+        // println!("multiuse {}", multiuse_utility);
+
         // multiply all this utility by the number of times this node shows up
         base_utility + multiuse_utility + refinement_utility
         }).collect();
