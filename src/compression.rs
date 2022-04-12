@@ -840,7 +840,7 @@ fn stitch_search(
 
             let mut found_tracked = false;
             // for each way of expanding the hole...
-            'outer:
+            'expansion:
                 for (expands_to, locs) in match_locations.into_iter()
                 .group_by(|loc| arg_of_loc[loc].expands_to.clone()).into_iter()
                 .map(|(expands_to, locs)| (expands_to, locs.collect::<Vec<Id>>()))
@@ -849,7 +849,7 @@ fn stitch_search(
                 // for debugging
                 let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, hole_zid, &shared);
                 if tracked { found_tracked = true; }
-                if shared.cfg.follow_track && !tracked { continue; }
+                if shared.cfg.follow_track && !tracked { continue 'expansion; }
 
 
                 // prune inventions that only match at a single unique (structurally hashed) subtree. This only applies if we
@@ -860,7 +860,7 @@ fn stitch_search(
                 // you can't improve your structure penalty bound enough to catch everything hence this separate single_use thing.
                 if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.egraph[locs[0]].data.free_vars.is_empty() {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_fired += 1; }
-                    continue;
+                    continue 'expansion;
                 }
 
                 // prune inventions specific to one single task
@@ -869,7 +869,7 @@ fn stitch_search(
                         && locs.iter().all(|node| shared.tasks_of_node[&locs[0]].iter().next() == shared.tasks_of_node[&node].iter().next()) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
                     if tracked { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
-                    continue;
+                    continue 'expansion;
                 }
 
                 // check for free variables: if an invention has free variables in the body then it's not a real function and we can discard it
@@ -879,7 +879,7 @@ fn stitch_search(
                         if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
                             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
                             if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
-                            continue; // free var
+                            continue 'expansion; // free var
                         }
                     }
                 }
@@ -894,7 +894,7 @@ fn stitch_search(
                             && (!shared.cfg.refine || shared.egraph[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].data.free_ivars.is_empty())
                         {
                             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
-                            continue; // useless abstraction
+                            continue 'expansion; // useless abstraction
                         }
                     }
 
@@ -918,7 +918,7 @@ fn stitch_search(
                 if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
                     if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
-                    continue; // too low utility
+                    continue 'expansion; // too low utility
                 }
 
                 assert!(shared.cfg.no_opt_upper_bound || !(holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
@@ -966,7 +966,7 @@ fn stitch_search(
                             {
                                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().force_multiuse_fired += 1; };
                                 if tracked { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
-                                continue 'outer;
+                                continue 'expansion;
                             }
                         }
                     }
@@ -1016,7 +1016,7 @@ fn stitch_search(
 
                     let mut num_refinements = 0;
 
-                    for refinements in refinements_by_arg.into_iter()
+                    'refinements: for refinements in refinements_by_arg.into_iter()
                         .map(|refinements|
                                 (1..=shared.cfg.max_refinement_arity).map(move |k| refinements.clone().into_iter()
                                     .combinations(k))
@@ -1052,7 +1052,7 @@ fn stitch_search(
                                     best_refinement = refinements.clone();
                                     best_refinement_body_utility = new_pattern.refinement_body_utility;
                                     new_pattern.refinement_body_utility = 0;
-                                    break;
+                                    break 'refinements;
                                 }
                             }
                         }
