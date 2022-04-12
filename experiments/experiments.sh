@@ -32,3 +32,6 @@ python3 analyze.py process dreamcoder /scratch/mlbowers/proj/stitch/experiments/
 
 
 
+
+
+

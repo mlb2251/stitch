@@ -180,12 +180,18 @@ def to_stitch_dsl(dc_json):
         arity: 1
 
     """
+    # for i,dc in enumerate(dc_json["DSL"]["productions"]):
+    #     print(i,dc)
+    # print()
     dsl_dc = [prod["expression"] for prod in dc_json["DSL"]["productions"]]
     dsl_dc = [p for p in dsl_dc if p.startswith("#")]
     dsl_dc.reverse() # reverse so first one learned comes first
     dsl = []
+    # for dc in dsl_dc:
+    #     print(dc)
     for i,dc_string in enumerate(dsl_dc):
         with_sub_inventions = dc_string
+        # print("dc string: ", dc_string)
         for entry in dsl[::-1]: # reverse so we rewrite with larger inventions first to not mangle the internals
             with_sub_inventions = with_sub_inventions.replace(entry['dreamcoder'], entry['name'])
         assert with_sub_inventions.count("#") == 1

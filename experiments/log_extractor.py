@@ -45,6 +45,8 @@ def parse_grammar(text, domain):
     assert text.startswith('Grammar after iteration')
     text = text[text.index('\n')+1:] # skip to the next line
 
+    # print(f'parsing from {text[:3000]}')
+
     lines = text.split('\n')
 
     continuationType = None
@@ -71,13 +73,21 @@ def parse_grammar(text, domain):
     productions = []
 
     for line in lines[1:]:
-        try:
-            score,type,prim = line.split('\t')
-            productions.append({'expression':prim, 'logProbability':float(score)})
-        except ValueError:
-            break # we break when it fails to parse into a 3 item line... (bc there's weird variation in the log file format)
+        # try:
+        res = line.split('\t')
+        if len(res) not in (3,4):
+            break
+        if len(res) == 3:
+            score,type,prim = res
+        if len(res) == 4:
+            score,type,prim,_eval = res
+        productions.append({'expression':prim, 'logProbability':float(score)})
+        # except ValueError:
+        #     break # we break when it fails to parse into a 3 item line... (bc there's weird variation in the log file format)
 
     assert len(productions) > 3 # just some reasonable number bc try/except is scary!
+
+    # print(f'parsed grammar: {len(productions)}')
 
     grammar = {
         'logVariable': float(logVariable),
@@ -174,10 +184,12 @@ if __name__ == "__main__":
     initial_grammar['productions'] = [{'expression':prod['expression'], 'logProbability':0.0} for prod in initial_grammar['productions'] if not prod['expression'].startswith('#')]
 
     # print('Initial grammar:', initial_grammar)
+    # len_grammar = len(initial_grammar['productions'])
 
     iterations = log.split('Showing the top 5 programs in each frontier')[1:]
 
     for i,iteration in enumerate(iterations):
+        # print(f"i: {i} input grammar len: {len(initial_grammar['productions'])}")
         # get the programs being sent
         iteration = iteration[iteration.index('\n')+1:] # skip to the next line
         programs_chunk = iteration[:iteration.index('\n\nCompression message saved to')]
@@ -197,15 +209,17 @@ if __name__ == "__main__":
             programs = programs[:topK] # only keep the topK programs
             request = Program.parse(programs[0]['program']).infer() # grab the request off of some program
             request_json = request.json()
+            assert 't1' not in str(request)
             if 't0' in str(request):
                 concretize_request(request_json,domain)
             frontiers.append(
                 {"request": request_json,
                  "programs": programs})
         
-        new_grammar = parse_grammar(iteration[iteration.index('Grammar after iteration'):], domain)
+        new_grammar = parse_grammar(iteration[iteration.index(f'Grammar after iteration {i+1}'):], domain)
 
         num_learned = len(new_grammar['productions']) - len(initial_grammar['productions'])
+        assert num_learned >= 0
         if num_learned > 0:
             # we learned something hooray!
             print(f'Learned {num_learned} things!')
@@ -226,6 +240,7 @@ if __name__ == "__main__":
             print(f'Wrote {out_file}')
             bench_num += 1
 
+        assert len(new_grammar['productions']) >= len(initial_grammar['productions'])
         
         # the initial grammar for the next iteration is our final grammar
         initial_grammar = new_grammar
