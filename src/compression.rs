@@ -139,6 +139,11 @@ pub struct CompressionStepConfig {
     /// disables other_utility so the only utility is based on compressivity
     #[clap(long)]
     pub no_other_util: bool,
+
+    /// whenever you finish an invention do a full rewrite to check that rewriting doesnt raise a mismatch exception
+    #[clap(long)]
+    pub rewrite_check: bool,
+    
 }
 
 impl CompressionStepConfig {
@@ -1060,6 +1065,11 @@ fn stitch_search(
                 }
 
                 let finished_pattern = FinishedPattern::new(new_pattern, &shared);
+
+                if shared.cfg.rewrite_check {
+                    // run rewriting just to make sure the assert in it passes
+                    rewrite_fast(&finished_pattern, &shared, &"fake_inv");
+                }
 
                 if tracked {
                     println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);

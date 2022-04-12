@@ -203,8 +203,8 @@ if __name__ == "__main__":
             for prog in task[1:]:
                 score = float(prog[:prog.index('(')].strip())
                 program = prog[prog.index('('):].strip()
-                # todo big warning: this is literally the logPosterior not the logLikelihood.........
-                programs.append({'program': program, 'logLikelihood': score })
+                # todo big warning: this is not the logLikelihood this is just 0
+                programs.append({'program': program, 'logLikelihood': 0.0 })
 
             programs = programs[:topK] # only keep the topK programs
             request = Program.parse(programs[0]['program']).infer() # grab the request off of some program
