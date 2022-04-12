@@ -2024,13 +2024,12 @@ pub fn compression_step(
 
     if cfg.dreamcoder_comparison {
         println!("Timing point 1 (from the start of compression_step to final donelist): {:?}ms", tstart_total.elapsed().as_millis());
+        println!("Timing Comparison Point A (search) (millis): {}", tstart_total.elapsed().as_millis());
         let tstart_rewrite = std::time::Instant::now();
         rewrite_fast(&donelist[0], &shared, new_inv_name);
         println!("Timing point 2 (rewriting the candidate): {:?}ms", tstart_rewrite.elapsed().as_millis());
-        println!("Timing Comparison Point (millis): {}\n", tstart_total.elapsed().as_millis())
+        println!("Timing Comparison Point B (search+rewrite) (millis): {}", tstart_total.elapsed().as_millis());
     }
-
-
 
     let orig_cost = shared.egraph[programs_node].data.inventionless_cost;
 
