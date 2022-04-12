@@ -143,6 +143,10 @@ pub struct CompressionStepConfig {
     /// whenever you finish an invention do a full rewrite to check that rewriting doesnt raise a mismatch exception
     #[clap(long)]
     pub rewrite_check: bool,
+
+    /// anything related to running a dreamcoder comparison
+    #[clap(long)]
+    pub dreamcoder_comparison: bool,
     
 }
 
@@ -2002,7 +2006,8 @@ pub fn compression_step(
     }
 
     println!("TOTAL SEARCH: {:?}ms", tstart.elapsed().as_millis());
-    println!("TOTAL PREP + SEARCH: {:?}ms", tstart_total.elapsed().as_millis());    
+    println!("TOTAL PREP + SEARCH: {:?}ms", tstart_total.elapsed().as_millis());
+
 
     tstart = std::time::Instant::now();
 
@@ -2016,6 +2021,15 @@ pub fn compression_step(
     assert!(shared.crit.lock().deref_mut().worklist.is_empty());
 
     let donelist: Vec<FinishedPattern> = shared.crit.lock().deref_mut().donelist.clone();
+
+    if cfg.dreamcoder_comparison {
+        println!("Timing point 1 (from the start of compression_step to final donelist): {:?}ms", tstart_total.elapsed().as_millis());
+        let tstart_rewrite = std::time::Instant::now();
+        rewrite_fast(&donelist[0], &shared, new_inv_name);
+        println!("Timing point 2 (rewriting the candidate): {:?}ms", tstart_rewrite.elapsed().as_millis());
+    }
+
+
 
     let orig_cost = shared.egraph[programs_node].data.inventionless_cost;
 
