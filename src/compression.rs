@@ -891,7 +891,7 @@ fn stitch_search(
                         // if its the same arg in every place
                         if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
                             // AND there's no potential for refining that arg
-                            && (!shared.cfg.refine || shared.egraph[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].data.free_ivars.is_empty())
+                            && (!shared.cfg.refine || locs.iter().all(|loc| shared.egraph[shared.arg_of_zid_node[argchoice.zid][loc].shifted_id].data.free_ivars.is_empty()))
                         {
                             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
                             continue 'expansion; // useless abstraction
@@ -2027,6 +2027,7 @@ pub fn compression_step(
         let tstart_rewrite = std::time::Instant::now();
         rewrite_fast(&donelist[0], &shared, new_inv_name);
         println!("Timing point 2 (rewriting the candidate): {:?}ms", tstart_rewrite.elapsed().as_millis());
+        println!("Timing Comparison Point (millis): {}\n", tstart_total.elapsed().as_millis())
     }
 
 
