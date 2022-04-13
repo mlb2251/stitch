@@ -630,7 +630,7 @@ if __name__ == '__main__':
                 with_rewrite = with_rewrite[:-1] # drop the last one which was rejected
             elif mode == 'stitch':
                 no_rewrite = get_times('Timing Comparison Point A (search) (millis):')
-                with_rewrite = get_times('Timing Comparison Point B (search+batched_rewrite) (millis):')
+                with_rewrite = get_times('Timing Comparison Point B (search+rewrite) (millis):')
             
             assert len(no_rewrite) == processed['num_inventions'], f"{len(no_rewrite)} != {processed['num_inventions']}"
             assert len(with_rewrite) == processed['num_inventions'], f"{len(with_rewrite)} != {processed['num_inventions']}"
