@@ -891,7 +891,7 @@ fn stitch_search(
                         // if its the same arg in every place
                         if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
                             // AND there's no potential for refining that arg
-                            && (!shared.cfg.refine || shared.egraph[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].data.free_ivars.is_empty())
+                            && (!shared.cfg.refine || locs.iter().all(|loc| shared.egraph[shared.arg_of_zid_node[argchoice.zid][loc].shifted_id].data.free_ivars.is_empty()))
                         {
                             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
                             continue 'expansion; // useless abstraction
@@ -1453,7 +1453,7 @@ fn noncompressive_utility(
     if cfg.no_other_util { return 0; }
     // this is a bit like the structure penalty from dreamcoder except that
     // that penalty uses inlined versions of nested inventions.
-    let structure_penalty = - (body_utility_with_refinement * 3 / 2);
+    let structure_penalty = - body_utility_with_refinement;
     structure_penalty
 }
 
@@ -1481,7 +1481,7 @@ fn noncompressive_utility_upper_bound(
     if cfg.no_other_util { return 0; }
     // safe bound: since structure_penalty is negative an upper bound is anything less negative or exact. Since
     // left_utility < body_utility we know that this will be a less negative bound.
-    let structure_penalty = - (body_utility_with_refinement_lower_bound * 3 / 2);
+    let structure_penalty = - body_utility_with_refinement_lower_bound;
     structure_penalty
 }
 
@@ -2024,12 +2024,12 @@ pub fn compression_step(
 
     if cfg.dreamcoder_comparison {
         println!("Timing point 1 (from the start of compression_step to final donelist): {:?}ms", tstart_total.elapsed().as_millis());
+        println!("Timing Comparison Point A (search) (millis): {}", tstart_total.elapsed().as_millis());
         let tstart_rewrite = std::time::Instant::now();
         rewrite_fast(&donelist[0], &shared, new_inv_name);
         println!("Timing point 2 (rewriting the candidate): {:?}ms", tstart_rewrite.elapsed().as_millis());
+        println!("Timing Comparison Point B (search+rewrite) (millis): {}", tstart_total.elapsed().as_millis());
     }
-
-
 
     let orig_cost = shared.egraph[programs_node].data.inventionless_cost;
 

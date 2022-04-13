@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
     # template of message without grammar + frontiers filled in
     message_template = {
-        'fast_final_rewrite': True, # flag for https://github.com/mlb2251/stitch_dreamcoder 
+        # 'fast_final_rewrite': True, # flag for https://github.com/mlb2251/stitch_dreamcoder 
         "verbose": False,
         "arity": int(parameters['arity']),
         "topK": topK,
