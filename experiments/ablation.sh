@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+ulimit -v 50000000  # limit children to 50GB=50,000,000KB of virtual memory
 
 if [ -z $STITCH_DIR ]
 then
@@ -25,14 +26,15 @@ for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
     for STO in "--no-opt-single-task" "" ; do
     for UBO in "--no-opt-upper-bound" "" ; do
     for MUO in "--no-opt-force-multiuse" "" ; do
-    for UAO in "--no-opt-useless-abstract" "" ; do
+    #for UAO in "--no-opt-useless-abstract" "" ; do
+    for UAO in "" ; do
     for AZO in "--no-opt-arity-zero" "" ; do
         echo "Running with FVO=$FVO, STO=$STO, UBO=$UBO, MUO=$MUO, UAO=$UAO, AZO=$AZO"
-        $STITCH_DIR/target/release/compress $WL_PATH $FVO $STO $UBO $MUO $UAO $AZO --max-arity=1 --iterations=10 --no-mismatch-check --out=$OUT_DIR/raw/$WL-$FVO-$STO-$UBO-$MUO-$UAO-$AZO.json > $OUT_DIR/stderr/$WL-$FVO-$STO-$UBO-$MUO-$UAO-$AZO.stderr2>&1 &
-    done
-    done
+        $STITCH_DIR/target/release/compress $WL_PATH $FVO $STO $UBO $MUO $UAO $AZO --max-arity=3 --iterations=10 --no-mismatch-check --out=$OUT_DIR/raw/$WL-$FVO-$STO-$UBO-$MUO-$UAO-$AZO.json > $OUT_DIR/stderr/$WL-$FVO-$STO-$UBO-$MUO-$UAO-$AZO.stderr2>&1 &
     done
     wait $(jobs -rp)
+    done
+    done
     done
     done
     done
