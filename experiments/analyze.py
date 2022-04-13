@@ -570,15 +570,13 @@ if __name__ == '__main__':
                 'run': str(run_dir),
                 'metrics': {
                     'time_binary_seconds': None,
-                    'time_total_seconds': None,
-                    'time_candidates_seconds': None,
-                    'time_middle_rewrite_seconds': None,
-                    'time_final_rewrite_seconds': None,
+                    'time_per_inv_with_rewrite': None,
+                    'time_per_inv_no_rewrite': None,
                     'mem_peak_kb': None,
                     'compression_ratio': None,
-                    'compression_utility': None, # integer version of the ratio
-                    'stitch_utility': None,
-                    'pcfg_score': None,
+                    # 'compression_utility': None, # integer version of the ratio
+                    # 'stitch_utility': None,
+                    # 'pcfg_score': None,
                 },
                 'num_inventions': None,
                 'inventions': {},
@@ -619,7 +617,25 @@ if __name__ == '__main__':
             
             processed['inventions'] = res['inventions']
             processed['num_inventions'] = len(processed['inventions'])
+
+            def get_times(line_prefix):
+                return [int(line.split(':')[1].strip()) for line in stderr if line.startswith(line_prefix)]
+
             
+            # time_per_inv_with_rewrite and time_per_inv_no_rewrite
+            if mode == 'dreamcoder':
+                no_rewrite = get_times('Timing Comparison Point A (vspace+beam) (millis):')
+                no_rewrite = no_rewrite[:-1] # drop the last one which was rejected
+                with_rewrite = get_times('Timing Comparison Point B (vspace+beam+batched_rewrite) (millis):')
+                with_rewrite = with_rewrite[:-1] # drop the last one which was rejected
+            elif mode == 'stitch':
+                no_rewrite = get_times('Timing Comparison Point A (search) (millis):')
+                with_rewrite = get_times('Timing Comparison Point B (search+batched_rewrite) (millis):')
+            
+            assert len(no_rewrite) == processed['num_inventions'], f"{len(no_rewrite)} != {processed['num_inventions']}"
+            assert len(with_rewrite) == processed['num_inventions'], f"{len(with_rewrite)} != {processed['num_inventions']}"
+            processed['metrics']['time_per_inv_with_rewrite'] = sum(with_rewrite) / len(with_rewrite)
+            processed['metrics']['time_per_inv_no_rewrite'] = sum(no_rewrite) / len(no_rewrite)
 
 
             save(processed, processed_path / f'{bench}.json')
