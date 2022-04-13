@@ -1453,7 +1453,7 @@ fn noncompressive_utility(
     if cfg.no_other_util { return 0; }
     // this is a bit like the structure penalty from dreamcoder except that
     // that penalty uses inlined versions of nested inventions.
-    let structure_penalty = - (body_utility_with_refinement * 3 / 2);
+    let structure_penalty = - body_utility_with_refinement;
     structure_penalty
 }
 
@@ -1481,7 +1481,7 @@ fn noncompressive_utility_upper_bound(
     if cfg.no_other_util { return 0; }
     // safe bound: since structure_penalty is negative an upper bound is anything less negative or exact. Since
     // left_utility < body_utility we know that this will be a less negative bound.
-    let structure_penalty = - (body_utility_with_refinement_lower_bound * 3 / 2);
+    let structure_penalty = - body_utility_with_refinement_lower_bound;
     structure_penalty
 }
 
