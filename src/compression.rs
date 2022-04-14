@@ -1117,7 +1117,7 @@ pub struct CompressionStepData {
 }
 
 impl CompressionStepData {
-    fn new(done: FinishedPattern, programs_node: Id, inv: &Invention, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>, very_first_cost: Option<i32>) -> Self {
+    fn new(done: FinishedPattern, programs_node: Id, inv: &Invention, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>, very_first_cost: Option<i32>, do_fast_rewrite: bool) -> Self {
         let initial_cost = shared.egraph[programs_node].data.inventionless_cost;
         let roots: Vec<Id> = shared.egraph[programs_node].nodes[0].children().iter().cloned().collect();
 
@@ -1125,7 +1125,11 @@ impl CompressionStepData {
         let very_first_cost = very_first_cost.unwrap_or(initial_cost);
 
         let inv_name = &inv.name;
-        let rewritten = Expr::programs(rewrite_fast(&done, roots, &shared, inv_name));
+        let rewritten = if do_fast_rewrite {
+            Expr::programs(rewrite_fast(&done, roots, &shared, inv_name))
+        } else {
+            Expr::programs(roots.into_iter().map(|r| rewrite_with_invention_egraph(r, inv, &mut shared.egraph)).collect())
+        };
 
 
         let expected_cost = initial_cost - done.compressive_utility;
@@ -1196,8 +1200,8 @@ impl CompressionStepResult {
 
         let inv = done.to_invention(inv_name, shared);
 
-        let train_data = CompressionStepData::new(done.clone(), train_programs_node, &inv, shared, past_invs, first_train_cost);
-        let test_data = test_programs_node.map(|n| CompressionStepData::new(done.clone(), n, &inv, shared, past_invs, first_test_cost));
+        let train_data = CompressionStepData::new(done.clone(), train_programs_node, &inv, shared, past_invs, first_train_cost, true);
+        let test_data = test_programs_node.map(|n| CompressionStepData::new(done.clone(), n, &inv, shared, past_invs, first_test_cost, false));
 
         let dc_inv_str: String = dc_inv_str(&inv, past_invs);
 
@@ -1228,13 +1232,13 @@ impl fmt::Display for CompressionStepResult {
                 write!(f,"[cost mismatch of {} in test data] ", test_d.expected_cost - test_d.final_cost)?;
             }
         }
-        write!(f, "utility: {} | final_cost (train): {} | multiplier (train): {:.2}x | uses (train): {} | final_cost(test): {} | multiplier (test): {:.2}x | uses (test): {} | body: {}",
+        write!(f, "utility: {} | final_cost (train): {} | multiplier (train): {:.2}x | uses (train): {} | final_cost(test): {} | multiplier (test): {} | uses (test): {} | body: {}",
             self.done.utility,
             self.train_data.final_cost,
             self.train_data.multiplier,
             self.train_data.uses,
             self.test_data.as_ref().map_or("null".to_string(), |d| d.final_cost.to_string()),
-            self.test_data.as_ref().map_or("null".to_string(), |d| d.multiplier.to_string()),
+            self.test_data.as_ref().map_or("null".to_string(), |d| format!("{:.2}x", d.multiplier)),
             self.test_data.as_ref().map_or("null".to_string(), |d| d.uses.to_string()),
             self.inv)
     }
