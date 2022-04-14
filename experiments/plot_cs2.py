@@ -1,13 +1,38 @@
 import sys
 import os
+import re
+
 import matplotlib.pyplot as plt 
 import numpy as np
 
 plt.style.use('ggplot')
 
+
+def get_data(path):
+    #print(path)
+    #input()
+    with open(path, 'r') as infile:
+        target_line = None
+        for line in infile:
+            if line.startswith('train: '):
+                target_line = line
+                break
+        if target_line is None:
+            return None
+
+        ratio = re.match(r'.*multiplier \(test\): ([^x]*)x.*', target_line).group(1)
+        size = re.match(r'.*size: ([^ ]*) .*', target_line).group(1)
+        usages = re.match(r'.*uses \(train\): ([^ ]*) .*', target_line).group(1)
+        
+        return (1., float(ratio), int(size), int(usages))
+
+
 path = sys.argv[1]
 
-for wl in os.listdir(path):
+workloads = os.listdir(path)
+for wl in workloads:
+    if wl == 'readme.md': continue
+
     # one plot per workload!
     runtimes_means = []
     ratios_means   = []
@@ -17,18 +42,33 @@ for wl in os.listdir(path):
     ratios_stds    = []
     sizes_stds     = []
     usages_stds    = []
-    splits         = []
+    splits         = set()
     for split in os.listdir('/'.join([path, wl])):
-        splits.append(int(split))
-        rt_local = numpy.array([])
-        ra_local = numpy.array([])
-        s_local  = numpy.array([])
-        u_local  = numpy.array([])
+        splits.add(int(split))
 
-        for f in os.listdir('/'.join([path, wl, split])):
+    splits = list(splits)
+    splits.sort()
+    #print(splits)
+    #input()
+    for split in splits:
+        split = str(split)
+
+        rt_local = [] 
+        ra_local = [] 
+        s_local  = [] 
+        u_local  = [] 
+
+        files = os.listdir('/'.join([path, wl, split]))
+        #print(files)
+        #input()
+        for f in files:
             if f.endswith('.stderrandout'):
-                print((wl, split, f))
-                runtime, ratio, size, usage = get_data('/'.join([path, wl, split, f]))
+                #print(f)
+                #input()
+                data = get_data('/'.join([path, wl, split, f]))
+                if data is None:
+                    continue
+                runtime, ratio, size, usage = data
                 rt_local.append(runtime)
                 ra_local.append(ratio)
                 s_local.append(size)
@@ -43,18 +83,20 @@ for wl in os.listdir(path):
         usages_means.append(np.mean(u_local))
         usages_stds.append(np.std(u_local))
 
+        #splits.append(int(split))
 
-    plt.plot(groups, single_mean, label = 'One goal', marker = 'o')
-    plt.fill_between(groups, single_mean - single_std, single_mean + single_std, alpha = 0.2)
-    plt.plot(groups, multi_mean, label = 'Two goals', marker = 'o')
-    plt.fill_between(groups, multi_mean - multi_std, multi_mean + multi_std, alpha = 0.2)
-    plt.axhline(1.0, linestyle='--', label = 'Expert')
 
-    plt.margins(x=0)
-    plt.xlabel("Approx. Minutes of Training Data")
-    plt.ylabel("Success Rate (25 runs)")
-    plt.title("HelloAgentic performance with one or two goals")
-    plt.legend()
+    #plt.plot(groups, single_mean, label = 'One goal', marker = 'o')
+    #plt.fill_between(groups, single_mean - single_std, single_mean + single_std, alpha = 0.2)
+    #plt.plot(groups, multi_mean, label = 'Two goals', marker = 'o')
+    #plt.fill_between(groups, multi_mean - multi_std, multi_mean + multi_std, alpha = 0.2)
+    #plt.axhline(1.0, linestyle='--', label = 'Expert')
+
+    #plt.margins(x=0)
+    #plt.xlabel("Approx. Minutes of Training Data")
+    #plt.ylabel("Success Rate (25 runs)")
+    #plt.title("HelloAgentic performance with one or two goals")
+    #plt.legend()
 
 
 
@@ -65,23 +107,26 @@ for wl in os.listdir(path):
     par1 = host.twinx()
     par2 = host.twinx()
         
-    host.set_xlim(0, 2)
-    host.set_ylim(0, 2)
-    par1.set_ylim(0, 4)
-    par2.set_ylim(1, 65)
+    #host.set_xlim(0, 2)
+    #host.set_ylim(0, 2)
+    #par1.set_ylim(0, 4)
+    #par2.set_ylim(1, 65)
         
     host.set_xlabel("Training set split %")
     host.set_ylabel("Test set compression ratio")
     par1.set_ylabel("Invention size")
     par2.set_ylabel("Number of usages of invention")
     
-    #color1 = plt.cm.viridis(0)
-    #color2 = plt.cm.viridis(0.5)
-    #color3 = plt.cm.viridis(.9)
+    color1 = plt.cm.get_cmap('viridis')(0.)
+    color2 = plt.cm.get_cmap('viridis')(0.5)
+    color3 = plt.cm.get_cmap('viridis')(0.9)
     
-    p1, = host.plot(splits, ratios_means,  label="Test set compression ratio")
-    p2, = par1.plot([0, 1, 2], sizes_means,    label="Invention size")
-    p3, = par2.plot([0, 1, 2], usages_means, label="Number of usages of invention")
+    p1, = host.plot(splits, ratios_means, color=color1, label="Test set compression ratio"   , marker='o')
+    host.fill_between(splits, np.subtract(ratios_means, ratios_stds), np.add(ratios_means, ratios_stds), color=color1, alpha=0.2)
+    p2, = par1.plot(splits, sizes_means,  color=color2, label="Invention size"               , marker='o')
+    par1.fill_between(splits, np.subtract(sizes_means, sizes_stds), np.add(sizes_means, sizes_stds), color=color2, alpha=0.2)
+    p3, = par2.plot(splits, usages_means, color=color3, label="Number of usages of invention", marker='o')
+    par2.fill_between(splits, np.subtract(usages_means, usages_stds), np.add(usages_means, usages_stds), color=color3, alpha=0.2)
     
     lns = [p1, p2, p3]
     host.legend(handles=lns, loc='best')
@@ -114,5 +159,3 @@ for wl in os.listdir(path):
     plt.savefig(f"cs2-{wl}.pdf")
     # For raster graphics use the dpi argument. E.g. '[...].png", dpi=200)'
 
-def get_data(path):
-    return (1, 1, 1, 1)
