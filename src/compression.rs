@@ -1455,8 +1455,9 @@ impl fmt::Display for CompressionStepResult {
                 write!(f,"[cost mismatch of {} in test data] ", test_d.expected_cost - test_d.final_cost)?;
             }
         }
-        write!(f, "utility: {} | final_cost (train): {} | multiplier (train): {:.2}x | uses (train): {} | final_cost(test): {} | multiplier (test): {} | body: {}",
+        write!(f, "utility: {} | size: {} | final_cost (train): {} | multiplier (train): {:.2}x | uses (train): {} | final_cost(test): {} | multiplier (test): {} | body: {}",
             self.done.utility,
+            self.inv.body.cost(),
             self.train_data.final_cost,
             self.train_data.multiplier,
             self.train_data.uses,
