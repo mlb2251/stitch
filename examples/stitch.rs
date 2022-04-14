@@ -34,7 +34,8 @@ use serde_json::json;
 )]
 fn compression(
     py: Python,
-    programs: Vec<String>,
+    train_programs: Vec<String>,
+    test_programs: Option<Vec<String>>,
     tasks: Vec<String>,
     iterations: usize,
     num_prior_inventions: usize,
@@ -77,20 +78,26 @@ fn compression(
         no_ctx_thread,
     };
 
-    let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
-    programs_info(&programs);
-    let programs: Expr = Expr::programs(programs);
+    let train_programs: Vec<Expr> = train_programs.iter().map(|p| p.parse().unwrap()).collect();
+    programs_info(&train_programs);
+    let train_programs: Expr = Expr::programs(train_programs);
+    let test_programs: Option<Vec<Expr>> = test_programs.map(|ps| ps.iter().map(|p| p.parse().unwrap()).collect());
+    if let Some(ps) = test_programs {
+        programs_info(&ps);
+    }
+    let test_programs: Option<Expr> = test_programs.map(|ps| Expr::programs(ps));
 
     // release the GIL and call compression
     let step_results = py.allow_threads(||
-        stitch::compression(&programs, iterations, &cfg, &tasks, num_prior_inventions)
+        stitch::compression(&train_programs, &test_programs, iterations, &cfg, &tasks, num_prior_inventions)
     );
 
     let out = json!({
         "cfg": cfg,
         "iterations": iterations,
-        "original_cost": programs.cost(),
-        "original": programs.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+        "train_original": train_programs.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+        "test_original_cost": test_programs.as_ref().map(|ps| ps.cost()),
+        "test_original": test_programs.as_ref().map(|ps| ps.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>()),
         "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
     });
 

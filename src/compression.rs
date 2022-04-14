@@ -50,9 +50,13 @@ pub struct CompressionStepConfig {
     #[clap(short='n', long, default_value = "1")]
     pub inv_candidates: usize,
 
-    /// pattern or invention to track
+    /// strategy for picking the next hole to expand
     #[clap(long, arg_enum, default_value = "min-cost")]
     pub hole_choice: HoleChoice,
+
+    /// strategy for picking the next worklist item to process
+    #[clap(long, arg_enum, default_value = "max-bound")]
+    pub heap_choice: HeapChoice,
 
     /// disables the safety check for the utility being correct; you only want
     /// to do this if you truly dont mind unsoundness for a minute
@@ -258,15 +262,15 @@ fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &HashMap<Zip,ZId>) -> Vec<Vec<Z
 
 impl Pattern {
     /// create a single hole pattern `??`
-    fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
+    fn single_hole(shared: &SharedData) -> Self {
         let body_utility_no_refinement = 0;
         let refinement_body_utility = 0;
-        let mut match_locations = treenodes.clone();
+        let mut match_locations = shared.treenodes.clone();
         match_locations.sort(); // we assume match_locations is always sorted
-        if cfg.no_top_lambda {
-            match_locations.retain(|node| expands_to_of_node(&egraph[*node].nodes[0]) != ExpandsTo::Lam);
+        if shared.cfg.no_top_lambda {
+            match_locations.retain(|node| expands_to_of_node(&shared.egraph[*node].nodes[0]) != ExpandsTo::Lam);
         }
-        let utility_upper_bound = utility_upper_bound(&match_locations, body_utility_no_refinement + refinement_body_utility, cost_of_node_all, num_paths_to_node, cfg);
+        let utility_upper_bound = utility_upper_bound(&match_locations, body_utility_no_refinement + refinement_body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
         Pattern {
             holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
             arg_choices: vec![],
@@ -276,7 +280,7 @@ impl Pattern {
             utility_upper_bound,
             body_utility_no_refinement, // 0 body utility
             refinement_body_utility, // 0 body utility
-            tracked: cfg.track.is_some(),
+            tracked: shared.cfg.track.is_some(),
         }
     }
     /// convert pattern to an Expr with `??` in place of holes and `?#` in place of argchoices
@@ -455,7 +459,7 @@ fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData) -> 
 /// The heap item used for heap-based worklists. Holds a pattern
 #[derive(Debug,Clone, Eq, PartialEq)]
 pub struct HeapItem {
-    key: i32,
+    key: HeapKey,
     pattern: Pattern,
 }
 impl PartialOrd for HeapItem {
@@ -469,12 +473,10 @@ impl Ord for HeapItem {
     }
 }
 impl HeapItem {
-    fn new(pattern: Pattern, num_paths_to_node: &HashMap<Id,i32>) -> Self {
+    fn new(pattern: Pattern, shared: &SharedData) -> Self {
         HeapItem {
             // key: pattern.body_utility * pattern.match_locations.iter().map(|loc|num_paths_to_node[loc]).sum::<i32>(),
-            key: pattern.utility_upper_bound,
-            // system time is suuuper slow btw you want to do something else
-            // key: std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap().as_nanos() as i32,
+            key: shared.cfg.heap_choice.heap_choice(&pattern, shared),
             pattern
         }
     }
@@ -495,10 +497,10 @@ pub struct CriticalMultithreadData {
 #[derive(Debug)]
 pub struct SharedData {
     pub crit: Mutex<CriticalMultithreadData>,
+    pub max_heapkey: Mutex<HeapKey>,
     pub arg_of_zid_node: Vec<HashMap<Id,Arg>>,
     pub treenodes: Vec<Id>,
     pub programs_node: Id,
-    pub roots: Vec<Id>,
     pub zids_of_node: HashMap<Id,Vec<ZId>>,
     pub zip_of_zid: Vec<Zip>,
     pub zid_of_zip: HashMap<Zip, ZId>,
@@ -528,13 +530,10 @@ impl CriticalMultithreadData {
     /// Create a new mutable multithread data struct with
     /// a worklist that just has a single hole on it
     fn new(donelist: Vec<FinishedPattern>, treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
-        // push an empty hole onto a new worklist
-        let mut worklist = BinaryHeap::new();
-        worklist.push(HeapItem::new(Pattern::single_hole(treenodes, cost_of_node_all, num_paths_to_node, egraph, cfg),num_paths_to_node));
-        
+        // push an empty hole onto a new worklist        
         let mut res = CriticalMultithreadData {
             donelist,
-            worklist,
+            worklist: BinaryHeap::new(),
             utility_pruning_cutoff: 0,
             active_threads: HashSet::new(),
         };
@@ -615,22 +614,6 @@ pub struct Stats {
     force_multiuse_fired: usize,
 }
 
-/// a strategy for choosing which hole to expand next in a partial pattern
-#[derive(Debug, Clone, clap::ArgEnum, Serialize)]
-pub enum HoleChoice {
-    Random,
-    First,
-    Last,
-    MaxLargestSubset,
-    HighEntropy,
-    LowEntropy,
-    MaxCost,
-    MinCost,
-    ManyGroups,
-    FewGroups,
-    FewApps,
-}
-
 impl HoleChoice {
     fn choose_hole(&self, pattern: &Pattern, shared: &SharedData) -> usize {
         if pattern.holes.len() == 1 {
@@ -670,6 +653,83 @@ impl HoleChoice {
     }
 }
 
+/// a strategy for choosing which hole to expand next in a partial pattern
+#[derive(Debug, Clone, clap::ArgEnum, Serialize)]
+pub enum HoleChoice {
+    Random,
+    First,
+    Last,
+    MaxLargestSubset,
+    HighEntropy,
+    LowEntropy,
+    MaxCost,
+    MinCost,
+    ManyGroups,
+    FewGroups,
+    FewApps,
+}
+
+
+/// a strategy for choosing worklist item to use next
+#[derive(Debug, Clone, clap::ArgEnum, Serialize)]
+pub enum HeapChoice {
+    Random,
+    DFS,
+    BFS,
+    MaxBound,
+    MaxBodyLocations,
+    LowArityHighBound,
+}
+
+#[derive(Debug, Clone, Serialize, PartialOrd, Ord, Hash, PartialEq, Eq)]
+pub enum HeapKey {
+    Int(i32),
+    IntInt(i32,i32),
+}
+
+impl HeapChoice {
+    fn init(&self) -> HeapKey {
+        match self {
+            _ => HeapKey::Int(0)
+        }
+    }
+    fn heap_choice(&self, pattern: &Pattern, shared: &SharedData) -> HeapKey {
+        match self {
+            &HeapChoice::Random => {
+                let mut rng = rand::thread_rng();
+                HeapKey::Int(rng.gen())
+            },
+            &HeapChoice::DFS => {
+                let mut lock = shared.max_heapkey.lock();
+                let maxkey = lock.deref_mut();
+                if let  HeapKey::Int(i) = *maxkey {
+                    let key = HeapKey::Int(i+1);
+                    *maxkey = key.clone();
+                    key
+                } else { unreachable!() }
+            },
+            &HeapChoice::BFS => {
+                let mut lock = shared.max_heapkey.lock();
+                let maxkey = lock.deref_mut();
+                if let  HeapKey::Int(i) = *maxkey {
+                    let key = HeapKey::Int(i-1);
+                    *maxkey = key.clone();
+                    key
+                } else { unreachable!() }
+            },
+            &HeapChoice::MaxBound => {
+                HeapKey::Int(pattern.utility_upper_bound)
+            },
+            &HeapChoice::MaxBodyLocations => {
+                HeapKey::Int(pattern.body_utility_no_refinement * pattern.match_locations.iter().map(|loc|shared.num_paths_to_node[loc]).sum::<i32>())
+            },
+            &HeapChoice::LowArityHighBound => {
+                HeapKey::IntInt(pattern.first_zid_of_ivar.len() as i32, pattern.utility_upper_bound)
+            },
+        }
+    }
+}
+
 impl LabelledZId {
     fn new(zid: ZId, ivar: usize) -> LabelledZId {
         LabelledZId { zid: zid, ivar: ivar }
@@ -699,6 +759,7 @@ fn get_worklist_item(
     worklist_buf: &mut Vec<HeapItem>,
     donelist_buf: &mut Vec<FinishedPattern>,
     shared: &Arc<SharedData>,
+    first_test_cost: f64,
 ) -> Option<(Vec<Pattern>,i32)> {
 
     // * MULTITHREADING: CRITICAL SECTION START *
@@ -715,7 +776,8 @@ fn get_worklist_item(
     crit.update(&shared.cfg); // this also updates utility_pruning_cutoff
 
     if shared.cfg.verbose_best && crit.donelist.first().map(|x|x.utility).unwrap_or(0) > old_best_utility {
-        println!("{} @ step={} util={} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, crit.donelist.first().unwrap().utility, crit.donelist.first().unwrap().info(shared));
+        let new_expected_cost = first_test_cost - crit.donelist.first().unwrap().compressive_utility as f64 + crit.donelist.first().unwrap().to_expr(&shared).cost() as f64;
+        println!("{} @ step={} testratio={:.2} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, first_test_cost as f64/ new_expected_cost as f64, crit.donelist.first().unwrap().info(shared));
     }
 
     // pull out the newer version of this now that its been updated, since we're returning it at the end
@@ -774,6 +836,7 @@ fn get_worklist_item(
 /// The core top down branch and bound search
 fn stitch_search(
     shared: Arc<SharedData>,
+    first_test_cost: f64,
 ) {
     
     // local buffers to eventually pour into the global worklist and donelist when we take the mutex
@@ -788,6 +851,7 @@ fn stitch_search(
                 &mut worklist_buf,
                 &mut donelist_buf,
                 &shared,
+                first_test_cost,
             ) {
                 Some(pattern) => pattern,
                 None => return,
@@ -921,7 +985,7 @@ fn stitch_search(
                     continue 'expansion; // too low utility
                 }
 
-                assert!(shared.cfg.no_opt_upper_bound || !(holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
+                assert!(shared.cfg.no_opt_upper_bound || shared.cfg.no_opt_arity_zero || !(holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
                         "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
                 // assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
                 //         "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
@@ -1070,11 +1134,6 @@ fn stitch_search(
 
                 let finished_pattern = FinishedPattern::new(new_pattern, &shared);
 
-                if shared.cfg.rewrite_check {
-                    // run rewriting just to make sure the assert in it passes
-                    rewrite_fast(&finished_pattern, &shared, &"fake_inv");
-                }
-
                 if tracked {
                     println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);
                 }
@@ -1088,7 +1147,7 @@ fn stitch_search(
                 } else {
                     // it's a partial pattern so just add it to the worklist
                     if tracked { println!("{} pushed {} to worklist (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(hole_zid, &shared), new_pattern.utility_upper_bound); }
-                    worklist_buf.push(HeapItem::new(new_pattern, &shared.num_paths_to_node))
+                    worklist_buf.push(HeapItem::new(new_pattern, &shared))
                 }
             }
 
@@ -1334,14 +1393,11 @@ fn get_zippers(
     uses_of_shifted_arg_refinement)
 }
 
-/// the complete result of a single step of compression, this is a somewhat expensive data structure
-/// to create.
 #[derive(Debug, Clone)]
-pub struct CompressionStepResult {
-    pub inv: Invention,
+pub struct CompressionStepData {
     pub rewritten: Expr,
     pub rewritten_dreamcoder: Vec<String>,
-    pub done: FinishedPattern,
+    pub initial_cost: i32,
     pub expected_cost: i32,
     pub final_cost: i32,
     pub multiplier: f64,
@@ -1349,19 +1405,18 @@ pub struct CompressionStepResult {
     pub uses: i32,
     pub use_exprs: Vec<Expr>,
     pub use_args: Vec<Vec<Expr>>,
-    pub dc_inv_str: String,
-    pub initial_cost: i32,
 }
 
-impl CompressionStepResult {
-    fn new(done: FinishedPattern, programs_node: Id, inv_name: &str, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>) -> Self {
+impl CompressionStepData {
+    fn new(done: FinishedPattern, programs_node: Id, inv: &Invention, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>, very_first_cost: Option<i32>) -> Self {
         let initial_cost = shared.egraph[programs_node].data.inventionless_cost;
+        let roots: Vec<Id> = shared.egraph[programs_node].nodes[0].children().iter().cloned().collect();
 
         // cost of the very first initial program before any inventions
-        let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { initial_cost };
+        let very_first_cost = very_first_cost.unwrap_or(initial_cost);
 
-        let inv = done.to_invention(inv_name, shared);
-        let rewritten = Expr::programs(rewrite_fast(&done, &shared, &inv.name));
+        let inv_name = &inv.name;
+        let rewritten = Expr::programs(rewrite_fast(&done, roots, &shared, inv_name));
 
 
         let expected_cost = initial_cost - done.compressive_utility;
@@ -1369,8 +1424,8 @@ impl CompressionStepResult {
         if expected_cost != final_cost {
             println!("*** expected cost {} != final cost {}", expected_cost, final_cost);
         }
-        let multiplier = initial_cost as f64 / final_cost as f64;
-        let multiplier_wrt_orig = very_first_cost as f64 / final_cost as f64;
+        let multiplier = initial_cost as f64 / (final_cost as f64 + inv.body.cost() as f64);
+        let multiplier_wrt_orig = very_first_cost as f64 / (final_cost as f64 + inv.body.cost() as f64);
         let uses = done.usages;
         let use_exprs: Vec<Expr> = done.pattern.match_locations.iter().map(|node| extract(*node, &shared.egraph)).collect();
         let use_args: Vec<Vec<Expr>> = done.pattern.match_locations.iter().map(|node|
@@ -1389,28 +1444,24 @@ impl CompressionStepResult {
                 // res = res.replace(&format!("{})",past_inv.inv.name), &format!("{})",past_inv.dc_inv_str));
                 // res = res.replace(&format!("{} ",past_inv.inv.name), &format!("{} ",past_inv.dc_inv_str));
             }
-            res = replace_prim_with(&res, &inv_name, &dc_inv_str);
+            res = replace_prim_with(&res, inv_name, &dc_inv_str);
             // res = res.replace(&format!("{})",inv_name), &format!("{})",dc_inv_str));
             // res = res.replace(&format!("{} ",inv_name), &format!("{} ",dc_inv_str));
             res = res.replace("(lam ","(lambda ");
             res
         }).collect();
 
-        CompressionStepResult { inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost }
+        CompressionStepData {rewritten, rewritten_dreamcoder, initial_cost, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args }
     }
-    pub fn json(&self) -> serde_json::Value {        
+
+    pub fn json(&self, inv_name: &str) -> serde_json::Value {        
         let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| expr.to_string()).collect();
-        let use_args: Vec<String> = self.use_args.iter().map(|args| format!("{} {}", self.inv.name, args.iter().map(|expr| expr.to_string()).collect::<Vec<String>>().join(" "))).collect();
+        let use_args: Vec<String> = self.use_args.iter().map(|args| format!("{} {}", inv_name, args.iter().map(|expr| expr.to_string()).collect::<Vec<String>>().join(" "))).collect();
         let all_uses: Vec<serde_json::Value> = use_exprs.iter().zip(use_args.iter()).sorted().map(|(expr,args)| json!({args: expr})).collect();
 
         json!({            
-            "body": self.inv.body.to_string(),
-            "dreamcoder": self.dc_inv_str,
-            "arity": self.inv.arity,
-            "name": self.inv.name,
             "rewritten": self.rewritten.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
             "rewritten_dreamcoder": self.rewritten_dreamcoder,
-            "utility": self.done.utility,
             "expected_cost": self.expected_cost,
             "final_cost": self.final_cost,
             "multiplier": self.multiplier,
@@ -1421,13 +1472,63 @@ impl CompressionStepResult {
     }
 }
 
+/// the complete result of a single step of compression, this is a somewhat expensive data structure
+/// to create.
+#[derive(Debug, Clone)]
+pub struct CompressionStepResult {
+    pub inv: Invention,
+    pub done: FinishedPattern,
+    pub dc_inv_str: String,
+    pub train_data: CompressionStepData,
+    pub test_data: Option<CompressionStepData>,
+}
+
+impl CompressionStepResult {
+    fn new(done: FinishedPattern, train_programs_node: Id, test_programs_node: Option<Id>, inv_name: &str, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>, first_train_cost: Option<i32>, first_test_cost: Option<i32>) -> Self {
+
+        let inv = done.to_invention(inv_name, shared);
+
+        let train_data = CompressionStepData::new(done.clone(), train_programs_node, &inv, shared, past_invs, first_train_cost);
+        let test_data = test_programs_node.map(|n| CompressionStepData::new(done.clone(), n, &inv, shared, past_invs, first_test_cost));
+
+        let dc_inv_str: String = dc_inv_str(&inv, past_invs);
+
+        CompressionStepResult { inv, done, dc_inv_str, train_data, test_data }
+    }
+
+    pub fn json(&self) -> serde_json::Value {        
+
+        json!({            
+            "body": self.inv.body.to_string(),
+            "dreamcoder": self.dc_inv_str,
+            "arity": self.inv.arity,
+            "name": self.inv.name,
+            "utility": self.done.utility,
+            "train_result": self.train_data.json(&self.inv.name),
+            "test_result": self.test_data.as_ref().map(|d| d.json(&self.inv.name).to_string()),
+        })
+    }
+}
+
 impl fmt::Display for CompressionStepResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.expected_cost != self.final_cost {
-            write!(f,"[cost mismatch of {}] ", self.expected_cost - self.final_cost)?;
+        if self.train_data.expected_cost != self.train_data.final_cost {
+            write!(f,"[cost mismatch of {} in training data] ", self.train_data.expected_cost - self.train_data.final_cost)?;
         }
-        write!(f, "utility: {} | final_cost: {} | {:.2}x | uses: {} | body: {}",
-            self.done.utility, self.final_cost, self.multiplier, self.uses, self.inv)
+        if let Some(test_d) = &self.test_data {
+            if test_d.expected_cost != test_d.final_cost {
+                write!(f,"[cost mismatch of {} in test data] ", test_d.expected_cost - test_d.final_cost)?;
+            }
+        }
+        write!(f, "utility: {} | size: {} | final_cost (train): {} | multiplier (train): {:.2}x | uses (train): {} | final_cost(test): {} | multiplier (test): {} | body: {}",
+            self.done.utility,
+            self.inv.body.cost(),
+            self.train_data.final_cost,
+            self.train_data.multiplier,
+            self.train_data.uses,
+            self.test_data.as_ref().map_or("null".to_string(), |d| d.final_cost.to_string()),
+            self.test_data.as_ref().map_or("null".to_string(), |d| format!("{:.2}x", d.multiplier)),
+            self.inv)
     }
 }
 
@@ -1742,14 +1843,27 @@ pub struct CorrectedUtil {
 
 /// Multistep compression. See `compression_step` if you'd just like to do a single step of compression.
 pub fn compression(
-    programs_expr: &Expr,
+    train_programs_expr: &Expr,
+    test_programs_expr: &Option<Expr>,
     iterations: usize,
     cfg: &CompressionStepConfig,
     tasks: &Vec<String>,
     num_prior_inventions: usize,
 ) -> Vec<CompressionStepResult> {
 
-    let mut rewritten: Expr = programs_expr.clone();
+    if cfg.follow_track && !(
+           cfg.no_opt_free_vars
+        && cfg.no_opt_single_use
+        && cfg.no_opt_single_task
+        && cfg.no_opt_upper_bound
+        && cfg.no_opt_force_multiuse
+        && cfg.no_opt_useless_abstract)
+    {
+        println!("{} you often want to run --follow-track with --no-opt otherwise your target may get pruned", "[WARNING]".yellow());
+    }
+
+    let mut train_rewritten: Expr = train_programs_expr.clone();
+    let mut test_rewritten: Option<Expr> = test_programs_expr.clone();
     let mut step_results: Vec<CompressionStepResult> = Default::default();
 
     let tstart = std::time::Instant::now();
@@ -1760,7 +1874,8 @@ pub fn compression(
 
         // call actual compression
         let res: Vec<CompressionStepResult> = compression_step(
-            &rewritten,
+            &train_rewritten,
+            &test_rewritten,
             &inv_name,
             &cfg,
             &step_results,
@@ -1769,7 +1884,8 @@ pub fn compression(
         if !res.is_empty() {
             // rewrite with the invention
             let res: CompressionStepResult = res[0].clone();
-            rewritten = res.rewritten.clone();
+            train_rewritten = res.train_data.rewritten.clone();
+            test_rewritten = res.test_data.as_ref().map(|d| d.rewritten.clone());
             println!("Chose Invention {}: {}", res.inv.name, res);
             step_results.push(res);
         } else {
@@ -1785,10 +1901,16 @@ pub fn compression(
 
     println!("{}","\n=======Compression Summary=======".blue().bold());
     println!("Found {} inventions", step_results.len());
-    println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(programs_expr,&rewritten), programs_expr.cost(), rewritten.cost());
+    println!("Cost Improvement (train): ({:.2}x better) {} -> {}", compression_factor(train_programs_expr, &train_rewritten), train_programs_expr.cost(), train_rewritten.cost());
+    println!("Cost Improvement (test): {}",
+        test_programs_expr.as_ref().map_or("null".to_string(), |e| format!("({:.2}x better) {} -> {}", compression_factor(e, &test_rewritten.as_ref().unwrap()), e.cost(), test_rewritten.unwrap().cost()))
+    );
     for i in 0..step_results.len() {
         let res = &step_results[i];
-        println!("{} ({:.2}x wrt orig): {}" ,res.inv.name.clone().blue(), compression_factor(programs_expr, &res.rewritten), res);
+        println!("train: {} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(train_programs_expr, &res.train_data.rewritten), res);
+        println!("test: {}",
+            test_programs_expr.as_ref().map_or("null".to_string(), |e| format!("{} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(e, &res.test_data.as_ref().unwrap().rewritten), res))
+        );
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
     if cfg.follow_track && !(
@@ -1804,11 +1926,13 @@ pub fn compression(
     step_results
 }
 
-/// Takes a set of programs as an Expr with Programs as its root, and does one full step of compresison.
+/// Takes a training set of programs as an Expr with Programs as its root, and does one full step of compresison.
 /// Returns the top Inventions and the Expr rewritten under that invention along with other useful info in CompressionStepResult
-/// The number of inventions returned is based on cfg.inv_candidates
+/// The number of inventions returned is based on cfg.inv_candidates.
+/// If test_programs_expr is not None, the test programs will also be rewritten under the chosen invention(s).
 pub fn compression_step(
-    programs_expr: &Expr,
+    train_programs_expr: &Expr,
+    test_programs_expr: &Option<Expr>,
     new_inv_name: &str, // name of the new invention, like "inv4"
     cfg: &CompressionStepConfig,
     past_invs: &Vec<CompressionStepResult>, // past inventions we've found
@@ -1821,17 +1945,22 @@ pub fn compression_step(
 
     // build the egraph. We'll just be using this as a structural hasher we don't use rewrites at all. All eclasses will always only have one node.
     let mut egraph: EGraph = Default::default();
-    let programs_node = egraph.add_expr(programs_expr.into());
+    let train_programs_node = egraph.add_expr(train_programs_expr.into());
+    let test_programs_node = test_programs_expr.as_ref().map(|e| egraph.add_expr(e.into()));
     egraph.rebuild();
+    let first_test_cost = test_programs_node.map_or(0, |n| egraph[n].data.inventionless_cost);
+    if first_test_cost == 0 {
+        panic!("These changes are very experimental and I would appreciate if you always supply a test set rn thx")
+    }
 
     println!("set up egraph: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
-    let roots: Vec<Id> = egraph[programs_node].nodes[0].children().iter().cloned().collect();
+    let roots: Vec<Id> = egraph[train_programs_node].nodes[0].children().iter().cloned().collect();
 
     // all nodes in child-first order except for the Programs node
-    let mut treenodes: Vec<Id> = topological_ordering(programs_node,&egraph);
-    treenodes.retain(|id| *id != programs_node);
+    let mut treenodes: Vec<Id> = topological_ordering(train_programs_node, &egraph);
+    treenodes.retain(|id| *id != train_programs_node);
 
     println!("got roots and treenodes: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
@@ -1843,7 +1972,7 @@ pub fn compression_step(
     println!("num_paths_to_node(): {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
-    let tasks_of_node: HashMap<Id, HashSet<usize>> = associate_tasks(programs_node, &egraph, tasks);
+    let tasks_of_node: HashMap<Id, HashSet<usize>> = associate_tasks(train_programs_node, &egraph, tasks);
 
     println!("associate_tasks(): {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
@@ -1945,10 +2074,10 @@ pub fn compression_step(
     let crit = CriticalMultithreadData::new(donelist, &treenodes, &cost_of_node_all, &num_paths_to_node, &egraph, &cfg);
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
+        max_heapkey: Mutex::new(cfg.heap_choice.init()),
         arg_of_zid_node,
         treenodes: treenodes.clone(),
-        programs_node,
-        roots,
+        programs_node: train_programs_node,
         zids_of_node,
         zip_of_zid,
         zid_of_zip,
@@ -1964,15 +2093,19 @@ pub fn compression_step(
         tracking,
     });
 
+    { // scoping to ensure lock drops, not sure if this is needed
+        shared.crit.lock().deref_mut().worklist.push(HeapItem::new(Pattern::single_hole(&*shared), &*shared));
+    }
+
     println!("built SharedData: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
     if cfg.verbose_best {
         let mut crit = shared.crit.lock();
         if !crit.deref_mut().donelist.is_empty() {
-            let best_util = crit.deref_mut().donelist.first().unwrap().utility;
             let best_expr: String = crit.deref_mut().donelist.first().unwrap().info(&shared);
-            println!("{} @ step=0 util={} for {}", "[new best utility]".blue(), best_util, best_expr);
+            let new_expected_cost = first_test_cost - crit.donelist.first().unwrap().compressive_utility + crit.donelist.first().unwrap().to_expr(&shared).cost();
+            println!("{} @ step=0 testratio={:.2} for {}", "[new best utility]".blue(), first_test_cost as f64/new_expected_cost as f64, best_expr);
         }
     }
 
@@ -1986,7 +2119,7 @@ pub fn compression_step(
     // (this is finding all the higher-arity multi-use inventions through stitching)
     if cfg.threads == 1 {
         // Single threaded
-        stitch_search(Arc::clone(&shared));
+        stitch_search(Arc::clone(&shared), first_test_cost as f64);
     } else {
         // Multithreaded
         let mut handles = vec![];
@@ -1996,7 +2129,7 @@ pub fn compression_step(
             
             // launch thread to just call stitch_search()
             handles.push(thread::spawn(move || {
-                stitch_search(shared);
+                stitch_search(shared, first_test_cost as f64);
             }));
         }
         // wait for all threads to finish (when all have empty worklists)
@@ -2022,27 +2155,39 @@ pub fn compression_step(
 
     let donelist: Vec<FinishedPattern> = shared.crit.lock().deref_mut().donelist.clone();
 
-    if cfg.dreamcoder_comparison {
-        println!("Timing point 1 (from the start of compression_step to final donelist): {:?}ms", tstart_total.elapsed().as_millis());
-        println!("Timing Comparison Point A (search) (millis): {}", tstart_total.elapsed().as_millis());
-        let tstart_rewrite = std::time::Instant::now();
-        rewrite_fast(&donelist[0], &shared, new_inv_name);
-        println!("Timing point 2 (rewriting the candidate): {:?}ms", tstart_rewrite.elapsed().as_millis());
-        println!("Timing Comparison Point B (search+rewrite) (millis): {}", tstart_total.elapsed().as_millis());
-    }
-
-    let orig_cost = shared.egraph[programs_node].data.inventionless_cost;
+    let orig_cost = shared.egraph[train_programs_node].data.inventionless_cost;
 
     let mut results: Vec<CompressionStepResult> = vec![];
 
     // construct CompressionStepResults and print some info about them)
     println!("Cost before: {}", orig_cost);
+    let mut first_train_cost = None;
+    let mut first_test_cost = None;
     for (i,done) in donelist.iter().enumerate() {
-        let res = CompressionStepResult::new(done.clone(), programs_node, new_inv_name, &mut shared, past_invs);
+        let res = CompressionStepResult::new(
+            done.clone(),
+            train_programs_node,
+            test_programs_node,
+            new_inv_name,
+            &mut shared,
+            past_invs,
+            first_train_cost,
+            first_test_cost);
+
+        // Update initial costs if this was the first step of compression
+        if first_train_cost == None {
+            first_train_cost = Some(res.train_data.initial_cost);
+        }
+        if first_test_cost == None {
+            first_test_cost = res.test_data.as_ref().map(|d| d.initial_cost);
+        }
 
         println!("{}: {}", i, res);
         if cfg.show_rewritten {
-            println!("rewritten:\n{}", res.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"));
+            println!("rewritten (train):\n{}", &res.train_data.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"));
+            println!("rewritten (test):\n{}",
+                res.test_data.as_ref().map_or("null".to_string(), |d| d.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"))
+            );
         }
         results.push(res);
     }

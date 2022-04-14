@@ -365,4 +365,3 @@ pub fn num_paths_to_node(roots: &[Id], treenodes: &Vec<Id>, egraph: &crate::EGra
     });
     num_paths_to_node
 }
-
