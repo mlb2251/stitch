@@ -699,6 +699,7 @@ fn get_worklist_item(
     worklist_buf: &mut Vec<HeapItem>,
     donelist_buf: &mut Vec<FinishedPattern>,
     shared: &Arc<SharedData>,
+    very_first_cost: f64,
 ) -> Option<(Vec<Pattern>,i32)> {
 
     // * MULTITHREADING: CRITICAL SECTION START *
@@ -715,7 +716,8 @@ fn get_worklist_item(
     crit.update(&shared.cfg); // this also updates utility_pruning_cutoff
 
     if shared.cfg.verbose_best && crit.donelist.first().map(|x|x.utility).unwrap_or(0) > old_best_utility {
-        println!("{} @ step={} util={} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, crit.donelist.first().unwrap().utility, crit.donelist.first().unwrap().info(shared));
+        let new_expected_cost = very_first_cost - crit.donelist.first().unwrap().compressive_utility as f64;
+        println!("{} @ step={} ratio={:.2} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, very_first_cost as f64/ new_expected_cost as f64, crit.donelist.first().unwrap().info(shared));
     }
 
     // pull out the newer version of this now that its been updated, since we're returning it at the end
@@ -774,6 +776,7 @@ fn get_worklist_item(
 /// The core top down branch and bound search
 fn stitch_search(
     shared: Arc<SharedData>,
+    very_first_cost: f64,
 ) {
     
     // local buffers to eventually pour into the global worklist and donelist when we take the mutex
@@ -788,6 +791,7 @@ fn stitch_search(
                 &mut worklist_buf,
                 &mut donelist_buf,
                 &shared,
+                very_first_cost,
             ) {
                 Some(pattern) => pattern,
                 None => return,
@@ -1823,6 +1827,7 @@ pub fn compression_step(
     let mut egraph: EGraph = Default::default();
     let programs_node = egraph.add_expr(programs_expr.into());
     egraph.rebuild();
+    let very_first_cost = egraph[programs_node].data.inventionless_cost;
 
     println!("set up egraph: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
@@ -1970,9 +1975,9 @@ pub fn compression_step(
     if cfg.verbose_best {
         let mut crit = shared.crit.lock();
         if !crit.deref_mut().donelist.is_empty() {
-            let best_util = crit.deref_mut().donelist.first().unwrap().utility;
             let best_expr: String = crit.deref_mut().donelist.first().unwrap().info(&shared);
-            println!("{} @ step=0 util={} for {}", "[new best utility]".blue(), best_util, best_expr);
+            let new_expected_cost = very_first_cost - crit.donelist.first().unwrap().compressive_utility;
+            println!("{} @ step=0 ratio={:.2} for {}", "[new best utility]".blue(), very_first_cost as f64/new_expected_cost as f64, best_expr);
         }
     }
 
@@ -1986,7 +1991,7 @@ pub fn compression_step(
     // (this is finding all the higher-arity multi-use inventions through stitching)
     if cfg.threads == 1 {
         // Single threaded
-        stitch_search(Arc::clone(&shared));
+        stitch_search(Arc::clone(&shared), very_first_cost as f64);
     } else {
         // Multithreaded
         let mut handles = vec![];
@@ -1996,7 +2001,7 @@ pub fn compression_step(
             
             // launch thread to just call stitch_search()
             handles.push(thread::spawn(move || {
-                stitch_search(shared);
+                stitch_search(shared, very_first_cost as f64);
             }));
         }
         // wait for all threads to finish (when all have empty worklists)
