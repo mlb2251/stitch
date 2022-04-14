@@ -140,8 +140,8 @@ where T: From<Val<D>>+ Debug + PartialEq
     assert_eq!(expected_error_msg, res.err().unwrap());
 }
 
-pub fn compression_factor(original: &Expr, compressed: &Expr) -> f64 {
-    f64::from(original.cost())/f64::from(compressed.cost())
+pub fn compression_factor(original: &Expr, compressed: &Expr, inv_size: f64) -> f64 {
+    f64::from(original.cost())/(inv_size + f64::from(compressed.cost()))
 }
 
 /// Replace the ivars in an expr based on an i32->Expr map

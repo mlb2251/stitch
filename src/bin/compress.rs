@@ -147,14 +147,6 @@ fn main() {
     std::fs::write(out_path, serde_json::to_string_pretty(&out).unwrap()).unwrap();
     println!("Wrote to {:?}", out_path);
 
-    if let Some(out_path) = args.save_rewritten {
-        println!("Wrote to {:?}", out_path);
-        std::fs::write(&out_path, serde_json::to_string_pretty(&step_results.iter().last().unwrap().train_data.rewritten.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>()).unwrap()).unwrap();
-        if let Some(d) = &step_results.iter().last().unwrap().test_data {
-            std::fs::write(&out_path, serde_json::to_string_pretty(&d.rewritten.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>()).unwrap()).unwrap();
-        }
-    }
-
 }
 
 #[cfg(test)]
