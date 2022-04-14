@@ -42,6 +42,7 @@ struct ShiftRule {
 
 pub fn rewrite_fast(
     pattern: &FinishedPattern,
+    roots: Vec<Id>,
     shared: &SharedData,
     inv_name: &str,
 ) -> Vec<Expr>
@@ -148,10 +149,10 @@ pub fn rewrite_fast(
         }
     }
 
-    let init_cost: i32 = shared.roots.iter().map(|r| shared.egraph[*r].data.inventionless_cost).sum();
+    let init_cost: i32 = roots.iter().map(|r| shared.egraph[*r].data.inventionless_cost).sum();
 
     let shift_rules = &mut vec![];
-    let rewritten_exprs: Vec<Expr> = shared.roots.iter().map(|root| {
+    let rewritten_exprs: Vec<Expr> = roots.iter().map(|root| {
         helper(pattern, shared, *root, 0, shift_rules, inv_name, None)
     }).collect();
 
