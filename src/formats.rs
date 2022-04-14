@@ -79,7 +79,10 @@ impl InputFormat {
                     tasks.push(task_num.to_string());
                     task_num += 1;
                 }
-                let num_prior_inventions = 0;
+                let mut  num_prior_inventions = 0;
+                while programs.iter().any(|p| p.contains(&format!("fn_{}",num_prior_inventions))) {
+                    num_prior_inventions += 1;
+                }
                 Ok((programs, None, tasks, num_prior_inventions))
             }
         }

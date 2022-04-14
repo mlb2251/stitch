@@ -33,9 +33,9 @@ mkdir -p $OUT_DIR/stderr
 for BENCH_PATH in $BENCH_DIR/bench*.json; do
     BENCH=$(basename -s .json $BENCH_PATH)
     ITERATIONS=$(python3 analyze.py iteration_budget $COMPARE_TO $BENCH_PATH $LOOSE)
-    ITERATIONS=$(($ITERATIONS + 1))
+    # ITERATIONS=$(($ITERATIONS + 1))
     echo "[bench_stitch.sh] Running Stitch with -a3 on: $BENCH"
-    /usr/bin/time -v $STITCH_DIR/target/release/compress $BENCH_PATH --max-arity=3 --threads=8 --iterations=$ITERATIONS --fmt=dreamcoder --no-mismatch-check --dreamcoder-drop-last --out=$OUT_DIR/raw/$BENCH.json 2>&1 | tee $OUT_DIR/stderr/$BENCH.stderr
+    /usr/bin/time -v $STITCH_DIR/target/release/compress $BENCH_PATH --max-arity=3 --threads=8 --iterations=$ITERATIONS --fmt=dreamcoder --dreamcoder-comparison --out=$OUT_DIR/raw/$BENCH.json 2>&1 | tee $OUT_DIR/stderr/$BENCH.stderr
 done
 
 python analyze.py process stitch $OUT_DIR

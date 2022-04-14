@@ -31,7 +31,14 @@ pub fn extract_enode(enode: &Lambda, egraph: &EGraph) -> Expr {
     }
 }
 
-
+/// a rule for determining when to shift and by how much.
+/// if anything points above the `depth_cutoff` (absolute depth
+/// of lambdas from the top of the program) it gets shifted by `shift`. If
+/// more than one ShiftRule applies then more then one shift will happen.
+struct ShiftRule {
+    depth_cutoff: i32, 
+    shift: i32,
+}
 
 pub fn rewrite_fast(
     pattern: &FinishedPattern,
@@ -40,41 +47,103 @@ pub fn rewrite_fast(
     inv_name: &str,
 ) -> Vec<Expr>
 {
+    // println!("rewriting with {}", pattern.info(&shared));
     fn helper(
         pattern: &FinishedPattern,
         shared: &SharedData,
         unshifted_id: Id,
-        shift: i32,
+        total_depth: i32, // depth from the very root of the program down
+        shift_rules: &mut Vec<ShiftRule>,
         inv_name: &str,
+        refinements: Option<(&Vec<Id>,i32)>
     ) -> Expr
     {
         // we search using the the *unshifted* one since its an original program tree node
         if pattern.pattern.match_locations.binary_search(&unshifted_id).is_ok() // if the pattern matches here
            && (!pattern.util_calc.corrected_utils.contains_key(&unshifted_id) // and either we have no conflict (ie corrected_utils doesnt have an entry)
              || pattern.util_calc.corrected_utils[&unshifted_id].accept) // or we have a conflict but we choose to accept it (which is contextless in this top down approach so its the right move)
-        { 
+           && refinements.is_none() // AND we can't currently be in a refinement where rewriting is forbidden
+        //    && !pattern.pattern.first_zid_of_ivar.iter().any(|zid| // and there are no negative vars anywhere in the arguments
+        //         shared.egraph[shared.arg_of_zid_node[*zid][&unshifted_id].id].data.free_vars.iter().any(|var| *var < 0))
+        {
+            // println!("inv applies at unshifted={} with shift={}", extract(unshifted_id,&shared.egraph), shift);
             let mut expr = Expr::prim(inv_name.into());
             // wrap the prim in all the Apps to args
-            for zid in pattern.pattern.first_zid_of_ivar.iter() {
+            for (ivar,zid) in pattern.pattern.first_zid_of_ivar.iter().enumerate() {
                 let ref arg: Arg = shared.arg_of_zid_node[*zid][&unshifted_id];
-                let shift = shift + arg.shift;
-                let rewritten_arg = helper(pattern, shared, arg.id, shift, inv_name);
+
+
+                // assert!(shared.egraph[arg.shifted_id].data.free_vars.iter().all(|v| *v >= 0));
+                // assert!(arg.id == egraphs::shift(arg.unshifted_id, arg.shift, &shared.egraph, None).unwrap());
+
+                if arg.shift != 0 {
+                    shift_rules.push(ShiftRule{depth_cutoff: total_depth, shift: arg.shift});
+                }
+                let rewritten_arg = if let Some(refinements) = pattern.pattern.refinements[ivar].as_ref() {
+                    // enter refinement mode! We actually recurse on *shifted_id* intentionally here so we can find
+                    // the refinement itself which is a subtree of the shifted_id, and we forbid further rewriting within this call
+                    // println!("refinement recurison for {} in {}", extract(refinement, &shared.egraph), extract(unshifted_id, &shared.egraph));
+                    
+                    let mut e = helper(pattern, shared, arg.shifted_id, total_depth, shift_rules, inv_name, Some((refinements,total_depth)));
+                    for _ in 0..refinements.len() {
+                        e = Expr::lam(e);
+                    }
+                    e
+                } else {
+                    // no refinement, just recurse as usual
+                    helper(pattern, shared, arg.unshifted_id, total_depth, shift_rules, inv_name, None)
+                };
+                if arg.shift != 0 {
+                    shift_rules.pop(); // pop the rule back off after
+                }
                 expr = Expr::app(expr, rewritten_arg);
             }
             return expr
         }
+        // println!("descending: {}", extract(unshifted_id,&shared.egraph));
+
+        if let Some((refinements,arg_depth)) = refinements.as_ref() {
+            if let Some(idx) = refinements.iter().position(|r| *r == unshifted_id) {
+                // println!("found refinement!!!");
+                // todo should this be `idx` or `refinements.len()-1-idx`?
+                return Expr::var(total_depth - arg_depth + idx as i32); // if we didnt pass thru any lams on the way this would just be $0 and thus refer to the Expr::lam() wrapping our helper() call
+            }
+        }
+
 
         match &shared.egraph[unshifted_id].nodes[0] {
             Lambda::Prim(p) => Expr::prim(*p),
-            Lambda::Var(i) => Expr::var(*i + shift), // we extract from the *shifted* one since thats the real one
+            Lambda::Var(i) => {
+                let mut j = *i;
+                for rule in shift_rules.iter() {
+                    // take "i" steps upward from current depth and see if you meet or pass the cutoff.
+                    // exactly equaling the cutoff counts as needing shifting.
+                    if total_depth - i <= rule.depth_cutoff {
+                        j += rule.shift;
+                    }
+                }
+                if let Some((refinements,arg_depth)) = refinements.as_ref() {
+                    // we're inside the *shifted arg* of a refinement so this var has already been shifted a bit btw
+                    // tho thats kinda irrelevant right here
+                    if j >= *arg_depth {
+                        // j is pointing above the invention so we need to upshift it a bit to account for the new lambdas we added
+                        j += refinements.len() as i32;
+                    }
+                }
+                assert!(j >= 0);
+                Expr::var(j)
+            }, // we extract from the *shifted* one since thats the real one
             Lambda::App([unshifted_f,unshifted_x]) => {
                 Expr::app(
-                    helper(pattern, shared, *unshifted_f, shift, inv_name),
-                    helper(pattern, shared, *unshifted_x, shift, inv_name),
+                    helper(pattern, shared, *unshifted_f, total_depth, shift_rules, inv_name, refinements),
+                    helper(pattern, shared, *unshifted_x, total_depth, shift_rules, inv_name, refinements),
                 )
             },
             Lambda::Lam([unshifted_b]) => {
-                Expr::lam(helper(pattern, shared, *unshifted_b, shift, inv_name))
+                Expr::lam(helper(pattern, shared, *unshifted_b, total_depth + 1, shift_rules, inv_name, refinements))
+            },
+            Lambda::IVar(_) => {
+                panic!("attempted to rewrite with an ivar");
             },
             _ => unreachable!(),
         }
@@ -82,17 +151,19 @@ pub fn rewrite_fast(
 
     let init_cost: i32 = roots.iter().map(|r| shared.egraph[*r].data.inventionless_cost).sum();
 
+    let shift_rules = &mut vec![];
     let rewritten_exprs: Vec<Expr> = roots.iter().map(|root| {
-        helper(pattern, shared, *root, 0, inv_name)
+        helper(pattern, shared, *root, 0, shift_rules, inv_name, None)
     }).collect();
 
     if !shared.cfg.no_mismatch_check {
         assert_eq!(
             rewritten_exprs.iter().map(|e|e.cost()).sum::<i32>(),
             init_cost - pattern.util_calc.util,
-            "\n{}\n", pattern.to_invention(inv_name, shared)
+            "\n{}\n", pattern.info(shared)
         );
     }
+
     rewritten_exprs
 }
 
