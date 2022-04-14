@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-ulimit -v 50000000  # attempt to limit children to 50GB=50,000,000KB of virtual memory
+#ulimit -v 50000000  # attempt to limit children to 50GB=50,000,000KB of virtual memory
 
 if [ -z $STITCH_DIR ]
 then
@@ -13,8 +13,10 @@ mkdir -p $OUT_DIR
 
 # Save some info about what state of the repo this experiment was run in
 # to aid reporducibility
-echo -n "Current git commit and branch: " > $OUT_DIR/readme.md
+echo -n "Current git commit: " > $OUT_DIR/readme.md
 git log -n 1 >> $OUT_DIR/readme.md
+echo -n "Current git branch: " >> $OUT_DIR/readme.md
+git rev-parse --abbrev-ref HEAD >> $OUT_DIR/readme.md
 
 # compile Stitch
 pushd $STITCH_DIR
@@ -31,7 +33,7 @@ for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
     python3 split_data.py $SPLIT $SEED $WL_PATH "$WL-$SPLIT-$SEED-split.json"
     echo "[case_study_2.sh] Split data; seed used was $SEED, train test % was $SPLIT"
     echo "Running Stitch"
-    $STITCH_DIR/target/release/compress "$WL-$SPLIT-$SEED-split.json" --fmt=split-programs-list --split-train-test --max-arity=3 --iterations=1 --no-mismatch-check --out=$OUT_DIR/$WL/$SPLIT/$SEED.json > $OUT_DIR/$WL/$SPLIT/$SEED.stderrandout 2>&1 &
+    $STITCH_DIR/target/release/compress "$WL-$SPLIT-$SEED-split.json" --verbose-best --fmt=split-programs-list --split-train-test --max-arity=3 --iterations=1 --no-mismatch-check --out=$OUT_DIR/$WL/$SPLIT/$SEED.json > $OUT_DIR/$WL/$SPLIT/$SEED.stderrandout 2>&1 &
     done
     wait  # move this up/down between loops to change how many jobs to run at once
     done
