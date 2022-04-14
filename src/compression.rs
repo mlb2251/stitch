@@ -698,6 +698,7 @@ fn get_worklist_item(
     worklist_buf: &mut Vec<HeapItem>,
     donelist_buf: &mut Vec<FinishedPattern>,
     shared: &Arc<SharedData>,
+    first_test_cost: f64,
 ) -> Option<(Vec<Pattern>,i32)> {
 
     // * MULTITHREADING: CRITICAL SECTION START *
@@ -714,7 +715,8 @@ fn get_worklist_item(
     crit.update(&shared.cfg); // this also updates utility_pruning_cutoff
 
     if shared.cfg.verbose_best && crit.donelist.first().map(|x|x.utility).unwrap_or(0) > old_best_utility {
-        println!("{} @ step={} util={} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, crit.donelist.first().unwrap().utility, crit.donelist.first().unwrap().info(shared));
+        let new_expected_cost = first_test_cost - crit.donelist.first().unwrap().compressive_utility as f64 + crit.donelist.first().unwrap().to_expr(&shared).cost() as f64;
+        println!("{} @ step={} testratio={:.2} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, first_test_cost as f64/ new_expected_cost as f64, crit.donelist.first().unwrap().info(shared));
     }
 
     // pull out the newer version of this now that its been updated, since we're returning it at the end
@@ -773,6 +775,7 @@ fn get_worklist_item(
 /// The core top down branch and bound search
 fn stitch_search(
     shared: Arc<SharedData>,
+    first_test_cost: f64,
 ) {
     
     // local buffers to eventually pour into the global worklist and donelist when we take the mutex
@@ -787,6 +790,7 @@ fn stitch_search(
                 &mut worklist_buf,
                 &mut donelist_buf,
                 &shared,
+                first_test_cost,
             ) {
                 Some(pattern) => pattern,
                 None => return,
@@ -920,7 +924,7 @@ fn stitch_search(
                     continue 'expansion; // too low utility
                 }
 
-                assert!(shared.cfg.no_opt_upper_bound || !(holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
+                assert!(shared.cfg.no_opt_upper_bound || shared.cfg.no_opt_arity_zero || !(holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
                         "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
                 // assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
                 //         "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
@@ -1359,8 +1363,8 @@ impl CompressionStepData {
         if expected_cost != final_cost {
             println!("*** expected cost {} != final cost {}", expected_cost, final_cost);
         }
-        let multiplier = initial_cost as f64 / final_cost as f64;
-        let multiplier_wrt_orig = very_first_cost as f64 / final_cost as f64;
+        let multiplier = initial_cost as f64 / (final_cost as f64 + inv.body.cost() as f64);
+        let multiplier_wrt_orig = very_first_cost as f64 / (final_cost as f64 + inv.body.cost() as f64);
         let uses = done.usages;
         let use_exprs: Vec<Expr> = done.pattern.match_locations.iter().map(|node| extract(*node, &shared.egraph)).collect();
         let use_args: Vec<Vec<Expr>> = done.pattern.match_locations.iter().map(|node|
@@ -1883,6 +1887,10 @@ pub fn compression_step(
     let train_programs_node = egraph.add_expr(train_programs_expr.into());
     let test_programs_node = test_programs_expr.as_ref().map(|e| egraph.add_expr(e.into()));
     egraph.rebuild();
+    let first_test_cost = test_programs_node.map_or(0, |n| egraph[n].data.inventionless_cost);
+    if first_test_cost == 0 {
+        panic!("These changes are very experimental and I would appreciate if you always supply a test set rn thx")
+    }
 
     println!("set up egraph: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
@@ -2029,9 +2037,9 @@ pub fn compression_step(
     if cfg.verbose_best {
         let mut crit = shared.crit.lock();
         if !crit.deref_mut().donelist.is_empty() {
-            let best_util = crit.deref_mut().donelist.first().unwrap().utility;
             let best_expr: String = crit.deref_mut().donelist.first().unwrap().info(&shared);
-            println!("{} @ step=0 util={} for {}", "[new best utility]".blue(), best_util, best_expr);
+            let new_expected_cost = first_test_cost - crit.donelist.first().unwrap().compressive_utility + crit.donelist.first().unwrap().to_expr(&shared).cost();
+            println!("{} @ step=0 testratio={:.2} for {}", "[new best utility]".blue(), first_test_cost as f64/new_expected_cost as f64, best_expr);
         }
     }
 
@@ -2045,7 +2053,7 @@ pub fn compression_step(
     // (this is finding all the higher-arity multi-use inventions through stitching)
     if cfg.threads == 1 {
         // Single threaded
-        stitch_search(Arc::clone(&shared));
+        stitch_search(Arc::clone(&shared), first_test_cost as f64);
     } else {
         // Multithreaded
         let mut handles = vec![];
@@ -2055,7 +2063,7 @@ pub fn compression_step(
             
             // launch thread to just call stitch_search()
             handles.push(thread::spawn(move || {
-                stitch_search(shared);
+                stitch_search(shared, first_test_cost as f64);
             }));
         }
         // wait for all threads to finish (when all have empty worklists)

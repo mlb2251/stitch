@@ -135,7 +135,7 @@ for wl in workloads:
     par2.spines['right'].set_position(('outward', 60))
     
     # no x-ticks                 
-    par2.xaxis.set_ticks([])
+    #par2.xaxis.set_ticks([])
     
     # Sometimes handy, same for xaxis
     #par2.yaxis.set_ticks_position('right')
