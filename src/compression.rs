@@ -50,9 +50,13 @@ pub struct CompressionStepConfig {
     #[clap(short='n', long, default_value = "1")]
     pub inv_candidates: usize,
 
-    /// pattern or invention to track
+    /// strategy for picking the next hole to expand
     #[clap(long, arg_enum, default_value = "min-cost")]
     pub hole_choice: HoleChoice,
+
+    /// strategy for picking the next worklist item to process
+    #[clap(long, arg_enum, default_value = "max-bound")]
+    pub heap_choice: HeapChoice,
 
     /// disables the safety check for the utility being correct; you only want
     /// to do this if you truly dont mind unsoundness for a minute
@@ -258,15 +262,15 @@ fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &HashMap<Zip,ZId>) -> Vec<Vec<Z
 
 impl Pattern {
     /// create a single hole pattern `??`
-    fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
+    fn single_hole(shared: &SharedData) -> Self {
         let body_utility_no_refinement = 0;
         let refinement_body_utility = 0;
-        let mut match_locations = treenodes.clone();
+        let mut match_locations = shared.treenodes.clone();
         match_locations.sort(); // we assume match_locations is always sorted
-        if cfg.no_top_lambda {
-            match_locations.retain(|node| expands_to_of_node(&egraph[*node].nodes[0]) != ExpandsTo::Lam);
+        if shared.cfg.no_top_lambda {
+            match_locations.retain(|node| expands_to_of_node(&shared.egraph[*node].nodes[0]) != ExpandsTo::Lam);
         }
-        let utility_upper_bound = utility_upper_bound(&match_locations, body_utility_no_refinement + refinement_body_utility, cost_of_node_all, num_paths_to_node, cfg);
+        let utility_upper_bound = utility_upper_bound(&match_locations, body_utility_no_refinement + refinement_body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
         Pattern {
             holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
             arg_choices: vec![],
@@ -276,7 +280,7 @@ impl Pattern {
             utility_upper_bound,
             body_utility_no_refinement, // 0 body utility
             refinement_body_utility, // 0 body utility
-            tracked: cfg.track.is_some(),
+            tracked: shared.cfg.track.is_some(),
         }
     }
     /// convert pattern to an Expr with `??` in place of holes and `?#` in place of argchoices
@@ -455,7 +459,7 @@ fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData) -> 
 /// The heap item used for heap-based worklists. Holds a pattern
 #[derive(Debug,Clone, Eq, PartialEq)]
 pub struct HeapItem {
-    key: i32,
+    key: HeapKey,
     pattern: Pattern,
 }
 impl PartialOrd for HeapItem {
@@ -469,12 +473,10 @@ impl Ord for HeapItem {
     }
 }
 impl HeapItem {
-    fn new(pattern: Pattern, num_paths_to_node: &HashMap<Id,i32>) -> Self {
+    fn new(pattern: Pattern, shared: &SharedData) -> Self {
         HeapItem {
             // key: pattern.body_utility * pattern.match_locations.iter().map(|loc|num_paths_to_node[loc]).sum::<i32>(),
-            key: pattern.utility_upper_bound,
-            // system time is suuuper slow btw you want to do something else
-            // key: std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap().as_nanos() as i32,
+            key: shared.cfg.heap_choice.heap_choice(&pattern, shared),
             pattern
         }
     }
@@ -495,6 +497,7 @@ pub struct CriticalMultithreadData {
 #[derive(Debug)]
 pub struct SharedData {
     pub crit: Mutex<CriticalMultithreadData>,
+    pub max_heapkey: Mutex<HeapKey>,
     pub arg_of_zid_node: Vec<HashMap<Id,Arg>>,
     pub treenodes: Vec<Id>,
     pub programs_node: Id,
@@ -527,13 +530,10 @@ impl CriticalMultithreadData {
     /// Create a new mutable multithread data struct with
     /// a worklist that just has a single hole on it
     fn new(donelist: Vec<FinishedPattern>, treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
-        // push an empty hole onto a new worklist
-        let mut worklist = BinaryHeap::new();
-        worklist.push(HeapItem::new(Pattern::single_hole(treenodes, cost_of_node_all, num_paths_to_node, egraph, cfg),num_paths_to_node));
-        
+        // push an empty hole onto a new worklist        
         let mut res = CriticalMultithreadData {
             donelist,
-            worklist,
+            worklist: BinaryHeap::new(),
             utility_pruning_cutoff: 0,
             active_threads: HashSet::new(),
         };
@@ -614,22 +614,6 @@ pub struct Stats {
     force_multiuse_fired: usize,
 }
 
-/// a strategy for choosing which hole to expand next in a partial pattern
-#[derive(Debug, Clone, clap::ArgEnum, Serialize)]
-pub enum HoleChoice {
-    Random,
-    First,
-    Last,
-    MaxLargestSubset,
-    HighEntropy,
-    LowEntropy,
-    MaxCost,
-    MinCost,
-    ManyGroups,
-    FewGroups,
-    FewApps,
-}
-
 impl HoleChoice {
     fn choose_hole(&self, pattern: &Pattern, shared: &SharedData) -> usize {
         if pattern.holes.len() == 1 {
@@ -665,6 +649,83 @@ impl HoleChoice {
                         .map(|loc| shared.arg_of_zid_node[*hole_zid][loc].expands_to.clone()).counts().values().max().unwrap())).max_by_key(|&(_,max_count)| max_count).unwrap().0
             }
             _ => unimplemented!()
+        }
+    }
+}
+
+/// a strategy for choosing which hole to expand next in a partial pattern
+#[derive(Debug, Clone, clap::ArgEnum, Serialize)]
+pub enum HoleChoice {
+    Random,
+    First,
+    Last,
+    MaxLargestSubset,
+    HighEntropy,
+    LowEntropy,
+    MaxCost,
+    MinCost,
+    ManyGroups,
+    FewGroups,
+    FewApps,
+}
+
+
+/// a strategy for choosing worklist item to use next
+#[derive(Debug, Clone, clap::ArgEnum, Serialize)]
+pub enum HeapChoice {
+    Random,
+    DFS,
+    BFS,
+    MaxBound,
+    MaxBodyLocations,
+    LowArityHighBound,
+}
+
+#[derive(Debug, Clone, Serialize, PartialOrd, Ord, Hash, PartialEq, Eq)]
+pub enum HeapKey {
+    Int(i32),
+    IntInt(i32,i32),
+}
+
+impl HeapChoice {
+    fn init(&self) -> HeapKey {
+        match self {
+            _ => HeapKey::Int(0)
+        }
+    }
+    fn heap_choice(&self, pattern: &Pattern, shared: &SharedData) -> HeapKey {
+        match self {
+            &HeapChoice::Random => {
+                let mut rng = rand::thread_rng();
+                HeapKey::Int(rng.gen())
+            },
+            &HeapChoice::DFS => {
+                let mut lock = shared.max_heapkey.lock();
+                let maxkey = lock.deref_mut();
+                if let  HeapKey::Int(i) = *maxkey {
+                    let key = HeapKey::Int(i+1);
+                    *maxkey = key.clone();
+                    key
+                } else { unreachable!() }
+            },
+            &HeapChoice::BFS => {
+                let mut lock = shared.max_heapkey.lock();
+                let maxkey = lock.deref_mut();
+                if let  HeapKey::Int(i) = *maxkey {
+                    let key = HeapKey::Int(i-1);
+                    *maxkey = key.clone();
+                    key
+                } else { unreachable!() }
+            },
+            &HeapChoice::MaxBound => {
+                HeapKey::Int(pattern.utility_upper_bound)
+            },
+            &HeapChoice::MaxBodyLocations => {
+                HeapKey::Int(pattern.body_utility_no_refinement * pattern.match_locations.iter().map(|loc|shared.num_paths_to_node[loc]).sum::<i32>())
+            },
+            &HeapChoice::LowArityHighBound => {
+                HeapKey::IntInt(pattern.first_zid_of_ivar.len() as i32, pattern.utility_upper_bound)
+            },
         }
     }
 }
@@ -1086,7 +1147,7 @@ fn stitch_search(
                 } else {
                     // it's a partial pattern so just add it to the worklist
                     if tracked { println!("{} pushed {} to worklist (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(hole_zid, &shared), new_pattern.utility_upper_bound); }
-                    worklist_buf.push(HeapItem::new(new_pattern, &shared.num_paths_to_node))
+                    worklist_buf.push(HeapItem::new(new_pattern, &shared))
                 }
             }
 
@@ -2013,6 +2074,7 @@ pub fn compression_step(
     let crit = CriticalMultithreadData::new(donelist, &treenodes, &cost_of_node_all, &num_paths_to_node, &egraph, &cfg);
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
+        max_heapkey: Mutex::new(cfg.heap_choice.init()),
         arg_of_zid_node,
         treenodes: treenodes.clone(),
         programs_node: train_programs_node,
@@ -2030,6 +2092,10 @@ pub fn compression_step(
         cfg: cfg.clone(),
         tracking,
     });
+
+    { // scoping to ensure lock drops, not sure if this is needed
+        shared.crit.lock().deref_mut().worklist.push(HeapItem::new(Pattern::single_hole(&*shared), &*shared));
+    }
 
     println!("built SharedData: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
