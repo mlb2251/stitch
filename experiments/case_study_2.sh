@@ -35,8 +35,8 @@ for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
     done
     wait  # move this up/down between loops to change how many jobs to run at once
     done
+    rm -v *-split.json
 done
 
-rm -v *-*-*-split.json
 
 echo "Done: $OUT_DIR"
