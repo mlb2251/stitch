@@ -8,7 +8,8 @@ use serde_json::de::from_reader;
 #[derive(Debug, Clone, ArgEnum, Serialize)]
 pub enum InputFormat {
     Dreamcoder,
-    ProgramsList
+    ProgramsList,
+    SplitProgramsList,
 }
 
 impl InputFormat {
@@ -84,6 +85,27 @@ impl InputFormat {
                     num_prior_inventions += 1;
                 }
                 Ok((programs, None, tasks, num_prior_inventions))
+            }
+            &InputFormat::SplitProgramsList => {
+                if !split_train_test {
+                    panic!("Using InputFormat::SplitProgramsList; you probably meant to use --split-train-test?");
+                }
+
+                let programs: Vec<Vec<String>> = from_reader(File::open(path).map_err(|e| format!("file not found, error code {:?}", e))?).map_err(|e| format!("json parser error, are you sure you wanted format {:?}? Error code was {:?}", self, e))?;
+                assert_eq!(programs.len(), 2);
+                let train_programs = programs.get(0).unwrap().clone();
+                let test_programs = programs.get(1).unwrap().clone();
+                let mut tasks: Vec<String> = Vec::with_capacity(programs.len());
+                let mut task_num: usize = 0;
+                for _ in train_programs.iter() {
+                    tasks.push(task_num.to_string());
+                    task_num += 1;
+                }
+                let mut  num_prior_inventions = 0;
+                while train_programs.iter().any(|p| p.contains(&format!("fn_{}",num_prior_inventions))) {
+                    num_prior_inventions += 1;
+                }
+                Ok((train_programs, Some(test_programs), tasks, num_prior_inventions))
             }
         }
     }
