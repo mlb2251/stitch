@@ -1408,7 +1408,7 @@ pub struct CompressionStepData {
 }
 
 impl CompressionStepData {
-    fn new(done: FinishedPattern, programs_node: Id, inv: &Invention, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>, very_first_cost: Option<i32>) -> Self {
+    fn new(done: FinishedPattern, programs_node: Id, inv: &Invention, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>, very_first_cost: Option<i32>, do_fast_rewrite: bool, is_test: bool) -> Self {
         let initial_cost = shared.egraph[programs_node].data.inventionless_cost;
         let roots: Vec<Id> = shared.egraph[programs_node].nodes[0].children().iter().cloned().collect();
 
@@ -1416,22 +1416,36 @@ impl CompressionStepData {
         let very_first_cost = very_first_cost.unwrap_or(initial_cost);
 
         let inv_name = &inv.name;
-        let rewritten = Expr::programs(rewrite_fast(&done, roots, &shared, inv_name));
+        let rewritten = if do_fast_rewrite {
+            Expr::programs(rewrite_fast(&done, &roots, &shared, inv_name))
+        } else {
+            let fast = Expr::programs(rewrite_fast(&done, &roots, &shared, inv_name));
+            let r = Expr::programs(roots.into_iter().map(|r| rewrite_with_invention_egraph(r, inv, &mut shared.egraph)).collect());
+            if !is_test {
+                assert_eq!(r.cost(), fast.cost());
+            }
+            r
+        };
 
-
-        let expected_cost = initial_cost - done.compressive_utility;
+        let expected_cost = if !is_test {
+            initial_cost - done.compressive_utility
+        } else {
+            -1  // no sense of expected cost for test sets
+        };
         let final_cost = rewritten.cost();
-        if expected_cost != final_cost {
+        if !is_test && expected_cost != final_cost {
             println!("*** expected cost {} != final cost {}", expected_cost, final_cost);
         }
         let multiplier = initial_cost as f64 / (final_cost as f64 + inv.body.cost() as f64);
         let multiplier_wrt_orig = very_first_cost as f64 / (final_cost as f64 + inv.body.cost() as f64);
-        let uses = done.usages;
-        let use_exprs: Vec<Expr> = done.pattern.match_locations.iter().map(|node| extract(*node, &shared.egraph)).collect();
-        let use_args: Vec<Vec<Expr>> = done.pattern.match_locations.iter().map(|node|
-            done.pattern.first_zid_of_ivar.iter().map(|zid|
-                extract(shared.arg_of_zid_node[*zid][node].shifted_id, &shared.egraph)
-            ).collect()).collect();
+        let uses = rewritten.to_string()
+                                        .as_bytes()
+                                        .windows(inv_name.len() + 1)
+                                        .filter(|&wdw| (inv_name.to_owned() + " ").as_bytes() == wdw
+                                                              || (inv_name.to_owned() + ")").as_bytes() == wdw)
+                                        .count() as i32;
+        let use_exprs: Vec<Expr> = vec![];
+        let use_args: Vec<Vec<Expr>> = vec![vec![]];
         
         // dreamcoder compatability
         let dc_inv_str: String = dc_inv_str(&inv, past_invs);
@@ -1488,8 +1502,8 @@ impl CompressionStepResult {
 
         let inv = done.to_invention(inv_name, shared);
 
-        let train_data = CompressionStepData::new(done.clone(), train_programs_node, &inv, shared, past_invs, first_train_cost);
-        let test_data = test_programs_node.map(|n| CompressionStepData::new(done.clone(), n, &inv, shared, past_invs, first_test_cost));
+        let train_data = CompressionStepData::new(done.clone(), train_programs_node, &inv, shared, past_invs, first_train_cost, false, false);
+        let test_data = test_programs_node.map(|n| CompressionStepData::new(done.clone(), n, &inv, shared, past_invs, first_test_cost, false, true));
 
         let dc_inv_str: String = dc_inv_str(&inv, past_invs);
 
@@ -1515,12 +1529,7 @@ impl fmt::Display for CompressionStepResult {
         if self.train_data.expected_cost != self.train_data.final_cost {
             write!(f,"[cost mismatch of {} in training data] ", self.train_data.expected_cost - self.train_data.final_cost)?;
         }
-        if let Some(test_d) = &self.test_data {
-            if test_d.expected_cost != test_d.final_cost {
-                write!(f,"[cost mismatch of {} in test data] ", test_d.expected_cost - test_d.final_cost)?;
-            }
-        }
-        write!(f, "utility: {} | size: {} | final_cost (train): {} | multiplier (train): {:.2}x | uses (train): {} | final_cost(test): {} | multiplier (test): {} | body: {}",
+        write!(f, "utility: {} | size {} | final_cost (train): {} | multiplier (train): {:.2}x | uses (train): {} | final_cost(test): {} | multiplier (test): {} | uses (test): {} | body: {}",
             self.done.utility,
             self.inv.body.cost(),
             self.train_data.final_cost,
@@ -1528,6 +1537,7 @@ impl fmt::Display for CompressionStepResult {
             self.train_data.uses,
             self.test_data.as_ref().map_or("null".to_string(), |d| d.final_cost.to_string()),
             self.test_data.as_ref().map_or("null".to_string(), |d| format!("{:.2}x", d.multiplier)),
+            self.test_data.as_ref().map_or("null".to_string(), |d| d.uses.to_string()),
             self.inv)
     }
 }
@@ -1901,15 +1911,18 @@ pub fn compression(
 
     println!("{}","\n=======Compression Summary=======".blue().bold());
     println!("Found {} inventions", step_results.len());
-    println!("Cost Improvement (train): ({:.2}x better) {} -> {}", compression_factor(train_programs_expr, &train_rewritten), train_programs_expr.cost(), train_rewritten.cost());
+    let total_inv_sizes: f64 = step_results.iter().map(|r| r.inv.body.cost()).sum::<i32>() as f64;
+    println!("Cost Improvement (train): ({:.2}x better) {} -> {}", compression_factor(train_programs_expr, &train_rewritten, total_inv_sizes), train_programs_expr.cost(), train_rewritten.cost());
     println!("Cost Improvement (test): {}",
-        test_programs_expr.as_ref().map_or("null".to_string(), |e| format!("({:.2}x better) {} -> {}", compression_factor(e, &test_rewritten.as_ref().unwrap()), e.cost(), test_rewritten.unwrap().cost()))
+        test_programs_expr.as_ref().map_or("null".to_string(), |e| format!("({:.2}x better) {} -> {}", compression_factor(e, &test_rewritten.as_ref().unwrap(), total_inv_sizes), e.cost(), test_rewritten.unwrap().cost()))
     );
+    let mut total_inv_sizes_thus_far: f64 = 0.0;
     for i in 0..step_results.len() {
         let res = &step_results[i];
-        println!("train: {} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(train_programs_expr, &res.train_data.rewritten), res);
+        total_inv_sizes_thus_far += res.inv.body.cost() as f64;
+        println!("train: {} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(train_programs_expr, &res.train_data.rewritten, total_inv_sizes_thus_far), res);
         println!("test: {}",
-            test_programs_expr.as_ref().map_or("null".to_string(), |e| format!("{} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(e, &res.test_data.as_ref().unwrap().rewritten), res))
+            test_programs_expr.as_ref().map_or("null".to_string(), |e| format!("{} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(e, &res.test_data.as_ref().unwrap().rewritten, total_inv_sizes_thus_far), res))
         );
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
@@ -2155,14 +2168,22 @@ pub fn compression_step(
 
     let donelist: Vec<FinishedPattern> = shared.crit.lock().deref_mut().donelist.clone();
 
-    let orig_cost = shared.egraph[train_programs_node].data.inventionless_cost;
+    if cfg.dreamcoder_comparison {
+        println!("Timing point 1 (from the start of compression_step to final donelist): {:?}ms", tstart_total.elapsed().as_millis());
+        println!("Timing Comparison Point A (search) (millis): {}", tstart_total.elapsed().as_millis());
+        let tstart_rewrite = std::time::Instant::now();
+        rewrite_fast(&donelist[0], &roots, &shared, new_inv_name);
+        println!("Timing point 2 (rewriting the candidate): {:?}ms", tstart_rewrite.elapsed().as_millis());
+        println!("Timing Comparison Point B (search+rewrite) (millis): {}", tstart_total.elapsed().as_millis());
+    }
+
+    let orig_train_cost = shared.egraph[train_programs_node].data.inventionless_cost;
+    let orig_test_cost = test_programs_node.map(|n|shared.egraph[n].data.inventionless_cost);
 
     let mut results: Vec<CompressionStepResult> = vec![];
 
     // construct CompressionStepResults and print some info about them)
-    println!("Cost before: {}", orig_cost);
-    let mut first_train_cost = None;
-    let mut first_test_cost = None;
+    println!("Training cost before: {}", orig_train_cost);
     for (i,done) in donelist.iter().enumerate() {
         let res = CompressionStepResult::new(
             done.clone(),
@@ -2171,16 +2192,8 @@ pub fn compression_step(
             new_inv_name,
             &mut shared,
             past_invs,
-            first_train_cost,
-            first_test_cost);
-
-        // Update initial costs if this was the first step of compression
-        if first_train_cost == None {
-            first_train_cost = Some(res.train_data.initial_cost);
-        }
-        if first_test_cost == None {
-            first_test_cost = res.test_data.as_ref().map(|d| d.initial_cost);
-        }
+            Some(orig_train_cost),
+            orig_test_cost);
 
         println!("{}: {}", i, res);
         if cfg.show_rewritten {

@@ -42,7 +42,7 @@ struct ShiftRule {
 
 pub fn rewrite_fast(
     pattern: &FinishedPattern,
-    roots: Vec<Id>,
+    roots: &Vec<Id>,
     shared: &SharedData,
     inv_name: &str,
 ) -> Vec<Expr>
