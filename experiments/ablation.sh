@@ -20,10 +20,10 @@ mkdir -p $OUT_DIR/stderr
 
 NON_TOWER_DOMAINS=( "dials" "furniture" "nuts-bolts" "wheels" )
 # single ablation experiments
-#for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
-for WL in "castle" "city" "house" ; do
-    #WL=$(basename -s .json $WL_PATH)
-    WL_PATH=${STITCH_DIR}/data/cogsci/${WL}.json
+for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
+#for WL in "castle" "city" "house" ; do
+    WL=$(basename -s .json $WL_PATH)
+    #WL_PATH=${STITCH_DIR}/data/cogsci/${WL}.json
     echo "[ablation.sh] Starting workload $WL"
     #for FVO in "--no-opt-free-vars" "" ; do
     #OPTIMS=( "" "--no-opt-single-use" "--no-opt-upper-bound" "--no-opt-force-multiuse" "--no-opt-arity-zero")
@@ -32,9 +32,9 @@ for WL in "castle" "city" "house" ; do
     #    OPTIMS+=( "--no-opt-useless-abstract" )
     #fi
 
-    for OPTIM in "--no-opt-useless-abstract" ; do
+    for OPTIM in "--no-opt" ; do
         echo "Running with OPTIM=$OPTIM"
-        $STITCH_DIR/target/release/compress $WL_PATH $OPTIM --verbose-best --max-arity=3 --iterations=1 --no-mismatch-check --out=$OUT_DIR/raw/${WL}${OPTIM}.json > $OUT_DIR/stderr/${WL}${OPTIM}.stderr 2>&1 &
+        $STITCH_DIR/target/release/compress $WL_PATH $OPTIM --max-arity=3 --iterations=1 --no-mismatch-check --out=$OUT_DIR/raw/${WL}${OPTIM}.json > $OUT_DIR/stderr/${WL}${OPTIM}.stderr 2>&1 &
     done
 done
 wait $(jobs -rp)
