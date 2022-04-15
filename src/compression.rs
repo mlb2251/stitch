@@ -759,7 +759,7 @@ fn get_worklist_item(
     worklist_buf: &mut Vec<HeapItem>,
     donelist_buf: &mut Vec<FinishedPattern>,
     shared: &Arc<SharedData>,
-    first_test_cost: f64,
+    first_train_cost: f64,
 ) -> Option<(Vec<Pattern>,i32)> {
 
     // * MULTITHREADING: CRITICAL SECTION START *
@@ -776,8 +776,8 @@ fn get_worklist_item(
     crit.update(&shared.cfg); // this also updates utility_pruning_cutoff
 
     if shared.cfg.verbose_best && crit.donelist.first().map(|x|x.utility).unwrap_or(0) > old_best_utility {
-        let new_expected_cost = first_test_cost - crit.donelist.first().unwrap().compressive_utility as f64 + crit.donelist.first().unwrap().to_expr(&shared).cost() as f64;
-        println!("{} @ step={} testratio={:.2} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, first_test_cost as f64/ new_expected_cost as f64, crit.donelist.first().unwrap().info(shared));
+        let new_expected_cost = first_train_cost - crit.donelist.first().unwrap().compressive_utility as f64 + crit.donelist.first().unwrap().to_expr(&shared).cost() as f64;
+        println!("{} @ step={} trainratio={:.2} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, first_train_cost as f64/ new_expected_cost as f64, crit.donelist.first().unwrap().info(shared));
     }
 
     // pull out the newer version of this now that its been updated, since we're returning it at the end
@@ -1961,10 +1961,7 @@ pub fn compression_step(
     let train_programs_node = egraph.add_expr(train_programs_expr.into());
     let test_programs_node = test_programs_expr.as_ref().map(|e| egraph.add_expr(e.into()));
     egraph.rebuild();
-    let first_test_cost = test_programs_node.map_or(0, |n| egraph[n].data.inventionless_cost);
-    if first_test_cost == 0 {
-        panic!("These changes are very experimental and I would appreciate if you always supply a test set rn thx")
-    }
+    let first_train_cost = egraph[train_programs_node].data.inventionless_cost;  // This is used for --verbose-print
 
     println!("set up egraph: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
@@ -2117,8 +2114,8 @@ pub fn compression_step(
         let mut crit = shared.crit.lock();
         if !crit.deref_mut().donelist.is_empty() {
             let best_expr: String = crit.deref_mut().donelist.first().unwrap().info(&shared);
-            let new_expected_cost = first_test_cost - crit.donelist.first().unwrap().compressive_utility + crit.donelist.first().unwrap().to_expr(&shared).cost();
-            println!("{} @ step=0 testratio={:.2} for {}", "[new best utility]".blue(), first_test_cost as f64/new_expected_cost as f64, best_expr);
+            let new_expected_cost = first_train_cost - crit.donelist.first().unwrap().compressive_utility + crit.donelist.first().unwrap().to_expr(&shared).cost();
+            println!("{} @ step=0 trainratio={:.2} for {}", "[new best utility]".blue(), first_train_cost as f64/new_expected_cost as f64, best_expr);
         }
     }
 
@@ -2132,7 +2129,7 @@ pub fn compression_step(
     // (this is finding all the higher-arity multi-use inventions through stitching)
     if cfg.threads == 1 {
         // Single threaded
-        stitch_search(Arc::clone(&shared), first_test_cost as f64);
+        stitch_search(Arc::clone(&shared), first_train_cost as f64);
     } else {
         // Multithreaded
         let mut handles = vec![];
@@ -2142,7 +2139,7 @@ pub fn compression_step(
             
             // launch thread to just call stitch_search()
             handles.push(thread::spawn(move || {
-                stitch_search(shared, first_test_cost as f64);
+                stitch_search(shared, first_train_cost as f64);
             }));
         }
         // wait for all threads to finish (when all have empty worklists)
