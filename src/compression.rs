@@ -1,5 +1,6 @@
 use crate::*;
 use std::collections::{HashMap, HashSet};
+use ahash::{AHasher, RandomState, AHashMap};
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
@@ -259,7 +260,7 @@ fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &HashMap<Zip,ZId>) -> Vec<Vec<Z
 impl Pattern {
     /// create a single hole pattern `??`
     #[inline(never)]
-    fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
+    fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &AHashMap<Id,i32>, num_paths_to_node: &AHashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
         let body_utility_no_refinement = 0;
         let refinement_body_utility = 0;
         let mut match_locations = treenodes.clone();
@@ -470,7 +471,7 @@ impl Ord for HeapItem {
     }
 }
 impl HeapItem {
-    fn new(pattern: Pattern, num_paths_to_node: &HashMap<Id,i32>) -> Self {
+    fn new(pattern: Pattern, num_paths_to_node: &AHashMap<Id,i32>) -> Self {
         HeapItem {
             // key: pattern.body_utility * pattern.match_locations.iter().map(|loc|num_paths_to_node[loc]).sum::<i32>(),
             key: pattern.utility_upper_bound,
@@ -508,10 +509,10 @@ pub struct SharedData {
     // pub uses_of_zid_refinable_loc: HashMap<(ZId,Id,Id),i32>,
     pub uses_of_shifted_arg_refinement: HashMap<Id,HashMap<Id,usize>>,
     pub egraph: EGraph,
-    pub num_paths_to_node: HashMap<Id,i32>,
+    pub num_paths_to_node: AHashMap<Id,i32>,
     pub tasks_of_node: HashMap<Id, HashSet<usize>>,
     pub cost_of_node_once: HashMap<Id,i32>,
-    pub cost_of_node_all: HashMap<Id,i32>,
+    pub cost_of_node_all: AHashMap<Id,i32>,
     pub stats: Mutex<Stats>,
     pub cfg: CompressionStepConfig,
     pub tracking: Option<Tracking>,
@@ -528,7 +529,7 @@ pub struct Tracking {
 impl CriticalMultithreadData {
     /// Create a new mutable multithread data struct with
     /// a worklist that just has a single hole on it
-    fn new(donelist: Vec<FinishedPattern>, treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
+    fn new(donelist: Vec<FinishedPattern>, treenodes: &Vec<Id>, cost_of_node_all: &AHashMap<Id,i32>, num_paths_to_node: &AHashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
         // push an empty hole onto a new worklist
         let mut worklist = BinaryHeap::new();
         worklist.push(HeapItem::new(Pattern::single_hole(treenodes, cost_of_node_all, num_paths_to_node, egraph, cfg),num_paths_to_node));
@@ -846,8 +847,8 @@ fn stitch_search(
             // for each way of expanding the hole...
             'expansion:
                 for (expands_to, locs) in match_locations.into_iter()
-                .group_by(|loc| arg_of_loc[loc].expands_to.clone()).into_iter()
-                .map(|(expands_to, locs)| (expands_to, locs.collect::<Vec<Id>>()))
+                .group_by(|loc| &arg_of_loc[loc].expands_to).into_iter()
+                .map(|(expands_to, locs)| (expands_to.clone(), locs.collect::<Vec<Id>>()))
                 .chain(ivars_expansions.into_iter())
             {
                 // for debugging
@@ -1443,8 +1444,8 @@ impl fmt::Display for CompressionStepResult {
 fn utility_upper_bound(
     match_locations: &Vec<Id>,
     body_utility_with_refinement_lower_bound: i32,
-    cost_of_node_all: &HashMap<Id,i32>,
-    num_paths_to_node: &HashMap<Id,i32>,
+    cost_of_node_all: &AHashMap<Id,i32>,
+    num_paths_to_node: &AHashMap<Id,i32>,
     cfg: &CompressionStepConfig,
 ) -> i32 {
     compressive_utility_upper_bound(match_locations, cost_of_node_all, num_paths_to_node)
@@ -1470,8 +1471,8 @@ fn noncompressive_utility(
 #[inline(never)]
 fn compressive_utility_upper_bound(
     match_locations: &Vec<Id>,
-    cost_of_node_all: &HashMap<Id,i32>,
-    num_paths_to_node: &HashMap<Id,i32>
+    cost_of_node_all: &AHashMap<Id,i32>,
+    num_paths_to_node: &AHashMap<Id,i32>
 ) -> i32 {
     match_locations.iter().map(|node|
         cost_of_node_all[node] 
@@ -1847,7 +1848,7 @@ pub fn compression_step(
 
     // populate num_paths_to_node so we know how many different parts of the programs tree
     // a node participates in (ie multiple uses within a single program or among programs)
-    let num_paths_to_node: HashMap<Id,i32> = num_paths_to_node(&roots, &treenodes, &egraph);
+    let num_paths_to_node: AHashMap<Id,i32> = num_paths_to_node(&roots, &treenodes, &egraph);
 
     println!("num_paths_to_node(): {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
@@ -1860,7 +1861,7 @@ pub fn compression_step(
     // cost of a single usage of a node (same as inventionless_cost)
     let cost_of_node_once: HashMap<Id,i32> = treenodes.iter().map(|node| (*node,egraph[*node].data.inventionless_cost)).collect();
     // cost of a single usage times number of paths to node
-    let cost_of_node_all: HashMap<Id,i32> = treenodes.iter().map(|node| (*node,cost_of_node_once[node] * num_paths_to_node[node])).collect();
+    let cost_of_node_all: AHashMap<Id,i32> = treenodes.iter().map(|node| (*node,cost_of_node_once[node] * num_paths_to_node[node])).collect();
 
     println!("cost_of_node structs: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
