@@ -1,5 +1,7 @@
 use crate::*;
 use std::collections::{HashMap, HashSet};
+use ahash::{AHasher, RandomState, AHashMap};
+
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
@@ -210,7 +212,7 @@ impl Expr {
 }
 
 /// returns the vec of zippers to each ivar
-fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &HashMap<Zip,ZId>) -> Vec<Vec<ZId>> {
+fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &AHashMap<Zip,ZId>) -> Vec<Vec<ZId>> {
 
     // quickly determine arity
     let mut arity = 0;
@@ -225,7 +227,7 @@ fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &HashMap<Zip,ZId>) -> Vec<Vec<Z
     let mut curr_zip: Zip = vec![];
     let mut zids_of_ivar = vec![vec![]; arity as usize];
 
-    fn helper(curr_node: Id, expr: &Expr, curr_zip: &mut Zip, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &HashMap<Zip,ZId>) {
+    fn helper(curr_node: Id, expr: &Expr, curr_zip: &mut Zip, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &AHashMap<Zip,ZId>) {
         match expr.get(curr_node) {
             Lambda::Prim(_) => {},
             Lambda::Var(_) => {},
@@ -259,7 +261,7 @@ fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &HashMap<Zip,ZId>) -> Vec<Vec<Z
 impl Pattern {
     /// create a single hole pattern `??`
     #[inline(never)]
-    fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
+    fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &AHashMap<Id,i32>, num_paths_to_node: &AHashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
         let body_utility_no_refinement = 0;
         let refinement_body_utility = 0;
         let mut match_locations = treenodes.clone();
@@ -470,7 +472,7 @@ impl Ord for HeapItem {
     }
 }
 impl HeapItem {
-    fn new(pattern: Pattern, num_paths_to_node: &HashMap<Id,i32>) -> Self {
+    fn new(pattern: Pattern, num_paths_to_node: &AHashMap<Id,i32>) -> Self {
         HeapItem {
             // key: pattern.body_utility * pattern.match_locations.iter().map(|loc|num_paths_to_node[loc]).sum::<i32>(),
             key: pattern.utility_upper_bound,
@@ -496,22 +498,22 @@ pub struct CriticalMultithreadData {
 #[derive(Debug)]
 pub struct SharedData {
     pub crit: Mutex<CriticalMultithreadData>,
-    pub arg_of_zid_node: Vec<HashMap<Id,Arg>>,
+    pub arg_of_zid_node: Vec<AHashMap<Id,Arg>>,
     pub treenodes: Vec<Id>,
     pub programs_node: Id,
     pub roots: Vec<Id>,
-    pub zids_of_node: HashMap<Id,Vec<ZId>>,
+    pub zids_of_node: AHashMap<Id,Vec<ZId>>,
     pub zip_of_zid: Vec<Zip>,
-    pub zid_of_zip: HashMap<Zip, ZId>,
+    pub zid_of_zip: AHashMap<Zip, ZId>,
     pub extensions_of_zid: Vec<ZIdExtension>,
-    // pub refinables_of_shifted_arg: HashMap<Id,Vec<Id>>,
-    // pub uses_of_zid_refinable_loc: HashMap<(ZId,Id,Id),i32>,
-    pub uses_of_shifted_arg_refinement: HashMap<Id,HashMap<Id,usize>>,
+    // pub refinables_of_shifted_arg: AHashMap<Id,Vec<Id>>,
+    // pub uses_of_zid_refinable_loc: AHashMap<(ZId,Id,Id),i32>,
+    pub uses_of_shifted_arg_refinement: AHashMap<Id,AHashMap<Id,usize>>,
     pub egraph: EGraph,
-    pub num_paths_to_node: HashMap<Id,i32>,
-    pub tasks_of_node: HashMap<Id, HashSet<usize>>,
-    pub cost_of_node_once: HashMap<Id,i32>,
-    pub cost_of_node_all: HashMap<Id,i32>,
+    pub num_paths_to_node: AHashMap<Id,i32>,
+    pub tasks_of_node: AHashMap<Id, HashSet<usize>>,
+    pub cost_of_node_once: AHashMap<Id,i32>,
+    pub cost_of_node_all: AHashMap<Id,i32>,
     pub stats: Mutex<Stats>,
     pub cfg: CompressionStepConfig,
     pub tracking: Option<Tracking>,
@@ -528,7 +530,7 @@ pub struct Tracking {
 impl CriticalMultithreadData {
     /// Create a new mutable multithread data struct with
     /// a worklist that just has a single hole on it
-    fn new(donelist: Vec<FinishedPattern>, treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
+    fn new(donelist: Vec<FinishedPattern>, treenodes: &Vec<Id>, cost_of_node_all: &AHashMap<Id,i32>, num_paths_to_node: &AHashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
         // push an empty hole onto a new worklist
         let mut worklist = BinaryHeap::new();
         worklist.push(HeapItem::new(Pattern::single_hole(treenodes, cost_of_node_all, num_paths_to_node, egraph, cfg),num_paths_to_node));
@@ -573,7 +575,7 @@ impl Invention {
     /// replace any #i with args[i], returning a new expression
     pub fn apply(&self, args: &[Expr]) -> Expr {
         assert_eq!(args.len(), self.arity);
-        let map: HashMap<i32, Expr> = args.iter().enumerate().map(|(i,e)| (i as i32, e.clone())).collect();
+        let map: AHashMap<i32, Expr> = args.iter().enumerate().map(|(i,e)| (i as i32, e.clone())).collect();
         ivar_replace(&self.body, self.body.root(), &map)
     }
 }
@@ -846,8 +848,8 @@ fn stitch_search(
             // for each way of expanding the hole...
             'expansion:
                 for (expands_to, locs) in match_locations.into_iter()
-                .group_by(|loc| arg_of_loc[loc].expands_to.clone()).into_iter()
-                .map(|(expands_to, locs)| (expands_to, locs.collect::<Vec<Id>>()))
+                .group_by(|loc| &arg_of_loc[loc].expands_to).into_iter()
+                .map(|(expands_to, locs)| (expands_to.clone(), locs.collect::<Vec<Id>>()))
                 .chain(ivars_expansions.into_iter())
             {
                 // for debugging
@@ -1162,7 +1164,7 @@ impl FinishedPattern {
 // }
 
 /// return all possible refinements you could use here along with counts for how many of each you can use
-fn get_refinements_of_shifted_id(shifted_id: Id, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> HashMap<Id,usize>
+fn get_refinements_of_shifted_id(shifted_id: Id, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> AHashMap<Id,usize>
 {
     fn helper(id: Id, egraph: &crate::EGraph, cfg: &CompressionStepConfig, refinements: &mut Vec<Id>) {
         let ivars =  egraph[id].data.free_ivars.len();
@@ -1185,7 +1187,7 @@ fn get_refinements_of_shifted_id(shifted_id: Id, egraph: &crate::EGraph, cfg: &C
     }
     let mut refinements = vec![];
     helper(shifted_id, egraph, cfg, &mut refinements);
-    refinements.into_iter().counts()
+    counts_ahash(&refinements)
 }
 
 /// figure out all the N^2 zippers from choosing any given node and then choosing a descendant and returning the zipper from
@@ -1193,27 +1195,27 @@ fn get_refinements_of_shifted_id(shifted_id: Id, egraph: &crate::EGraph, cfg: &C
 /// the descendant and introduced an invention rooted at the ancestor node.
 fn get_zippers(
     treenodes: &[Id],
-    cost_of_node_once: &HashMap<Id,i32>,
+    cost_of_node_once: &AHashMap<Id,i32>,
     no_cache: bool,
     egraph: &mut crate::EGraph,
     cfg: &CompressionStepConfig
-) -> (HashMap<Zip, ZId>, Vec<Zip>, Vec<HashMap<Id,Arg>>, HashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>, HashMap<Id,HashMap<Id,usize>>) {
-    let cache: &mut Option<RecVarModCache> = &mut if no_cache { None } else { Some(HashMap::new()) };
+) -> (AHashMap<Zip, ZId>, Vec<Zip>, Vec<AHashMap<Id,Arg>>, AHashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>, AHashMap<Id,AHashMap<Id,usize>>) {
+    let cache: &mut Option<RecVarModCache> = &mut if no_cache { None } else { Some(AHashMap::new()) };
 
-    let mut zid_of_zip: HashMap<Zip, ZId> = Default::default();
+    let mut zid_of_zip: AHashMap<Zip, ZId> = Default::default();
     let mut zip_of_zid: Vec<Zip> = Default::default();
-    let mut arg_of_zid_node: Vec<HashMap<Id,Arg>> = Default::default();
-    let mut zids_of_node: HashMap<Id,Vec<ZId>> = Default::default();
+    let mut arg_of_zid_node: Vec<AHashMap<Id,Arg>> = Default::default();
+    let mut zids_of_node: AHashMap<Id,Vec<ZId>> = Default::default();
 
 
-    // let mut refinements_of_shifted_arg: HashMap<Id,HashSet<Id>> = Default::default();
-    // let mut uses_of_zid_refinable_loc: HashMap<(ZId,Id,Id),i32> = Default::default();
-    let mut uses_of_shifted_arg_refinement: HashMap<Id,HashMap<Id,usize>> = Default::default();
+    // let mut refinements_of_shifted_arg: AHashMap<Id,HashSet<Id>> = Default::default();
+    // let mut uses_of_zid_refinable_loc: AHashMap<(ZId,Id,Id),i32> = Default::default();
+    let mut uses_of_shifted_arg_refinement: AHashMap<Id,AHashMap<Id,usize>> = Default::default();
 
 
     zid_of_zip.insert(vec![], EMPTY_ZID);
     zip_of_zid.push(vec![]);
-    arg_of_zid_node.push(HashMap::new());
+    arg_of_zid_node.push(AHashMap::new());
     assert!(EMPTY_ZID == 0);
     
     // loop over all nodes in all programs in bottom up order
@@ -1242,7 +1244,7 @@ fn get_zippers(
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
-                        arg_of_zid_node.push(HashMap::new());
+                        arg_of_zid_node.push(AHashMap::new());
                         zid
                     });
                     // add new zid to this node
@@ -1260,7 +1262,7 @@ fn get_zippers(
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
-                        arg_of_zid_node.push(HashMap::new());
+                        arg_of_zid_node.push(AHashMap::new());
                         zid
                     });
                     // add new zid to this node
@@ -1280,7 +1282,7 @@ fn get_zippers(
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip.clone());
-                        arg_of_zid_node.push(HashMap::new());
+                        arg_of_zid_node.push(AHashMap::new());
                         zid
                     });
                     // add new zid to this node
@@ -1443,8 +1445,8 @@ impl fmt::Display for CompressionStepResult {
 fn utility_upper_bound(
     match_locations: &Vec<Id>,
     body_utility_with_refinement_lower_bound: i32,
-    cost_of_node_all: &HashMap<Id,i32>,
-    num_paths_to_node: &HashMap<Id,i32>,
+    cost_of_node_all: &AHashMap<Id,i32>,
+    num_paths_to_node: &AHashMap<Id,i32>,
     cfg: &CompressionStepConfig,
 ) -> i32 {
     compressive_utility_upper_bound(match_locations, cost_of_node_all, num_paths_to_node)
@@ -1470,8 +1472,8 @@ fn noncompressive_utility(
 #[inline(never)]
 fn compressive_utility_upper_bound(
     match_locations: &Vec<Id>,
-    cost_of_node_all: &HashMap<Id,i32>,
-    num_paths_to_node: &HashMap<Id,i32>
+    cost_of_node_all: &AHashMap<Id,i32>,
+    num_paths_to_node: &AHashMap<Id,i32>
 ) -> i32 {
     match_locations.iter().map(|node|
         cost_of_node_all[node] 
@@ -1603,7 +1605,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
 
     // the idea here is we want the fast-path to be the case where no conflicts happen. If no conflicts happen, there should be
     // zero heap allocations in this whole section! Since empty vecs and hashmaps dont cause allocations yet.
-    let mut corrected_utils: HashMap<Id,CorrectedUtil> = Default::default();
+    let mut corrected_utils: AHashMap<Id,CorrectedUtil> = Default::default();
     let mut global_correction = 0; // this is going to get added to the compressive_utility at the end to correct for use-conflicts
 
     // bottom up traversal since we assume match_locations is sorted
@@ -1737,7 +1739,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UtilityCalculation {
     pub util: i32,
-    pub corrected_utils: HashMap<Id,CorrectedUtil>,
+    pub corrected_utils: AHashMap<Id,CorrectedUtil>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1847,20 +1849,20 @@ pub fn compression_step(
 
     // populate num_paths_to_node so we know how many different parts of the programs tree
     // a node participates in (ie multiple uses within a single program or among programs)
-    let num_paths_to_node: HashMap<Id,i32> = num_paths_to_node(&roots, &treenodes, &egraph);
+    let num_paths_to_node: AHashMap<Id,i32> = num_paths_to_node(&roots, &treenodes, &egraph);
 
     println!("num_paths_to_node(): {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
-    let tasks_of_node: HashMap<Id, HashSet<usize>> = associate_tasks(programs_node, &egraph, tasks);
+    let tasks_of_node: AHashMap<Id, HashSet<usize>> = associate_tasks(programs_node, &egraph, tasks);
 
     println!("associate_tasks(): {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
     // cost of a single usage of a node (same as inventionless_cost)
-    let cost_of_node_once: HashMap<Id,i32> = treenodes.iter().map(|node| (*node,egraph[*node].data.inventionless_cost)).collect();
+    let cost_of_node_once: AHashMap<Id,i32> = treenodes.iter().map(|node| (*node,egraph[*node].data.inventionless_cost)).collect();
     // cost of a single usage times number of paths to node
-    let cost_of_node_all: HashMap<Id,i32> = treenodes.iter().map(|node| (*node,cost_of_node_once[node] * num_paths_to_node[node])).collect();
+    let cost_of_node_all: AHashMap<Id,i32> = treenodes.iter().map(|node| (*node,cost_of_node_once[node] * num_paths_to_node[node])).collect();
 
     println!("cost_of_node structs: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();

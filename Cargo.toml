@@ -28,6 +28,7 @@ itertools = "0.10.3"
 rand = "0.8.4"
 parking_lot = "0.12.0"
 colorful = "0.2.1"
+ahash = "0.7.6"
 
 [dependencies.pyo3]
 version = "0.16.1"
