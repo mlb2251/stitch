@@ -258,6 +258,7 @@ fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &HashMap<Zip,ZId>) -> Vec<Vec<Z
 
 impl Pattern {
     /// create a single hole pattern `??`
+    #[inline(never)]
     fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
         let body_utility_no_refinement = 0;
         let refinement_body_utility = 0;
@@ -543,6 +544,7 @@ impl CriticalMultithreadData {
     }
     /// sort the donelist by utility, truncate to cfg.inv_candidates, update 
     /// update utility_pruning_cutoff to be the lowest utility
+    #[inline(never)]
     fn update(&mut self, cfg: &CompressionStepConfig) {
         // sort in decreasing order by utility primarily, and break ties using the argchoice zids (just in order to be deterministic!)
         // let old_best = self.donelist.first().map(|x|x.utility).unwrap_or(0);
@@ -607,6 +609,7 @@ struct LabelledZId {
 pub struct Stats {
     worklist_steps: usize,
     finished: usize,
+    calc_final_utility: usize,
     upper_bound_fired: usize,
     free_vars_fired: usize,
     single_use_fired: usize,
@@ -695,6 +698,7 @@ pub struct ZIdExtension {
 
 /// empties worklist_buf and donelist_buf into the shared worklist while holding the mutex, updates
 /// the donelist and cutoffs, and grabs and returns a new worklist item along with new cutoff bounds.
+#[inline(never)]
 fn get_worklist_item(
     worklist_buf: &mut Vec<HeapItem>,
     donelist_buf: &mut Vec<FinishedPattern>,
@@ -816,7 +820,7 @@ fn stitch_search(
             // node type in order to iterate over all the different expansions
             // We also sort secondarily by `loc` to ensure each groupby subsequence has the locations in sorted order
             let mut match_locations = original_pattern.match_locations.clone();
-            match_locations.sort_unstable_by_key(|loc| (arg_of_loc[loc].expands_to.clone(), *loc));
+            match_locations.sort_by_cached_key(|loc| (&arg_of_loc[loc].expands_to, *loc));
 
             let mut ivars_expansions = vec![];
 
@@ -1070,6 +1074,8 @@ fn stitch_search(
 
                 let finished_pattern = FinishedPattern::new(new_pattern, &shared);
 
+                if !shared.cfg.no_stats { shared.stats.lock().calc_final_utility += 1; };
+
                 if shared.cfg.rewrite_check {
                     // run rewriting just to make sure the assert in it passes
                     rewrite_fast(&finished_pattern, &shared, &"fake_inv");
@@ -1119,6 +1125,7 @@ pub struct FinishedPattern {
 }
 
 impl FinishedPattern {
+    #[inline(never)]
     fn new(pattern: Pattern, shared: &SharedData) -> Self {
         let arity = pattern.first_zid_of_ivar.len();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[loc]).sum();
@@ -1432,7 +1439,7 @@ impl fmt::Display for CompressionStepResult {
 }
 
 /// calculates the total upper bound on compressive + noncompressive utility
-#[inline]
+#[inline(never)]
 fn utility_upper_bound(
     match_locations: &Vec<Id>,
     body_utility_with_refinement_lower_bound: i32,
@@ -1446,6 +1453,7 @@ fn utility_upper_bound(
 
 /// This utility is just for any utility terms that we care about that don't directly correspond
 /// to changes in size that come from rewriting with an invention
+#[inline(never)]
 fn noncompressive_utility(
     body_utility_with_refinement: i32,
     cfg: &CompressionStepConfig,
@@ -1459,7 +1467,7 @@ fn noncompressive_utility(
 
 /// This takes a partial invention and gives an upper bound on the maximum
 /// compressive_utility() that any completed offspring of this partial invention could have.
-#[inline]
+#[inline(never)]
 fn compressive_utility_upper_bound(
     match_locations: &Vec<Id>,
     cost_of_node_all: &HashMap<Id,i32>,
@@ -1473,7 +1481,7 @@ fn compressive_utility_upper_bound(
 
 /// This takes a partial invention and gives an upper bound on the maximum
 /// other_utility() that any completed offspring of this partial invention could have.
-#[inline]
+#[inline(never)]
 fn noncompressive_utility_upper_bound(
     body_utility_with_refinement_lower_bound: i32,
     cfg: &CompressionStepConfig,
@@ -1485,6 +1493,7 @@ fn noncompressive_utility_upper_bound(
     structure_penalty
 }
 
+#[inline(never)]
 fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
     // * BASIC CALCULATION
