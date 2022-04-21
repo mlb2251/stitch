@@ -18,9 +18,11 @@ impl InputFormat {
                 // read dreamcoder format
                 let json: serde_json::Value = from_reader(File::open(path).expect("file not found")).expect("json deserializing error");
                 let frontiers = json["frontiers"].as_array().unwrap_or_else(||panic!("json parse error, are you sure you wanted format {:?}?", self));
-                let dsl: Vec<String> = json["DSL"]["productions"].as_array().unwrap().iter().map(|prod|prod["expression"].as_str().unwrap().to_string()).collect();
-                let inv_dc_strs: Vec<(String,String)> = dsl.iter().rev() // rev() since the first dsl function is the newest
-                    .filter(|s| s.starts_with("#")).cloned().enumerate()
+                let mut dc_invs: Vec<String> = json["DSL"]["productions"].as_array().unwrap().iter().map(|prod|prod["expression"].as_str().unwrap().to_string())
+                    .filter(|s| s.starts_with("#"))
+                    .collect();
+                dc_invs.sort_by_key(|s| s.len()); // increasing length so inventions that build on earlier ones come later
+                let inv_dc_strs: Vec<(String,String)> = dc_invs.into_iter().enumerate()
                     .map(|(i,dc_str)| (format!("fn_{}",i),dc_str)).collect();
                 let num_prior_inventions: usize = inv_dc_strs.len();
                 let mut programs: Vec<String> = Vec::default();
