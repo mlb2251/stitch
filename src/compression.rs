@@ -738,9 +738,9 @@ fn get_worklist_item(
     crit.active_threads.remove(&thread::current().id()); // remove ourself from the active threads
     // println!("worklist len: {}", crit.worklist.len());
 
-    // with dynamic batch size, take worklist_size/num_threads items from the worklist
-    let batch_size = if shared.cfg.dynamic_batch { std::cmp::max(1, crit.worklist.len() / shared.cfg.threads ) } else { shared.cfg.batch };
     loop {
+        // with dynamic batch size, take worklist_size/num_threads items from the worklist
+        let batch_size = if shared.cfg.dynamic_batch { std::cmp::max(1, crit.worklist.len() / shared.cfg.threads ) } else { shared.cfg.batch };
         while crit.worklist.is_empty() {
             if !returned_items.is_empty() {
                 // give up and return whatever we've got
