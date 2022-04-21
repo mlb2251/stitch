@@ -3,6 +3,7 @@ use sexp::{Sexp,Atom};
 use std::fmt::Debug;
 use std::collections::HashMap;
 use ahash::{AHasher, RandomState, AHashMap};
+use std::hash::Hash;
 
 
 /// Uncurries an s expression. For example: (app (app foo x) y) -> (foo x y)
@@ -147,7 +148,7 @@ pub fn compression_factor(original: &Expr, compressed: &Expr) -> f64 {
 }
 
 /// Replace the ivars in an expr based on an i32->Expr map
-pub fn ivar_replace(e: &Expr, child: Id, map: &HashMap<i32, Expr>) -> Expr {
+pub fn ivar_replace(e: &Expr, child: Id, map: &AHashMap<i32, Expr>) -> Expr {
     match e.get(child) {
         Lambda::IVar(i) => map.get(&i).unwrap_or(&e).clone(),
         Lambda::Var(v) => Expr::var(*v),
@@ -206,7 +207,7 @@ pub fn replace_prim_with(s: &str, prim: &str, new: &str) -> String {
 }
 
 /// cache for shift()
-pub type RecVarModCache = HashMap<(Id,i32),Option<Id>>;
+pub type RecVarModCache = AHashMap<(Id,i32),Option<Id>>;
 
 
 /// This is a helper function for implementing various recursive operations that only
@@ -368,3 +369,24 @@ pub fn num_paths_to_node(roots: &[Id], treenodes: &Vec<Id>, egraph: &crate::EGra
     num_paths_to_node
 }
 
+/// same as Itertools::counts() but returns an AHashMap instead of a HashMap
+pub fn counts_ahash<T: Hash + Eq + Clone>(v: &Vec<T>) -> AHashMap<T, usize>
+{
+    let mut counts = AHashMap::new();
+    v.iter().for_each(|item| *counts.entry(item.clone()).or_default() += 1);
+    counts
+}
+
+
+// pub trait IterUtil : Iterator {
+//     /// same as Itertools::counts() but returns an AHashMap instead of a HashMap
+//     fn counts_ahash(self) -> AHashMap<Self::Item, usize>
+//     where
+//         Self: Sized,
+//         Self::Item: Eq + Hash,
+//     {
+//         let mut counts = AHashMap::new();
+//         self.for_each(|item| *counts.entry(item).or_default() += 1);
+//         counts
+//     }
+// }
