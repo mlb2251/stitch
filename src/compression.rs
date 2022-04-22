@@ -187,9 +187,9 @@ pub struct Pattern {
     pub tracked: bool, // for debugging
 
     pub hole_zips: Vec<Zip>,
-    pub hole_unshifted_ids: Vec<Vec<Id>>, // hole_unshifted_ids[hole_idx][match_loc_idx]
+    // pub hole_unshifted_ids: Vec<Vec<Id>>, // hole_unshifted_ids[hole_idx][match_loc_idx]
     pub arg_zips: Vec<Zip>,
-    pub arg_shifted_ids: Vec<Vec<Id>>,  // arg_shifted_ids[ivar][match_loc_idx]
+    // pub arg_shifted_ids: Vec<Vec<Id>>,  // arg_shifted_ids[ivar][match_loc_idx]
 
 }
 
@@ -293,9 +293,9 @@ impl Pattern {
             refinement_body_utility, // 0 body utility
             tracked: cfg.track.is_some(),
             hole_zips: vec![vec![]], // empty zipper
-            hole_unshifted_ids: vec![match_locations.clone()],
+            // hole_unshifted_ids: vec![match_locations.clone()],
             arg_zips: vec![],
-            arg_shifted_ids: vec![],
+            // arg_shifted_ids: vec![],
         }
     }
     /// convert pattern to an Expr with `??` in place of holes and `?#` in place of argchoices
@@ -856,11 +856,11 @@ fn stitch_search(
             // pop that hole form the list of holes
             let mut holes_after_pop: Vec<ZId> = original_pattern.holes.clone();
             let mut hole_zips_after_pop: Vec<Zip> = original_pattern.hole_zips.clone();
-            let mut hole_unshifted_ids_after_pop: Vec<Id> = original_pattern.hole_unshifted_ids.clone();
+            // let mut hole_unshifted_ids_after_pop: Vec<Id> = original_pattern.hole_unshifted_ids.clone();
             
             let hole_zid: ZId = holes_after_pop.remove(hole_idx);
             let hole_zip: Zip = hole_zips_after_pop.remove(hole_idx);
-            let hole_unshifted_id: Id = hole_unshifted_ids_after_pop.remove(hole_idx);
+            // let hole_unshifted_id: Id = hole_unshifted_ids_after_pop.remove(hole_idx);
 
             // get the hashmap of args for this hole
             let ref arg_of_loc = shared.arg_of_zid_node[hole_zid];
@@ -964,15 +964,15 @@ fn stitch_search(
                 // add any new holes to the list of holes
                 let mut holes = holes_after_pop.clone();
                 let mut hole_zips = hole_zips_after_pop.clone();
-                let mut hole_unshifted_ids = hole_unshifted_ids_after_pop.clone();
+                // let mut hole_unshifted_ids = hole_unshifted_ids_after_pop.clone();
                 match expands_to {
                     ExpandsTo::Lam => {
                         // add new holes
                         holes.push(shared.extensions_of_zid[hole_zid].body.unwrap());
                         hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Body)).collect());
-                        if let Lambda::Lam([b]) = &shared.node_of_id[usize::from(hole_unshifted_id)] {
-                            hole_unshifted_ids.push(*b);
-                        } else { unreachable!() }
+                        // if let Lambda::Lam([b]) = &shared.node_of_id[usize::from(hole_unshifted_id)] {
+                        //     hole_unshifted_ids.push(*b);
+                        // } else { unreachable!() }
                     }
                     ExpandsTo::App => {
                         // add new holes
@@ -980,10 +980,10 @@ fn stitch_search(
                         holes.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
                         hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Func)).collect());
                         hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Arg)).collect());
-                        if let Lambda::App([f,x]) = &shared.node_of_id[usize::from(hole_unshifted_id)] {
-                            hole_unshifted_ids.push(*f);
-                            hole_unshifted_ids.push(*x);
-                        } else { unreachable!() }
+                        // if let Lambda::App([f,x]) = &shared.node_of_id[usize::from(hole_unshifted_id)] {
+                        //     hole_unshifted_ids.push(*f);
+                        //     hole_unshifted_ids.push(*x);
+                        // } else { unreachable!() }
 
                     }
                     _ => {}
@@ -993,11 +993,11 @@ fn stitch_search(
                 let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
                 let mut refinements = original_pattern.refinements.clone();
                 let mut arg_zips = original_pattern.arg_zips.clone();
-                let mut arg_shifted_ids = original_pattern.arg_shifted_ids.clone();
+                // let mut arg_shifted_ids = original_pattern.arg_shifted_ids.clone();
                 if let ExpandsTo::IVar(i) = expands_to {
                     arg_choices.push(LabelledZId::new(hole_zid, i as usize));
                     arg_zips.push(hole_zip.clone());
-                    arg_shifted_ids.push(hole_unshifted_id); // todo this is WRONG! It's only temporary
+                    // arg_shifted_ids.push(hole_unshifted_id); // todo this is WRONG! It's only temporary
                     if i as usize == original_pattern.first_zid_of_ivar.len() {
                         first_zid_of_ivar.push(hole_zid);
                         refinements.push(None)
@@ -1037,9 +1037,9 @@ fn stitch_search(
                 refinement_body_utility,
                 tracked,
                 hole_zips,
-                hole_unshifted_ids,
+                // hole_unshifted_ids,
                 arg_zips,
-                arg_shifted_ids,
+                // arg_shifted_ids,
             };
 
             // new_pattern.utility_upper_bound = utility_upper_bound_with_conflicts(&new_pattern, body_utility_no_refinement + refinement_body_utility, &shared);
@@ -2068,9 +2068,9 @@ pub fn compression_step(
                 refinement_body_utility,
                 tracked: false,
                 hole_zips: vec![],
-                hole_unshifted_ids: vec![],
+                // hole_unshifted_ids: vec![],
                 arg_zips: vec![],
-                arg_shifted_ids: vec![],
+                // arg_shifted_ids: vec![],
             };
             let finished_pattern = FinishedPattern {
                 pattern,
