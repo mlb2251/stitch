@@ -195,11 +195,12 @@ pub fn associate_tasks(programs_root: Id, egraph: &EGraph, tasks: &Vec<String>) 
 }
 
 fn associate_task_rec(node: Id, egraph: &EGraph, task_id: usize, tasks_of_node: &mut AHashMap<Id, AHashSet<usize>>) {
-    if !tasks_of_node.keys().contains(&node) {
-        tasks_of_node.insert(node, AHashSet::new());
-    }
-    let entry = tasks_of_node.get_mut(&node).unwrap();
-    entry.insert(task_id);
+    tasks_of_node.entry(node).or_default().insert(task_id);
+    // if !tasks_of_node.keys().contains(&node) {
+    //     tasks_of_node.insert(node, AHashSet::new());
+    // }
+    // let entry = tasks_of_node.get_mut(&node).unwrap();
+    // entry.insert(task_id);
     for child in egraph[node].nodes[0].children() {
         associate_task_rec(*child, egraph, task_id, tasks_of_node);
     }

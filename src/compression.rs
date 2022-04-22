@@ -591,7 +591,7 @@ impl Display for Invention {
 /// A node in an ZPath
 /// Ord: Func < Body < Arg
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-enum ZNode {
+pub enum ZNode {
     // * order of variants here is important because the derived Ord will use it
     Func, // zipper went into the function, so Id is the arg
     Body, 
@@ -1862,11 +1862,12 @@ pub fn compression_step(
 
     // all nodes in child-first order except for the Programs node
     let mut treenodes: Vec<Id> = topological_ordering(programs_node,&egraph);
-    assert_eq!(treenodes.iter().map(|n| usize::from(*n)).collect::<Vec<_>>(), (0..treenodes.len()).collect::<Vec<_>>());
+    assert!(treenodes.iter().enumerate().all(|(i,node)| i == usize::from(*node)));
+    // assert_eq!(treenodes.iter().map(|n| usize::from(*n)).collect::<Vec<_>>(), (0..treenodes.len()).collect::<Vec<_>>());
     let node_of_id: Vec<Lambda> = treenodes.iter().map(|node| egraph[*node].nodes[0].clone()).collect();
     treenodes.retain(|id| *id != programs_node);
 
-    println!("got roots and treenodes: {:?}ms", tstart.elapsed().as_millis());
+    println!("got roots, treenodes, and cloned egraph contents: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
     // populate num_paths_to_node so we know how many different parts of the programs tree
