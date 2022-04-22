@@ -1715,20 +1715,42 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
 fn get_conflicts(zips: &Vec<(Vec<ZNode>, usize)>, loc: &Id, shared: &SharedData, pattern: &Pattern) -> Vec<(Id, usize)> {
     let mut conflict_idxs = vec![];
     for (zip,ivar) in zips.iter().filter(|(zip,_)| !zip.is_empty()) {
-        let mut id = loc;
+        let mut id: Id = *loc;
         // for all except the last node in the zipper, push the childs location on as a potential conflict
         for znode in zip[..zip.len()-1].iter() {
             // step one deeper
-            id = match (znode, &shared.egraph[*id].nodes[0]) {
-                (ZNode::Body, Lambda::Lam([b])) => b,
-                (ZNode::Func, Lambda::App([f,_])) => f,
-                (ZNode::Arg, Lambda::App([_,x])) => x,
-                _ => unreachable!()
-            };
-            // if its also a location, push it to the conflicts list (do NOT dedup)
-            if let Ok(idx) = pattern.match_locations.binary_search(id) {
-                conflict_idxs.push((*id,idx));
+            let node = &shared.egraph[id].nodes[0];
+            #[inline(never)]
+            fn search3(shared: &SharedData, znode: &ZNode, id: Id, node: &Lambda) -> Id {
+                // match (znode, &shared.egraph[id].nodes[0]) {
+                //     (ZNode::Body, Lambda::Lam([b])) => *b,
+                //     (ZNode::Func, Lambda::App([f,_])) => *f,
+                //     (ZNode::Arg, Lambda::App([_,x])) => *x,
+                //     _ => unreachable!()
+                // }
+                match znode {
+                    ZNode::Body => { if let Lambda::Lam([b]) = node { *b } else { unreachable!() } },
+                    ZNode::Func => { if let Lambda::App([f,_]) = node { *f } else { unreachable!() } },
+                    ZNode::Arg =>  { if let Lambda::App([_,x]) = node { *x } else { unreachable!() } },
+                    // ZNode::Func
+                    // ZNode::Arg
+                    _ => unreachable!()
+                }
             }
+            id = search3(shared,znode, id, node);
+
+            // if its also a location, push it to the conflicts list (do NOT dedup)
+            #[inline(never)]
+            fn search1(conflict_idxs: &mut Vec<(Id, usize)>, id: &Id, shared: &SharedData, pattern: &Pattern) {
+                if let Ok(idx) = pattern.match_locations.binary_search(id) {
+                    #[inline(never)]
+                    fn search2(conflict_idxs: &mut Vec<(Id, usize)>, id: &Id, shared: &SharedData, pattern: &Pattern, idx: usize) {
+                        conflict_idxs.push((*id,idx));
+                    }
+                    search2(conflict_idxs, &id, shared, pattern, idx);
+                }
+            }
+            search1(&mut conflict_idxs, &id, shared, pattern);
         }
         // if this is a refinement, push every descendant of the unshifted argument including it itself as a potential conflict
         if let Some(_) = pattern.refinements[*ivar] {
