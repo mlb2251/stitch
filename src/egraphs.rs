@@ -258,27 +258,29 @@ pub fn arg_ivars_to_vars(e: &mut Expr) {
     helper(e.root(), e, 0);
 }
 
-pub fn has_free_ivars(shifted_arg: Id, refinements: &Option<Vec<Id>>, egraph: &EGraph) -> bool {
+pub fn has_free_ivars(shifted_arg: &Shifted, refinements: &Option<Vec<Id>>, egraph: &EGraph) -> bool {
     if refinements.is_none() {
-        return !egraph[shifted_arg].data.free_ivars.is_empty();
+        // return !egraph[shifted_arg].data.free_ivars.is_empty();
+        return shifted_arg.shift < 0 // if .shift goes negative then yes, unless there are refinements
     }
-    let refinements = refinements.as_ref().unwrap();
-    fn helper(id: Id, refinements: &Vec<Id>, egraph: &EGraph) -> bool {
-        if refinements.contains(&id) {
-            return false; // refinement itself is safe!
-        }
-        if egraph[id].data.free_ivars.is_empty() {
-            return false; // no free ivars in this subtree
-        }
-        return match egraph[id].nodes[0] {
-            Lambda::Prim(_) | Lambda::Var(_) => false,
-            Lambda::IVar(_) => true, // found an ivar!
-            Lambda::App([f,x]) => helper(f, refinements, egraph) || helper(x, refinements, egraph),
-            Lambda::Lam([b]) => helper(b, refinements, egraph),
-            _ => unreachable!()
-        }
-    }
-    helper(shifted_arg, &refinements, egraph)
+    unimplemented!(); // todo gotta adapt this code:
+    // let refinements = refinements.as_ref().unwrap();
+    // fn helper(id: Id, refinements: &Vec<Id>, egraph: &EGraph) -> bool {
+    //     if refinements.contains(&id) {
+    //         return false; // refinement itself is safe!
+    //     }
+    //     if egraph[id].data.free_ivars.is_empty() {
+    //         return false; // no free ivars in this subtree
+    //     }
+    //     return match egraph[id].nodes[0] {
+    //         Lambda::Prim(_) | Lambda::Var(_) => false,
+    //         Lambda::IVar(_) => true, // found an ivar!
+    //         Lambda::App([f,x]) => helper(f, refinements, egraph) || helper(x, refinements, egraph),
+    //         Lambda::Lam([b]) => helper(b, refinements, egraph),
+    //         _ => unreachable!()
+    //     }
+    // }
+    // helper(shifted_arg, &refinements, egraph)
 }
 
 #[inline]
