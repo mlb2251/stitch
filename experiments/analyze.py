@@ -953,8 +953,8 @@ if __name__ == '__main__':
                     # if metric == 'compression_ratio':
                     #     bottom = 1
                     #     ys = [y-1 for y in ys]
-                    name = name[0].upper() + name[1:]
-                    ax.bar(xs, ys, yerr=y_errbars, width = bar_width, bottom=0, label=name)
+                    label = {'stitch':'Stitch (1 cpu)','dreamcoder':'Dreamcoder (8 cpus)'}[name]
+                    ax.bar(xs, ys, yerr=y_errbars, width = bar_width, bottom=0, label=label)
                 xs = [j + bar_width/2 for j in range(len(domains))]
                 plt.xticks(xs, domains)
             else:
@@ -969,8 +969,10 @@ if __name__ == '__main__':
 
 
             # set y axis to start at 1
-            # if metric == 'compression_ratio':
-            #     ax.set_ylim(bottom=0)
+            if metric in ('time_per_inv_with_rewrite', 'time_per_inv_no_rewrite'):
+                ax.set_ylim(bottom=.001,top=1000)
+            if metric == 'mem_peak_kb':
+                ax.set_ylim(bottom=1000)
             
             if metric in ('time_per_inv_with_rewrite','time_per_inv_no_rewrite', 'mem_peak_kb'):
                 ax.set_yscale('log')

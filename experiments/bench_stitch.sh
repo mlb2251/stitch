@@ -52,7 +52,7 @@ for BENCH_PATH in $BENCH_DIR/bench*.json; do
         ITERATIONS=10 # whatever
     fi
     echo "[bench_stitch.sh] Running Stitch with -a3 on: $BENCH"
-    /usr/bin/time -v $STITCH_DIR/target/release/compress $BENCH_PATH --max-arity=3 --threads=8 --iterations=$ITERATIONS --fmt=dreamcoder --dreamcoder-comparison --out=$OUT_DIR/raw/$BENCH.json 2>&1 | tee $OUT_DIR/stderr/$BENCH.stderr
+    /usr/bin/time -v $STITCH_DIR/target/release/compress $BENCH_PATH --max-arity=3 --threads=1 --iterations=$ITERATIONS --fmt=dreamcoder --dreamcoder-comparison --out=$OUT_DIR/raw/$BENCH.json 2>&1 | tee $OUT_DIR/stderr/$BENCH.stderr
 done
 
 python analyze.py process stitch $OUT_DIR
