@@ -168,10 +168,10 @@ fn topological_ordering_rec(root: Id, egraph: &EGraph, vec: &mut Vec<Id>) {
     }
 }
 
-pub fn associate_tasks(programs_root: Id, egraph: &EGraph, tasks: &Vec<String>) -> AHashMap<Id, AHashSet<usize>> {
+pub fn associate_tasks(programs_root: Id, egraph: &EGraph, treenodes: &Vec<Id>, tasks: &Vec<String>) -> Vec<AHashSet<usize>> {
 
     // this is the map from egraph node ids to tasks (represented with unique usizes) that we will be building
-    let mut tasks_of_node = AHashMap::new();
+    let mut tasks_of_node = vec![AHashSet::new(); treenodes.len()];
 
     let program_roots = egraph[programs_root].nodes[0].children();
     assert_eq!(program_roots.len(), tasks.len());
@@ -189,18 +189,14 @@ pub fn associate_tasks(programs_root: Id, egraph: &EGraph, tasks: &Vec<String>) 
     }
 
     // defensive sanity check that each entry is non-empty
-    assert!(tasks_of_node.values().all(|tasks| !tasks.is_empty()));
+    assert!(tasks_of_node.iter().all(|tasks| !tasks.is_empty()));
 
     tasks_of_node
 }
 
-fn associate_task_rec(node: Id, egraph: &EGraph, task_id: usize, tasks_of_node: &mut AHashMap<Id, AHashSet<usize>>) {
-    tasks_of_node.entry(node).or_default().insert(task_id);
-    // if !tasks_of_node.keys().contains(&node) {
-    //     tasks_of_node.insert(node, AHashSet::new());
-    // }
-    // let entry = tasks_of_node.get_mut(&node).unwrap();
-    // entry.insert(task_id);
+fn associate_task_rec(node: Id, egraph: &EGraph, task_id: usize, tasks_of_node: &mut Vec<AHashSet<usize>>) {
+    // tasks_of_node.entry(node).or_default().insert(task_id);
+    tasks_of_node[usize::from(node)].insert(task_id);
     for child in egraph[node].nodes[0].children() {
         associate_task_rec(*child, egraph, task_id, tasks_of_node);
     }

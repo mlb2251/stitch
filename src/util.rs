@@ -350,14 +350,14 @@ pub fn group_by_key<T: Copy, U: Ord>(v: Vec<T>, key: impl Fn(&T)->U) -> Vec<Vec<
 
 /// Returns a hashmap from node id to number of places that node is used in the tree. Essentially this just
 /// follows all paths down from the root and logs how many times it encounters each node
-pub fn num_paths_to_node(roots: &[Id], treenodes: &Vec<Id>, egraph: &crate::EGraph) -> AHashMap<Id,i32> {
-    let mut num_paths_to_node: AHashMap<Id,i32> = AHashMap::new();
-    treenodes.iter().for_each(|treenode| {
-        num_paths_to_node.insert(*treenode, 0);
-    });
-    fn helper(num_paths_to_node: &mut AHashMap<Id,i32>, node: &Id, egraph: &crate::EGraph) {
+pub fn num_paths_to_node(roots: &[Id], treenodes: &Vec<Id>, egraph: &crate::EGraph) -> Vec<i32> {
+    let mut num_paths_to_node: Vec<i32> = vec![0; treenodes.len()];
+    // treenodes.iter().for_each(|treenode| {
+    //     num_paths_to_node.insert(*treenode, 0);
+    // });
+    fn helper(num_paths_to_node: &mut Vec<i32>, node: &Id, egraph: &crate::EGraph) {
         // num_paths_to_node.insert(*child, num_paths_to_node[node] + 1);
-        *num_paths_to_node.get_mut(node).unwrap() += 1;
+        num_paths_to_node[usize::from(*node)] += 1;
         for child in egraph[*node].nodes[0].children() {
             helper(num_paths_to_node, &child, egraph);
         }
