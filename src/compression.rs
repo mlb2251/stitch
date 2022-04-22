@@ -640,6 +640,7 @@ pub enum HoleChoice {
 }
 
 impl HoleChoice {
+    #[inline(never)]
     fn choose_hole(&self, pattern: &Pattern, shared: &SharedData) -> usize {
         if pattern.holes.len() == 1 {
             return 0;
@@ -772,6 +773,35 @@ fn get_worklist_item(
     // * MULTITHREADING: CRITICAL SECTION END *
 }
 
+// pub fn blackbox1<T>(dummy: T) -> T {
+//     unsafe {
+//         let ret = std::ptr::read_volatile(&dummy);
+//         std::mem::forget(dummy);
+//         ret
+//     }
+// }
+// pub fn blackbox2<T>(dummy: T) -> T {
+//     unsafe {
+//         let ret = std::ptr::read_volatile(&dummy);
+//         std::mem::forget(dummy);
+//         ret
+//     }
+// }
+// pub fn blackbox3<T>(dummy: T) -> T {
+//     unsafe {
+//         let ret = std::ptr::read_volatile(&dummy);
+//         std::mem::forget(dummy);
+//         ret
+//     }
+// }
+// pub fn blackbox<T>(dummy: T) -> T {
+//     unsafe {
+//         let ret = std::ptr::read_volatile(&dummy);
+//         std::mem::forget(dummy);
+//         ret
+//     }
+// }
+
 /// The core top down branch and bound search
 fn stitch_search(
     shared: Arc<SharedData>,
@@ -819,28 +849,11 @@ fn stitch_search(
             let mut match_locations = original_pattern.match_locations.clone();
             match_locations.sort_by_cached_key(|loc| (&arg_of_loc[loc].expands_to, *loc));
 
-            let mut ivars_expansions = vec![];
-
-            // consider all ivars used previously
-            for ivar in 0..original_pattern.first_zid_of_ivar.len() {
-                let ref arg_of_loc_ivar = shared.arg_of_zid_node[original_pattern.first_zid_of_ivar[ivar]];
-                let locs: Vec<Id> = original_pattern.match_locations.iter()
-                    .filter(|loc|
-                        arg_of_loc[loc].shifted_id == 
-                        arg_of_loc_ivar[loc].shifted_id).cloned().collect();
-                if locs.is_empty() { continue; }
-                ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
-            }
-
-            // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
-            if original_pattern.first_zid_of_ivar.len() < shared.cfg.max_arity {
-                let ivar = original_pattern.first_zid_of_ivar.len();
-                let locs = original_pattern.match_locations.clone();
-                ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
-            }
+            let ivars_expansions = get_ivars_expansions(&original_pattern, &arg_of_loc, &shared);
 
             let mut found_tracked = false;
             // for each way of expanding the hole...
+
             'expansion:
                 for (expands_to, locs) in match_locations.into_iter()
                 .group_by(|loc| &arg_of_loc[loc].expands_to).into_iter()
@@ -1001,80 +1014,7 @@ fn stitch_search(
                 // refinement
 
                 if shared.cfg.refine {
-                    if tracked {
-                        println!("{} refining {}", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared));
-                    }
-
-                    let mut best_refinement: Vec<Option<Vec<Id>>> = new_pattern.refinements.clone(); // initially all Nones
-                    let mut best_utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
-                    let mut best_refinement_body_utility = 0;
-                    assert!(new_pattern.refinement_body_utility == 0);
-                    assert!(new_pattern.refinements.iter().all(|refinement| refinement.is_none()));
-
-                    // get all refinement options for each arg, deduped
-                    let mut refinements_by_arg: Vec<Vec<Id>> = new_pattern.first_zid_of_ivar.iter().map(|zid| 
-                        new_pattern.match_locations.iter().flat_map(|loc|
-                            shared.uses_of_shifted_arg_refinement.get(&shared.arg_of_zid_node[*zid][loc].shifted_id).map(|uses_of_refinement| uses_of_refinement.keys())
-                        ).flatten().cloned().collect::<AHashSet<_>>().into_iter().collect()).collect();
-
-                    for (i,_) in new_pattern.first_zid_of_ivar.iter().enumerate() { // for each arg
-                        if new_pattern.arg_choices.iter().filter(|l |l.ivar == i).count() > 1 {
-                            refinements_by_arg[i] = Vec::new(); // todo limitation: we dont refine multiuse
-                        }
-                    }
-
-                    let mut num_refinements = 0;
-
-                    'refinements: for refinements in refinements_by_arg.into_iter()
-                        .map(|refinements|
-                                (1..=shared.cfg.max_refinement_arity).map(move |k| refinements.clone().into_iter()
-                                    .combinations(k))
-                                .flatten()
-                                .map(|r| Some(r))
-                                .chain(std::iter::once(None))
-                                )
-                        .multi_cartesian_product()
-                    {
-                        num_refinements += 1;
-                        // insert the refinement
-                        new_pattern.refinements = refinements.clone();
-                        // body grows by an APP and the refined out subtree's size
-                        new_pattern.refinement_body_utility = refinements.iter()
-                            .flat_map(|r| r)
-                            .map(|r| r.iter()
-                                .map(|r_id| COST_NONTERMINAL + shared.cost_of_node_once[usize::from(*r_id)]).sum::<i32>()).sum::<i32>();
-
-                        let utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
-                        if utility > best_utility {
-                            best_refinement = refinements.clone();
-                            best_utility = utility;
-                            best_refinement_body_utility = new_pattern.refinement_body_utility;
-                        }
-                        if tracked {
-                            println!("{} refined to {} (util: {})", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared), utility);
-                            println!("{:?}", refinements);
-                            if let Some(track_refined) = &shared.tracking.as_ref().unwrap().refined {
-                                let refined = new_pattern.to_expr(&shared).to_string();
-                                let track_refined = track_refined.to_string();
-                                if refined == track_refined {
-                                    println!("{} previous refinement was the tracked one! Forcing it to accept that one", "[TRACK:REFINE]".green().bold());
-                                    best_refinement = refinements.clone();
-                                    best_refinement_body_utility = new_pattern.refinement_body_utility;
-                                    new_pattern.refinement_body_utility = 0;
-                                    break 'refinements;
-                                }
-                            }
-                        }
-                        // reset body utility
-                        new_pattern.refinement_body_utility = 0;
-                    }
-                    if num_refinements > 1000 {
-                        println!("[many refinements] tried {} refinements for {}", num_refinements, new_pattern.to_expr(&shared));
-                    }
-
-                    // set to the best
-                    new_pattern.refinements = best_refinement.clone();
-                    new_pattern.refinement_body_utility = best_refinement_body_utility;
+                    refine(&mut new_pattern, tracked, &shared);
                 }
 
                 let finished_pattern = FinishedPattern::new(new_pattern, &shared);
@@ -1115,6 +1055,106 @@ fn stitch_search(
 
 }
 
+#[inline(never)]
+fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &AHashMap<Id,Arg>, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<Id>)> {
+    let mut ivars_expansions = vec![];
+    // consider all ivars used previously
+    for ivar in 0..original_pattern.first_zid_of_ivar.len() {
+        let ref arg_of_loc_ivar = shared.arg_of_zid_node[original_pattern.first_zid_of_ivar[ivar]];
+        let locs: Vec<Id> = original_pattern.match_locations.iter()
+            .filter(|loc|
+                arg_of_loc[loc].shifted_id == 
+                arg_of_loc_ivar[loc].shifted_id).cloned().collect();
+        if locs.is_empty() { continue; }
+        ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
+    }
+    // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
+    if original_pattern.first_zid_of_ivar.len() < shared.cfg.max_arity {
+        let ivar = original_pattern.first_zid_of_ivar.len();
+        let locs = original_pattern.match_locations.clone();
+        ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
+    }
+    ivars_expansions
+}
+
+/// refines a new pattern inplace
+#[inline(never)]
+pub fn refine(new_pattern: &mut Pattern, tracked: bool, shared: &SharedData) {
+    if tracked {
+        println!("{} refining {}", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared));
+    }
+
+    let mut best_refinement: Vec<Option<Vec<Id>>> = new_pattern.refinements.clone(); // initially all Nones
+    let mut best_utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
+    let mut best_refinement_body_utility = 0;
+    assert!(new_pattern.refinement_body_utility == 0);
+    assert!(new_pattern.refinements.iter().all(|refinement| refinement.is_none()));
+
+    // get all refinement options for each arg, deduped
+    let mut refinements_by_arg: Vec<Vec<Id>> = new_pattern.first_zid_of_ivar.iter().map(|zid| 
+        new_pattern.match_locations.iter().flat_map(|loc|
+            shared.uses_of_shifted_arg_refinement.get(&shared.arg_of_zid_node[*zid][loc].shifted_id).map(|uses_of_refinement| uses_of_refinement.keys())
+        ).flatten().cloned().collect::<AHashSet<_>>().into_iter().collect()).collect();
+
+    for (i,_) in new_pattern.first_zid_of_ivar.iter().enumerate() { // for each arg
+        if new_pattern.arg_choices.iter().filter(|l |l.ivar == i).count() > 1 {
+            refinements_by_arg[i] = Vec::new(); // todo limitation: we dont refine multiuse
+        }
+    }
+
+    let mut num_refinements = 0;
+
+    'refinements: for refinements in refinements_by_arg.into_iter()
+        .map(|refinements|
+                (1..=shared.cfg.max_refinement_arity).map(move |k| refinements.clone().into_iter()
+                    .combinations(k))
+                .flatten()
+                .map(|r| Some(r))
+                .chain(std::iter::once(None))
+                )
+        .multi_cartesian_product()
+    {
+        num_refinements += 1;
+        // insert the refinement
+        new_pattern.refinements = refinements.clone();
+        // body grows by an APP and the refined out subtree's size
+        new_pattern.refinement_body_utility = refinements.iter()
+            .flat_map(|r| r)
+            .map(|r| r.iter()
+                .map(|r_id| COST_NONTERMINAL + shared.cost_of_node_once[usize::from(*r_id)]).sum::<i32>()).sum::<i32>();
+
+        let utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
+        if utility > best_utility {
+            best_refinement = refinements.clone();
+            best_utility = utility;
+            best_refinement_body_utility = new_pattern.refinement_body_utility;
+        }
+        if tracked {
+            println!("{} refined to {} (util: {})", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared), utility);
+            println!("{:?}", refinements);
+            if let Some(track_refined) = &shared.tracking.as_ref().unwrap().refined {
+                let refined = new_pattern.to_expr(&shared).to_string();
+                let track_refined = track_refined.to_string();
+                if refined == track_refined {
+                    println!("{} previous refinement was the tracked one! Forcing it to accept that one", "[TRACK:REFINE]".green().bold());
+                    best_refinement = refinements.clone();
+                    best_refinement_body_utility = new_pattern.refinement_body_utility;
+                    new_pattern.refinement_body_utility = 0;
+                    break 'refinements;
+                }
+            }
+        }
+        // reset body utility
+        new_pattern.refinement_body_utility = 0;
+    }
+    if num_refinements > 1000 {
+        println!("[many refinements] tried {} refinements for {}", num_refinements, new_pattern.to_expr(&shared));
+    }
+
+    // set to the best
+    new_pattern.refinements = best_refinement.clone();
+    new_pattern.refinement_body_utility = best_refinement_body_utility;
+}
 
 
 
@@ -1748,7 +1788,6 @@ fn get_conflicts(zips: &Vec<(Vec<ZNode>, Option<usize>)>, loc: &Id, shared: &Sha
             };
             // if its also a location, push it to the conflicts list (do NOT dedup)
             if let Ok(idx) = pattern.match_locations.binary_search(id) {
-                // todo i think we need to check that this isnt already present tho
                 conflict_idxs.insert((*id,idx));
             }
         }
