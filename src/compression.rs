@@ -176,8 +176,8 @@ impl CompressionStepConfig {
 /// `body_utility` is the cost of the non-hole non-argchoice parts of the pattern so far
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Pattern {
-    pub holes: Vec<ZId>, // in order of when theyre added NOT left to right
-    arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an argchoice, again these are in order of when they were added
+    // pub holes: Vec<ZId>, // in order of when theyre added NOT left to right
+    // arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an argchoice, again these are in order of when they were added
     pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the zid of the first use of #i in arg_choices
     pub refinements: Vec<Option<Vec<Id>>>, // refinements[i] gives the list of refinements for #i
     pub match_locations: Vec<Id>, // places where it applies
@@ -188,7 +188,7 @@ pub struct Pattern {
 
     pub hole_zips: Vec<Zip>,
     // pub hole_unshifted_ids: Vec<Vec<Id>>, // hole_unshifted_ids[hole_idx][match_loc_idx]
-    pub arg_zips: Vec<Zip>,
+    pub arg_zips: Vec<LabelledZip>,
     // pub arg_shifted_ids: Vec<Vec<Id>>,  // arg_shifted_ids[ivar][match_loc_idx]
 
 }
@@ -283,8 +283,8 @@ impl Pattern {
         }
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility_no_refinement + refinement_body_utility, cost_of_node_all, num_paths_to_node, cfg);
         Pattern {
-            holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
-            arg_choices: vec![],
+            // holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
+            // arg_choices: vec![],
             first_zid_of_ivar: vec![],
             refinements: vec![],
             match_locations: match_locations.clone(), // single hole matches everywhere
@@ -302,26 +302,26 @@ impl Pattern {
     fn to_expr(&self, shared: &SharedData) -> Expr {
         let mut curr_zip: Zip = vec![];
         // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
-        let zips: Vec<(Zip,Expr)> = self.holes.iter().map(|zid| (shared.zip_of_zid[*zid].clone(), Expr::prim("??".into())))
-            .chain(self.arg_choices.iter().map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(),
-                if let Some(refinements) = self.refinements[labelled_zid.ivar].as_ref() {
+        let zips: Vec<(&Zip,Expr)> = self.hole_zips.iter().map(|zip| (zip, Expr::prim("??".into())))
+            .chain(self.arg_zips.iter().map(|labelled_zip| (&labelled_zip.zip,
+                if let Some(refinements) = self.refinements[labelled_zip.ivar].as_ref() {
 
                     // extract the refinement and remap #i to $(i+depth) where depth is depth of #i in `extracted`
                     let mut extracted = refinements.iter().map(|refinement| extract(*refinement, &shared.egraph)).collect::<Vec<_>>();
                     extracted.iter_mut().for_each(|e| arg_ivars_to_vars(e));
-                    let mut expr = Expr::ivar(labelled_zid.ivar as i32);
+                    let mut expr = Expr::ivar(labelled_zip.ivar as i32);
                     // todo are these applied in the right order?
                     for e in extracted {
                         expr = Expr::app(expr,e);
                     }
                     expr
                 } else {
-                    Expr::ivar(labelled_zid.ivar as i32)
+                    Expr::ivar(labelled_zip.ivar as i32)
                 }))).collect();
 
 
-        fn helper(curr_node: Id, curr_zip: &mut Zip, zips: &Vec<(Zip,Expr)>, shared: &SharedData) -> Expr {
-            match zips.iter().find(|(zip,_)| zip == curr_zip) {
+        fn helper(curr_node: Id, curr_zip: &mut Zip, zips: &Vec<(&Zip,Expr)>, shared: &SharedData) -> Expr {
+            match zips.iter().find(|(zip,_)| *zip == curr_zip) {
                 // current zip matches a hole
                 Some((_,e)) => e.clone(),
                 // no ivar zip match, so recurse
@@ -353,9 +353,9 @@ impl Pattern {
         // we can pick any match location
         helper(self.match_locations[0], &mut curr_zip, &zips, shared)
     }
-    fn show_track_expansion(&self, hole_zid: ZId, shared: &SharedData) -> String {
-        let mut s = self.to_expr(shared).zipper_replace(&shared.zip_of_zid[hole_zid], &"<REPLACE>" ).to_string();
-        s = s.replace(&"<REPLACE>", &format!("{}",tracked_expands_to(self, hole_zid, shared)).clone().magenta().bold().to_string());
+    fn show_track_expansion(&self, hole_zip: &Zip, shared: &SharedData) -> String {
+        let mut s = self.to_expr(shared).zipper_replace(&hole_zip, &"<REPLACE>" ).to_string();
+        s = s.replace(&"<REPLACE>", &format!("{}",tracked_expands_to(self, hole_zip, shared)).clone().magenta().bold().to_string());
         s
     }
     pub fn info(&self, shared: &SharedData) -> String {
@@ -445,11 +445,11 @@ fn expands_to_of_node(node: &Lambda) -> ExpandsTo {
 
 /// Returns Some(ExpandsTo) for what we expect the hole to expand to to follow
 /// the target, and returns None if we expect it to become a ?# argchoice.
-fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData) -> ExpandsTo {
+fn tracked_expands_to(pattern: &Pattern, hole_zip: &Zip, shared: &SharedData) -> ExpandsTo {
     // apply the hole zipper to the original expr being tracked to get the subtree
     // this will expand into, then get the ExpandsTo of that
     let id = shared.tracking.as_ref().unwrap().expr
-        .apply_zipper(&shared.zip_of_zid[hole_zid]).unwrap();
+        .apply_zipper(&hole_zip).unwrap();
     match expands_to_of_node(shared.tracking.as_ref().unwrap().expr.get(id)) {
         ExpandsTo::IVar(i) => {
             // in the case where we're searching for an IVar we need to be robust to relabellings
@@ -569,7 +569,7 @@ impl CriticalMultithreadData {
     fn update(&mut self, cfg: &CompressionStepConfig) {
         // sort in decreasing order by utility primarily, and break ties using the argchoice zids (just in order to be deterministic!)
         // let old_best = self.donelist.first().map(|x|x.utility).unwrap_or(0);
-        self.donelist.sort_unstable_by(|a,b| (b.utility,&b.pattern.arg_choices).cmp(&(a.utility,&a.pattern.arg_choices)));
+        self.donelist.sort_unstable_by(|a,b| (b.utility,&b.pattern.arg_zips).cmp(&(a.utility,&a.pattern.arg_zips)));
         self.donelist.truncate(cfg.inv_candidates);
         // the cutoff is the lowest utility
         self.utility_pruning_cutoff = if cfg.no_opt_upper_bound { 0 } else { std::cmp::max(0,self.donelist.last().map(|x|x.utility).unwrap_or(0)) };
@@ -625,6 +625,19 @@ struct LabelledZId {
     ivar: usize // which #i argument this is, which also corresponds to args[i] ofc
 }
 
+/// a zid referencing a specific ZPath and a #i index
+#[derive(Debug,Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct LabelledZip {
+    zip: Zip,
+    ivar: usize // which #i argument this is, which also corresponds to args[i] ofc
+}
+
+impl LabelledZip {
+    pub fn new(zip: Zip, ivar: usize) -> Self {
+        Self { zip, ivar }
+    }
+}
+
 /// Various tracking stats
 #[derive(Clone,Default, Debug)]
 pub struct Stats {
@@ -659,38 +672,38 @@ pub enum HoleChoice {
 impl HoleChoice {
     #[inline(never)]
     fn choose_hole(&self, pattern: &Pattern, shared: &SharedData) -> usize {
-        if pattern.holes.len() == 1 {
+        if pattern.hole_zips.len() == 1 {
             return 0;
         }
         match self {
             &HoleChoice::BreadthFirst => 0,
-            &HoleChoice::DepthFirst => pattern.holes.len() - 1,
+            &HoleChoice::DepthFirst => pattern.hole_zips.len() - 1,
             &HoleChoice::Random => {
                 let mut rng = rand::thread_rng();
-                rng.gen_range(0..pattern.holes.len())
+                rng.gen_range(0..pattern.hole_zips.len())
             },
-            &HoleChoice::FewApps => {
-                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().filter(|loc|shared.arg_of_zid_node[*hole_zid][loc].expands_to == ExpandsTo::App).count()))
-                        .min_by_key(|x|x.1).unwrap().0
-            }
-            &HoleChoice::MaxCost => {
-                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
-                        .max_by_key(|x|x.1).unwrap().0
-            }
-            &HoleChoice::MinCost => {
-                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
-                        .min_by_key(|x|x.1).unwrap().0
-            }
-            &HoleChoice::MaxLargestSubset => {
-                // todo warning this is extremely slow, partially bc of counts() but I think
-                // mainly because where there are like dozens of holes doing all these lookups and clones and hashmaps is a LOT
-                pattern.holes.iter().enumerate()
-                    .map(|(hole_idx,hole_zid)| (hole_idx, *pattern.match_locations.iter()
-                        .map(|loc| shared.arg_of_zid_node[*hole_zid][loc].expands_to.clone()).counts().values().max().unwrap())).max_by_key(|&(_,max_count)| max_count).unwrap().0
-            }
+            // &HoleChoice::FewApps => {
+            //     pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
+            //         (hole_idx, pattern.match_locations.iter().filter(|loc|shared.arg_of_zid_node[*hole_zid][loc].expands_to == ExpandsTo::App).count()))
+            //             .min_by_key(|x|x.1).unwrap().0
+            // }
+            // &HoleChoice::MaxCost => {
+            //     pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
+            //         (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
+            //             .max_by_key(|x|x.1).unwrap().0
+            // }
+            // &HoleChoice::MinCost => {
+            //     pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
+            //         (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
+            //             .min_by_key(|x|x.1).unwrap().0
+            // }
+            // &HoleChoice::MaxLargestSubset => {
+            //     // todo warning this is extremely slow, partially bc of counts() but I think
+            //     // mainly because where there are like dozens of holes doing all these lookups and clones and hashmaps is a LOT
+            //     pattern.holes.iter().enumerate()
+            //         .map(|(hole_idx,hole_zid)| (hole_idx, *pattern.match_locations.iter()
+            //             .map(|loc| shared.arg_of_zid_node[*hole_zid][loc].expands_to.clone()).counts().values().max().unwrap())).max_by_key(|&(_,max_count)| max_count).unwrap().0
+            // }
             _ => unimplemented!()
         }
     }
@@ -854,16 +867,16 @@ fn stitch_search(
             let hole_idx: usize = shared.cfg.hole_choice.choose_hole(&original_pattern, &shared);
 
             // pop that hole form the list of holes
-            let mut holes_after_pop: Vec<ZId> = original_pattern.holes.clone();
+            // let mut holes_after_pop: Vec<ZId> = original_pattern.holes.clone();
             let mut hole_zips_after_pop: Vec<Zip> = original_pattern.hole_zips.clone();
             // let mut hole_unshifted_ids_after_pop: Vec<Id> = original_pattern.hole_unshifted_ids.clone();
             
-            let hole_zid: ZId = holes_after_pop.remove(hole_idx);
+            // let hole_zid: ZId = holes_after_pop.remove(hole_idx);
             let hole_zip: Zip = hole_zips_after_pop.remove(hole_idx);
             // let hole_unshifted_id: Id = hole_unshifted_ids_after_pop.remove(hole_idx);
 
             // get the hashmap of args for this hole
-            let ref arg_of_loc = shared.arg_of_zid_node[hole_zid];
+            let ref arg_of_loc = shared.arg_of_zid_node[shared.zid_of_zip[&hole_zip]];
 
             // sort the match locations by node type (ie what theyll expand into) so that we can do a group_by() on
             // node type in order to iterate over all the different expansions
@@ -883,7 +896,7 @@ fn stitch_search(
                 .chain(ivars_expansions.into_iter())
             {
                 // for debugging
-                let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, hole_zid, &shared);
+                let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, &hole_zip, &shared);
                 if tracked { found_tracked = true; }
                 if shared.cfg.follow_track && !tracked { continue 'expansion; }
 
@@ -904,7 +917,7 @@ fn stitch_search(
                         && locs.iter().all(|node| shared.tasks_of_node[usize::from(*node)].len() == 1)
                         && locs.iter().all(|node| shared.tasks_of_node[usize::from(locs[0])].iter().next() == shared.tasks_of_node[usize::from(*node)].iter().next()) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
-                    if tracked { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
+                    if tracked { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&hole_zip, &format!("<{}>",expands_to))); }
                     continue 'expansion;
                 }
 
@@ -912,9 +925,9 @@ fn stitch_search(
                 // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
                 if true || !shared.cfg.no_opt_free_vars {
                     if let ExpandsTo::Var(i) = expands_to {
-                        if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
+                        if i >= hole_zip.iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
                             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
-                            if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+                            if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared)); }
                             continue 'expansion; // free var
                         }
                     }
@@ -923,11 +936,11 @@ fn stitch_search(
                 // check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
                 // because subsetting of match_locations can turn previously useful abstractions into useless ones.
                 if !shared.cfg.no_opt_useless_abstract {
-                    for argchoice in original_pattern.arg_choices.iter(){
+                    for labelled_zip in original_pattern.arg_zips.iter(){
                         // if its the same arg in every place
-                        if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
+                        if locs.iter().map(|loc| shared.arg_of_zid_node[shared.zid_of_zip[&labelled_zip.zip]][loc].shifted_id).all_equal()
                             // AND there's no potential for refining that arg
-                            && (!shared.cfg.refine || locs.iter().all(|loc| shared.free_vars_of_node[usize::from(shared.arg_of_zid_node[argchoice.zid][loc].shifted_id)].is_empty()))
+                            && (!shared.cfg.refine || locs.iter().all(|loc| shared.free_vars_of_node[usize::from(shared.arg_of_zid_node[shared.zid_of_zip[&labelled_zip.zip]][loc].shifted_id)].is_empty()))
                         {
                             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
                             continue 'expansion; // useless abstraction
@@ -952,23 +965,23 @@ fn stitch_search(
                 // branch and bound: if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
                 if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-                    if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+                    if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared)); }
                     continue 'expansion; // too low utility
                 }
 
-                assert!(shared.cfg.no_opt_upper_bound || !(holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
+                assert!(shared.cfg.no_opt_upper_bound || !(hole_zips_after_pop.is_empty() && original_pattern.arg_zips.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
                         "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
                 // assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
                 //         "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
 
                 // add any new holes to the list of holes
-                let mut holes = holes_after_pop.clone();
+                // let mut holes = holes_after_pop.clone();
                 let mut hole_zips = hole_zips_after_pop.clone();
                 // let mut hole_unshifted_ids = hole_unshifted_ids_after_pop.clone();
                 match expands_to {
                     ExpandsTo::Lam => {
                         // add new holes
-                        holes.push(shared.extensions_of_zid[hole_zid].body.unwrap());
+                        // holes.push(shared.extensions_of_zid[hole_zid].body.unwrap());
                         hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Body)).collect());
                         // if let Lambda::Lam([b]) = &shared.node_of_id[usize::from(hole_unshifted_id)] {
                         //     hole_unshifted_ids.push(*b);
@@ -976,8 +989,8 @@ fn stitch_search(
                     }
                     ExpandsTo::App => {
                         // add new holes
-                        holes.push(shared.extensions_of_zid[hole_zid].func.unwrap());
-                        holes.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
+                        // holes.push(shared.extensions_of_zid[hole_zid].func.unwrap());
+                        // holes.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
                         hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Func)).collect());
                         hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Arg)).collect());
                         // if let Lambda::App([f,x]) = &shared.node_of_id[usize::from(hole_unshifted_id)] {
@@ -989,17 +1002,17 @@ fn stitch_search(
                     _ => {}
                 }
 
-                let mut arg_choices = original_pattern.arg_choices.clone();
+                // let mut arg_choices = original_pattern.arg_choices.clone();
                 let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
                 let mut refinements = original_pattern.refinements.clone();
                 let mut arg_zips = original_pattern.arg_zips.clone();
                 // let mut arg_shifted_ids = original_pattern.arg_shifted_ids.clone();
                 if let ExpandsTo::IVar(i) = expands_to {
-                    arg_choices.push(LabelledZId::new(hole_zid, i as usize));
-                    arg_zips.push(hole_zip.clone());
+                    // arg_choices.push(LabelledZId::new(hole_zid, i as usize));
+                    arg_zips.push(LabelledZip::new(hole_zip.clone(), i as usize));
                     // arg_shifted_ids.push(hole_unshifted_id); // todo this is WRONG! It's only temporary
                     if i as usize == original_pattern.first_zid_of_ivar.len() {
-                        first_zid_of_ivar.push(hole_zid);
+                        first_zid_of_ivar.push(shared.zid_of_zip[&hole_zip]);
                         refinements.push(None)
                     }
                 }
@@ -1017,7 +1030,7 @@ fn stitch_search(
                                 arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
                             {
                                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().force_multiuse_fired += 1; };
-                                if tracked { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+                                if tracked { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared)); }
                                 continue 'expansion;
                             }
                         }
@@ -1027,8 +1040,8 @@ fn stitch_search(
             // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
             // from the old pattern.
             let mut new_pattern = Pattern {
-                holes,
-                arg_choices,
+                // holes,
+                // arg_choices,
                 first_zid_of_ivar,
                 refinements,
                 match_locations: locs,
@@ -1052,7 +1065,7 @@ fn stitch_search(
 
 
 
-            if new_pattern.holes.is_empty() {
+            if new_pattern.hole_zips.is_empty() {
                 // it's a finished pattern
                 // refinement
 
@@ -1082,16 +1095,16 @@ fn stitch_search(
 
                 } else {
                     // it's a partial pattern so just add it to the worklist
-                    if tracked { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(hole_zid, &shared), new_pattern.utility_upper_bound); }
+                    if tracked { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(&hole_zip, &shared), new_pattern.utility_upper_bound); }
                     worklist_buf.push(HeapItem::new(new_pattern))
                 }
             }
 
             if original_pattern.tracked && !found_tracked {
                 // let new = format!("<{}>",tracked_expands_to(&original_pattern, hole_zid, &shared));
-                // let mut s = original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &new ).to_string();
+                // let mut s = original_pattern.to_expr(&shared).zipper_replace(&hole_zip, &new ).to_string();
                 // s = s.replace(&new, &new.clone().magenta().bold().to_string());
-            println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared));
+            println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared));
             }
         
         }
@@ -1141,7 +1154,7 @@ pub fn refine(new_pattern: &mut Pattern, tracked: bool, shared: &SharedData) {
         ).flatten().cloned().collect::<AHashSet<_>>().into_iter().collect()).collect();
 
     for (i,_) in new_pattern.first_zid_of_ivar.iter().enumerate() { // for each arg
-        if new_pattern.arg_choices.iter().filter(|l |l.ivar == i).count() > 1 {
+        if new_pattern.arg_zips.iter().filter(|l |l.ivar == i).count() > 1 {
             refinements_by_arg[i] = Vec::new(); // todo limitation: we dont refine multiuse
         }
     }
@@ -1605,7 +1618,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     // terms we need to take care of too.
 
     // get a list of (ivar,usages-1) filtering out things that are only used once, this will come in handy for adding multi-use utility later
-    let ivar_multiuses: Vec<(usize,i32)> = pattern.arg_choices.iter().map(|labelled|labelled.ivar).counts()
+    let ivar_multiuses: Vec<(usize,i32)> = pattern.arg_zips.iter().map(|labelled|labelled.ivar).counts()
         .iter().filter_map(|(ivar,count)| if *count > 1 { Some((*ivar, (*count-1) as i32)) } else { None }).collect();
 
     // (parent,child) show up in here if they conflict
@@ -1711,9 +1724,9 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
 
     // todo opt include holes too
     // zips and ivars
-    let zips: Vec<(Zip,Option<usize>)> = pattern.arg_choices.iter()
-        .map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(),Some(labelled_zid.ivar)))
-        .chain(pattern.holes.iter().map(|zid| (shared.zip_of_zid[*zid].clone(), None)))
+    let zips: Vec<(&Zip,Option<usize>)> = pattern.arg_zips.iter()
+        .map(|labelled_zip| (&labelled_zip.zip,Some(labelled_zip.ivar)))
+        .chain(pattern.hole_zips.iter().map(|zip| (zip, None)))
         .collect();
     // if holes {
     //     zips.extend(pattern.holes.iter().map(|zid| (shared.zip_of_zid[zid].clone(),labelled_zid.ivar)))
@@ -1817,7 +1830,7 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
 }
 
 #[inline(never)]
-fn get_conflicts(zips: &Vec<(Vec<ZNode>, Option<usize>)>, loc: &Id, shared: &SharedData, pattern: &Pattern) -> AHashSet<(Id, usize)> {
+fn get_conflicts(zips: &Vec<(&Zip,Option<usize>)>, loc: &Id, shared: &SharedData, pattern: &Pattern) -> AHashSet<(Id, usize)> {
     let mut conflict_idxs = AHashSet::new();
     for (zip,ivar) in zips.iter().filter(|(zip,_)| !zip.is_empty()) {
         let mut id = loc;
@@ -2058,8 +2071,8 @@ pub fn compression_step(
             if utility <= 0 { continue; }
 
             let pattern = Pattern {
-                holes: vec![],
-                arg_choices: vec![],
+                // holes: vec![],
+                // arg_choices: vec![],
                 first_zid_of_ivar: vec![],
                 refinements: vec![],
                 match_locations,
