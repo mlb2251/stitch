@@ -110,7 +110,7 @@ pub fn rewrite_fast(
         }
 
 
-        match &shared.egraph[unshifted_id].nodes[0] {
+        match &shared.node_of_id[usize::from(unshifted_id)] {
             Lambda::Prim(p) => Expr::prim(*p),
             Lambda::Var(i) => {
                 let mut j = *i;
@@ -148,7 +148,7 @@ pub fn rewrite_fast(
         }
     }
 
-    let init_cost: i32 = shared.roots.iter().map(|r| shared.egraph[*r].data.inventionless_cost).sum();
+    let init_cost: i32 = shared.roots.iter().map(|r| shared.cost_of_node_once[r]).sum();
 
     let shift_rules = &mut vec![];
     let rewritten_exprs: Vec<Expr> = shared.roots.iter().map(|root| {

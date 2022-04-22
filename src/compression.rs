@@ -310,7 +310,7 @@ impl Pattern {
                 Some((_,e)) => e.clone(),
                 // no ivar zip match, so recurse
                 None => {
-                    match &shared.egraph[curr_node].nodes[0] {
+                    match &shared.node_of_id[usize::from(curr_node)] {
                         Lambda::Prim(p) => Expr::prim(*p),
                         Lambda::Var(v) => Expr::var(*v),
                         Lambda::Lam([b]) => {
@@ -500,6 +500,7 @@ pub struct SharedData {
     pub crit: Mutex<CriticalMultithreadData>,
     pub arg_of_zid_node: Vec<AHashMap<Id,Arg>>,
     pub treenodes: Vec<Id>,
+    pub node_of_id: Vec<Lambda>,
     pub programs_node: Id,
     pub roots: Vec<Id>,
     pub zids_of_node: AHashMap<Id,Vec<ZId>>,
@@ -514,6 +515,7 @@ pub struct SharedData {
     pub tasks_of_node: AHashMap<Id, HashSet<usize>>,
     pub cost_of_node_once: AHashMap<Id,i32>,
     pub cost_of_node_all: AHashMap<Id,i32>,
+    pub free_vars_of_node: AHashMap<Id,HashSet<i32>>,
     pub stats: Mutex<Stats>,
     pub cfg: CompressionStepConfig,
     pub tracking: Option<Tracking>,
@@ -864,7 +866,7 @@ fn stitch_search(
                 // prune here. The exception is when there are free variables so arity 0 wouldn't have applied.
                 // Also, note that upper bounding + arity 0 priming does nearly perfectly handle this already, but there are cases where
                 // you can't improve your structure penalty bound enough to catch everything hence this separate single_use thing.
-                if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.egraph[locs[0]].data.free_vars.is_empty() {
+                if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.free_vars_of_node[&locs[0]].is_empty() {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_fired += 1; }
                     continue 'expansion;
                 }
@@ -897,7 +899,7 @@ fn stitch_search(
                         // if its the same arg in every place
                         if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
                             // AND there's no potential for refining that arg
-                            && (!shared.cfg.refine || locs.iter().all(|loc| shared.egraph[shared.arg_of_zid_node[argchoice.zid][loc].shifted_id].data.free_ivars.is_empty()))
+                            && (!shared.cfg.refine || locs.iter().all(|loc| shared.free_vars_of_node[&shared.arg_of_zid_node[argchoice.zid][loc].shifted_id].is_empty()))
                         {
                             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
                             continue 'expansion; // useless abstraction
@@ -1039,7 +1041,7 @@ fn stitch_search(
                         new_pattern.refinement_body_utility = refinements.iter()
                             .flat_map(|r| r)
                             .map(|r| r.iter()
-                                .map(|r_id| COST_NONTERMINAL + shared.egraph[*r_id].data.inventionless_cost).sum::<i32>()).sum::<i32>();
+                                .map(|r_id| COST_NONTERMINAL + shared.cost_of_node_once[r_id]).sum::<i32>()).sum::<i32>();
 
                         let utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
                         if utility > best_utility {
@@ -1364,7 +1366,7 @@ pub struct CompressionStepResult {
 
 impl CompressionStepResult {
     fn new(done: FinishedPattern, programs_node: Id, inv_name: &str, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>) -> Self {
-        let initial_cost = shared.egraph[programs_node].data.inventionless_cost;
+        let initial_cost = shared.cost_of_node_once[&programs_node];
 
         // cost of the very first initial program before any inventions
         let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { initial_cost };
@@ -1539,14 +1541,14 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
                 return refinements.iter().map(|refinement| {
                     if let Some(uses) = uses_of_refinement.get(&refinement) {
                         // we subtract COST_TERMINAL because we need to leave behind a $i in place of it in the arg
-                        let mut util = (*uses as i32) * (shared.egraph[*refinement].data.inventionless_cost - COST_TERMINAL);
+                        let mut util = (*uses as i32) * (shared.cost_of_node_once[refinement] - COST_TERMINAL);
                         // println!("gained util {} from {}", util, extract(*refinement, &shared.egraph));
                         for r in refinements.iter().filter(|r| refinement_conflicts.contains(&(*refinement,**r))) {
                             // we (an ancestor) conflicted with a descendant so we lose some of that descendants util
                             // todo: importantly this doesnt when a grandparent negates both a parent and a child... 
                             // todo that would be necessary for 3+ refinements and would be closer to our full conflict resolution setup
                             assert!(refinements.len() < 3);
-                            util -=  (*uses as i32) * (shared.egraph[*r].data.inventionless_cost - COST_TERMINAL);
+                            util -=  (*uses as i32) * (shared.cost_of_node_once[r] - COST_TERMINAL);
                         }
                         util
                     } else { 0 }
@@ -1719,7 +1721,7 @@ fn get_conflicts(zips: &Vec<(Vec<ZNode>, usize)>, loc: &Id, shared: &SharedData,
         // for all except the last node in the zipper, push the childs location on as a potential conflict
         for znode in zip[..zip.len()-1].iter() {
             // step one deeper
-            id = match (znode, &shared.egraph[*id].nodes[0]) {
+            id = match (znode, &shared.node_of_id[usize::from(*id)]) {
                 (ZNode::Body, Lambda::Lam([b])) => b,
                 (ZNode::Func, Lambda::App([f,_])) => f,
                 (ZNode::Arg, Lambda::App([_,x])) => x,
@@ -1737,7 +1739,7 @@ fn get_conflicts(zips: &Vec<(Vec<ZNode>, usize)>, loc: &Id, shared: &SharedData,
                 if let Ok(idx) = pattern.match_locations.binary_search(&id) {
                     conflict_idxs.push((id,idx));
                 }
-                match &shared.egraph[id].nodes[0] {
+                match &shared.node_of_id[usize::from(id)] {
                     Lambda::Lam([b]) => {helper(*b, shared, conflict_idxs, pattern);},
                     Lambda::App([f,x]) => {
                         helper(*f, shared, conflict_idxs, pattern);
@@ -1860,6 +1862,8 @@ pub fn compression_step(
 
     // all nodes in child-first order except for the Programs node
     let mut treenodes: Vec<Id> = topological_ordering(programs_node,&egraph);
+    assert_eq!(treenodes.iter().map(|n| usize::from(*n)).collect::<Vec<_>>(), (0..treenodes.len()).collect::<Vec<_>>());
+    let node_of_id: Vec<Lambda> = treenodes.iter().map(|node| egraph[*node].nodes[0].clone()).collect();
     treenodes.retain(|id| *id != programs_node);
 
     println!("got roots and treenodes: {:?}ms", tstart.elapsed().as_millis());
@@ -1881,6 +1885,8 @@ pub fn compression_step(
     let cost_of_node_once: AHashMap<Id,i32> = treenodes.iter().map(|node| (*node,egraph[*node].data.inventionless_cost)).collect();
     // cost of a single usage times number of paths to node
     let cost_of_node_all: AHashMap<Id,i32> = treenodes.iter().map(|node| (*node,cost_of_node_once[node] * num_paths_to_node[node])).collect();
+
+    let free_vars_of_node: AHashMap<Id, HashSet<i32>> = treenodes.iter().map(|node| (*node,egraph[*node].data.free_vars.clone())).collect();
 
     println!("cost_of_node structs: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
@@ -1976,6 +1982,7 @@ pub fn compression_step(
         crit: Mutex::new(crit),
         arg_of_zid_node,
         treenodes: treenodes.clone(),
+        node_of_id: node_of_id,
         programs_node,
         roots,
         zids_of_node,
@@ -1988,6 +1995,7 @@ pub fn compression_step(
         tasks_of_node,
         cost_of_node_once,
         cost_of_node_all,
+        free_vars_of_node,
         stats: Mutex::new(stats),
         cfg: cfg.clone(),
         tracking,
@@ -2060,7 +2068,7 @@ pub fn compression_step(
         println!("Timing Comparison Point B (search+rewrite) (millis): {}", tstart_total.elapsed().as_millis());
     }
 
-    let orig_cost = shared.egraph[programs_node].data.inventionless_cost;
+    let orig_cost = shared.cost_of_node_once[&programs_node];
 
     let mut results: Vec<CompressionStepResult> = vec![];
 
