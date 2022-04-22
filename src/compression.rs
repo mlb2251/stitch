@@ -1609,8 +1609,10 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
 
     // todo opt include holes too
     // zips and ivars
-    let zips: Vec<(Zip,usize)> = pattern.arg_choices.iter().map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(),labelled_zid.ivar)).collect();
-
+    let mut zips: Vec<(Zip,usize)> = pattern.arg_choices.iter().map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(),labelled_zid.ivar)).collect();
+    // if holes {
+    //     zips.extend(pattern.holes.iter().map(|zid| (shared.zip_of_zid[zid].clone(),labelled_zid.ivar)))
+    // }
 
     // the idea here is we want the fast-path to be the case where no conflicts happen. If no conflicts happen, there should be
     // zero heap allocations in this whole section! Since empty vecs and hashmaps dont cause allocations yet.
@@ -1620,44 +1622,7 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
     // bottom up traversal since we assume match_locations is sorted
     for (loc_idx,loc) in pattern.match_locations.iter().enumerate() {
         // get all the nodes this could conflict with (by idx within `locs` not by id)
-        let mut conflict_idxs: Vec<(Id,usize)> = vec![];
-        for (zip,ivar) in zips.iter().filter(|(zip,_)| !zip.is_empty()) {
-            let mut id = loc;
-            // for all except the last node in the zipper, push the childs location on as a potential conflict
-            for znode in zip[..zip.len()-1].iter() {
-                // step one deeper
-                id = match (znode, &shared.egraph[*id].nodes[0]) {
-                    (ZNode::Body, Lambda::Lam([b])) => b,
-                    (ZNode::Func, Lambda::App([f,_])) => f,
-                    (ZNode::Arg, Lambda::App([_,x])) => x,
-                    _ => unreachable!()
-                };
-                // if its also a location, push it to the conflicts list (do NOT dedup)
-                if let Ok(idx) = pattern.match_locations.binary_search(id) {
-                    conflict_idxs.push((*id,idx));
-                }
-            }
-            // if this is a refinement, push every descendant of the unshifted argument including it itself as a potential conflict
-            if let Some(_) = pattern.refinements[*ivar] {
-                #[inline(never)]
-                fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut Vec<(Id,usize)>, pattern: &Pattern) {
-                    if let Ok(idx) = pattern.match_locations.binary_search(&id) {
-                        conflict_idxs.push((id,idx));
-                    }
-                    match &shared.egraph[id].nodes[0] {
-                        Lambda::Lam([b]) => {helper(*b, shared, conflict_idxs, pattern);},
-                        Lambda::App([f,x]) => {
-                            helper(*f, shared, conflict_idxs, pattern);
-                            helper(*x, shared, conflict_idxs, pattern);
-                        }
-                        Lambda::Prim(_) | Lambda::Var(_) | Lambda::IVar(_) => {},
-                        _ => unreachable!()
-                    }
-                }
-                let unshifted_arg: Id = shared.arg_of_zid_node[pattern.first_zid_of_ivar[*ivar]][loc].unshifted_id;
-                helper(unshifted_arg, shared, &mut conflict_idxs, pattern);
-            }
-        }
+        let mut conflict_idxs: Vec<(Id,usize)> = get_conflicts(&zips, loc, shared, pattern);
 
         // now we basically record how much we would affect global utility by if we accept vs reject vs choose the best of those options.
         // and recording this will let us change our mind later if we decide to force-reject something
@@ -1744,6 +1709,49 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
     }
 
     UtilityCalculation { util: (compressive_utility + global_correction), corrected_utils}
+}
+
+#[inline(never)]
+fn get_conflicts(zips: &Vec<(Vec<ZNode>, usize)>, loc: &Id, shared: &SharedData, pattern: &Pattern) -> Vec<(Id, usize)> {
+    let mut conflict_idxs = vec![];
+    for (zip,ivar) in zips.iter().filter(|(zip,_)| !zip.is_empty()) {
+        let mut id = loc;
+        // for all except the last node in the zipper, push the childs location on as a potential conflict
+        for znode in zip[..zip.len()-1].iter() {
+            // step one deeper
+            id = match (znode, &shared.egraph[*id].nodes[0]) {
+                (ZNode::Body, Lambda::Lam([b])) => b,
+                (ZNode::Func, Lambda::App([f,_])) => f,
+                (ZNode::Arg, Lambda::App([_,x])) => x,
+                _ => unreachable!()
+            };
+            // if its also a location, push it to the conflicts list (do NOT dedup)
+            if let Ok(idx) = pattern.match_locations.binary_search(id) {
+                conflict_idxs.push((*id,idx));
+            }
+        }
+        // if this is a refinement, push every descendant of the unshifted argument including it itself as a potential conflict
+        if let Some(_) = pattern.refinements[*ivar] {
+            #[inline(never)]
+            fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut Vec<(Id,usize)>, pattern: &Pattern) {
+                if let Ok(idx) = pattern.match_locations.binary_search(&id) {
+                    conflict_idxs.push((id,idx));
+                }
+                match &shared.egraph[id].nodes[0] {
+                    Lambda::Lam([b]) => {helper(*b, shared, conflict_idxs, pattern);},
+                    Lambda::App([f,x]) => {
+                        helper(*f, shared, conflict_idxs, pattern);
+                        helper(*x, shared, conflict_idxs, pattern);
+                    }
+                    Lambda::Prim(_) | Lambda::Var(_) | Lambda::IVar(_) => {},
+                    _ => unreachable!()
+                }
+            }
+            let unshifted_arg: Id = shared.arg_of_zid_node[pattern.first_zid_of_ivar[*ivar]][loc].unshifted_id;
+            helper(unshifted_arg, shared, &mut conflict_idxs, pattern);
+        }
+    }
+    conflict_idxs
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
