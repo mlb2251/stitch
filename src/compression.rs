@@ -827,10 +827,10 @@ fn stitch_search(
         for original_pattern in patterns {
 
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
-            if !shared.cfg.no_stats { if shared.cfg.print_stats > 0 &&  shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 { println!("{:?}",shared.stats.lock().deref_mut()); }};
+            if !shared.cfg.no_stats { if shared.cfg.print_stats > 0 &&  shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 { println!("{:?} \n\t@ [bound={}; uses={}] chose: {}",shared.stats.lock().deref_mut(),   original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[usize::from(*loc)]).sum::<i32>(), original_pattern.to_expr(&shared)); }};
 
             if shared.cfg.verbose_worklist {
-                println!("[prio={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.len(), original_pattern.to_expr(&shared));
+                println!("[bound={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[usize::from(*loc)]).sum::<i32>(), original_pattern.to_expr(&shared));
             }
 
             // choose which hole we're going to expand
@@ -1793,7 +1793,7 @@ fn get_conflicts(zips: &Vec<(Vec<ZNode>, Option<usize>)>, loc: &Id, shared: &Sha
         }
         // if this is a refinement, push every descendant of the unshifted argument including it itself as a potential conflict
         if let Some(ivar) = ivar {
-            if let Some(_) = pattern.refinements[*ivar] {
+            if pattern.refinements[*ivar].is_some() {
                 #[inline(never)]
                 fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut AHashSet<(Id,usize)>, pattern: &Pattern) {
                     if let Ok(idx) = pattern.match_locations.binary_search(&id) {
