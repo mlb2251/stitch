@@ -560,18 +560,18 @@ pub struct CriticalMultithreadData {
 #[derive(Debug)]
 pub struct SharedData {
     pub crit: Mutex<CriticalMultithreadData>,
-    pub arg_of_zid_node: Vec<AHashMap<Id,Arg>>,
+    // pub arg_of_zid_node: Vec<AHashMap<Id,Arg>>,
     pub treenodes: Vec<Id>,
     pub node_of_id: Vec<Lambda>,
     pub programs_node: Id,
     pub roots: Vec<Id>,
-    pub zids_of_node: AHashMap<Id,Vec<ZId>>,
-    pub zip_of_zid: Vec<Zip>,
-    pub zid_of_zip: AHashMap<Zip, ZId>,
-    pub extensions_of_zid: Vec<ZIdExtension>,
+    // pub zids_of_node: AHashMap<Id,Vec<ZId>>,
+    // pub zip_of_zid: Vec<Zip>,
+    // pub zid_of_zip: AHashMap<Zip, ZId>,
+    // pub extensions_of_zid: Vec<ZIdExtension>,
     // pub refinables_of_shifted_arg: AHashMap<Id,Vec<Id>>,
     // pub uses_of_zid_refinable_loc: AHashMap<(ZId,Id,Id),i32>,
-    pub uses_of_shifted_arg_refinement: AHashMap<Id,AHashMap<Id,usize>>,
+    // pub uses_of_shifted_arg_refinement: AHashMap<Id,AHashMap<Id,usize>>,
     pub egraph: EGraph,
     pub num_paths_to_node: Vec<i32>,
     pub tasks_of_node: Vec<AHashSet<usize>>,
@@ -2106,18 +2106,18 @@ pub fn compression_step(
     tstart = std::time::Instant::now();
 
 
-    let (zid_of_zip,
-        zip_of_zid,
-        arg_of_zid_node,
-        zids_of_node,
-        extensions_of_zid,
-        uses_of_shifted_arg_refinement) = get_zippers(&treenodes, &cost_of_node_once, cfg.no_cache, &mut egraph, cfg);
+    // let (zid_of_zip,
+    //     zip_of_zid,
+    //     arg_of_zid_node,
+    //     zids_of_node,
+    //     extensions_of_zid,
+    //     uses_of_shifted_arg_refinement) = get_zippers(&treenodes, &cost_of_node_once, cfg.no_cache, &mut egraph, cfg);
     
-    println!("get_zippers(): {:?}ms", tstart.elapsed().as_millis());
-    tstart = std::time::Instant::now();
+    // println!("get_zippers(): {:?}ms", tstart.elapsed().as_millis());
+    // tstart = std::time::Instant::now();
     
-    println!("{} zips", zip_of_zid.len());
-    println!("arg_of_zid_node size: {}", arg_of_zid_node.len());
+    // println!("{} zips", zip_of_zid.len());
+    // println!("arg_of_zid_node size: {}", arg_of_zid_node.len());
 
     // set up tracking if any
     let tracking: Option<Tracking> = cfg.track.as_ref().map(|s|{
@@ -2200,16 +2200,16 @@ pub fn compression_step(
     let crit = CriticalMultithreadData::new(donelist, &treenodes, &cost_of_node_all, &num_paths_to_node, &node_of_id, &cfg);
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
-        arg_of_zid_node,
+        // arg_of_zid_node,
         treenodes: treenodes.clone(),
         node_of_id: node_of_id,
         programs_node,
         roots,
-        zids_of_node,
-        zip_of_zid,
-        zid_of_zip,
-        extensions_of_zid,
-        uses_of_shifted_arg_refinement,
+        // zids_of_node,
+        // zip_of_zid,
+        // zid_of_zip,
+        // extensions_of_zid,
+        // uses_of_shifted_arg_refinement,
         egraph,
         num_paths_to_node,
         tasks_of_node,
