@@ -1643,7 +1643,7 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
     // bottom up traversal since we assume match_locations is sorted
     for (loc_idx,loc) in pattern.match_locations.iter().enumerate() {
         // get all the nodes this could conflict with (by idx within `locs` not by id)
-        let conflict_idxs: Vec<(Id,usize)> = get_conflicts(&zips, loc, shared, pattern);
+        let conflict_idxs: AHashSet<(Id,usize)> = get_conflicts(&zips, loc, shared, pattern);
 
         // now we basically record how much we would affect global utility by if we accept vs reject vs choose the best of those options.
         // and recording this will let us change our mind later if we decide to force-reject something
@@ -1733,8 +1733,8 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
 }
 
 #[inline(never)]
-fn get_conflicts(zips: &Vec<(Vec<ZNode>, Option<usize>)>, loc: &Id, shared: &SharedData, pattern: &Pattern) -> Vec<(Id, usize)> {
-    let mut conflict_idxs = Vec::new();
+fn get_conflicts(zips: &Vec<(Vec<ZNode>, Option<usize>)>, loc: &Id, shared: &SharedData, pattern: &Pattern) -> AHashSet<(Id, usize)> {
+    let mut conflict_idxs = AHashSet::new();
     for (zip,ivar) in zips.iter().filter(|(zip,_)| !zip.is_empty()) {
         let mut id = loc;
         // for all except the last node in the zipper, push the childs location on as a potential conflict
@@ -1749,16 +1749,16 @@ fn get_conflicts(zips: &Vec<(Vec<ZNode>, Option<usize>)>, loc: &Id, shared: &Sha
             // if its also a location, push it to the conflicts list (do NOT dedup)
             if let Ok(idx) = pattern.match_locations.binary_search(id) {
                 // todo i think we need to check that this isnt already present tho
-                conflict_idxs.push((*id,idx));
+                conflict_idxs.insert((*id,idx));
             }
         }
         // if this is a refinement, push every descendant of the unshifted argument including it itself as a potential conflict
         if let Some(ivar) = ivar {
             if let Some(_) = pattern.refinements[*ivar] {
                 #[inline(never)]
-                fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut Vec<(Id,usize)>, pattern: &Pattern) {
+                fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut AHashSet<(Id,usize)>, pattern: &Pattern) {
                     if let Ok(idx) = pattern.match_locations.binary_search(&id) {
-                        conflict_idxs.push((id,idx));
+                        conflict_idxs.insert((id,idx));
                     }
                     match &shared.node_of_id[usize::from(id)] {
                         Lambda::Lam([b]) => {helper(*b, shared, conflict_idxs, pattern);},
