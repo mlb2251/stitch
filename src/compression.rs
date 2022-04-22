@@ -52,7 +52,7 @@ pub struct CompressionStepConfig {
     pub inv_candidates: usize,
 
     /// pattern or invention to track
-    #[clap(long, arg_enum, default_value = "min-cost")]
+    #[clap(long, arg_enum, default_value = "depth-first")]
     pub hole_choice: HoleChoice,
 
     /// disables the safety check for the utility being correct; you only want
@@ -627,8 +627,8 @@ pub struct Stats {
 #[derive(Debug, Clone, clap::ArgEnum, Serialize)]
 pub enum HoleChoice {
     Random,
-    First,
-    Last,
+    BreadthFirst,
+    DepthFirst,
     MaxLargestSubset,
     HighEntropy,
     LowEntropy,
@@ -646,8 +646,8 @@ impl HoleChoice {
             return 0;
         }
         match self {
-            &HoleChoice::First => 0,
-            &HoleChoice::Last => pattern.holes.len() - 1,
+            &HoleChoice::BreadthFirst => 0,
+            &HoleChoice::DepthFirst => pattern.holes.len() - 1,
             &HoleChoice::Random => {
                 let mut rng = rand::thread_rng();
                 rng.gen_range(0..pattern.holes.len())
