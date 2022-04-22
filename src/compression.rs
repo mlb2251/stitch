@@ -14,6 +14,7 @@ use parking_lot::Mutex;
 use std::ops::DerefMut;
 use std::collections::BinaryHeap;
 use rand::Rng;
+use std::iter::once;
 
 /// Args for compression step
 #[derive(Parser, Debug, Serialize, Clone)]
@@ -177,13 +178,25 @@ impl CompressionStepConfig {
 pub struct Pattern {
     pub holes: Vec<ZId>, // in order of when theyre added NOT left to right
     arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an argchoice, again these are in order of when they were added
-    pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index of the first use of #i in arg_choices
+    pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the zid of the first use of #i in arg_choices
     pub refinements: Vec<Option<Vec<Id>>>, // refinements[i] gives the list of refinements for #i
     pub match_locations: Vec<Id>, // places where it applies
     pub utility_upper_bound: i32,
     pub body_utility_no_refinement: i32, // the size (in `cost`) of a single use of the pattern body so far
     pub refinement_body_utility: i32, // modifier on body_utility to include the full size account for refinement
     pub tracked: bool, // for debugging
+
+    pub hole_zips: Vec<Zip>,
+    pub hole_unshifted_ids: Vec<Vec<Id>>, // hole_unshifted_ids[hole_idx][match_loc_idx]
+    pub arg_zips: Vec<Zip>,
+    pub arg_shifted_ids: Vec<Vec<Id>>,  // arg_shifted_ids[ivar][match_loc_idx]
+
+}
+
+pub struct MatchLocation {
+    pub unshifted_id: Id,
+    pub hole_unshifted_ids: Vec<Zip>,
+    pub arg_shifted_ids: Vec<Id>,
 }
 
 impl Expr {
@@ -260,13 +273,13 @@ fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &AHashMap<Zip,ZId>) -> Vec<Vec<
 impl Pattern {
     /// create a single hole pattern `??`
     #[inline(never)]
-    fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &Vec<i32>, num_paths_to_node: &Vec<i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
+    fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &Vec<i32>, num_paths_to_node: &Vec<i32>, node_of_id: &Vec<Lambda>, cfg: &CompressionStepConfig) -> Self {
         let body_utility_no_refinement = 0;
         let refinement_body_utility = 0;
         let mut match_locations = treenodes.clone();
         match_locations.sort(); // we assume match_locations is always sorted
         if cfg.no_top_lambda {
-            match_locations.retain(|node| expands_to_of_node(&egraph[*node].nodes[0]) != ExpandsTo::Lam);
+            match_locations.retain(|node| expands_to_of_node(&node_of_id[usize::from(*node)]) != ExpandsTo::Lam);
         }
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility_no_refinement + refinement_body_utility, cost_of_node_all, num_paths_to_node, cfg);
         Pattern {
@@ -274,11 +287,15 @@ impl Pattern {
             arg_choices: vec![],
             first_zid_of_ivar: vec![],
             refinements: vec![],
-            match_locations, // single hole matches everywhere
+            match_locations: match_locations.clone(), // single hole matches everywhere
             utility_upper_bound,
             body_utility_no_refinement, // 0 body utility
             refinement_body_utility, // 0 body utility
             tracked: cfg.track.is_some(),
+            hole_zips: vec![vec![]], // empty zipper
+            hole_unshifted_ids: vec![match_locations.clone()],
+            arg_zips: vec![],
+            arg_shifted_ids: vec![],
         }
     }
     /// convert pattern to an Expr with `??` in place of holes and `?#` in place of argchoices
@@ -532,10 +549,10 @@ pub struct Tracking {
 impl CriticalMultithreadData {
     /// Create a new mutable multithread data struct with
     /// a worklist that just has a single hole on it
-    fn new(donelist: Vec<FinishedPattern>, treenodes: &Vec<Id>, cost_of_node_all: &Vec<i32>, num_paths_to_node: &Vec<i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
+    fn new(donelist: Vec<FinishedPattern>, treenodes: &Vec<Id>, cost_of_node_all: &Vec<i32>, num_paths_to_node: &Vec<i32>, node_of_id: &Vec<Lambda>, cfg: &CompressionStepConfig) -> Self {
         // push an empty hole onto a new worklist
         let mut worklist = BinaryHeap::new();
-        worklist.push(HeapItem::new(Pattern::single_hole(treenodes, cost_of_node_all, num_paths_to_node, egraph, cfg)));
+        worklist.push(HeapItem::new(Pattern::single_hole(treenodes, cost_of_node_all, num_paths_to_node, node_of_id, cfg)));
         
         let mut res = CriticalMultithreadData {
             donelist,
@@ -838,7 +855,12 @@ fn stitch_search(
 
             // pop that hole form the list of holes
             let mut holes_after_pop: Vec<ZId> = original_pattern.holes.clone();
+            let mut hole_zips_after_pop: Vec<Zip> = original_pattern.hole_zips.clone();
+            let mut hole_unshifted_ids_after_pop: Vec<Id> = original_pattern.hole_unshifted_ids.clone();
+            
             let hole_zid: ZId = holes_after_pop.remove(hole_idx);
+            let hole_zip: Zip = hole_zips_after_pop.remove(hole_idx);
+            let hole_unshifted_id: Id = hole_unshifted_ids_after_pop.remove(hole_idx);
 
             // get the hashmap of args for this hole
             let ref arg_of_loc = shared.arg_of_zid_node[hole_zid];
@@ -941,15 +963,28 @@ fn stitch_search(
 
                 // add any new holes to the list of holes
                 let mut holes = holes_after_pop.clone();
+                let mut hole_zips = hole_zips_after_pop.clone();
+                let mut hole_unshifted_ids = hole_unshifted_ids_after_pop.clone();
                 match expands_to {
                     ExpandsTo::Lam => {
                         // add new holes
                         holes.push(shared.extensions_of_zid[hole_zid].body.unwrap());
+                        hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Body)).collect());
+                        if let Lambda::Lam([b]) = &shared.node_of_id[usize::from(hole_unshifted_id)] {
+                            hole_unshifted_ids.push(*b);
+                        } else { unreachable!() }
                     }
                     ExpandsTo::App => {
                         // add new holes
-                            holes.push(shared.extensions_of_zid[hole_zid].func.unwrap());
-                            holes.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
+                        holes.push(shared.extensions_of_zid[hole_zid].func.unwrap());
+                        holes.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
+                        hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Func)).collect());
+                        hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Arg)).collect());
+                        if let Lambda::App([f,x]) = &shared.node_of_id[usize::from(hole_unshifted_id)] {
+                            hole_unshifted_ids.push(*f);
+                            hole_unshifted_ids.push(*x);
+                        } else { unreachable!() }
+
                     }
                     _ => {}
                 }
@@ -957,8 +992,12 @@ fn stitch_search(
                 let mut arg_choices = original_pattern.arg_choices.clone();
                 let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
                 let mut refinements = original_pattern.refinements.clone();
+                let mut arg_zips = original_pattern.arg_zips.clone();
+                let mut arg_shifted_ids = original_pattern.arg_shifted_ids.clone();
                 if let ExpandsTo::IVar(i) = expands_to {
                     arg_choices.push(LabelledZId::new(hole_zid, i as usize));
+                    arg_zips.push(hole_zip.clone());
+                    arg_shifted_ids.push(hole_unshifted_id); // todo this is WRONG! It's only temporary
                     if i as usize == original_pattern.first_zid_of_ivar.len() {
                         first_zid_of_ivar.push(hole_zid);
                         refinements.push(None)
@@ -996,7 +1035,11 @@ fn stitch_search(
                 utility_upper_bound: util_upper_bound,
                 body_utility_no_refinement,
                 refinement_body_utility,
-                tracked
+                tracked,
+                hole_zips,
+                hole_unshifted_ids,
+                arg_zips,
+                arg_shifted_ids,
             };
 
             // new_pattern.utility_upper_bound = utility_upper_bound_with_conflicts(&new_pattern, body_utility_no_refinement + refinement_body_utility, &shared);
@@ -1029,6 +1072,7 @@ fn stitch_search(
                 if tracked {
                     println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);
                 }
+
                 if shared.cfg.inv_candidates == 1 && finished_pattern.utility > weak_utility_pruning_cutoff {
                     // if we're only looking for one invention, we can directly update our cutoff here
                     weak_utility_pruning_cutoff = finished_pattern.utility;
@@ -2023,6 +2067,10 @@ pub fn compression_step(
                 body_utility_no_refinement,
                 refinement_body_utility,
                 tracked: false,
+                hole_zips: vec![],
+                hole_unshifted_ids: vec![],
+                arg_zips: vec![],
+                arg_shifted_ids: vec![],
             };
             let finished_pattern = FinishedPattern {
                 pattern,
@@ -2041,7 +2089,7 @@ pub fn compression_step(
 
     println!("got {} arity zero inventions", donelist.len());
 
-    let crit = CriticalMultithreadData::new(donelist, &treenodes, &cost_of_node_all, &num_paths_to_node, &egraph, &cfg);
+    let crit = CriticalMultithreadData::new(donelist, &treenodes, &cost_of_node_all, &num_paths_to_node, &node_of_id, &cfg);
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
         arg_of_zid_node,
