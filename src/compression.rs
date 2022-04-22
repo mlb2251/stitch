@@ -942,9 +942,6 @@ fn stitch_search(
                 .map(|(expands_to, locs)| (expands_to.clone(), locs.collect::<Vec<MatchLocation>>()))
                 .chain(ivars_expansions.into_iter())
             {
-                for loc in locs.iter_mut() {
-                    loc.hole_unshifted_ids.remove(hole_idx);
-                }
                 // for debugging
                 let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, &hole_zip, &shared);
                 if tracked { found_tracked = true; }
@@ -1011,31 +1008,39 @@ fn stitch_search(
                 //         "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
 
                 // add any new holes to the list of holes
-                // let mut holes = holes_after_pop.clone();
                 let mut hole_zips = hole_zips_after_pop.clone();
-                // let mut hole_unshifted_ids = hole_unshifted_ids_after_pop.clone();
                 match expands_to {
                     ExpandsTo::Lam => {
-                        // add new holes
-                        // holes.push(shared.extensions_of_zid[hole_zid].body.unwrap());
                         hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Body)).collect());
-                        // if let Lambda::Lam([b]) = &shared.node_of_id[usize::from(hole_unshifted_id)] {
-                        //     hole_unshifted_ids.push(*b);
-                        // } else { unreachable!() }
                     }
                     ExpandsTo::App => {
-                        // add new holes
-                        // holes.push(shared.extensions_of_zid[hole_zid].func.unwrap());
-                        // holes.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
                         hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Func)).collect());
                         hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Arg)).collect());
-                        // if let Lambda::App([f,x]) = &shared.node_of_id[usize::from(hole_unshifted_id)] {
-                        //     hole_unshifted_ids.push(*f);
-                        //     hole_unshifted_ids.push(*x);
-                        // } else { unreachable!() }
-
                     }
                     _ => {}
+                }
+
+                // remove old hole_unshifted_id and add new ones! This is a little unclea, we special-case the ivar check
+                if !matches!(expands_to, ExpandsTo::IVar(_)) {
+                    for loc in locs.iter_mut() {
+                        match shared.node_of_id[usize::from(loc.hole_unshifted_ids.remove(hole_idx))] {
+                            Lambda::Lam([b]) => {
+                                loc.hole_unshifted_ids.push(b);
+                                assert_eq!(expands_to, ExpandsTo::Lam);
+                            }
+                            Lambda::App([f,x]) => {
+                                loc.hole_unshifted_ids.push(f);
+                                loc.hole_unshifted_ids.push(x);
+                                assert_eq!(expands_to, ExpandsTo::App);
+                            }
+                            _ => {assert_ne!(expands_to, ExpandsTo::Lam); assert_ne!(expands_to, ExpandsTo::App)}
+                        }
+                    }
+                } else {
+                    // boring IVar case just remove everything
+                    for loc in locs.iter_mut() {
+                        loc.hole_unshifted_ids.remove(hole_idx);
+                    }
                 }
 
                 // let mut arg_choices = original_pattern.arg_choices.clone();
@@ -1903,7 +1908,7 @@ fn get_conflicts(zips: &Vec<(&Zip,Option<usize>)>, loc: Id, shared: &SharedData,
                 (ZNode::Body, Lambda::Lam([b])) => *b,
                 (ZNode::Func, Lambda::App([f,_])) => *f,
                 (ZNode::Arg, Lambda::App([_,x])) => *x,
-                _ => unreachable!()
+                _ => unreachable!("{:?} {:?}", znode, &shared.node_of_id[usize::from(id)])
             };
             // if its also a location, push it to the conflicts list (do NOT dedup)
             if let Ok(idx) = pattern.match_locations.binary_search_by_key(&id, |m| m.id) {
