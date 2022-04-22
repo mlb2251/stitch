@@ -1,6 +1,5 @@
 use crate::*;
-use std::collections::{HashMap, HashSet};
-use ahash::{AHasher, RandomState, AHashMap};
+use ahash::{AHashMap, AHashSet};
 
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
@@ -490,7 +489,7 @@ pub struct CriticalMultithreadData {
     donelist: Vec<FinishedPattern>,
     worklist: BinaryHeap<HeapItem>,
     utility_pruning_cutoff: i32,
-    active_threads: HashSet<std::thread::ThreadId>, // list of threads currently holding worklist items
+    active_threads: AHashSet<std::thread::ThreadId>, // list of threads currently holding worklist items
 }
 
 /// All the data shared among threads, mostly read-only
@@ -512,10 +511,11 @@ pub struct SharedData {
     pub uses_of_shifted_arg_refinement: AHashMap<Id,AHashMap<Id,usize>>,
     pub egraph: EGraph,
     pub num_paths_to_node: AHashMap<Id,i32>,
-    pub tasks_of_node: AHashMap<Id, HashSet<usize>>,
+    pub tasks_of_node: AHashMap<Id, AHashSet<usize>>,
     pub cost_of_node_once: AHashMap<Id,i32>,
     pub cost_of_node_all: AHashMap<Id,i32>,
-    pub free_vars_of_node: AHashMap<Id,HashSet<i32>>,
+    pub free_vars_of_node: AHashMap<Id,AHashSet<i32>>,
+    pub init_cost: i32,
     pub stats: Mutex<Stats>,
     pub cfg: CompressionStepConfig,
     pub tracking: Option<Tracking>,
@@ -541,7 +541,7 @@ impl CriticalMultithreadData {
             donelist,
             worklist,
             utility_pruning_cutoff: 0,
-            active_threads: HashSet::new(),
+            active_threads: AHashSet::new(),
         };
         res.update(cfg);
         res
@@ -1014,7 +1014,7 @@ fn stitch_search(
                     let mut refinements_by_arg: Vec<Vec<Id>> = new_pattern.first_zid_of_ivar.iter().map(|zid| 
                         new_pattern.match_locations.iter().flat_map(|loc|
                             shared.uses_of_shifted_arg_refinement.get(&shared.arg_of_zid_node[*zid][loc].shifted_id).map(|uses_of_refinement| uses_of_refinement.keys())
-                        ).flatten().cloned().collect::<HashSet<_>>().into_iter().collect()).collect();
+                        ).flatten().cloned().collect::<AHashSet<_>>().into_iter().collect()).collect();
 
                     for (i,_) in new_pattern.first_zid_of_ivar.iter().enumerate() { // for each arg
                         if new_pattern.arg_choices.iter().filter(|l |l.ivar == i).count() > 1 {
@@ -1210,7 +1210,7 @@ fn get_zippers(
     let mut zids_of_node: AHashMap<Id,Vec<ZId>> = Default::default();
 
 
-    // let mut refinements_of_shifted_arg: AHashMap<Id,HashSet<Id>> = Default::default();
+    // let mut refinements_of_shifted_arg: AHashMap<Id,AHashSet<Id>> = Default::default();
     // let mut uses_of_zid_refinable_loc: AHashMap<(ZId,Id,Id),i32> = Default::default();
     let mut uses_of_shifted_arg_refinement: AHashMap<Id,AHashMap<Id,usize>> = Default::default();
 
@@ -1366,21 +1366,20 @@ pub struct CompressionStepResult {
 
 impl CompressionStepResult {
     fn new(done: FinishedPattern, programs_node: Id, inv_name: &str, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>) -> Self {
-        let initial_cost = shared.cost_of_node_once[&programs_node];
 
         // cost of the very first initial program before any inventions
-        let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { initial_cost };
+        let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { shared.init_cost };
 
         let inv = done.to_invention(inv_name, shared);
         let rewritten = Expr::programs(rewrite_fast(&done, &shared, &inv.name));
 
 
-        let expected_cost = initial_cost - done.compressive_utility;
+        let expected_cost = shared.init_cost - done.compressive_utility;
         let final_cost = rewritten.cost();
         if expected_cost != final_cost {
             println!("*** expected cost {} != final cost {}", expected_cost, final_cost);
         }
-        let multiplier = initial_cost as f64 / final_cost as f64;
+        let multiplier = shared.init_cost as f64 / final_cost as f64;
         let multiplier_wrt_orig = very_first_cost as f64 / final_cost as f64;
         let uses = done.usages;
         let use_exprs: Vec<Expr> = done.pattern.match_locations.iter().map(|node| extract(*node, &shared.egraph)).collect();
@@ -1407,7 +1406,7 @@ impl CompressionStepResult {
             res
         }).collect();
 
-        CompressionStepResult { inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost }
+        CompressionStepResult { inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost: shared.init_cost }
     }
     pub fn json(&self) -> serde_json::Value {        
         let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| expr.to_string()).collect();
@@ -1509,7 +1508,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         .iter().filter_map(|(ivar,count)| if *count > 1 { Some((*ivar, (*count-1) as i32)) } else { None }).collect();
 
     // (parent,child) show up in here if they conflict
-    let mut refinement_conflicts: HashSet<(Id,Id)> = Default::default();
+    let mut refinement_conflicts: AHashSet<(Id,Id)> = Default::default();
     for r in pattern.refinements.iter().filter_map(|r|r.as_ref()) {
         for ancestor in r.iter() {
             for descendant in r.iter() {
@@ -1854,6 +1853,7 @@ pub fn compression_step(
     let mut egraph: EGraph = Default::default();
     let programs_node = egraph.add_expr(programs_expr.into());
     egraph.rebuild();
+    let init_cost = egraph[programs_node].data.inventionless_cost;
 
     println!("set up egraph: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
@@ -1876,7 +1876,7 @@ pub fn compression_step(
     println!("num_paths_to_node(): {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
-    let tasks_of_node: AHashMap<Id, HashSet<usize>> = associate_tasks(programs_node, &egraph, tasks);
+    let tasks_of_node: AHashMap<Id, AHashSet<usize>> = associate_tasks(programs_node, &egraph, tasks);
 
     println!("associate_tasks(): {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
@@ -1886,7 +1886,7 @@ pub fn compression_step(
     // cost of a single usage times number of paths to node
     let cost_of_node_all: AHashMap<Id,i32> = treenodes.iter().map(|node| (*node,cost_of_node_once[node] * num_paths_to_node[node])).collect();
 
-    let free_vars_of_node: AHashMap<Id, HashSet<i32>> = treenodes.iter().map(|node| (*node,egraph[*node].data.free_vars.clone())).collect();
+    let free_vars_of_node: AHashMap<Id, AHashSet<i32>> = treenodes.iter().map(|node| (*node,egraph[*node].data.free_vars.clone())).collect();
 
     println!("cost_of_node structs: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
@@ -1996,6 +1996,7 @@ pub fn compression_step(
         cost_of_node_once,
         cost_of_node_all,
         free_vars_of_node,
+        init_cost,
         stats: Mutex::new(stats),
         cfg: cfg.clone(),
         tracking,
@@ -2068,12 +2069,10 @@ pub fn compression_step(
         println!("Timing Comparison Point B (search+rewrite) (millis): {}", tstart_total.elapsed().as_millis());
     }
 
-    let orig_cost = shared.cost_of_node_once[&programs_node];
-
     let mut results: Vec<CompressionStepResult> = vec![];
 
     // construct CompressionStepResults and print some info about them)
-    println!("Cost before: {}", orig_cost);
+    println!("Cost before: {}", shared.init_cost);
     for (i,done) in donelist.iter().enumerate() {
         let res = CompressionStepResult::new(done.clone(), programs_node, new_inv_name, &mut shared, past_invs);
 

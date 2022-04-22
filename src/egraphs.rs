@@ -1,8 +1,7 @@
 use itertools::Itertools;
 
 use crate::*;
-use std::collections::{HashMap, HashSet};
-use ahash::{AHasher, RandomState, AHashMap};
+use ahash::{AHashMap, AHashSet};
 
 
 pub type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
@@ -13,8 +12,8 @@ pub struct LambdaAnalysis;
 /// The analysis data associated with each Lambda node
 #[derive(Debug)]
 pub struct Data {
-    pub free_vars: HashSet<i32>, // $i vars. For example (lam $2) has free_vars = {1}.
-    pub free_ivars: HashSet<i32>, // #i ivars
+    pub free_vars: AHashSet<i32>, // $i vars. For example (lam $2) has free_vars = {1}.
+    pub free_ivars: AHashSet<i32>, // #i ivars
     pub inventionless_cost: i32,
 }
 
@@ -29,8 +28,8 @@ impl Analysis<Lambda> for LambdaAnalysis {
         // false // didnt modify anything
     }
     fn make(egraph: &EGraph, enode: &Lambda) -> Data {
-        let mut free_vars: HashSet<i32> = HashSet::new();
-        let mut free_ivars: HashSet<i32> = HashSet::new();
+        let mut free_vars: AHashSet<i32> = AHashSet::new();
+        let mut free_ivars: AHashSet<i32> = AHashSet::new();
         match enode {
             Lambda::Var(i) => {
                 free_vars.insert(*i);
@@ -169,7 +168,7 @@ fn topological_ordering_rec(root: Id, egraph: &EGraph, vec: &mut Vec<Id>) {
     }
 }
 
-pub fn associate_tasks(programs_root: Id, egraph: &EGraph, tasks: &Vec<String>) -> AHashMap<Id, HashSet<usize>> {
+pub fn associate_tasks(programs_root: Id, egraph: &EGraph, tasks: &Vec<String>) -> AHashMap<Id, AHashSet<usize>> {
 
     // this is the map from egraph node ids to tasks (represented with unique usizes) that we will be building
     let mut tasks_of_node = AHashMap::new();
@@ -195,9 +194,9 @@ pub fn associate_tasks(programs_root: Id, egraph: &EGraph, tasks: &Vec<String>) 
     tasks_of_node
 }
 
-fn associate_task_rec(node: Id, egraph: &EGraph, task_id: usize, tasks_of_node: &mut AHashMap<Id, HashSet<usize>>) {
+fn associate_task_rec(node: Id, egraph: &EGraph, task_id: usize, tasks_of_node: &mut AHashMap<Id, AHashSet<usize>>) {
     if !tasks_of_node.keys().contains(&node) {
-        tasks_of_node.insert(node, HashSet::new());
+        tasks_of_node.insert(node, AHashSet::new());
     }
     let entry = tasks_of_node.get_mut(&node).unwrap();
     entry.insert(task_id);

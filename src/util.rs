@@ -1,8 +1,7 @@
 use crate::*;
 use sexp::{Sexp,Atom};
 use std::fmt::Debug;
-use std::collections::HashMap;
-use ahash::{AHasher, RandomState, AHashMap};
+use ahash::{AHashMap};
 use std::hash::Hash;
 
 
