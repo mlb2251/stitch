@@ -1587,21 +1587,30 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         .map(|(loc,utility)| utility * shared.num_paths_to_node[loc])
         .sum();
 
-    // * ACCOUNTING FOR USE CONFLICTS:
+
+    // assertion to make sure pattern.match_locations is sorted (for binary searching + bottom up iterating)
+    // {
+    //     let mut largest_seen = -1;
+    //     assert!(pattern.match_locations.iter().all(|x| {
+    //         let res = largest_seen < usize::from(*x) as i32;
+    //         largest_seen = usize::from(*x) as i32;
+    //         res
+    //         }));
+    // }
+
+        // * ACCOUNTING FOR USE CONFLICTS:
+
+
+    use_conflicts(pattern, utility_of_loc_once, compressive_utility, shared)
+}
+
+#[inline(never)]
+fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_utility: i32, shared: &SharedData) -> UtilityCalculation {
 
     // todo opt include holes too
     // zips and ivars
     let zips: Vec<(Zip,usize)> = pattern.arg_choices.iter().map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(),labelled_zid.ivar)).collect();
-    
-    {
-        // assertion to make sure pattern.match_locations is sorted (for binary searching + bottom up iterating)
-        let mut largest_seen = -1;
-        assert!(pattern.match_locations.iter().all(|x| {
-            let res = largest_seen < usize::from(*x) as i32;
-            largest_seen = usize::from(*x) as i32;
-            res
-            }));
-    }
+
 
     // the idea here is we want the fast-path to be the case where no conflicts happen. If no conflicts happen, there should be
     // zero heap allocations in this whole section! Since empty vecs and hashmaps dont cause allocations yet.
@@ -1630,6 +1639,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
             }
             // if this is a refinement, push every descendant of the unshifted argument including it itself as a potential conflict
             if let Some(_) = pattern.refinements[*ivar] {
+                #[inline(never)]
                 fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut Vec<(Id,usize)>, pattern: &Pattern) {
                     if let Ok(idx) = pattern.match_locations.binary_search(&id) {
                         conflict_idxs.push((id,idx));
