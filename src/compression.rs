@@ -1,6 +1,6 @@
 use crate::*;
 use ahash::{AHashMap, AHashSet};
-
+// use std::collections::BTreeSet;
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
@@ -471,7 +471,7 @@ impl Ord for HeapItem {
     }
 }
 impl HeapItem {
-    fn new(pattern: Pattern, num_paths_to_node: &Vec<i32>) -> Self {
+    fn new(pattern: Pattern) -> Self {
         HeapItem {
             // key: pattern.body_utility * pattern.match_locations.iter().map(|loc|num_paths_to_node[loc]).sum::<i32>(),
             key: pattern.utility_upper_bound,
@@ -535,7 +535,7 @@ impl CriticalMultithreadData {
     fn new(donelist: Vec<FinishedPattern>, treenodes: &Vec<Id>, cost_of_node_all: &Vec<i32>, num_paths_to_node: &Vec<i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
         // push an empty hole onto a new worklist
         let mut worklist = BinaryHeap::new();
-        worklist.push(HeapItem::new(Pattern::single_hole(treenodes, cost_of_node_all, num_paths_to_node, egraph, cfg),num_paths_to_node));
+        worklist.push(HeapItem::new(Pattern::single_hole(treenodes, cost_of_node_all, num_paths_to_node, egraph, cfg)));
         
         let mut res = CriticalMultithreadData {
             donelist,
@@ -615,6 +615,7 @@ pub struct Stats {
     finished: usize,
     calc_final_utility: usize,
     upper_bound_fired: usize,
+    // conflict_upper_bound_fired: usize,
     free_vars_fired: usize,
     single_use_fired: usize,
     single_task_fired: usize,
@@ -911,7 +912,6 @@ fn stitch_search(
 
                 // update the upper bound
                 let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility_no_refinement + refinement_body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
-
                 assert!(util_upper_bound <= original_pattern.utility_upper_bound);
 
                 // branch and bound: if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
@@ -985,6 +985,15 @@ fn stitch_search(
                 refinement_body_utility,
                 tracked
             };
+
+            // new_pattern.utility_upper_bound = utility_upper_bound_with_conflicts(&new_pattern, body_utility_no_refinement + refinement_body_utility, &shared);
+            // // branch and bound again
+            // if !shared.cfg.no_opt_upper_bound && new_pattern.utility_upper_bound <= weak_utility_pruning_cutoff {
+            //     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().conflict_upper_bound_fired += 1; };
+            //     if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+            //     continue 'expansion; // too low utility
+            // }
+
 
 
             if new_pattern.holes.is_empty() {
@@ -1089,8 +1098,8 @@ fn stitch_search(
 
                 } else {
                     // it's a partial pattern so just add it to the worklist
-                    if tracked { println!("{} pushed {} to worklist (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(hole_zid, &shared), new_pattern.utility_upper_bound); }
-                    worklist_buf.push(HeapItem::new(new_pattern, &shared.num_paths_to_node))
+                    if tracked { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(hole_zid, &shared), new_pattern.utility_upper_bound); }
+                    worklist_buf.push(HeapItem::new(new_pattern))
                 }
             }
 
@@ -1357,7 +1366,7 @@ pub struct CompressionStepResult {
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedPattern, programs_node: Id, inv_name: &str, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>) -> Self {
+    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>) -> Self {
 
         // cost of the very first initial program before any inventions
         let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { shared.init_cost };
@@ -1466,13 +1475,29 @@ fn noncompressive_utility(
 fn compressive_utility_upper_bound(
     match_locations: &Vec<Id>,
     cost_of_node_all: &Vec<i32>,
-    num_paths_to_node: &Vec<i32>
+    num_paths_to_node: &Vec<i32>,
 ) -> i32 {
     match_locations.iter().map(|node|
         cost_of_node_all[usize::from(*node)] 
         - num_paths_to_node[usize::from(*node)] * COST_TERMINAL).sum::<i32>()
-    // COST_TERMINAL is from cost of the invention primitive
 }
+
+/// calculates the total upper bound on compressive + noncompressive utility
+// #[inline(never)]
+// fn utility_upper_bound_with_conflicts(
+//     pattern: &Pattern,
+//     body_utility_with_refinement_lower_bound: i32,
+//     shared: &SharedData,
+// ) -> i32 {
+//     let utility_of_loc_once: Vec<i32> = pattern.match_locations.iter().map(|node|
+//         shared.cost_of_node_once[usize::from(*node)] - COST_TERMINAL).collect();
+//     let compressive_utility: i32 = pattern.match_locations.iter()
+//         .zip(utility_of_loc_once.iter())
+//         .map(|(loc,utility)| utility * shared.num_paths_to_node[usize::from(*loc)])
+//         .sum();
+//     use_conflicts(pattern, utility_of_loc_once, compressive_utility, shared).util + noncompressive_utility_upper_bound(body_utility_with_refinement_lower_bound, &shared.cfg)
+// }
+
 
 /// This takes a partial invention and gives an upper bound on the maximum
 /// other_utility() that any completed offspring of this partial invention could have.
@@ -1602,7 +1627,10 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
 
     // todo opt include holes too
     // zips and ivars
-    let mut zips: Vec<(Zip,usize)> = pattern.arg_choices.iter().map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(),labelled_zid.ivar)).collect();
+    let zips: Vec<(Zip,Option<usize>)> = pattern.arg_choices.iter()
+        .map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(),Some(labelled_zid.ivar)))
+        .chain(pattern.holes.iter().map(|zid| (shared.zip_of_zid[*zid].clone(), None)))
+        .collect();
     // if holes {
     //     zips.extend(pattern.holes.iter().map(|zid| (shared.zip_of_zid[zid].clone(),labelled_zid.ivar)))
     // }
@@ -1615,7 +1643,7 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
     // bottom up traversal since we assume match_locations is sorted
     for (loc_idx,loc) in pattern.match_locations.iter().enumerate() {
         // get all the nodes this could conflict with (by idx within `locs` not by id)
-        let mut conflict_idxs: Vec<(Id,usize)> = get_conflicts(&zips, loc, shared, pattern);
+        let conflict_idxs: Vec<(Id,usize)> = get_conflicts(&zips, loc, shared, pattern);
 
         // now we basically record how much we would affect global utility by if we accept vs reject vs choose the best of those options.
         // and recording this will let us change our mind later if we decide to force-reject something
@@ -1705,8 +1733,8 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
 }
 
 #[inline(never)]
-fn get_conflicts(zips: &Vec<(Vec<ZNode>, usize)>, loc: &Id, shared: &SharedData, pattern: &Pattern) -> Vec<(Id, usize)> {
-    let mut conflict_idxs = vec![];
+fn get_conflicts(zips: &Vec<(Vec<ZNode>, Option<usize>)>, loc: &Id, shared: &SharedData, pattern: &Pattern) -> Vec<(Id, usize)> {
+    let mut conflict_idxs = Vec::new();
     for (zip,ivar) in zips.iter().filter(|(zip,_)| !zip.is_empty()) {
         let mut id = loc;
         // for all except the last node in the zipper, push the childs location on as a potential conflict
@@ -1720,30 +1748,34 @@ fn get_conflicts(zips: &Vec<(Vec<ZNode>, usize)>, loc: &Id, shared: &SharedData,
             };
             // if its also a location, push it to the conflicts list (do NOT dedup)
             if let Ok(idx) = pattern.match_locations.binary_search(id) {
+                // todo i think we need to check that this isnt already present tho
                 conflict_idxs.push((*id,idx));
             }
         }
         // if this is a refinement, push every descendant of the unshifted argument including it itself as a potential conflict
-        if let Some(_) = pattern.refinements[*ivar] {
-            #[inline(never)]
-            fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut Vec<(Id,usize)>, pattern: &Pattern) {
-                if let Ok(idx) = pattern.match_locations.binary_search(&id) {
-                    conflict_idxs.push((id,idx));
-                }
-                match &shared.node_of_id[usize::from(id)] {
-                    Lambda::Lam([b]) => {helper(*b, shared, conflict_idxs, pattern);},
-                    Lambda::App([f,x]) => {
-                        helper(*f, shared, conflict_idxs, pattern);
-                        helper(*x, shared, conflict_idxs, pattern);
+        if let Some(ivar) = ivar {
+            if let Some(_) = pattern.refinements[*ivar] {
+                #[inline(never)]
+                fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut Vec<(Id,usize)>, pattern: &Pattern) {
+                    if let Ok(idx) = pattern.match_locations.binary_search(&id) {
+                        conflict_idxs.push((id,idx));
                     }
-                    Lambda::Prim(_) | Lambda::Var(_) | Lambda::IVar(_) => {},
-                    _ => unreachable!()
+                    match &shared.node_of_id[usize::from(id)] {
+                        Lambda::Lam([b]) => {helper(*b, shared, conflict_idxs, pattern);},
+                        Lambda::App([f,x]) => {
+                            helper(*f, shared, conflict_idxs, pattern);
+                            helper(*x, shared, conflict_idxs, pattern);
+                        }
+                        Lambda::Prim(_) | Lambda::Var(_) | Lambda::IVar(_) => {},
+                        _ => unreachable!()
+                    }
                 }
+                let unshifted_arg: Id = shared.arg_of_zid_node[pattern.first_zid_of_ivar[*ivar]][loc].unshifted_id;
+                helper(unshifted_arg, shared, &mut conflict_idxs, pattern);
             }
-            let unshifted_arg: Id = shared.arg_of_zid_node[pattern.first_zid_of_ivar[*ivar]][loc].unshifted_id;
-            helper(unshifted_arg, shared, &mut conflict_idxs, pattern);
         }
     }
+    // conflict_idxs.range(..).into_iter().collect()
     conflict_idxs
 }
 
@@ -2067,7 +2099,7 @@ pub fn compression_step(
     // construct CompressionStepResults and print some info about them)
     println!("Cost before: {}", shared.init_cost);
     for (i,done) in donelist.iter().enumerate() {
-        let res = CompressionStepResult::new(done.clone(), programs_node, new_inv_name, &mut shared, past_invs);
+        let res = CompressionStepResult::new(done.clone(), new_inv_name, &mut shared, past_invs);
 
         println!("{}: {}", i, res);
         if cfg.show_rewritten {
