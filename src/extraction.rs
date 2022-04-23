@@ -80,7 +80,7 @@ pub fn rewrite_fast(
     ) -> Expr
     {
         // we search using the the *unshifted* one since its an original program tree node
-        if let Ok(m_idx) = pattern.pattern.match_locations.binary_search_by_key(&unshifted_id, |m| m.id) // if the pattern matches here
+        if let Ok(m_idx) = pattern.pattern.match_locations.as_ref().unwrap().binary_search_by_key(&unshifted_id, |m| m.id) // if the pattern matches here
         //    && !pattern.pattern.first_zid_of_ivar.iter().any(|zid| // and there are no negative vars anywhere in the arguments
         //         shared.egraph[shared.arg_of_zid_node[*zid][&unshifted_id].id].data.free_vars.iter().any(|var| *var < 0))
         { // ugly double-if since if-let + if chaining isnt stable yet
@@ -88,19 +88,27 @@ pub fn rewrite_fast(
             || pattern.util_calc.corrected_utils[&unshifted_id].accept) // or we have a conflict but we choose to accept it (which is contextless in this top down approach so its the right move)
                 && refinements.is_none() // AND we can't currently be in a refinement where rewriting is forbidden
             {
-                let loc = &pattern.pattern.match_locations[m_idx];
+                let loc = &pattern.pattern.match_locations.as_ref().unwrap()[m_idx];
                 // println!("inv applies at unshifted={} with shift={}", extract(unshifted_id,&shared.egraph), shift);
                 let mut expr = Expr::prim(inv_name.into());
                 // wrap the prim in all the Apps to args
                 for ivar in (0..pattern.pattern.arity) {
                     // let shifted_arg = &loc.arg_shifted_ids[ivar];
-                    let arg_info = &loc.arg_info[ivar];
+                    // let arg_info = &loc.arg_info[ivar];
+
+                    // we want the shift for the first instance of this ivar, bc we'll also
+                    let zip = &pattern.pattern.arg_zips.iter().find(|z| z.ivar == ivar).unwrap().zip;
+                    let shift = zip.iter().filter(|z| **z == ZNode::Body).count() as i32;
+                    let unshifted_arg = egraph_zip(loc.id, zip, &shared.egraph);
+                    // assert_eq!(shift, arg_info.shift);
+                    // assert_eq!(unshifted_arg, arg_info.unshifted_id);
+
 
                     // assert!(shared.egraph[arg.shifted_id].data.free_vars.iter().all(|v| *v >= 0));
                     // assert!(arg.id == egraphs::shift(arg.unshifted_id, arg.shift, &shared.egraph, None).unwrap());
 
-                    if arg_info.shift != 0 {
-                        shift_rules.push(ShiftRule{depth_cutoff: total_depth, shift: arg_info.shift});
+                    if shift != 0 {
+                        shift_rules.push(ShiftRule{depth_cutoff: total_depth, shift});
                     }
                     let rewritten_arg = if let Some(refinements) = pattern.pattern.refinements[ivar].as_ref() {
                         // enter refinement mode! We actually recurse on *shifted_id* intentionally here so we can find
@@ -114,9 +122,9 @@ pub fn rewrite_fast(
                         // e
                     } else {
                         // no refinement, just recurse as usual on the unshifted arg
-                        helper(pattern, shared, arg_info.unshifted_id, total_depth, shift_rules, inv_name, None)
+                        helper(pattern, shared, unshifted_arg, total_depth, shift_rules, inv_name, None)
                     };
-                    if arg_info.shift != 0 {
+                    if shift != 0 {
                         shift_rules.pop(); // pop the rule back off after
                     }
                     expr = Expr::app(expr, rewritten_arg);

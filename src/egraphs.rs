@@ -302,3 +302,15 @@ pub fn is_descendant(descendant: Id, ancestor: Id, egraph: &EGraph) -> bool {
     }
     helper(descendant, ancestor, egraph)
 }
+
+pub fn egraph_zip(mut id: Id, zip: &Zip, egraph: &EGraph) -> Id {
+    for znode in zip {
+        id = match (znode,&egraph[id].nodes[0]) {
+            (ZNode::Body, Lambda::Lam([b])) => *b,
+            (ZNode::Func, Lambda::App([f,_])) => *f,
+            (ZNode::Arg, Lambda::App([_,x])) => *x,
+            _ => unreachable!()
+        }
+    }
+    id
+}

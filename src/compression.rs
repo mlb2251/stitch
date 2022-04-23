@@ -180,7 +180,7 @@ pub struct Pattern {
     // arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an argchoice, again these are in order of when they were added
     // pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the zid of the first use of #i in arg_choices
     pub refinements: Vec<Option<Vec<Id>>>, // refinements[i] gives the list of refinements for #i
-    pub match_locations: Vec<MatchLocation>, // places where it applies
+    pub match_locations: Option<MatchLocations>, // places where it applies
     pub utility_upper_bound: i32,
     pub body_utility_no_refinement: i32, // the size (in `cost`) of a single use of the pattern body so far
     pub refinement_body_utility: i32, // modifier on body_utility to include the full size account for refinement
@@ -194,11 +194,13 @@ pub struct Pattern {
 
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ArgInfo {
-    pub unshifted_id: Id,
-    pub shift: i32,
-}
+type MatchLocations = Vec<MatchLocation>;
+
+// #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+// pub struct ArgInfo {
+//     pub unshifted_id: Id,
+//     pub shift: i32,
+// }
 
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -206,15 +208,14 @@ pub struct MatchLocation {
     pub id: Id, // unshifted id of subtree we're matching at
     pub hole_unshifted_ids: Vec<Id>,
     pub arg_shifted_ids: Vec<Shifted>,
-    pub arg_info: Vec<ArgInfo>,
+    // pub arg_info: Vec<ArgInfo>,
 }
 impl MatchLocation {
-    pub fn new(id: Id, hole_unshifted_ids: Vec<Id>, arg_shifted_ids: Vec<Shifted>, arg_info: Vec<ArgInfo>) -> MatchLocation {
+    pub fn new(id: Id, hole_unshifted_ids: Vec<Id>, arg_shifted_ids: Vec<Shifted>) -> MatchLocation {
         MatchLocation {
             id,
             hole_unshifted_ids,
             arg_shifted_ids,
-            arg_info
         }
     }
 }
@@ -315,12 +316,17 @@ fn zips_of_ivar_of_expr(expr: &Expr) -> Vec<Vec<Zip>> {
 
 
 impl Pattern {
+    // fn shatter(self) -> (Vec<Option<Vec<Id>>>,Vec<MatchLocation>,i32,i32,i32, bool, Vec<Zip>, Vec<LabelledZip>, usize)
+    // {
+    //     (self.refinements, self.match_locations, self.utility_upper_bound, self.body_utility_no_refinement, self.refinement_body_utility, self.tracked, self.hole_zips, self.arg_zips, self.arity)
+    // }
+
     /// create a single hole pattern `??`
     #[inline(never)]
     fn single_hole(treenodes: &Vec<Id>, cost_of_node_all: &Vec<i32>, num_paths_to_node: &Vec<i32>, node_of_id: &Vec<Lambda>, cfg: &CompressionStepConfig) -> Self {
         let body_utility_no_refinement = 0;
         let refinement_body_utility = 0;
-        let mut match_locations: Vec<MatchLocation> = treenodes.iter().map(|&id| MatchLocation::new(id, vec![id], vec![], vec![])).collect();
+        let mut match_locations: Vec<MatchLocation> = treenodes.iter().map(|&id| MatchLocation::new(id, vec![id], vec![])).collect();
         match_locations.sort_by_key(|m|m.id); // we assume match_locations is always sorted
         if cfg.no_top_lambda {
             match_locations.retain(|m| expands_to_of_node(&node_of_id[usize::from(m.id)]) != ExpandsTo::Lam);
@@ -331,7 +337,7 @@ impl Pattern {
             // arg_choices: vec![],
             // first_zid_of_ivar: vec![],
             refinements: vec![],
-            match_locations: match_locations.clone(), // single hole matches everywhere
+            match_locations: Some(match_locations.clone()), // single hole matches everywhere
             utility_upper_bound,
             body_utility_no_refinement, // 0 body utility
             refinement_body_utility, // 0 body utility
@@ -396,7 +402,7 @@ impl Pattern {
             
         }
         // we can pick any match location
-        helper(self.match_locations[0].id, &mut curr_zip, &zips, shared)
+        helper(self.match_locations.as_ref().unwrap()[0].id, &mut curr_zip, &zips, shared)
     }
     fn show_track_expansion(&self, hole_zip: &Zip, shared: &SharedData) -> String {
         let mut s = self.to_expr(shared).zipper_replace(&hole_zip, &"<REPLACE>" ).to_string();
@@ -404,7 +410,7 @@ impl Pattern {
         s
     }
     pub fn info(&self, shared: &SharedData) -> String {
-        format!("{}: utility_upper_bound={}, body_utility=({},{}), refinements={}, match_locations={}, usages={}",self.to_expr(shared), self.utility_upper_bound, self.body_utility_no_refinement, self.refinement_body_utility, self.refinements.iter().filter(|x|x.is_some()).count(), self.match_locations.len(), self.match_locations.iter().map(|loc|shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>())
+        format!("{}: utility_upper_bound={}, body_utility=({},{}), refinements={}, match_locations={}, usages={}",self.to_expr(shared), self.utility_upper_bound, self.body_utility_no_refinement, self.refinement_body_utility, self.refinements.iter().filter(|x|x.is_some()).count(), self.match_locations.as_ref().unwrap().len(), self.match_locations.as_ref().unwrap().iter().map(|loc|shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>())
     }
 }
 
@@ -675,8 +681,8 @@ struct LabelledZId {
 /// a zid referencing a specific ZPath and a #i index
 #[derive(Debug,Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct LabelledZip {
-    zip: Zip,
-    ivar: usize // which #i argument this is, which also corresponds to args[i] ofc
+    pub zip: Zip,
+    pub ivar: usize // which #i argument this is, which also corresponds to args[i] ofc
 }
 
 impl LabelledZip {
@@ -901,13 +907,13 @@ fn stitch_search(
                 None => return,
         };
 
-        for original_pattern in patterns {
+        for mut original_pattern in patterns {
 
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
-            if !shared.cfg.no_stats { if shared.cfg.print_stats > 0 &&  shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 { println!("{:?} \n\t@ [bound={}; uses={}] chose: {}",shared.stats.lock().deref_mut(),   original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>(), original_pattern.to_expr(&shared)); }};
+            if !shared.cfg.no_stats { if shared.cfg.print_stats > 0 &&  shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 { println!("{:?} \n\t@ [bound={}; uses={}] chose: {}",shared.stats.lock().deref_mut(),   original_pattern.utility_upper_bound, original_pattern.match_locations.as_ref().unwrap().iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>(), original_pattern.to_expr(&shared)); }};
 
             if shared.cfg.verbose_worklist {
-                println!("[bound={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>(), original_pattern.to_expr(&shared));
+                println!("[bound={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.as_ref().unwrap().iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>(), original_pattern.to_expr(&shared));
             }
 
             // choose which hole we're going to expand
@@ -928,10 +934,10 @@ fn stitch_search(
             // sort the match locations by node type (ie what theyll expand into) so that we can do a group_by() on
             // node type in order to iterate over all the different expansions
             // We also sort secondarily by `loc` to ensure each groupby subsequence has the locations in sorted order
-            let mut match_locations = original_pattern.match_locations.clone();
+            let mut match_locations = original_pattern.match_locations.take().unwrap();
             match_locations.sort_by_cached_key(|loc| (expands_to_of_node(&shared.node_of_id[usize::from(loc.hole_unshifted_ids[hole_idx])]), loc.id)); // todo maybe cache idk
 
-            let ivars_expansions = get_ivars_expansions(&original_pattern, hole_idx, hole_depth, &shared);
+            let ivars_expansions = get_ivars_expansions(&original_pattern, &match_locations, hole_idx, hole_depth, &shared);
 
             let mut found_tracked = false;
             // for each way of expanding the hole...
@@ -1104,7 +1110,7 @@ fn stitch_search(
                 // arg_choices,
                 // first_zid_of_ivar,
                 refinements,
-                match_locations: locs,
+                match_locations: Some(locs),
                 utility_upper_bound: util_upper_bound,
                 body_utility_no_refinement,
                 refinement_body_utility,
@@ -1174,10 +1180,11 @@ fn stitch_search(
 }
 
 #[inline(never)]
-fn get_ivars_expansions(original_pattern: &Pattern, hole_idx: usize, hole_depth: i32, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<MatchLocation>)> {
-    let mut ivars_expansions: Vec<(ExpandsTo, Vec<MatchLocation>)> = (0..=original_pattern.arity).map(|ivar| (ExpandsTo::IVar(ivar as i32), vec![])).collect();
+fn get_ivars_expansions(original_pattern: &Pattern, match_locations: &MatchLocations, hole_idx: usize, hole_depth: i32, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<MatchLocation>)> {
+    // let mut ivars_expansions: Vec<(i32, Vec<MatchLocation>)> = vec![];
+    let mut ivars_expansions: Vec<(i32, Vec<MatchLocation>)> = (0..original_pattern.arity).map(|ivar| ((ivar as i32), vec![])).collect();
 
-    for loc in original_pattern.match_locations.iter() {
+    for loc in match_locations.iter() {
         let unshifted_id = loc.hole_unshifted_ids[hole_idx];
         let shift = - hole_depth;
         let shifted_id = shared.shifted_of_id[usize::from(unshifted_id)].shifted_by(shift);
@@ -1185,20 +1192,46 @@ fn get_ivars_expansions(original_pattern: &Pattern, hole_idx: usize, hole_depth:
         // reusing an old var
         for ivar in 0..original_pattern.arity {
             if shifted_id == loc.arg_shifted_ids[ivar] {
+                // while ivars_expansions.len() < ivar + 1 { 
+                //     ivars_expansions.push((ivars_expansions.len() as i32, vec![]));
+                // }
                 ivars_expansions[ivar].1.push(loc.clone())
             }
         }
         // add a new var if we have the arity for it
-        if original_pattern.arity < shared.cfg.max_arity {
-            assert_eq!(loc.arg_shifted_ids.len(), original_pattern.arity);
-            let mut new_loc = loc.clone();
-            new_loc.arg_shifted_ids.push(shifted_id);
-            new_loc.arg_info.push(ArgInfo { unshifted_id, shift });
-            ivars_expansions[original_pattern.arity].1.push(new_loc);
-        }
+        // if original_pattern.arity < shared.cfg.max_arity {
+        //     assert_eq!(loc.arg_shifted_ids.len(), original_pattern.arity);
+        //     let mut new_loc = loc.clone();
+        //     new_loc.arg_shifted_ids.push(shifted_id);
+        //     new_loc.arg_info.push(ArgInfo { unshifted_id, shift });
+        //     ivars_expansions[original_pattern.arity].1.push(new_loc);
+        // }
     }
-    ivars_expansions
+    // add a new var if we have the arity for it
+    if original_pattern.arity < shared.cfg.max_arity {
+        ivars_expansions.push(((original_pattern.arity as i32), new_ivar(match_locations, hole_idx, hole_depth, shared)));
+    }
+
+    ivars_expansions.into_iter().map(|(ivar, locs)| (ExpandsTo::IVar(ivar), locs)).collect()
 }
+
+#[inline(never)]
+fn new_ivar(match_locations: &MatchLocations, hole_idx: usize, hole_depth: i32, shared: &Arc<SharedData>) -> MatchLocations {
+    let mut res = match_locations.clone();
+    res.iter_mut().for_each(|loc| {
+        let unshifted_id = loc.hole_unshifted_ids[hole_idx];
+        let shifted_id = shared.shifted_of_id[usize::from(unshifted_id)].shifted_by(- hole_depth);
+        loc.arg_shifted_ids.push(shifted_id)
+    });
+    res
+    // match_locations.iter().map(|loc| {
+    //     // assert_eq!(loc.arg_shifted_ids.len(), original_pattern.arity);
+    //     let mut new_loc = loc.clone();
+    //     new_loc..;
+    //     new_loc
+    // }).collect()
+}
+
 
 /// refines a new pattern inplace
 #[inline(never)]
@@ -1298,7 +1331,7 @@ impl FinishedPattern {
     #[inline(never)]
     fn new(pattern: Pattern, shared: &SharedData) -> Self {
         let arity = pattern.arity;
-        let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum();
+        let usages = pattern.match_locations.as_ref().unwrap().iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum();
         let compressive_utility = compressive_utility(&pattern,shared);
         let noncompressive_utility = noncompressive_utility(pattern.body_utility_no_refinement + pattern.refinement_body_utility, &shared.cfg);
         let utility = noncompressive_utility + compressive_utility.util;
@@ -1548,8 +1581,8 @@ impl CompressionStepResult {
         let multiplier = shared.init_cost as f64 / final_cost as f64;
         let multiplier_wrt_orig = very_first_cost as f64 / final_cost as f64;
         let uses = done.usages;
-        let use_exprs: Vec<Expr> = done.pattern.match_locations.iter().map(|loc| extract(loc.id, &shared.egraph)).collect();
-        let use_args: Vec<Vec<Expr>> = done.pattern.match_locations.iter().map(|loc|
+        let use_exprs: Vec<Expr> = done.pattern.match_locations.as_ref().unwrap().iter().map(|loc| extract(loc.id, &shared.egraph)).collect();
+        let use_args: Vec<Vec<Expr>> = done.pattern.match_locations.as_ref().unwrap().iter().map(|loc|
             (0..done.pattern.arity).map(|ivar|
                 loc.arg_shifted_ids[ivar].extract(&shared.egraph)
             ).collect()).collect();
@@ -1707,7 +1740,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * pattern.arity as i32 + COST_NONTERMINAL * pattern.refinements.iter().map(|r|if let Some(refinements) = r {refinements.len() as i32} else {0}).sum::<i32>());
 
 
-    let utility_of_loc_once: Vec<i32> = pattern.match_locations.iter().map(|loc| {
+    let utility_of_loc_once: Vec<i32> = pattern.match_locations.as_ref().unwrap().iter().map(|loc| {
         // println!("calculating util of {}", extract(*loc, &shared.egraph));
         // compressivity of body (no refinement) minus slight penalty from the application
         let base_utility = pattern.body_utility_no_refinement + app_penalty;
@@ -1767,7 +1800,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         }).collect();
 
 
-    let compressive_utility: i32 = pattern.match_locations.iter()
+    let compressive_utility: i32 = pattern.match_locations.as_ref().unwrap().iter()
         .zip(utility_of_loc_once.iter())
         .map(|(loc,utility)| utility * shared.num_paths_to_node[usize::from(loc.id)])
         .sum();
@@ -1805,7 +1838,7 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
     let mut global_correction = 0; // this is going to get added to the compressive_utility at the end to correct for use-conflicts
 
     // bottom up traversal since we assume match_locations is sorted
-    for (loc_idx,loc) in pattern.match_locations.iter().enumerate() {
+    for (loc_idx,loc) in pattern.match_locations.as_ref().unwrap().iter().enumerate() {
         // get all the nodes this could conflict with (by idx within `locs` not by id)
         let conflict_idxs: AHashSet<(Id,usize)> = get_conflicts(&zips, loc.id, shared, pattern);
 
@@ -1911,7 +1944,7 @@ fn get_conflicts(zips: &Vec<(&Zip,Option<usize>)>, loc: Id, shared: &SharedData,
                 _ => unreachable!("{:?} {:?}", znode, &shared.node_of_id[usize::from(id)])
             };
             // if its also a location, push it to the conflicts list (do NOT dedup)
-            if let Ok(idx) = pattern.match_locations.binary_search_by_key(&id, |m| m.id) {
+            if let Ok(idx) = pattern.match_locations.as_ref().unwrap().binary_search_by_key(&id, |m| m.id) {
                 conflict_idxs.insert((id,idx));
             }
         }
@@ -1920,7 +1953,7 @@ fn get_conflicts(zips: &Vec<(&Zip,Option<usize>)>, loc: Id, shared: &SharedData,
             if pattern.refinements[*ivar].is_some() {
                 #[inline(never)]
                 fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut AHashSet<(Id,usize)>, pattern: &Pattern) {
-                    if let Ok(idx) = pattern.match_locations.binary_search_by_key(&id, |m| m.id) {
+                    if let Ok(idx) = pattern.match_locations.as_ref().unwrap().binary_search_by_key(&id, |m| m.id) {
                         conflict_idxs.insert((id,idx));
                     }
                     match &shared.node_of_id[usize::from(id)] {
@@ -2156,7 +2189,7 @@ pub fn compression_step(
             // since any invention specific to a node will by definition only
             // be useful at that node
 
-            let match_locations = vec![MatchLocation::new(*node, vec![], vec![], vec![])];
+            let match_locations = vec![MatchLocation::new(*node, vec![], vec![])];
             let body_utility_no_refinement = cost_of_node_once[usize::from(*node)];
             let refinement_body_utility = 0;
             // compressive_utility for arity-0 is cost_of_node_all[node] minus the penalty of using the new prim
@@ -2169,7 +2202,7 @@ pub fn compression_step(
                 // arg_choices: vec![],
                 // first_zid_of_ivar: vec![],
                 refinements: vec![],
-                match_locations,
+                match_locations:Some(match_locations),
                 utility_upper_bound: utility,
                 body_utility_no_refinement,
                 refinement_body_utility,
