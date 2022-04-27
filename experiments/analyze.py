@@ -991,9 +991,46 @@ if __name__ == '__main__':
 
             # os.makedirs(bench_dir / 'plots', exist_ok=True)
             plt.savefig(f'plots/{metric}.png',dpi=400)
+            plt.savefig(f'plots/{metric}.pdf')
             print(f"wrote to plots/{metric}.png")
 
 
+    elif mode == 'show_usages':
+        stderr = Path(sys.argv[2])
+
+        with open(stderr) as f:
+            lines = f.read().split('\n')
+
+        i = 0
+        invs = 0
+        while True:
+            if not lines[i].startswith('Improved score to'):
+                i += 1
+                if i >= len(lines):
+                    break
+                continue
+            # expect next line is like "#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) : list(t0) -> (t1 -> t0 -> t1) -> t1 -> t1"
+            i += 1
+            invention = lines[i].split(':')[0].strip()
+            print(f'Invention fn_{invs}: {invention}')
+            while not lines[i].startswith('New primitive is used'):
+                i += 1
+                continue # internal continue to this inner while loop
+            num_usages = int(lines[i].split(' ')[4])
+            print(f'usages: {num_usages}')
+            i += 1
+            assert lines[i].startswith('Here is where it is used')
+            i += 1
+            j = 0
+            while lines[i].strip().startswith('('):
+                assert invention in lines[i]
+                usage = lines[i].strip().replace(invention, f'fn_{invs}')
+                print(usage)
+                i += 1
+                j += 1
+            assert j == num_usages
+            invs += 1
+            print()
 
     else:
         assert False, f"mode not recognized: {mode}"
