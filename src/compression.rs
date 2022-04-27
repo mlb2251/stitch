@@ -1009,6 +1009,7 @@ fn stitch_search(
             let mut found_tracked = false;
             // for each way of expanding the hole...
 
+            // let mut num_groups = 0;
             'expansion:
                 for (expands_to, mut locs) in match_locations.into_iter()
                 .group_by(|loc| expands_to_of_node(&shared.node_of_id[usize::from(loc.hole_unshifted_ids[hole_idx])])).into_iter() // todo maybe cache idk
@@ -1020,6 +1021,7 @@ fn stitch_search(
                 if tracked { found_tracked = true; }
                 if shared.cfg.follow_track && !tracked { continue 'expansion; }
 
+                // num_groups += 1;
 
                 // prune inventions that only match at a single unique (structurally hashed) subtree. This only applies if we
                 // also are priming with arity 0 inventions. Basically if something only matches at one subtree then the best you can
@@ -1240,8 +1242,10 @@ fn stitch_search(
                 // s = s.replace(&new, &new.clone().magenta().bold().to_string());
             println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared));
             }
+
+            // println!("num groups: {}", num_groups)
         
-        }
+        } 
     }
 
 }
