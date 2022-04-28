@@ -293,7 +293,7 @@ impl Pattern {
 
                     // extract the refinement and remap #i to $(i+depth) where depth is depth of #i in `extracted`
                     let mut extracted = refinements.iter().map(|refinement| extract(*refinement, &shared.egraph)).collect::<Vec<_>>();
-                    extracted.iter_mut().for_each(|e| arg_ivars_to_vars(e));
+                    extracted.iter_mut().for_each(arg_ivars_to_vars);
                     let mut expr = Expr::ivar(labelled_zid.ivar as i32);
                     // todo are these applied in the right order?
                     for e in extracted {
@@ -931,7 +931,7 @@ fn stitch_search(
                     continue 'expansion; // too low utility
                 }
 
-                assert!(shared.cfg.no_opt_upper_bound || !(holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
+                assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_ivar(),
                         "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
                 // assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
                 //         "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
@@ -1103,9 +1103,8 @@ pub fn refine(new_pattern: &mut Pattern, tracked: bool, shared: &SharedData) {
 
     'refinements: for refinements in refinements_by_arg.into_iter()
         .map(|refinements|
-                (1..=shared.cfg.max_refinement_arity).map(move |k| refinements.clone().into_iter()
+                (1..=shared.cfg.max_refinement_arity).flat_map(move |k| refinements.clone().into_iter()
                     .combinations(k))
-                .flatten()
                 .map(Some)
                 .chain(std::iter::once(None))
                 )
@@ -1233,6 +1232,7 @@ fn get_refinements_of_shifted_id(shifted_id: Id, egraph: &crate::EGraph, cfg: &C
 /// figure out all the N^2 zippers from choosing any given node and then choosing a descendant and returning the zipper from
 /// the node to the descendant. We also collect a bunch of other useful stuff like the argument you would get if you abstracted
 /// the descendant and introduced an invention rooted at the ancestor node.
+#[allow(clippy::type_complexity)]
 fn get_zippers(
     treenodes: &[Id],
     cost_of_node_once: &[i32],
@@ -1868,7 +1868,7 @@ pub fn compression(
     }
 
     if cfg.dreamcoder_drop_last {
-        println!("{}",format!("{}","[--dreamcoder-drop-last] dropping final invention".yellow().bold()));
+        println!("{}", "[--dreamcoder-drop-last] dropping final invention".yellow().bold());
         step_results.pop();
     }
 

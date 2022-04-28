@@ -12,7 +12,7 @@ pub fn uncurry_sexp(e: &Sexp) -> Sexp {
         Sexp::List(orig_list) => {
             assert!(orig_list.len() > 1);
             // recurse on children
-            let uncurried_children: Vec<Sexp> = orig_list.iter().map(|e| uncurry_sexp(e)).collect();
+            let uncurried_children: Vec<Sexp> = orig_list.iter().map(uncurry_sexp).collect();
             match uncurried_children[0].to_string().as_str() {
                 "lam" => {
                     Sexp::List(uncurried_children)
@@ -62,7 +62,7 @@ pub fn curry_sexp(e: &Sexp) -> Sexp {
         Sexp::List(list) => {
             assert!(list.len() > 1);
             // recurse on children
-            let list: Vec<Sexp> = list.iter().map(|e| curry_sexp(e)).collect();
+            let list: Vec<Sexp> = list.iter().map(curry_sexp).collect();
             match list[0].to_string().as_str() {
                 "lam" => {
                     Sexp::List(list)

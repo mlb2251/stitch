@@ -66,6 +66,7 @@ pub enum TrustLevel {
 #[derive(Debug, Clone)]
 pub struct Executable<D: Domain> {
     pub expr: Expr,
+    #[allow(clippy::type_complexity)]
     pub evals: RefCell<HashMap<(Id, Vec<LazyVal<D>>), Val<D>>>, // from (node,env) to result
     pub data: RefCell<D::Data>,
 }
