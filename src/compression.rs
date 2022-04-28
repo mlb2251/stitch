@@ -187,6 +187,7 @@ pub struct Pattern {
 }
 
 impl Expr {
+    #[allow(clippy::ptr_arg)]
     fn zipper_replace(&self, zip: &Zip, new: &str) -> Expr {
         let child = self.apply_zipper(zip).unwrap();
         // clone and overwrite that node
@@ -196,6 +197,7 @@ impl Expr {
     }
     /// replaces the node at the end of the zipper with `new` prim,
     /// returning the new expression
+    #[allow(clippy::ptr_arg)]
     fn apply_zipper(&self, zip: &Zip) -> Option<Id> {
         let mut child = self.root();
         for znode in zip.iter() {
