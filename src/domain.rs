@@ -66,7 +66,7 @@ pub enum TrustLevel {
 #[derive(Debug, Clone)]
 pub struct Executable<D: Domain> {
     pub expr: Expr,
-    pub evals: RefCell<HashMap<(Id,Vec<LazyVal<D>>), Val<D>>>, // from (node,env) to result
+    pub evals: RefCell<HashMap<(Id, Vec<LazyVal<D>>), Val<D>>>, // from (node,env) to result
     pub data: RefCell<D::Data>,
 }
 
@@ -220,9 +220,9 @@ impl<D: Domain> Executable<D> {
     // apply a function (Val) to an argument (LazyVal)
     pub fn apply_lazy(&self, f: &Val<D>, x: LazyVal<D>) -> VResult<D> {
         match f {
-            Val::PrimFun(f) => f.apply(x.clone(), self),
+            Val::PrimFun(f) => f.apply(x, self),
             Val::LamClosure(f, env) => {
-                let mut new_env = vec![x.clone()];
+                let mut new_env = vec![x];
                 new_env.extend(env.iter().cloned());
                 self.eval_child(*f, &mut new_env)
             }
@@ -285,7 +285,7 @@ impl<D: Domain> Executable<D> {
             }
             Lambda::Prim(p) => {
                 match D::val_of_prim(p) {
-                    Some(v) => v.clone(),
+                    Some(v) => v,
                     None => panic!("Prim `{}` not found",p),
                 }
             }
