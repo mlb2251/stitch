@@ -1340,6 +1340,7 @@ pub struct CompressionStepData {
     pub uses: i32,
     pub use_exprs: Vec<Expr>,
     pub use_args: Vec<Vec<Expr>>,
+    is_test: bool,
 }
 
 impl CompressionStepData {
@@ -1400,7 +1401,7 @@ impl CompressionStepData {
             res
         }).collect();
 
-        CompressionStepData {rewritten, rewritten_dreamcoder, initial_cost, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args }
+        CompressionStepData {rewritten, rewritten_dreamcoder, initial_cost, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, is_test}
     }
 
     pub fn json(&self, inv_name: &str) -> serde_json::Value {        
@@ -1418,6 +1419,18 @@ impl CompressionStepData {
             "num_uses": self.uses,
             "uses": all_uses,
         })
+    }
+}
+
+impl fmt::Display for CompressionStepData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let dataset = if self.is_test { "test" } else { "train" };
+        write!(f, "final_cost ({0}): {1} | multiplier ({0}): {2:.2}x | uses ({0}): {3}",
+            dataset,
+            self.final_cost,
+            self.multiplier,
+            self.uses
+        )
     }
 }
 
@@ -1464,14 +1477,10 @@ impl fmt::Display for CompressionStepResult {
         if self.train_data.expected_cost != self.train_data.final_cost {
             write!(f,"[cost mismatch of {} in training data] ", self.train_data.expected_cost - self.train_data.final_cost)?;
         }
-        write!(f, "utility: {} | final_cost (train): {} | multiplier (train): {:.2}x | uses (train): {} | final_cost(test): {} | multiplier (test): {} | uses (test): {} | body: {}",
+        write!(f, "utility: {} | {}{} | body: {}",
             self.done.utility,
-            self.train_data.final_cost,
-            self.train_data.multiplier,
-            self.train_data.uses,
-            self.test_data.as_ref().map_or("null".to_string(), |d| d.final_cost.to_string()),
-            self.test_data.as_ref().map_or("null".to_string(), |d| format!("{:.2}x", d.multiplier)),
-            self.test_data.as_ref().map_or("null".to_string(), |d| d.uses.to_string()),
+            self.train_data,
+            self.test_data.as_ref().map_or("".to_string(), |d| format!(" | {}", d)),
             self.inv)
     }
 }
@@ -1846,19 +1855,15 @@ pub fn compression(
     println!("{}","\n=======Compression Summary=======".blue().bold());
     println!("Found {} inventions", step_results.len());
     let total_inv_sizes: f64 = step_results.iter().map(|r| r.inv.body.cost()).sum::<i32>() as f64;
-    println!("Cost Improvement (train): ({:.2}x better) {} -> {}", compression_factor(train_programs_expr, &train_rewritten, total_inv_sizes), train_programs_expr.cost(), train_rewritten.cost());
-    println!("Cost Improvement (test): {}",
-        test_programs_expr.as_ref().map_or("null".to_string(), |e| format!("({:.2}x better) {} -> {}", compression_factor(e, &test_rewritten.as_ref().unwrap(), total_inv_sizes), e.cost(), test_rewritten.unwrap().cost()))
-    );
-    let mut total_inv_sizes_thus_far: f64 = 0.0;
+    println!("Training Set Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(train_programs_expr, &train_rewritten, total_inv_sizes), train_programs_expr.cost(), train_rewritten.cost());
+    if let Some(e) = test_programs_expr.as_ref() {
+        println!("Testing Set Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(e, &test_rewritten.as_ref().unwrap(), total_inv_sizes), e.cost(), test_rewritten.unwrap().cost());
+    }
     for i in 0..step_results.len() {
         let res = &step_results[i];
-        total_inv_sizes_thus_far += res.inv.body.cost() as f64;
-        println!("train: {} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(train_programs_expr, &res.train_data.rewritten, total_inv_sizes_thus_far), res);
-        println!("test: {}",
-            test_programs_expr.as_ref().map_or("null".to_string(), |e| format!("{} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(e, &res.test_data.as_ref().unwrap().rewritten, total_inv_sizes_thus_far), res))
-        );
+        println!("{}: {}", res.inv.name.clone().blue(), res);
     }
+
     println!("Time: {}ms", tstart.elapsed().as_millis());
     if cfg.follow_track && !(
         cfg.no_opt_free_vars
