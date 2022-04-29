@@ -191,7 +191,11 @@ pub fn dc_inv_str(inv: &Invention, past_step_results: &[CompressionStepResult]) 
 pub fn replace_prim_with(s: &str, prim: &str, new: &str) -> String {
     let mut res: String = s.to_string();
     res = res.replace(&format!(" {})",prim), &format!(" {})",new));
+    // we need to do the " {} " case twice to handle multioverlaps like fn_i fn_i fn_i fn_i which will replace at locations 1 and 3
+    // in the first replace() and 2 and 4 in the second replace due to overlapping matches.
     res = res.replace(&format!(" {} ",prim), &format!(" {} ",new));
+    res = res.replace(&format!(" {} ",prim), &format!(" {} ",new));
+    assert!(!res.contains(&format!(" {} ",prim)));
     res = res.replace(&format!("({} ",prim), &format!("({} ",new));
     if res.starts_with(&format!("{} ",prim)) {
         res = format!("{} {}", new, &res[prim.len()..]);
