@@ -1038,7 +1038,6 @@ fn stitch_search(
         let mut offset = instruction.offset;
         let mut len = instruction.len;
         let mut locs = &mut match_locations[offset..offset+len];
-        pattern.any_loc_id = locs[0].id;
 
         match &instruction.action {
             Action::Start => {
@@ -1091,7 +1090,7 @@ fn stitch_search(
                         let new_var = instruction.idxs.is_none();
                         assert_eq!(new_var, *i as usize == pattern.arity);
                         if new_var {
-                            // refinements.push(None);
+                            pattern.refinements.push(None);
                             pattern.arity += 1;
                         } else {
                             // subsetting to the multiuse ivar indices and adjusting len and locs appropriately
@@ -1102,7 +1101,7 @@ fn stitch_search(
                             pattern.any_loc_id = locs[0].id;
                         }
 
-                        for loc in locs {
+                        for loc in locs.iter_mut() {
                             let hole_id = loc.hole_unshifted_ids.remove(hole_idx);
                             loc.undo_hole_id.push(hole_id);
                             if new_var {
@@ -1110,15 +1109,18 @@ fn stitch_search(
                                 loc.arg_shifted_ids.push(shifted_id)
                             }
                         }
-                        pattern.arg_zips.push(LabelledZip::new(hole_zip, *i as usize));
-                        unimplemented!()
+                        pattern.arg_zips.push(LabelledZip::new(hole_zip.clone(), *i as usize));
                     }
                 }
 
                 // push an undo instruction
                 instructions.push(Instruction::undo_of(instruction));
+                println!("Pushing {:?} on pattern {}", instructions.last().unwrap(), pattern.to_expr(&shared));
+
                 // save our old hole_idx and hole_zip. offset and len are intentionally unused.
                 instructions.push(Instruction::new(0, 0, Action::SetHoleChoice(hole_idx, hole_zip.clone(), hole_depth)));
+                println!("Pushing {:?} on pattern {}", instructions.last().unwrap(), pattern.to_expr(&shared));
+
             }
 
             Action::Undo(expands_to) => {
@@ -1138,14 +1140,12 @@ fn stitch_search(
                             loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
                             loc.hole_unshifted_ids.truncate(loc.hole_unshifted_ids.len() - 1);
                         }
-                        unimplemented!()
                     },
                     ExpandsTo::Var(_) | ExpandsTo::Prim(_) => {
                         pattern.body_utility_no_refinement -= COST_TERMINAL;
                         for loc in locs {
                             loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
                         }
-                        unimplemented!()
                     },
                     ExpandsTo::IVar(i) => {
                         let new_var = instruction.idxs.is_none();
@@ -1168,7 +1168,10 @@ fn stitch_search(
                             let idxs = instruction.idxs.as_ref().unwrap();
                             select_indices(locs, idxs);
                         }
-                        if new_var { pattern.arity -= 1 } 
+                        if new_var {
+                            pattern.arity -= 1;
+                            pattern.refinements.pop();
+                        } 
                     }
                 }
                 continue
@@ -1191,6 +1194,9 @@ fn stitch_search(
             finish_pattern(&mut pattern, locs, &mut weak_utility_pruning_cutoff, tracked, &mut donelist_buf, &shared);
             continue;
         }
+
+
+        pattern.any_loc_id = locs[0].id;
 
         // if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
         // if !shared.cfg.no_stats { if shared.cfg.print_stats > 0 &&  shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 { println!("{:?} \n\t@ [bound={}; uses={}] chose: {}",shared.stats.lock().deref_mut(),   original_pattern.utility_upper_bound, original_pattern.match_locations.as_ref().unwrap().iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>(), original_pattern.to_expr(&shared)); }};
@@ -1340,6 +1346,7 @@ pub fn expand_and_finish(
     // if !pattern.hole_zips.is_empty() || expands_to.has_holes() {
     //     println!("pushin {:?}", expands_to);
     instructions.push(Instruction::new(parent_offset + inner_offset, inner_len, Action::Expansion(expands_to.clone(), util_upper_bound)));
+    println!("Pushing {:?} on pattern {}", instructions.last().unwrap(), pattern.to_expr(&shared));
     // } else {
     //     println!("finishin {}", pattern.to_expr(shared));
     // }
