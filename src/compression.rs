@@ -1180,7 +1180,7 @@ fn stitch_search(
             let mut inner_len = 0;
             for (i,loc) in locs.iter().enumerate() {
                 if &loc.cached_expands_to != expands_to {
-                    expand_and_finish(&locs[inner_offset..inner_offset+inner_len], &mut instructions, &mut pattern, &shared, &mut found_tracked, &mut hole_idx, &mut hole_zip, &mut hole_depth, &mut expands_to, &mut inner_offset, &mut inner_len);
+                    expand_and_finish(&pattern, &locs, inner_offset, inner_len, offset, expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut instructions, &shared);
                     expands_to = &loc.cached_expands_to;
                     inner_offset = i;
                     inner_len = 0; // reset it to 0 which will immediately get incremented to 1
@@ -1191,16 +1191,18 @@ fn stitch_search(
             instructions[new_instructions_start..].sort_unstable_by_key(|instruction| instruction.bound());
         }
         
+
+        let locs_of_ivar = get_locs_of_ivar(&pattern, &locs, hole_idx, hole_depth, &shared);
+
         // todo note you can keep a persistant copy of this around if you dont want all the allocs and just clone it at various points
-
-        let locs_of_ivar = get_locs_of_ivar();
-
         // todo note we have utility_upper_bound_single() if you want to check the utility without select_indices, however this wont help with the other kinds of pruning
         for (ivar,ivar_locs) in locs_of_ivar.into_iter().enumerate() {
             if ivar_locs.is_empty() { continue; }
             select_indices(locs, &ivar_locs);
-            // todo pass full true offset and len in since you need them to run select_indices
-            expand_and_finish();
+            let expands_to = ExpandsTo::IVar(pattern.arity as i32);
+            let inner_offset = 0;
+            let inner_len = len; // here we pass in the full length since we need that to run select_indices when recursing
+            expand_and_finish(&pattern, &locs, inner_offset, inner_len, offset, &expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut instructions, &shared);
             // select_indices is its own inverse so we can restore the original ordering like this...
             select_indices(locs, &ivar_locs);
         }
@@ -1208,14 +1210,17 @@ fn stitch_search(
         // add a new var if we have the arity for it
         if pattern.arity < shared.cfg.max_arity {
             // same offset and len as parent since it matches everywhere! And same bound!
-            expand_and_finish(ExpandsTo::IVar(pattern.arity as i32));
+            let expands_to = ExpandsTo::IVar(pattern.arity as i32);
+            let inner_offset = 0;
+            let inner_len = len;
+            expand_and_finish(&pattern, &locs, inner_offset, inner_len, offset, &expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut instructions, &shared);
             // instructions.push(Instruction::new(offset, len, Action::Expansion(ExpandsTo::IVar(pattern.arity as i32), pattern.bound)));
         }
 
 
 
-        if original_pattern.tracked && !found_tracked {
-            println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared));
+        if pattern.tracked && !found_tracked {
+            println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), pattern.to_expr(&shared), pattern.show_track_expansion(&hole_zip, &shared));
         }
 
 }
@@ -1238,37 +1243,51 @@ pub fn get_locs_of_ivar(pattern: &Pattern, locs: &[MatchLocation], hole_idx: usi
 
 
 
-pub fn expand_and_finish(pattern: &Pattern, locs: &[MatchLocation], shared: &Shared) {
+pub fn expand_and_finish(
+    pattern: &Pattern,
+    locs: &[MatchLocation],
+    inner_offset: usize,
+    inner_len: usize,
+    parent_offset: usize,
+    expands_to: &ExpandsTo,
+    hole_zip: &Zip,
+    hole_depth: i32,
+    found_tracked: &mut bool,
+    instructions: &mut Vec<Instruction>,
+    shared: &SharedData) {
+
+    let inner_locs = &locs[inner_offset..inner_offset+inner_len];
+
     // for debugging
-    let tracked = pattern.tracked && expands_to == tracked_expands_to(&original_pattern, &hole_zip, &shared);
-    if tracked { found_tracked = true; }
+    let tracked = pattern.tracked && *expands_to == tracked_expands_to(&pattern, &hole_zip, &shared);
+    if tracked { *found_tracked = true; }
     if shared.cfg.follow_track && !tracked { return }
     
-    if opt_single_use(locs, tracked, &shared) { return };
-    if opt_single_task(locs, tracked, &shared) { return  };
+    if opt_single_use(inner_locs, tracked, &shared) { return };
+    if opt_single_task(inner_locs, tracked, &shared) { return  };
 
     // check for free variables: if an invention has free variables in the body then it's not a real function and we can discard it
     // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
     if let ExpandsTo::Var(i) = expands_to {
         if *i >= hole_depth {
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
-            if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared)); }
+            if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), pattern.to_expr(&shared), pattern.show_track_expansion(&hole_zip, &shared)); }
             return; // free var
         }
     }
 
     // update the upper bound
-    let util_upper_bound: i32 = utility_upper_bound(&locs, pattern.body_utility_no_refinement, &shared);
+    let util_upper_bound: i32 = utility_upper_bound(&inner_locs, pattern.body_utility_no_refinement, &shared);
     assert!(util_upper_bound <= pattern.utility_upper_bound);
 
     if opt_upper_bound(util_upper_bound, tracked, &shared) { return };
-    if opt_force_multiuse(locs, tracked, &shared) { return };
-    if opt_useless_abstract(locs, tracked, &shared) { return };
+    if opt_force_multiuse(inner_locs, tracked, &shared) { return };
+    if opt_useless_abstract(inner_locs, tracked, &shared) { return };
 
-    if tracked { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(&hole_zip, &shared), new_pattern.utility_upper_bound); }
+    if tracked { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), pattern.show_track_expansion(&hole_zip, &shared), util_upper_bound); }
 
     if !pattern.hole_zips.is_empty() {
-        instructions.push(Instruction::new(offset + inner_offset, inner_len, Action::Expansion(expands_to.clone(), util_upper_bound)));
+        instructions.push(Instruction::new(parent_offset + inner_offset, inner_len, Action::Expansion(expands_to.clone(), util_upper_bound)));
     } else {
         finish_pattern(&pattern, tracked, &shared);
     }
