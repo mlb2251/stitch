@@ -221,7 +221,7 @@ impl MatchLocation {
     pub fn new(id: Id) -> MatchLocation {
         MatchLocation {
             id,
-            hole_unshifted_ids: vec![],
+            hole_unshifted_ids: vec![id], // assumes we initially match against a singleton hole
             arg_shifted_ids: vec![],
             cached_expands_to: ExpandsTo::IVar(-626),
             undo_hole_id: vec![],
@@ -849,6 +849,31 @@ pub struct ZIdExtension {
     func: Option<ZId>,
 }
 
+#[inline(never)]
+fn donelist_update(
+    donelist_buf: &mut Vec<FinishedPattern>,
+    shared: &Arc<SharedData>,
+) -> i32 {
+    let mut shared_guard = shared.crit.lock();
+    let mut crit: &mut CriticalMultithreadData = shared_guard.deref_mut();
+    let old_best_utility = crit.donelist.first().map(|x|x.utility).unwrap_or(0);
+    let old_donelist_len = crit.donelist.len();
+    let old_utility_pruning_cutoff = crit.utility_pruning_cutoff;
+    // drain from donelist_buf into the actual donelist
+    crit.donelist.extend(donelist_buf.drain(..).filter(|done| done.utility > old_utility_pruning_cutoff));
+    if !shared.cfg.no_stats { shared.stats.lock().deref_mut().finished += crit.donelist.len() - old_donelist_len; };
+    // sort + truncate + update utility_pruning_cutoff
+    crit.update(&shared.cfg); // this also updates utility_pruning_cutoff
+
+    if shared.cfg.verbose_best && crit.donelist.first().map(|x|x.utility).unwrap_or(0) > old_best_utility {
+        // println!("{} @ step={} util={} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, crit.donelist.first().unwrap().utility, crit.donelist.first().unwrap().info(shared));
+    }
+
+    // pull out the newer version of this now that its been updated, since we're returning it at the end
+    let mut utility_pruning_cutoff = crit.utility_pruning_cutoff;
+    utility_pruning_cutoff
+}
+
 /// empties worklist_buf and donelist_buf into the shared worklist while holding the mutex, updates
 /// the donelist and cutoffs, and grabs and returns a new worklist item along with new cutoff bounds.
 #[inline(never)]
@@ -929,8 +954,8 @@ fn get_worklist_item(
 }
 
 
-
-struct Instruction {
+#[derive(Debug)]
+pub struct Instruction {
     offset: usize,
     len: usize,
     action: Action,
@@ -969,7 +994,9 @@ impl Instruction {
     }
 }
 
-enum Action {
+#[derive(Debug)]
+pub enum Action {
+    Start,
     Expansion(ExpandsTo, i32), // expansion and bound
     Undo(ExpandsTo),
     SetHoleChoice(usize, Zip, i32), // hole_idx, hole_zip, hole_depth
@@ -981,9 +1008,14 @@ fn stitch_search(
     shared: Arc<SharedData>,
 ) {
 
-    let mut instructions: Vec<Instruction> = vec![];
     let mut match_locations: Vec<MatchLocation> = shared.treenodes.iter().map(|&id| MatchLocation::new(id)).collect();
+    match_locations.sort_by_key(|m|m.id); // we assume match_locations is always sorted
+    if shared.cfg.no_top_lambda {
+        match_locations.retain(|m| expands_to_of_node(&shared.node_of_id[usize::from(m.id)]) != ExpandsTo::Lam);
+    } 
+
     let mut pattern =  Pattern::single_hole(&shared, &match_locations[..]);
+    let mut instructions: Vec<Instruction> = vec![Instruction::new(0, match_locations.len(), Action::Start)];
 
     let mut hole_idx: usize = 0;
     let mut hole_zip: Zip = vec![];
@@ -992,18 +1024,16 @@ fn stitch_search(
     let mut donelist_buf: Vec<FinishedPattern> = vec![];
     let mut weak_utility_pruning_cutoff = 0;
 
-    
-    match_locations.sort_by_key(|m|m.id); // we assume match_locations is always sorted
-    if shared.cfg.no_top_lambda {
-        match_locations.retain(|m| expands_to_of_node(&shared.node_of_id[usize::from(m.id)]) != ExpandsTo::Lam);
-    } 
-
     loop {
+
+        weak_utility_pruning_cutoff = donelist_update(&mut donelist_buf, &shared);
 
         let instruction = match instructions.pop() {
             Some(instruction) => instruction,
             None => { break }
         };
+
+        println!("Processing {:?} on pattern {}", instruction, pattern.to_expr(&shared));
 
         let mut offset = instruction.offset;
         let mut len = instruction.len;
@@ -1011,8 +1041,14 @@ fn stitch_search(
         pattern.any_loc_id = locs[0].id;
 
         match &instruction.action {
+            Action::Start => {
+                // lets start
+            }
             Action::Expansion(expands_to, bound) => {
-                // todo check bound here and possibly just discard
+                if *bound <= weak_utility_pruning_cutoff {
+                    // todo copy over the printout and increment stats here
+                    continue
+                }
                 match expands_to {
                     ExpandsTo::App => {
                         // push 2 to hole_zips
@@ -1082,7 +1118,7 @@ fn stitch_search(
                 // push an undo instruction
                 instructions.push(Instruction::undo_of(instruction));
                 // save our old hole_idx and hole_zip. offset and len are intentionally unused.
-                instructions.push(Instruction::new(0, 0, Action::SetHoleChoice(hole_idx, hole_zip, hole_depth)));
+                instructions.push(Instruction::new(0, 0, Action::SetHoleChoice(hole_idx, hole_zip.clone(), hole_depth)));
             }
 
             Action::Undo(expands_to) => {
@@ -1150,6 +1186,12 @@ fn stitch_search(
             }
         }
 
+        if pattern.hole_zips.is_empty() {
+            let tracked = false; // todo fix
+            finish_pattern(&mut pattern, locs, &mut weak_utility_pruning_cutoff, tracked, &mut donelist_buf, &shared);
+            continue;
+        }
+
         // if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
         // if !shared.cfg.no_stats { if shared.cfg.print_stats > 0 &&  shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 { println!("{:?} \n\t@ [bound={}; uses={}] chose: {}",shared.stats.lock().deref_mut(),   original_pattern.utility_upper_bound, original_pattern.match_locations.as_ref().unwrap().iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>(), original_pattern.to_expr(&shared)); }};
         // if shared.cfg.verbose_worklist {
@@ -1204,7 +1246,7 @@ fn stitch_search(
         for (ivar,ivar_locs) in locs_of_ivar.into_iter().enumerate() {
             if ivar_locs.is_empty() { continue; }
             select_indices(locs, &ivar_locs);
-            let expands_to = ExpandsTo::IVar(pattern.arity as i32);
+            let expands_to = ExpandsTo::IVar(ivar as i32);
             let inner_offset = 0;
             let inner_len = len; // here we pass in the full length since we need that to run select_indices when recursing
             expand_and_finish(&mut pattern, &locs, inner_offset, inner_len, offset, &expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
@@ -1263,6 +1305,7 @@ pub fn expand_and_finish(
     donelist_buf: &mut Vec<FinishedPattern>,
     shared: &SharedData) {
 
+
     let inner_locs = &locs[inner_offset..inner_offset+inner_len];
 
     // for debugging
@@ -1286,6 +1329,7 @@ pub fn expand_and_finish(
     // update the upper bound
     let util_upper_bound: i32 = utility_upper_bound(&inner_locs, pattern.body_utility_no_refinement, &shared);
     assert!(util_upper_bound <= pattern.utility_upper_bound);
+    println!("expand and finish on {:?}", expands_to);
 
     if opt_upper_bound(&pattern,  util_upper_bound, *weak_utility_pruning_cutoff, hole_zip, expands_to, tracked, &shared) { return };
     if opt_force_multiuse(&pattern, inner_locs, hole_zip, tracked, &shared) { return };
@@ -1293,11 +1337,12 @@ pub fn expand_and_finish(
 
     if tracked { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), pattern.show_track_expansion(&hole_zip, &shared), util_upper_bound); }
 
-    if !pattern.hole_zips.is_empty() {
-        instructions.push(Instruction::new(parent_offset + inner_offset, inner_len, Action::Expansion(expands_to.clone(), util_upper_bound)));
-    } else {
-        finish_pattern(pattern, inner_locs, weak_utility_pruning_cutoff, hole_zip, tracked, donelist_buf, &shared);
-    }
+    // if !pattern.hole_zips.is_empty() || expands_to.has_holes() {
+    //     println!("pushin {:?}", expands_to);
+    instructions.push(Instruction::new(parent_offset + inner_offset, inner_len, Action::Expansion(expands_to.clone(), util_upper_bound)));
+    // } else {
+    //     println!("finishin {}", pattern.to_expr(shared));
+    // }
 }
 
 
@@ -1463,7 +1508,7 @@ fn opt_useless_abstract(pattern: &Pattern, locs: &[MatchLocation], tracked: bool
     return false
 }
 
-fn finish_pattern(pattern: &mut Pattern, inner_locs: &[MatchLocation], weak_utility_pruning_cutoff: &mut i32, hole_zip: &Zip, tracked:bool, donelist_buf: &mut Vec<FinishedPattern>, shared: &SharedData) {
+fn finish_pattern(pattern: &mut Pattern, inner_locs: &[MatchLocation], weak_utility_pruning_cutoff: &mut i32, tracked:bool, donelist_buf: &mut Vec<FinishedPattern>, shared: &SharedData) {
     assert!(pattern.hole_zips.is_empty());
     // it's a finished pattern
     // refinement
@@ -1480,7 +1525,7 @@ fn finish_pattern(pattern: &mut Pattern, inner_locs: &[MatchLocation], weak_util
 
     if utility <= *weak_utility_pruning_cutoff {
         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-        if tracked { println!("{} upper bound (stage 2) ({} < {}) pruned when expanding {}", "[TRACK]".red().bold(), utility, weak_utility_pruning_cutoff, pattern.show_track_expansion(&hole_zip, &shared)); }
+        if tracked { println!("{} upper bound (stage 2) ({} < {}) pruned on {}", "[TRACK]".red().bold(), utility, weak_utility_pruning_cutoff, pattern.to_expr(&shared)); }
         return
     }
 
