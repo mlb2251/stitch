@@ -80,7 +80,7 @@ pub fn rewrite_fast(
     ) -> Expr
     {
         // we search using the the *unshifted* one since its an original program tree node
-        if let Ok(m_idx) = pattern.pattern.match_locations.as_ref().unwrap().binary_search_by_key(&unshifted_id, |m| m.id) // if the pattern matches here
+        if let Ok(m_idx) = pattern.match_locations.binary_search_by_key(&unshifted_id, |m| m.id) // if the pattern matches here
         //    && !pattern.pattern.first_zid_of_ivar.iter().any(|zid| // and there are no negative vars anywhere in the arguments
         //         shared.egraph[shared.arg_of_zid_node[*zid][&unshifted_id].id].data.free_vars.iter().any(|var| *var < 0))
         { // ugly double-if since if-let + if chaining isnt stable yet
@@ -88,7 +88,7 @@ pub fn rewrite_fast(
             || pattern.util_calc.corrected_utils[&unshifted_id].accept) // or we have a conflict but we choose to accept it (which is contextless in this top down approach so its the right move)
                 && refinements.is_none() // AND we can't currently be in a refinement where rewriting is forbidden
             {
-                let loc = &pattern.pattern.match_locations.as_ref().unwrap()[m_idx];
+                let loc = &pattern.match_locations[m_idx];
                 // println!("inv applies at unshifted={} with shift={}", extract(unshifted_id,&shared.egraph), shift);
                 let mut expr = Expr::prim(inv_name.into());
                 // wrap the prim in all the Apps to args

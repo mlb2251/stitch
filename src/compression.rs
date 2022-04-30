@@ -872,7 +872,7 @@ fn get_worklist_item(
     crit.update(&shared.cfg); // this also updates utility_pruning_cutoff
 
     if shared.cfg.verbose_best && crit.donelist.first().map(|x|x.utility).unwrap_or(0) > old_best_utility {
-        println!("{} @ step={} util={} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, crit.donelist.first().unwrap().utility, crit.donelist.first().unwrap().info(shared));
+        // println!("{} @ step={} util={} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, crit.donelist.first().unwrap().utility, crit.donelist.first().unwrap().info(shared));
     }
 
     // pull out the newer version of this now that its been updated, since we're returning it at the end
@@ -988,6 +988,10 @@ fn stitch_search(
     let mut hole_idx: usize = 0;
     let mut hole_zip: Zip = vec![];
     let mut hole_depth: i32 = 0;
+
+    let mut donelist_buf: Vec<FinishedPattern> = vec![];
+    let mut weak_utility_pruning_cutoff = 0;
+
     
     match_locations.sort_by_key(|m|m.id); // we assume match_locations is always sorted
     if shared.cfg.no_top_lambda {
@@ -1180,7 +1184,7 @@ fn stitch_search(
             let mut inner_len = 0;
             for (i,loc) in locs.iter().enumerate() {
                 if &loc.cached_expands_to != expands_to {
-                    expand_and_finish(&pattern, &locs, inner_offset, inner_len, offset, expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut instructions, &shared);
+                    expand_and_finish(&pattern, &locs, inner_offset, inner_len, offset, expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
                     expands_to = &loc.cached_expands_to;
                     inner_offset = i;
                     inner_len = 0; // reset it to 0 which will immediately get incremented to 1
@@ -1202,7 +1206,7 @@ fn stitch_search(
             let expands_to = ExpandsTo::IVar(pattern.arity as i32);
             let inner_offset = 0;
             let inner_len = len; // here we pass in the full length since we need that to run select_indices when recursing
-            expand_and_finish(&pattern, &locs, inner_offset, inner_len, offset, &expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut instructions, &shared);
+            expand_and_finish(&pattern, &locs, inner_offset, inner_len, offset, &expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
             // select_indices is its own inverse so we can restore the original ordering like this...
             select_indices(locs, &ivar_locs);
         }
@@ -1213,14 +1217,14 @@ fn stitch_search(
             let expands_to = ExpandsTo::IVar(pattern.arity as i32);
             let inner_offset = 0;
             let inner_len = len;
-            expand_and_finish(&pattern, &locs, inner_offset, inner_len, offset, &expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut instructions, &shared);
+            expand_and_finish(&pattern, &locs, inner_offset, inner_len, offset, &expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
             // instructions.push(Instruction::new(offset, len, Action::Expansion(ExpandsTo::IVar(pattern.arity as i32), pattern.bound)));
         }
 
 
 
         if pattern.tracked && !found_tracked {
-            println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), pattern.to_expr(&shared), pattern.show_track_expansion(&hole_zip, &shared));
+            println!("{} pruned when expanding because there were no match locations for the target expansion of {}", "[TRACK]".red().bold(), pattern.show_track_expansion(&hole_zip, &shared));
         }
 
 }
@@ -1253,7 +1257,9 @@ pub fn expand_and_finish(
     hole_zip: &Zip,
     hole_depth: i32,
     found_tracked: &mut bool,
+    weak_utility_pruning_cutoff: &mut i32,
     instructions: &mut Vec<Instruction>,
+    donelist_buf: &mut Vec<FinishedPattern>,
     shared: &SharedData) {
 
     let inner_locs = &locs[inner_offset..inner_offset+inner_len];
@@ -1263,15 +1269,15 @@ pub fn expand_and_finish(
     if tracked { *found_tracked = true; }
     if shared.cfg.follow_track && !tracked { return }
     
-    if opt_single_use(inner_locs, tracked, &shared) { return };
-    if opt_single_task(inner_locs, tracked, &shared) { return  };
+    if opt_single_use(&pattern, inner_locs, hole_zip, expands_to, tracked, &shared) { return };
+    if opt_single_task(&pattern, inner_locs, hole_zip, expands_to, tracked, &shared) { return  };
 
     // check for free variables: if an invention has free variables in the body then it's not a real function and we can discard it
     // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
     if let ExpandsTo::Var(i) = expands_to {
         if *i >= hole_depth {
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
-            if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), pattern.to_expr(&shared), pattern.show_track_expansion(&hole_zip, &shared)); }
+            if tracked { println!("{} pruned by free var in body when expanding to {}", "[TRACK]".red().bold(), pattern.show_track_expansion(&hole_zip, &shared)); }
             return; // free var
         }
     }
@@ -1280,29 +1286,29 @@ pub fn expand_and_finish(
     let util_upper_bound: i32 = utility_upper_bound(&inner_locs, pattern.body_utility_no_refinement, &shared);
     assert!(util_upper_bound <= pattern.utility_upper_bound);
 
-    if opt_upper_bound(util_upper_bound, tracked, &shared) { return };
-    if opt_force_multiuse(inner_locs, tracked, &shared) { return };
-    if opt_useless_abstract(inner_locs, tracked, &shared) { return };
+    if opt_upper_bound(&pattern,  util_upper_bound, *weak_utility_pruning_cutoff, hole_zip, expands_to, tracked, &shared) { return };
+    if opt_force_multiuse(&pattern, inner_locs, hole_zip, tracked, &shared) { return };
+    if opt_useless_abstract(&pattern, inner_locs, tracked, &shared) { return };
 
     if tracked { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), pattern.show_track_expansion(&hole_zip, &shared), util_upper_bound); }
 
     if !pattern.hole_zips.is_empty() {
         instructions.push(Instruction::new(parent_offset + inner_offset, inner_len, Action::Expansion(expands_to.clone(), util_upper_bound)));
     } else {
-        finish_pattern(&pattern, tracked, &shared);
+        finish_pattern(&pattern, inner_locs, &mut weak_utility_pruning_cutoff, hole_zip, tracked, donelist_buf, &shared);
     }
 }
 
 
 /// refines a new pattern inplace
 #[inline(never)]
-pub fn refine(new_pattern: &mut Pattern, tracked: bool, shared: &SharedData) {
+pub fn refine(new_pattern: &mut Pattern, inner_locs: &[MatchLocation], tracked: bool, shared: &SharedData) {
     if tracked {
         println!("{} refining {}", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared));
     }
 
     let mut best_refinement: Vec<Option<Vec<Id>>> = new_pattern.refinements.clone(); // initially all Nones
-    let mut best_utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
+    let mut best_utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern, inner_locs, &shared).util;
     let mut best_refinement_body_utility = 0;
     assert!(new_pattern.refinement_body_utility == 0);
     assert!(new_pattern.refinements.iter().all(|refinement| refinement.is_none()));
@@ -1342,7 +1348,7 @@ pub fn refine(new_pattern: &mut Pattern, tracked: bool, shared: &SharedData) {
             .map(|r| r.iter()
                 .map(|r_id| COST_NONTERMINAL + shared.cost_of_node_once[usize::from(*r_id)]).sum::<i32>()).sum::<i32>();
 
-        let utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
+        let utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,inner_locs, &shared).util;
         if utility > best_utility {
             best_refinement = refinements.clone();
             best_utility = utility;
@@ -1376,7 +1382,7 @@ pub fn refine(new_pattern: &mut Pattern, tracked: bool, shared: &SharedData) {
 }
 
 
-fn opt_single_use(locs: &[MatchLocation], tracked: bool, shared: &SharedData) -> bool {
+fn opt_single_use(pattern: &Pattern, locs: &[MatchLocation], hole_zip: &Zip, expands_to: &ExpandsTo, tracked: bool, shared: &SharedData) -> bool {
     // prune inventions that only match at a single unique (structurally hashed) subtree. This only applies if we
     // also are priming with arity 0 inventions. Basically if something only matches at one subtree then the best you can
     // do is the arity zero invention which is the whole subtree, and since we already primed with arity 0 inventions we can
@@ -1385,50 +1391,50 @@ fn opt_single_use(locs: &[MatchLocation], tracked: bool, shared: &SharedData) ->
     // you can't improve your structure penalty bound enough to catch everything hence this separate single_use thing.
     if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.free_vars_of_node[usize::from(locs[0].id)].is_empty() {
         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_fired += 1; }
-        if tracked { println!("{} single use pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&hole_zip, &format!("<{}>",expands_to))); }
+        if tracked { println!("{} single use pruned when expanding to {}", "[TRACK]".red().bold(), pattern.show_track_expansion(&hole_zip, &shared)); }
         return true
     }
     return false
 }
 
-fn opt_single_task(locs: &[MatchLocation], tracked: bool, shared: &SharedData) -> bool {
+fn opt_single_task(pattern: &Pattern, locs: &[MatchLocation], hole_zip: &Zip, expands_to: &ExpandsTo, tracked: bool, shared: &SharedData) -> bool {
     // prune inventions specific to one single task
     if !shared.cfg.no_opt_single_task
             && locs.iter().all(|loc| shared.tasks_of_node[usize::from(loc.id)].len() == 1)
             && locs.iter().all(|loc| shared.tasks_of_node[usize::from(locs[0].id)].iter().next() == shared.tasks_of_node[usize::from(loc.id)].iter().next()) {
         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
-        if tracked { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&hole_zip, &format!("<{}>",expands_to))); }
+        if tracked { println!("{} single task pruned when expanding to {}", "[TRACK]".red().bold(), pattern.show_track_expansion(&hole_zip, &shared)); }
         return true
     }
     return false
 }
 
-fn opt_upper_bound(util_upper_bound: i32, tracked: bool, shared: &SharedData) -> bool {
+fn opt_upper_bound(pattern: &Pattern, util_upper_bound: i32, weak_utility_pruning_cutoff: i32, hole_zip: &Zip, expands_to: &ExpandsTo, tracked: bool, shared: &SharedData) -> bool {
     // branch and bound: if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
     if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-        if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared)); }
+        if tracked { println!("{} upper bound ({} < {}) pruned when expanding {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, pattern.show_track_expansion(&hole_zip, &shared)); }
         return true // too low utility
     }
     return false
 }
 
-fn opt_force_multiuse(locs: &[MatchLocation], tracked: bool, shared: &SharedData) -> bool {
+fn opt_force_multiuse(pattern: &Pattern, locs: &[MatchLocation], hole_zip: &Zip, tracked: bool, shared: &SharedData) -> bool {
     // if two different ivars #i and #j have the same arg at every location, then we can prune this pattern
     // because there must exist another pattern where theyre just both the same ivar. Note that this pruning
     // happens here and not just at the ivar creation point because new subsetting can happen
     if !shared.cfg.no_opt_force_multiuse {
         // for all pairs of ivars #i and #j, get the first zipper and compare the arg value across all locations
-        for i in (0..arity) {
+        for i in (0..pattern.arity) {
             // let ref arg_of_loc_1 = shared.arg_of_zid_node[*ivar_zid_1];
-            for j in (i+1..arity) {
+            for j in (i+1..pattern.arity) {
                 // let ref arg_of_loc_2 = shared.arg_of_zid_node[*ivar_zid_2];
                 if locs.iter().all(|loc|
                     loc.arg_shifted_ids[i] == loc.arg_shifted_ids[j])
                     // arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
                 {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().force_multiuse_fired += 1; };
-                    if tracked { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared)); }
+                    if tracked { println!("{} force multiuse pruned when expanding to {}", "[TRACK]".red().bold(), pattern.show_track_expansion(&hole_zip, &shared)); }
                     return true
                 }
             }
@@ -1437,11 +1443,11 @@ fn opt_force_multiuse(locs: &[MatchLocation], tracked: bool, shared: &SharedData
     return false
 }
 
-fn opt_useless_abstract(locs: &[MatchLocation], tracked: bool, shared: &SharedData) -> bool {
+fn opt_useless_abstract(pattern: &Pattern, locs: &[MatchLocation], tracked: bool, shared: &SharedData) -> bool {
     // check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
     // because subsetting of match_locations can turn previously useful abstractions into useless ones.
     if !shared.cfg.no_opt_useless_abstract {
-        for ivar in 0..arity{
+        for ivar in 0..pattern.arity{
             // if its the same arg in every place
             if locs.iter().map(|loc| &loc.arg_shifted_ids[ivar]).all_equal()
                 // AND there's no potential for refining that arg
@@ -1456,16 +1462,33 @@ fn opt_useless_abstract(locs: &[MatchLocation], tracked: bool, shared: &SharedDa
     return false
 }
 
-fn finish_pattern(pattern: &Pattern, tracked:bool, shared: &SharedData) {
+fn finish_pattern(pattern: &Pattern, inner_locs: &[MatchLocation], weak_utility_pruning_cutoff: &mut i32, hole_zip: &Zip, tracked:bool, donelist_buf: &mut Vec<FinishedPattern>, shared: &SharedData) {
     assert!(pattern.hole_zips.is_empty());
     // it's a finished pattern
     // refinement
 
     if shared.cfg.refine {
-        refine(&mut pattern, tracked, &shared);
+        refine(&mut pattern, inner_locs, tracked, &shared);
     }
 
-    let finished_pattern = FinishedPattern::new(new_pattern, &shared);
+    // todo add a conflict-free check first i think would be good?
+    let util_calc = compressive_utility(&pattern, inner_locs, shared);
+    let noncompressive_utility = noncompressive_utility(pattern.body_utility_no_refinement + pattern.refinement_body_utility, &shared.cfg);
+    let utility = noncompressive_utility + util_calc.util;
+    assert!(utility <= pattern.utility_upper_bound, "{} BUT utility is higher: {}", pattern.info(&shared, inner_locs), utility);
+
+    if utility <= *weak_utility_pruning_cutoff {
+        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
+        if tracked { println!("{} upper bound (stage 2) ({} < {}) pruned when expanding {}", "[TRACK]".red().bold(), utility, weak_utility_pruning_cutoff, pattern.show_track_expansion(&hole_zip, &shared)); }
+        return
+    }
+
+    if shared.cfg.inv_candidates == 1 && utility > *weak_utility_pruning_cutoff {
+        // if we're only looking for one invention, we can directly update our cutoff here
+        *weak_utility_pruning_cutoff = utility;
+    }
+
+    let finished_pattern = FinishedPattern::new(pattern, inner_locs, utility, util_calc.util, util_calc, &shared);
 
     if !shared.cfg.no_stats { shared.stats.lock().calc_final_utility += 1; };
 
@@ -1476,11 +1499,6 @@ fn finish_pattern(pattern: &Pattern, tracked:bool, shared: &SharedData) {
 
     if tracked {
         println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);
-    }
-
-    if shared.cfg.inv_candidates == 1 && finished_pattern.utility > weak_utility_pruning_cutoff {
-        // if we're only looking for one invention, we can directly update our cutoff here
-        weak_utility_pruning_cutoff = finished_pattern.utility;
     }
 
     donelist_buf.push(finished_pattern);
@@ -1494,6 +1512,7 @@ fn finish_pattern(pattern: &Pattern, tracked:bool, shared: &SharedData) {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FinishedPattern {
     pub pattern: Pattern,
+    pub match_locations: Vec<MatchLocation>, // todo note that this doesnt need to be carried around in here! we could just reconstruct it later by a directed search
     pub utility: i32,
     pub compressive_utility: i32,
     pub util_calc: UtilityCalculation,
@@ -1503,18 +1522,15 @@ pub struct FinishedPattern {
 
 impl FinishedPattern {
     #[inline(never)]
-    fn new(pattern: Pattern, shared: &SharedData) -> Self {
+    fn new(pattern: &Pattern, match_locations: &[MatchLocation], utility: i32, compressive_utility: i32, util_calc: UtilityCalculation, shared: &SharedData) -> Self {
         let arity = pattern.arity;
-        let usages = pattern.match_locations.as_ref().unwrap().iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum();
-        let compressive_utility = compressive_utility(&pattern,shared);
-        let noncompressive_utility = noncompressive_utility(pattern.body_utility_no_refinement + pattern.refinement_body_utility, &shared.cfg);
-        let utility = noncompressive_utility + compressive_utility.util;
-        assert!(utility <= pattern.utility_upper_bound, "{} BUT utility is higher: {} (usages: {})", pattern.info(&shared), utility, usages);
+        let usages = match_locations.iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum();
         FinishedPattern {
-            pattern,
+            pattern: pattern.clone(),
+            match_locations: match_locations.to_vec(), // todo expensive! and unnecessary  we could just reconstruct it later
             utility,
-            compressive_utility: compressive_utility.util,
-            util_calc: compressive_utility,
+            compressive_utility,
+            util_calc,
             arity,
             usages,
         }
@@ -1527,7 +1543,7 @@ impl FinishedPattern {
         Invention::new(self.to_expr(shared), self.arity, name)
     }
     pub fn info(&self, shared: &SharedData) -> String {
-        format!("{} -> finished: utility={}, compressive_utility={}, arity={}, usages={}",self.pattern.info(shared), self.utility, self.compressive_utility, self.arity, self.usages)
+        format!("{} -> finished: utility={}, compressive_utility={}, arity={}, usages={}",self.pattern.info(shared, &self.match_locations[..]), self.utility, self.compressive_utility, self.arity, self.usages)
     }
 
 }
@@ -1755,8 +1771,8 @@ impl CompressionStepResult {
         let multiplier = shared.init_cost as f64 / final_cost as f64;
         let multiplier_wrt_orig = very_first_cost as f64 / final_cost as f64;
         let uses = done.usages;
-        let use_exprs: Vec<Expr> = done.pattern.match_locations.as_ref().unwrap().iter().map(|loc| extract(loc.id, &shared.egraph)).collect();
-        let use_args: Vec<Vec<Expr>> = done.pattern.match_locations.as_ref().unwrap().iter().map(|loc|
+        let use_exprs: Vec<Expr> = done.match_locations.iter().map(|loc| extract(loc.id, &shared.egraph)).collect();
+        let use_args: Vec<Vec<Expr>> = done.match_locations.iter().map(|loc|
             (0..done.pattern.arity).map(|ivar|
                 loc.arg_shifted_ids[ivar].extract(&shared.egraph)
             ).collect()).collect();
@@ -1892,8 +1908,9 @@ fn noncompressive_utility_upper_bound(
     structure_penalty
 }
 
+
 #[inline(never)]
-fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
+fn compressive_utility(pattern: &Pattern, match_locations: &[MatchLocation], shared: &SharedData) -> UtilityCalculation {
 
     // * BASIC CALCULATION
     // Roughly speaking compressive utility is num_usages(invention) * size(invention), however there are a few extra
@@ -1921,7 +1938,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * pattern.arity as i32 + COST_NONTERMINAL * pattern.refinements.iter().map(|r|if let Some(refinements) = r {refinements.len() as i32} else {0}).sum::<i32>());
 
 
-    let utility_of_loc_once: Vec<i32> = pattern.match_locations.as_ref().unwrap().iter().map(|loc| {
+    let utility_of_loc_once: Vec<i32> = match_locations.iter().map(|loc| {
         // println!("calculating util of {}", extract(*loc, &shared.egraph));
         // compressivity of body (no refinement) minus slight penalty from the application
         let base_utility = pattern.body_utility_no_refinement + app_penalty;
@@ -1981,7 +1998,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         }).collect();
 
 
-    let compressive_utility: i32 = pattern.match_locations.as_ref().unwrap().iter()
+    let compressive_utility: i32 = match_locations.iter()
         .zip(utility_of_loc_once.iter())
         .map(|(loc,utility)| utility * shared.num_paths_to_node[usize::from(loc.id)])
         .sum();
@@ -2000,11 +2017,11 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         // * ACCOUNTING FOR USE CONFLICTS:
 
 
-    use_conflicts(pattern, utility_of_loc_once, compressive_utility, shared)
+    use_conflicts(pattern, match_locations, utility_of_loc_once, compressive_utility, shared)
 }
 
 #[inline(never)]
-fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_utility: i32, shared: &SharedData) -> UtilityCalculation {
+fn use_conflicts(pattern: &Pattern, match_locations: &[MatchLocation], utility_of_loc_once: Vec<i32>, compressive_utility: i32, shared: &SharedData) -> UtilityCalculation {
 
     // zips and ivars
     // note holes will be empty for finished patterns
@@ -2019,9 +2036,9 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
     let mut global_correction = 0; // this is going to get added to the compressive_utility at the end to correct for use-conflicts
 
     // bottom up traversal since we assume match_locations is sorted
-    for (loc_idx,loc) in pattern.match_locations.as_ref().unwrap().iter().enumerate() {
+    for (loc_idx,loc) in match_locations.iter().enumerate() {
         // get all the nodes this could conflict with (by idx within `locs` not by id)
-        let conflict_idxs: AHashSet<(Id,usize)> = get_conflicts(&zips, loc.id, shared, pattern);
+        let conflict_idxs: AHashSet<(Id,usize)> = get_conflicts(&zips, loc.id, shared, pattern, match_locations);
 
         // now we basically record how much we would affect global utility by if we accept vs reject vs choose the best of those options.
         // and recording this will let us change our mind later if we decide to force-reject something
@@ -2111,7 +2128,7 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
 }
 
 #[inline(never)]
-fn get_conflicts(zips: &Vec<(&Zip,Option<usize>)>, loc: Id, shared: &SharedData, pattern: &Pattern) -> AHashSet<(Id, usize)> {
+fn get_conflicts(zips: &Vec<(&Zip,Option<usize>)>, loc: Id, shared: &SharedData, pattern: &Pattern, match_locations: &[MatchLocation]) -> AHashSet<(Id, usize)> {
     let mut conflict_idxs = AHashSet::new();
     for (zip,ivar) in zips.iter().filter(|(zip,_)| !zip.is_empty()) {
         let mut id = loc;
@@ -2125,7 +2142,7 @@ fn get_conflicts(zips: &Vec<(&Zip,Option<usize>)>, loc: Id, shared: &SharedData,
                 _ => unreachable!("{:?} {:?}", znode, &shared.node_of_id[usize::from(id)])
             };
             // if its also a location, push it to the conflicts list (do NOT dedup)
-            if let Ok(idx) = pattern.match_locations.as_ref().unwrap().binary_search_by_key(&id, |m| m.id) {
+            if let Ok(idx) = match_locations.binary_search_by_key(&id, |m| m.id) {
                 conflict_idxs.insert((id,idx));
             }
         }
@@ -2133,15 +2150,15 @@ fn get_conflicts(zips: &Vec<(&Zip,Option<usize>)>, loc: Id, shared: &SharedData,
         if let Some(ivar) = ivar {
             if pattern.refinements[*ivar].is_some() {
                 #[inline(never)]
-                fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut AHashSet<(Id,usize)>, pattern: &Pattern) {
-                    if let Ok(idx) = pattern.match_locations.as_ref().unwrap().binary_search_by_key(&id, |m| m.id) {
+                fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut AHashSet<(Id,usize)>, pattern: &Pattern, match_locations: &[MatchLocation]) {
+                    if let Ok(idx) = match_locations.binary_search_by_key(&id, |m| m.id) {
                         conflict_idxs.insert((id,idx));
                     }
                     match &shared.node_of_id[usize::from(id)] {
-                        Lambda::Lam([b]) => {helper(*b, shared, conflict_idxs, pattern);},
+                        Lambda::Lam([b]) => {helper(*b, shared, conflict_idxs, pattern,  match_locations);},
                         Lambda::App([f,x]) => {
-                            helper(*f, shared, conflict_idxs, pattern);
-                            helper(*x, shared, conflict_idxs, pattern);
+                            helper(*f, shared, conflict_idxs, pattern, match_locations);
+                            helper(*x, shared, conflict_idxs, pattern, match_locations);
                         }
                         Lambda::Prim(_) | Lambda::Var(_) | Lambda::IVar(_) => {},
                         _ => unreachable!()
@@ -2370,7 +2387,7 @@ pub fn compression_step(
             // since any invention specific to a node will by definition only
             // be useful at that node
 
-            let match_locations = vec![MatchLocation::new(*node, vec![], vec![])];
+            let match_locations = vec![MatchLocation::new(*node)];
             let body_utility_no_refinement = cost_of_node_once[usize::from(*node)];
             let refinement_body_utility = 0;
             // compressive_utility for arity-0 is cost_of_node_all[node] minus the penalty of using the new prim
@@ -2383,7 +2400,7 @@ pub fn compression_step(
                 // arg_choices: vec![],
                 // first_zid_of_ivar: vec![],
                 refinements: vec![],
-                match_locations:Some(match_locations),
+                // match_locations:Some(match_locations),
                 utility_upper_bound: utility,
                 body_utility_no_refinement,
                 refinement_body_utility,
@@ -2393,9 +2410,11 @@ pub fn compression_step(
                 arg_zips: vec![],
                 // arg_shifted_ids: vec![],
                 arity: 0,
+                any_loc_id: *node,
             };
             let finished_pattern = FinishedPattern {
                 pattern,
+                match_locations,
                 utility,
                 compressive_utility,
                 util_calc: UtilityCalculation { util: compressive_utility, corrected_utils: Default::default()},
@@ -2438,9 +2457,9 @@ pub fn compression_step(
         tracking,
     });
 
-    { // scoping to ensure lock drops, not sure if this is needed
-        shared.crit.lock().deref_mut().worklist.push(HeapItem::new(Pattern::single_hole(&*shared), &*shared));
-    }
+    // { // scoping to ensure lock drops, not sure if this is needed
+    //     shared.crit.lock().deref_mut().worklist.push(HeapItem::new(Pattern::single_hole(&*shared), &*shared));
+    // }
 
     println!("built SharedData: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
