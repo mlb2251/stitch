@@ -1010,7 +1010,7 @@ fn stitch_search(
         let mut locs = &mut match_locations[offset..offset+len];
         pattern.any_loc_id = locs[0].id;
 
-        match instruction.action {
+        match &instruction.action {
             Action::Expansion(expands_to, bound) => {
                 // todo check bound here and possibly just discard
                 match expands_to {
@@ -1021,7 +1021,7 @@ fn stitch_search(
                         // body += NONTERM
                         pattern.body_utility_no_refinement += COST_NONTERMINAL;
                         // push 2 holes to all locs
-                        for &mut loc in locs {
+                        for loc in locs.iter_mut() {
                             let hole_id = loc.hole_unshifted_ids.remove(hole_idx);
                             loc.undo_hole_id.push(hole_id);
                             if let Lambda::App([f,x]) = shared.node_of_id[usize::from(hole_id)] {
@@ -1036,7 +1036,7 @@ fn stitch_search(
                         // body += NONTERM
                         pattern.body_utility_no_refinement += COST_NONTERMINAL;
                         // push 1 hole to all locs
-                        for &mut loc in locs {
+                        for loc in locs.iter_mut() {
                             let hole_id = loc.hole_unshifted_ids.remove(hole_idx);
                             loc.undo_hole_id.push(hole_id);
                             if let Lambda::Lam([b]) = shared.node_of_id[usize::from(hole_id)] {
@@ -1046,14 +1046,14 @@ fn stitch_search(
                     },
                     ExpandsTo::Var(_) | ExpandsTo::Prim(_) => {
                         pattern.body_utility_no_refinement += COST_TERMINAL;
-                        for &mut loc in locs {
+                        for loc in locs.iter_mut() {
                             let hole_id = loc.hole_unshifted_ids.remove(hole_idx);
                             loc.undo_hole_id.push(hole_id);
                         }
                     },
                     ExpandsTo::IVar(i) => {
                         let new_var = instruction.idxs.is_none();
-                        assert_eq!(new_var, i as usize == pattern.arity);
+                        assert_eq!(new_var, *i as usize == pattern.arity);
                         if new_var {
                             // refinements.push(None);
                             pattern.arity += 1;
@@ -1066,7 +1066,7 @@ fn stitch_search(
                             pattern.any_loc_id = locs[0].id;
                         }
 
-                        for &mut loc in locs {
+                        for loc in locs {
                             let hole_id = loc.hole_unshifted_ids.remove(hole_idx);
                             loc.undo_hole_id.push(hole_id);
                             if new_var {
@@ -1074,7 +1074,7 @@ fn stitch_search(
                                 loc.arg_shifted_ids.push(shifted_id)
                             }
                         }
-                        pattern.arg_zips.push(LabelledZip::new(hole_zip, i as usize));
+                        pattern.arg_zips.push(LabelledZip::new(hole_zip, *i as usize));
                         unimplemented!()
                     }
                 }
@@ -1090,7 +1090,7 @@ fn stitch_search(
                     ExpandsTo::App => {
                         pattern.hole_zips.truncate(pattern.hole_zips.len() - 2);
                         pattern.body_utility_no_refinement -= COST_NONTERMINAL;
-                        for &mut loc in locs {
+                        for loc in locs {
                             loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
                             loc.hole_unshifted_ids.truncate(loc.hole_unshifted_ids.len() - 2);
                         }
@@ -1098,7 +1098,7 @@ fn stitch_search(
                     ExpandsTo::Lam => {
                         pattern.hole_zips.truncate(pattern.hole_zips.len() - 1);
                         pattern.body_utility_no_refinement -= COST_NONTERMINAL;
-                        for &mut loc in locs {
+                        for loc in locs {
                             loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
                             loc.hole_unshifted_ids.truncate(loc.hole_unshifted_ids.len() - 1);
                         }
@@ -1106,7 +1106,7 @@ fn stitch_search(
                     },
                     ExpandsTo::Var(_) | ExpandsTo::Prim(_) => {
                         pattern.body_utility_no_refinement -= COST_TERMINAL;
-                        for &mut loc in locs {
+                        for loc in locs {
                             loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
                         }
                         unimplemented!()
@@ -1121,7 +1121,7 @@ fn stitch_search(
                             locs = &mut locs[..len];
                         }
 
-                        for &mut loc in locs {
+                        for loc in locs.iter_mut() {
                             loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
                             if new_var {
                                 loc.arg_shifted_ids.pop();
@@ -1143,9 +1143,9 @@ fn stitch_search(
                 // re-insert our current hole idx and hole zip
                 pattern.hole_zips.insert(hole_idx, hole_zip);
                 // now set them to their old values
-                hole_idx = old_hole_idx;
-                hole_zip = old_hole_zip;
-                hole_depth = old_hole_depth;
+                hole_idx = *old_hole_idx;
+                hole_zip = old_hole_zip.clone();
+                hole_depth = *old_hole_depth;
                 continue
             }
         }
@@ -1169,10 +1169,11 @@ fn stitch_search(
         // We also sort secondarily by `loc` to ensure each groupby subsequence has the locations in sorted order
         // parent_locs.sort_by_key(|loc| (loc.last_expands_to, loc.id));
         // todo if sorting is slow can do something smarter
-        for loc in locs {
+        for loc in locs.iter_mut() {
             loc.cached_expands_to = expands_to_of_node(&shared.node_of_id[usize::from(loc.hole_unshifted_ids[hole_idx])]);
         }
-        locs.sort_unstable_by_key(|loc| loc.cached_expands_to);
+        // ascending order sort
+        locs.sort_unstable_by(|loc1,loc2| loc1.cached_expands_to.cmp(&loc2.cached_expands_to) );
         
         // add all expansions to instructions, finishing anything that lacks holes
 
@@ -1184,7 +1185,7 @@ fn stitch_search(
             let mut inner_len = 0;
             for (i,loc) in locs.iter().enumerate() {
                 if &loc.cached_expands_to != expands_to {
-                    expand_and_finish(&pattern, &locs, inner_offset, inner_len, offset, expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
+                    expand_and_finish(&mut pattern, &locs, inner_offset, inner_len, offset, expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
                     expands_to = &loc.cached_expands_to;
                     inner_offset = i;
                     inner_len = 0; // reset it to 0 which will immediately get incremented to 1
@@ -1206,7 +1207,7 @@ fn stitch_search(
             let expands_to = ExpandsTo::IVar(pattern.arity as i32);
             let inner_offset = 0;
             let inner_len = len; // here we pass in the full length since we need that to run select_indices when recursing
-            expand_and_finish(&pattern, &locs, inner_offset, inner_len, offset, &expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
+            expand_and_finish(&mut pattern, &locs, inner_offset, inner_len, offset, &expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
             // select_indices is its own inverse so we can restore the original ordering like this...
             select_indices(locs, &ivar_locs);
         }
@@ -1217,7 +1218,7 @@ fn stitch_search(
             let expands_to = ExpandsTo::IVar(pattern.arity as i32);
             let inner_offset = 0;
             let inner_len = len;
-            expand_and_finish(&pattern, &locs, inner_offset, inner_len, offset, &expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
+            expand_and_finish(&mut pattern, &locs, inner_offset, inner_len, offset, &expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
             // instructions.push(Instruction::new(offset, len, Action::Expansion(ExpandsTo::IVar(pattern.arity as i32), pattern.bound)));
         }
 
@@ -1230,7 +1231,7 @@ fn stitch_search(
 }
 
 pub fn get_locs_of_ivar(pattern: &Pattern, locs: &[MatchLocation], hole_idx: usize, hole_depth: i32, shared :&SharedData) ->  Vec<Vec<usize>> {
-    let locs_of_ivar: Vec<Vec<usize>> = (0..pattern.arity).map(|_| vec![]).collect();
+    let mut locs_of_ivar: Vec<Vec<usize>> = (0..pattern.arity).map(|_| vec![]).collect();
     for (i,loc) in locs.iter().enumerate() {
         let unshifted_id = loc.hole_unshifted_ids[hole_idx];
         let shifted_id = shared.shifted_of_id[usize::from(unshifted_id)].shifted_by(-hole_depth);
@@ -1248,7 +1249,7 @@ pub fn get_locs_of_ivar(pattern: &Pattern, locs: &[MatchLocation], hole_idx: usi
 
 
 pub fn expand_and_finish(
-    pattern: &Pattern,
+    pattern: &mut Pattern,
     locs: &[MatchLocation],
     inner_offset: usize,
     inner_len: usize,
@@ -1295,7 +1296,7 @@ pub fn expand_and_finish(
     if !pattern.hole_zips.is_empty() {
         instructions.push(Instruction::new(parent_offset + inner_offset, inner_len, Action::Expansion(expands_to.clone(), util_upper_bound)));
     } else {
-        finish_pattern(&pattern, inner_locs, &mut weak_utility_pruning_cutoff, hole_zip, tracked, donelist_buf, &shared);
+        finish_pattern(pattern, inner_locs, weak_utility_pruning_cutoff, hole_zip, tracked, donelist_buf, &shared);
     }
 }
 
@@ -1462,13 +1463,13 @@ fn opt_useless_abstract(pattern: &Pattern, locs: &[MatchLocation], tracked: bool
     return false
 }
 
-fn finish_pattern(pattern: &Pattern, inner_locs: &[MatchLocation], weak_utility_pruning_cutoff: &mut i32, hole_zip: &Zip, tracked:bool, donelist_buf: &mut Vec<FinishedPattern>, shared: &SharedData) {
+fn finish_pattern(pattern: &mut Pattern, inner_locs: &[MatchLocation], weak_utility_pruning_cutoff: &mut i32, hole_zip: &Zip, tracked:bool, donelist_buf: &mut Vec<FinishedPattern>, shared: &SharedData) {
     assert!(pattern.hole_zips.is_empty());
     // it's a finished pattern
     // refinement
 
     if shared.cfg.refine {
-        refine(&mut pattern, inner_locs, tracked, &shared);
+        refine(pattern, inner_locs, tracked, &shared);
     }
 
     // todo add a conflict-free check first i think would be good?
