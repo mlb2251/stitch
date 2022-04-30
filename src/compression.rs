@@ -184,7 +184,7 @@ pub struct Pattern {
     // arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an argchoice, again these are in order of when they were added
     // pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the zid of the first use of #i in arg_choices
     pub refinements: Vec<Option<Vec<Id>>>, // refinements[i] gives the list of refinements for #i
-    pub match_locations: Option<MatchLocations>, // places where it applies
+    // pub match_locations: Option<MatchLocations>, // places where it applies
     pub utility_upper_bound: i32,
     pub body_utility_no_refinement: i32, // the size (in `cost`) of a single use of the pattern body so far
     pub refinement_body_utility: i32, // modifier on body_utility to include the full size account for refinement
@@ -194,6 +194,7 @@ pub struct Pattern {
     // pub hole_unshifted_ids: Vec<Vec<Id>>, // hole_unshifted_ids[hole_idx][match_loc_idx]
     pub arg_zips: Vec<LabelledZip>,
     pub arity: usize,
+    pub any_loc_id: Id, // just a random loc id that this pattern matches at, used to help with rendering it
     // pub arg_shifted_ids: Vec<Vec<Id>>,  // arg_shifted_ids[ivar][match_loc_idx]
 
 }
@@ -217,11 +218,13 @@ pub struct MatchLocation {
     // pub arg_info: Vec<ArgInfo>,
 }
 impl MatchLocation {
-    pub fn new(id: Id, hole_unshifted_ids: Vec<Id>, arg_shifted_ids: Vec<Shifted>) -> MatchLocation {
+    pub fn new(id: Id) -> MatchLocation {
         MatchLocation {
             id,
-            hole_unshifted_ids,
-            arg_shifted_ids,
+            hole_unshifted_ids: vec![],
+            arg_shifted_ids: vec![],
+            cached_expands_to: ExpandsTo::IVar(-626),
+            undo_hole_id: vec![],
         }
     }
 }
@@ -329,33 +332,33 @@ impl Pattern {
 
     /// create a single hole pattern `??`
     #[inline(never)]
-    fn single_hole(shared: &SharedData) -> Self {
-        let body_utility_no_refinement = 0;
-        let refinement_body_utility = 0;
-        let mut match_locations: Vec<MatchLocation> = shared.treenodes.iter().map(|&id| MatchLocation::new(id, vec![id], vec![])).collect();
-        match_locations.sort_by_key(|m|m.id); // we assume match_locations is always sorted
-        if shared.cfg.no_top_lambda {
-            match_locations.retain(|m| expands_to_of_node(&shared.node_of_id[usize::from(m.id)]) != ExpandsTo::Lam);
-        }
-        let utility_upper_bound = utility_upper_bound(&match_locations, body_utility_no_refinement + refinement_body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
+    fn single_hole(shared: &SharedData, match_locations: &[MatchLocation]) -> Self {
+        // let mut match_locations: Vec<MatchLocation> = shared.treenodes.iter().map(|&id| MatchLocation::new(id, vec![id], vec![])).collect();
+        // match_locations.sort_by_key(|m|m.id); // we assume match_locations is always sorted
+        // if shared.cfg.no_top_lambda {
+        //     match_locations.retain(|m| expands_to_of_node(&shared.node_of_id[usize::from(m.id)]) != ExpandsTo::Lam);
+        // }
+        let utility_upper_bound = utility_upper_bound(&match_locations, 0, &shared);
         Pattern {
             // holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
             // arg_choices: vec![],
             // first_zid_of_ivar: vec![],
             refinements: vec![],
-            match_locations: Some(match_locations.clone()), // single hole matches everywhere
+            // match_locations: Some(match_locations.clone()), // single hole matches everywhere
             utility_upper_bound,
-            body_utility_no_refinement, // 0 body utility
-            refinement_body_utility, // 0 body utility
+            body_utility_no_refinement: 0, // 0 body utility
+            refinement_body_utility: 0, // 0 body utility
             tracked: shared.cfg.track.is_some(),
             hole_zips: vec![vec![]], // there is one empty zipper
             // hole_unshifted_ids: vec![match_locations.clone()],
             arg_zips: vec![],
             arity: 0,
+            any_loc_id: match_locations.first().map(|m| m.id).unwrap(),
             // arg_shifted_ids: vec![],
         }
     }
     /// convert pattern to an Expr with `??` in place of holes and `?#` in place of argchoices
+    /// note `any_loc_id` can be the id of any match location, for example the first one
     fn to_expr(&self, shared: &SharedData) -> Expr {
         let mut curr_zip: Zip = vec![];
         // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
@@ -408,15 +411,15 @@ impl Pattern {
             
         }
         // we can pick any match location
-        helper(self.match_locations.as_ref().unwrap()[0].id, &mut curr_zip, &zips, shared)
+        helper(self.any_loc_id, &mut curr_zip, &zips, shared)
     }
     fn show_track_expansion(&self, hole_zip: &Zip, shared: &SharedData) -> String {
         let mut s = self.to_expr(shared).zipper_replace(&hole_zip, &"<REPLACE>" ).to_string();
         s = s.replace(&"<REPLACE>", &format!("{}",tracked_expands_to(self, hole_zip, shared)).clone().magenta().bold().to_string());
         s
     }
-    pub fn info(&self, shared: &SharedData) -> String {
-        format!("{}: utility_upper_bound={}, body_utility=({},{}), refinements={}, match_locations={}, usages={}",self.to_expr(shared), self.utility_upper_bound, self.body_utility_no_refinement, self.refinement_body_utility, self.refinements.iter().filter(|x|x.is_some()).count(), self.match_locations.as_ref().unwrap().len(), self.match_locations.as_ref().unwrap().iter().map(|loc|shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>())
+    pub fn info(&self, shared: &SharedData, match_locations: &[MatchLocation]) -> String {
+        format!("{}: utility_upper_bound={}, body_utility=({},{}), refinements={}, match_locations={}, usages={}",self.to_expr(shared), self.utility_upper_bound, self.body_utility_no_refinement, self.refinement_body_utility, self.refinements.iter().filter(|x|x.is_some()).count(), match_locations.len(), match_locations.iter().map(|loc|shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>())
     }
 }
 
@@ -969,32 +972,7 @@ impl Instruction {
 enum Action {
     Expansion(ExpandsTo, i32), // expansion and bound
     Undo(ExpandsTo),
-    SetHoleChoice(usize, Zip), // hole_idx, hole_zip
-}
-
-struct SearchState {
-    pub hole_zips: Vec<Zip>,
-    pub arg_zips: Vec<LabelledZip>,
-    pub arity: usize,
-    pub body_utility_no_refinement: i32,
-    // pub undo_hole_choice: Vec<usize>,
-    // pub undo_hole_zips: Vec<Zip>,
-}
-
-impl SearchState {
-    pub fn new(shared: &SharedData) -> SearchState {
-        SearchState {
-            // instructions: vec![],
-            // hole_idx: 0,
-            // hole_zip: vec![],
-            hole_zips: vec![],
-            arg_zips: vec![],
-            arity: 0,
-            body_utility_no_refinement: 0,
-            // undo_hole_choice: vec![],
-            // undo_hole_zips: vec![],
-        }
-    }
+    SetHoleChoice(usize, Zip, i32), // hole_idx, hole_zip, hole_depth
 }
 
 
@@ -1004,11 +982,12 @@ fn stitch_search(
 ) {
 
     let mut instructions: Vec<Instruction> = vec![];
-    let mut state =  SearchState::new(&shared);
-    let mut match_locations: Vec<MatchLocation> = shared.treenodes.iter().map(|&id| MatchLocation::new(id, vec![id], vec![])).collect();
+    let mut match_locations: Vec<MatchLocation> = shared.treenodes.iter().map(|&id| MatchLocation::new(id)).collect();
+    let mut pattern =  Pattern::single_hole(&shared, &match_locations[..]);
 
     let mut hole_idx: usize = 0;
     let mut hole_zip: Zip = vec![];
+    let mut hole_depth: i32 = 0;
     
     match_locations.sort_by_key(|m|m.id); // we assume match_locations is always sorted
     if shared.cfg.no_top_lambda {
@@ -1025,6 +1004,7 @@ fn stitch_search(
         let mut offset = instruction.offset;
         let mut len = instruction.len;
         let mut locs = &mut match_locations[offset..offset+len];
+        pattern.any_loc_id = locs[0].id;
 
         match instruction.action {
             Action::Expansion(expands_to, bound) => {
@@ -1032,10 +1012,10 @@ fn stitch_search(
                 match expands_to {
                     ExpandsTo::App => {
                         // push 2 to hole_zips
-                        state.hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Func)).collect());
-                        state.hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Arg)).collect());
+                        pattern.hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Func)).collect());
+                        pattern.hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Arg)).collect());
                         // body += NONTERM
-                        state.body_utility_no_refinement += COST_NONTERMINAL;
+                        pattern.body_utility_no_refinement += COST_NONTERMINAL;
                         // push 2 holes to all locs
                         for &mut loc in locs {
                             let hole_id = loc.hole_unshifted_ids.remove(hole_idx);
@@ -1048,9 +1028,9 @@ fn stitch_search(
                     },
                     ExpandsTo::Lam => {
                         // push 1 to hole_zips
-                        state.hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Body)).collect());
+                        pattern.hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Body)).collect());
                         // body += NONTERM
-                        state.body_utility_no_refinement += COST_NONTERMINAL;
+                        pattern.body_utility_no_refinement += COST_NONTERMINAL;
                         // push 1 hole to all locs
                         for &mut loc in locs {
                             let hole_id = loc.hole_unshifted_ids.remove(hole_idx);
@@ -1061,7 +1041,7 @@ fn stitch_search(
                         }
                     },
                     ExpandsTo::Var(_) | ExpandsTo::Prim(_) => {
-                        state.body_utility_no_refinement += COST_TERMINAL;
+                        pattern.body_utility_no_refinement += COST_TERMINAL;
                         for &mut loc in locs {
                             let hole_id = loc.hole_unshifted_ids.remove(hole_idx);
                             loc.undo_hole_id.push(hole_id);
@@ -1069,27 +1049,28 @@ fn stitch_search(
                     },
                     ExpandsTo::IVar(i) => {
                         let new_var = instruction.idxs.is_none();
-                        assert_eq!(new_var, i as usize == state.arity);
+                        assert_eq!(new_var, i as usize == pattern.arity);
                         if new_var {
                             // refinements.push(None);
-                            state.arity += 1;
+                            pattern.arity += 1;
                         } else {
                             // subsetting to the multiuse ivar indices and adjusting len and locs appropriately
                             let idxs = instruction.idxs.as_ref().unwrap();
                             select_indices(locs, idxs);
                             len = idxs.len();
                             locs = &mut locs[..len];
+                            pattern.any_loc_id = locs[0].id;
                         }
 
                         for &mut loc in locs {
                             let hole_id = loc.hole_unshifted_ids.remove(hole_idx);
                             loc.undo_hole_id.push(hole_id);
                             if new_var {
-                                let shifted_id = shared.shifted_of_id[usize::from(unshifted_id)].shifted_by(- hole_depth);
+                                let shifted_id = shared.shifted_of_id[usize::from(hole_id)].shifted_by(- hole_depth);
                                 loc.arg_shifted_ids.push(shifted_id)
                             }
                         }
-                        state.arg_zips.push(LabelledZip::new(hole_zip, i as usize));
+                        pattern.arg_zips.push(LabelledZip::new(hole_zip, i as usize));
                         unimplemented!()
                     }
                 }
@@ -1097,22 +1078,22 @@ fn stitch_search(
                 // push an undo instruction
                 instructions.push(Instruction::undo_of(instruction));
                 // save our old hole_idx and hole_zip. offset and len are intentionally unused.
-                instructions.push(Instruction::new(0, 0, Action::SetHoleChoice(hole_idx, hole_zip)));
+                instructions.push(Instruction::new(0, 0, Action::SetHoleChoice(hole_idx, hole_zip, hole_depth)));
             }
 
             Action::Undo(expands_to) => {
                 match expands_to {
                     ExpandsTo::App => {
-                        state.hole_zips.truncate(state.hole_zips.len() - 2);
-                        state.body_utility_no_refinement -= COST_NONTERMINAL;
+                        pattern.hole_zips.truncate(pattern.hole_zips.len() - 2);
+                        pattern.body_utility_no_refinement -= COST_NONTERMINAL;
                         for &mut loc in locs {
                             loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
                             loc.hole_unshifted_ids.truncate(loc.hole_unshifted_ids.len() - 2);
                         }
                     },
                     ExpandsTo::Lam => {
-                        state.hole_zips.truncate(state.hole_zips.len() - 1);
-                        state.body_utility_no_refinement -= COST_NONTERMINAL;
+                        pattern.hole_zips.truncate(pattern.hole_zips.len() - 1);
+                        pattern.body_utility_no_refinement -= COST_NONTERMINAL;
                         for &mut loc in locs {
                             loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
                             loc.hole_unshifted_ids.truncate(loc.hole_unshifted_ids.len() - 1);
@@ -1120,7 +1101,7 @@ fn stitch_search(
                         unimplemented!()
                     },
                     ExpandsTo::Var(_) | ExpandsTo::Prim(_) => {
-                        state.body_utility_no_refinement -= COST_TERMINAL;
+                        pattern.body_utility_no_refinement -= COST_TERMINAL;
                         for &mut loc in locs {
                             loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
                         }
@@ -1147,19 +1128,20 @@ fn stitch_search(
                             let idxs = instruction.idxs.as_ref().unwrap();
                             select_indices(locs, idxs);
                         }
-                        if new_var { state.arity -= 1 } 
+                        if new_var { pattern.arity -= 1 } 
                     }
                 }
                 continue
             }
 
-            Action::SetHoleChoice(old_hole_idx, old_hole_zip) => {
+            Action::SetHoleChoice(old_hole_idx, old_hole_zip, old_hole_depth) => {
                 assert!(offset == 0 && len == 0);
                 // re-insert our current hole idx and hole zip
-                state.hole_zips.insert(hole_idx, hole_zip);
+                pattern.hole_zips.insert(hole_idx, hole_zip);
                 // now set them to their old values
                 hole_idx = old_hole_idx;
                 hole_zip = old_hole_zip;
+                hole_depth = old_hole_depth;
                 continue
             }
         }
@@ -1170,12 +1152,10 @@ fn stitch_search(
         //     println!("[bound={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.as_ref().unwrap().iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>(), original_pattern.to_expr(&shared));
         // }
 
-
         // choose our new hole_idx and hole_zip
-        hole_idx = shared.cfg.hole_choice.choose_hole(unimplemented!(), &shared);
-        hole_zip = state.hole_zips.remove(hole_idx);
-
-        let hole_depth: i32 = hole_zip.iter().filter(|z| **z == ZNode::Body).count() as i32;
+        hole_idx = shared.cfg.hole_choice.choose_hole(&pattern, &shared);
+        hole_zip = pattern.hole_zips.remove(hole_idx);
+        hole_depth = hole_zip.iter().filter(|z| **z == ZNode::Body).count() as i32;
 
         let mut found_tracked = false;
 
@@ -1200,7 +1180,7 @@ fn stitch_search(
             let mut inner_len = 0;
             for (i,loc) in locs.iter().enumerate() {
                 if &loc.cached_expands_to != expands_to {
-                    expand_and_finish(&locs[inner_offset..inner_offset+inner_len], &mut instructions, &mut state, &shared, &mut found_tracked, &mut hole_idx, &mut hole_zip, &mut hole_depth, &mut expands_to, &mut inner_offset, &mut inner_len);
+                    expand_and_finish(&locs[inner_offset..inner_offset+inner_len], &mut instructions, &mut pattern, &shared, &mut found_tracked, &mut hole_idx, &mut hole_zip, &mut hole_depth, &mut expands_to, &mut inner_offset, &mut inner_len);
                     expands_to = &loc.cached_expands_to;
                     inner_offset = i;
                     inner_len = 0; // reset it to 0 which will immediately get incremented to 1
@@ -1215,20 +1195,21 @@ fn stitch_search(
 
         let locs_of_ivar = get_locs_of_ivar();
 
+        // todo note we have utility_upper_bound_single() if you want to check the utility without select_indices, however this wont help with the other kinds of pruning
         for (ivar,ivar_locs) in locs_of_ivar.into_iter().enumerate() {
             if ivar_locs.is_empty() { continue; }
             select_indices(locs, &ivar_locs);
             // todo pass full true offset and len in since you need them to run select_indices
-            expand_and_finish() 
+            expand_and_finish();
             // select_indices is its own inverse so we can restore the original ordering like this...
             select_indices(locs, &ivar_locs);
         }
 
         // add a new var if we have the arity for it
-        if state.arity < shared.cfg.max_arity {
+        if pattern.arity < shared.cfg.max_arity {
             // same offset and len as parent since it matches everywhere! And same bound!
-            expand_and_finish(ExpandsTo::IVar(state.arity as i32));
-            // instructions.push(Instruction::new(offset, len, Action::Expansion(ExpandsTo::IVar(state.arity as i32), state.bound)));
+            expand_and_finish(ExpandsTo::IVar(pattern.arity as i32));
+            // instructions.push(Instruction::new(offset, len, Action::Expansion(ExpandsTo::IVar(pattern.arity as i32), pattern.bound)));
         }
 
 
@@ -1237,19 +1218,16 @@ fn stitch_search(
             println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared));
         }
 
-
 }
 
-pub fn get_locs_of_ivar() ->  Vec<Vec<usize>> {
-    let locs_of_ivar: Vec<Vec<usize>> = (0..state.arity).map(|_| vec![]).collect();
-
+pub fn get_locs_of_ivar(pattern: &Pattern, locs: &[MatchLocation], hole_idx: usize, hole_depth: i32, shared :&SharedData) ->  Vec<Vec<usize>> {
+    let locs_of_ivar: Vec<Vec<usize>> = (0..pattern.arity).map(|_| vec![]).collect();
     for (i,loc) in locs.iter().enumerate() {
         let unshifted_id = loc.hole_unshifted_ids[hole_idx];
-        let shift = - hole_depth;
-        let shifted_id = shared.shifted_of_id[usize::from(unshifted_id)].shifted_by(shift);
+        let shifted_id = shared.shifted_of_id[usize::from(unshifted_id)].shifted_by(-hole_depth);
         
         // reusing an old var
-        for ivar in 0..state.arity {
+        for ivar in 0..pattern.arity {
             if shifted_id == loc.arg_shifted_ids[ivar] {
                 locs_of_ivar[ivar].push(i)
             }
@@ -1260,14 +1238,14 @@ pub fn get_locs_of_ivar() ->  Vec<Vec<usize>> {
 
 
 
-pub fn expand_and_finish(pattern: &Pattern, shared: &Shared) -> Vec<Pattern> {
+pub fn expand_and_finish(pattern: &Pattern, locs: &[MatchLocation], shared: &Shared) {
     // for debugging
-    let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, &hole_zip, &shared);
+    let tracked = pattern.tracked && expands_to == tracked_expands_to(&original_pattern, &hole_zip, &shared);
     if tracked { found_tracked = true; }
-    if shared.cfg.follow_track && !tracked { continue 'expansion; }
+    if shared.cfg.follow_track && !tracked { return }
     
-    if opt_single_use(locs, tracked, &shared) { continue 'expansion };
-    if opt_single_task(locs, tracked, &shared) { continue 'expansion };
+    if opt_single_use(locs, tracked, &shared) { return };
+    if opt_single_task(locs, tracked, &shared) { return  };
 
     // check for free variables: if an invention has free variables in the body then it's not a real function and we can discard it
     // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
@@ -1275,24 +1253,24 @@ pub fn expand_and_finish(pattern: &Pattern, shared: &Shared) -> Vec<Pattern> {
         if *i >= hole_depth {
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
             if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared)); }
-            continue 'expansion; // free var
+            return; // free var
         }
     }
 
     // update the upper bound
-    let util_upper_bound: i32 = utility_upper_bound(&locs, state.body_utility_no_refinement, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
-    assert!(util_upper_bound <= original_pattern.utility_upper_bound);
+    let util_upper_bound: i32 = utility_upper_bound(&locs, pattern.body_utility_no_refinement, &shared);
+    assert!(util_upper_bound <= pattern.utility_upper_bound);
 
-    if opt_upper_bound(util_upper_bound, tracked, &shared) { continue 'expansion };
-    if opt_force_multiuse(locs, tracked, &shared) { continue 'expansion };
-    if opt_useless_abstract(locs, tracked, &shared) { continue 'expansion };
+    if opt_upper_bound(util_upper_bound, tracked, &shared) { return };
+    if opt_force_multiuse(locs, tracked, &shared) { return };
+    if opt_useless_abstract(locs, tracked, &shared) { return };
 
     if tracked { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(&hole_zip, &shared), new_pattern.utility_upper_bound); }
 
-    if !state.hole_zips.is_empty() {
+    if !pattern.hole_zips.is_empty() {
         instructions.push(Instruction::new(offset + inner_offset, inner_len, Action::Expansion(expands_to.clone(), util_upper_bound)));
     } else {
-        finish_pattern(&state, tracked, &shared);
+        finish_pattern(&pattern, tracked, &shared);
     }
 }
 
@@ -1459,13 +1437,13 @@ fn opt_useless_abstract(locs: &[MatchLocation], tracked: bool, shared: &SharedDa
     return false
 }
 
-fn finish_pattern(state: &State, tracked:bool, shared: &SharedData) {
-    assert!(state.hole_zips.is_empty());
+fn finish_pattern(pattern: &Pattern, tracked:bool, shared: &SharedData) {
+    assert!(pattern.hole_zips.is_empty());
     // it's a finished pattern
     // refinement
 
     if shared.cfg.refine {
-        refine(&mut state, tracked, &shared);
+        refine(&mut pattern, tracked, &shared);
     }
 
     let finished_pattern = FinishedPattern::new(new_pattern, &shared);
@@ -1820,14 +1798,12 @@ impl fmt::Display for CompressionStepResult {
 /// calculates the total upper bound on compressive + noncompressive utility
 #[inline(never)]
 fn utility_upper_bound(
-    match_locations: &Vec<MatchLocation>,
+    match_locations: &[MatchLocation],
     body_utility_with_refinement_lower_bound: i32,
-    cost_of_node_all: &Vec<i32>,
-    num_paths_to_node: &Vec<i32>,
-    cfg: &CompressionStepConfig,
+    shared: &SharedData,
 ) -> i32 {
-    compressive_utility_upper_bound(match_locations, cost_of_node_all, num_paths_to_node)
-        + noncompressive_utility_upper_bound(body_utility_with_refinement_lower_bound, cfg)
+    compressive_utility_upper_bound(match_locations, shared)
+        + noncompressive_utility_upper_bound(body_utility_with_refinement_lower_bound, shared)
 }
 
 /// This utility is just for any utility terms that we care about that don't directly correspond
@@ -1848,13 +1824,22 @@ fn noncompressive_utility(
 /// compressive_utility() that any completed offspring of this partial invention could have.
 #[inline(never)]
 fn compressive_utility_upper_bound(
-    match_locations: &Vec<MatchLocation>,
-    cost_of_node_all: &Vec<i32>,
-    num_paths_to_node: &Vec<i32>,
+    match_locations: &[MatchLocation],
+    shared: &SharedData,
 ) -> i32 {
     match_locations.iter().map(|loc|
-        cost_of_node_all[usize::from(loc.id)] 
-        - num_paths_to_node[usize::from(loc.id)] * COST_TERMINAL).sum::<i32>()
+        compressive_utility_upper_bound_single(loc,shared)
+    ).sum::<i32>()
+}
+
+/// compressive_utility_upper_bound() for a single location
+#[inline]
+fn compressive_utility_upper_bound_single(
+    loc: &MatchLocation,
+    shared: &SharedData,
+) -> i32 {
+        shared.cost_of_node_all[usize::from(loc.id)] 
+        - shared.num_paths_to_node[usize::from(loc.id)] * COST_TERMINAL
 }
 
 /// calculates the total upper bound on compressive + noncompressive utility
@@ -1879,9 +1864,9 @@ fn compressive_utility_upper_bound(
 #[inline(never)]
 fn noncompressive_utility_upper_bound(
     body_utility_with_refinement_lower_bound: i32,
-    cfg: &CompressionStepConfig,
+    shared: &SharedData,
 ) -> i32 {
-    if cfg.no_other_util { return 0; }
+    if shared.cfg.no_other_util { return 0; }
     // safe bound: since structure_penalty is negative an upper bound is anything less negative or exact. Since
     // left_utility < body_utility we know that this will be a less negative bound.
     let structure_penalty = - body_utility_with_refinement_lower_bound;
