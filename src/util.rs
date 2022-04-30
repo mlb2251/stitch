@@ -376,6 +376,16 @@ pub fn counts_ahash<T: Hash + Eq + Clone>(v: &Vec<T>) -> AHashMap<T, usize>
     counts
 }
 
+/// takes a *sorted* list of indexes and a mutable slice
+/// and moves all the entries at those indexes to the front of the slice
+/// via swapping. Maintains order (but gives no guarantees about the rest of the slice)
+pub fn select_indices<T>(v: &mut [T], idxs: &Vec<usize>) {
+    let mut offset = 0;
+    for i in idxs {
+        v.swap(offset, *i);
+        offset += 1;
+    }
+}
 
 // pub trait IterUtil : Iterator {
 //     /// same as Itertools::counts() but returns an AHashMap instead of a HashMap

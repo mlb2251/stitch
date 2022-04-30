@@ -960,6 +960,7 @@ struct Instruction {
     offset: usize,
     len: usize,
     action: Action,
+    idxs: Option<Vec<usize>>, // only used in multiuse IVar cacse
 }
 
 impl Instruction {
@@ -968,6 +969,15 @@ impl Instruction {
             offset,
             len,
             action,
+            idxs: None,
+        }
+    }
+    fn new_with_idxs(offset: usize, len: usize, action: Action, idxs: Vec<usize>) -> Instruction {
+        Instruction {
+            offset,
+            len,
+            action,
+            idxs: Some(idxs),
         }
     }
     #[inline]
@@ -1094,14 +1104,20 @@ fn stitch_search(
                         if new_var {
                             // refinements.push(None);
                             state.arity += 1;
+                        } else {
+                            // select_indices is its own inverse so we can restore the original ordering like this...
+                            select_indices(&locs[..ivar_locs.len()], &ivar_locs);
                         }
                         state.arg_zips.push(LabelledZip::new(hole_zip, i as usize));
                         unimplemented!()
                     }
                 }
-                // push an undo instruction
-                instructions.push(Instruction { offset, len, action: Action::Undo(expands_to) });
 
+
+
+
+                // push an undo instruction
+                instructions.push(Instruction::new(offset, len, Action::Undo(expands_to)));
             }
 
             Action::Undo(expands_to) => {
@@ -1131,8 +1147,15 @@ fn stitch_search(
                         unimplemented!()
                     },
                     ExpandsTo::IVar(i) => {
+                        let new_var = unimplemented!(); // hm how do u do this? maybe via the .unwrap()
                         for &mut loc in locs {
                             loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
+                        }
+                        if new_var {
+                            arity -= 1;
+                        } else {
+                            // select_indices is its own inverse so we can restore the original ordering like this...
+                            select_indices(&locs[..ivar_locs.len()], &ivar_locs);
                         }
                         unimplemented!()
                     }
@@ -1157,7 +1180,7 @@ fn stitch_search(
         // }
 
         // save our old hole_idx and hole_zip
-        instructions.push(Instruction { offset, len, action: Action::SetHoleChoice(hole_idx, hole_zip) });
+        instructions.push(Instruction::new(offset, len, Action::SetHoleChoice(hole_idx, hole_zip)));
 
         // choose our new hole_idx and hole_zip
         hole_idx = shared.cfg.hole_choice.choose_hole(unimplemented!(), &shared);
@@ -1177,78 +1200,45 @@ fn stitch_search(
             loc.cached_expands_to = expands_to_of_node(&shared.node_of_id[usize::from(loc.hole_unshifted_ids[hole_idx])]);
         }
         locs.sort_unstable_by_key(|loc| loc.cached_expands_to);
-
-        let mut expands_to = &locs[0].cached_expands_to;
-
+        
         // add all expansions to instructions, finishing anything that lacks holes
 
-        let new_instructions_start = instructions.len();
-
-        let mut inner_len = 0;
-        'expansion:
-        for (inner_offset, loc) in locs.iter().enumerate() {
-            if &loc.cached_expands_to != expands_to {
-                // for debugging
-                let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, &hole_zip, &shared);
-                if tracked { found_tracked = true; }
-                if shared.cfg.follow_track && !tracked { continue 'expansion; }
-
-
-                if opt_single_use(locs, tracked, &shared) { continue 'expansion };
-                if opt_single_task(locs, tracked, &shared) { continue 'expansion };
-
-                // check for free variables: if an invention has free variables in the body then it's not a real function and we can discard it
-                // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
-                if let ExpandsTo::Var(i) = expands_to {
-                    if *i >= hole_depth {
-                        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
-                        if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared)); }
-                        continue 'expansion; // free var
-                    }
+        // scoping for automatic drops so we dont accidentally use these variables later
+        {
+            let mut expands_to = &locs[0].cached_expands_to;
+            let new_instructions_start = instructions.len();
+            let mut inner_offset = 0;
+            let mut inner_len = 0;
+            for (i,loc) in locs.iter().enumerate() {
+                if &loc.cached_expands_to != expands_to {
+                    expand_and_finish(&locs[inner_offset..inner_offset+inner_len], &mut instructions, &mut state, &shared, &mut found_tracked, &mut hole_idx, &mut hole_zip, &mut hole_depth, &mut expands_to, &mut inner_offset, &mut inner_len);
+                    expands_to = &loc.cached_expands_to;
+                    inner_offset = i;
+                    inner_len = 0; // reset it to 0 which will immediately get incremented to 1
                 }
-
-                // update the upper bound
-                let util_upper_bound: i32 = utility_upper_bound(&locs, state.body_utility_no_refinement, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
-                assert!(util_upper_bound <= original_pattern.utility_upper_bound);
-
-                if opt_upper_bound(util_upper_bound, tracked, &shared) { continue 'expansion };
-                if opt_force_multiuse(locs, tracked, &shared) { continue 'expansion };
-                if opt_useless_abstract(locs, tracked, &shared) { continue 'expansion };
-
-                if tracked { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(&hole_zip, &shared), new_pattern.utility_upper_bound); }
-
-                if !state.hole_zips.is_empty() {
-                    instructions.push(Instruction { offset: offset + inner_offset, len: inner_len, action: Action::Expansion(expands_to.clone(), util_upper_bound) });
-                } else {
-                    finish_pattern(&state, tracked, &shared);
-                }
-                expands_to = &loc.cached_expands_to;
+                inner_len += 1;
             }
+            // sort in increasing order so highest bound is at the end (top of stack)
+            instructions[new_instructions_start..].sort_unstable_by_key(|instruction| instruction.bound());
         }
+        
+        // todo note you can keep a persistant copy of this around if you dont want all the allocs and just clone it at various points
 
-        drop(expands_to); // so we dont accidentally use it
+        let locs_of_ivar = get_locs_of_ivar();
 
-        // sort in increasing order so highest bound is at the end (top of stack)
-        instructions[new_instructions_start..].sort_unstable_by_key(|instruction| instruction.bound());
-    
-        for (i,loc) in locs.iter().enumerate() {
-            let unshifted_id = loc.hole_unshifted_ids[hole_idx];
-            let shift = - hole_depth;
-            let shifted_id = shared.shifted_of_id[usize::from(unshifted_id)].shifted_by(shift);
-            
-            // reusing an old var
-            // todo continue here
-            for ivar in 0..state.arity {
-                if shifted_id == loc.arg_shifted_ids[ivar] {
-                    ivars_expansions[ivar].1.push(loc.clone())
-                }
-            }
+        for (ivar,ivar_locs) in locs_of_ivar.into_iter().enumerate() {
+            if ivar_locs.is_empty() { continue; }
+            select_indices(&locs[..ivar_locs.len()], &ivar_locs);
+            expand_and_finish() 
+            // select_indices is its own inverse so we can restore the original ordering like this...
+            select_indices(&locs[..ivar_locs.len()], &ivar_locs);
         }
 
         // add a new var if we have the arity for it
         if state.arity < shared.cfg.max_arity {
             // same offset and len as parent since it matches everywhere! And same bound!
-            instructions.push(Instruction { offset, len, action: Action::Expansion(ExpandsTo::IVar(state.arity as i32), state.bound) });
+            expand_and_finish(ExpandsTo::IVar(state.arity as i32));
+            // instructions.push(Instruction::new(offset, len, Action::Expansion(ExpandsTo::IVar(state.arity as i32), state.bound)));
         }
 
 
@@ -1257,107 +1247,64 @@ fn stitch_search(
             println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared));
         }
 
-        // possibly add new var to instruction, finishing anything that lacks holes
-
-
-
-
-        // let mut num_groups = 0;
-
-        //     for (expands_to, mut locs) in match_locations.into_iter()
-        //     .group_by(|loc| expands_to_of_node(&shared.node_of_id[usize::from(loc.hole_unshifted_ids[hole_idx])])).into_iter() // todo maybe cache idk
-        //     .map(|(expands_to, locs)| (expands_to.clone(), locs.collect::<Vec<MatchLocation>>()))
-        //     .chain(ivars_expansions.into_iter())
-        // {
-
-            // assert!(shared.cfg.no_opt_upper_bound || !(hole_zips_after_pop.is_empty() && original_pattern.arg_zips.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
-            //         "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
-
-
-
-        // // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
-        // // from the old pattern.
-        // let mut new_pattern = Pattern {
-        //     // holes,
-        //     // arg_choices,
-        //     // first_zid_of_ivar,
-        //     refinements,
-        //     match_locations: Some(locs),
-        //     utility_upper_bound: util_upper_bound,
-        //     body_utility_no_refinement,
-        //     refinement_body_utility,
-        //     tracked,
-        //     hole_zips,
-        //     // hole_unshifted_ids,
-        //     arg_zips,
-        //     // arg_shifted_ids,
-        //     arity,
-        // };
-
-        // new_pattern.utility_upper_bound = utility_upper_bound_with_conflicts(&new_pattern, body_utility_no_refinement + refinement_body_utility, &shared);
-        // // branch and bound again
-        // if !shared.cfg.no_opt_upper_bound && new_pattern.utility_upper_bound <= weak_utility_pruning_cutoff {
-        //     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().conflict_upper_bound_fired += 1; };
-        //     if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
-        //     continue 'expansion; // too low utility
-        // }
-
-
-
-        
-
-
-
-            // println!("num groups: {}", num_groups)
-        
-    // }
 
 }
 
-#[inline(never)]
-fn get_ivars_expansions(original_pattern: &Pattern, match_locations: &MatchLocations, hole_idx: usize, hole_depth: i32, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<MatchLocation>)> {
-    // let mut ivars_expansions: Vec<(i32, Vec<MatchLocation>)> = vec![];
-    let mut ivars_expansions: Vec<(i32, Vec<MatchLocation>)> = (0..original_pattern.arity).map(|ivar| ((ivar as i32), vec![])).collect();
+pub fn get_locs_of_ivar() ->  Vec<Vec<usize>> {
+    let locs_of_ivar: Vec<Vec<usize>> = (0..state.arity).map(|_| vec![]).collect();
 
-    for loc in match_locations.iter() {
+    for (i,loc) in locs.iter().enumerate() {
         let unshifted_id = loc.hole_unshifted_ids[hole_idx];
         let shift = - hole_depth;
         let shifted_id = shared.shifted_of_id[usize::from(unshifted_id)].shifted_by(shift);
         
         // reusing an old var
-        for ivar in 0..original_pattern.arity {
+        for ivar in 0..state.arity {
             if shifted_id == loc.arg_shifted_ids[ivar] {
-                // while ivars_expansions.len() < ivar + 1 { 
-                //     ivars_expansions.push((ivars_expansions.len() as i32, vec![]));
-                // }
-                ivars_expansions[ivar].1.push(loc.clone())
+                locs_of_ivar[ivar].push(i)
             }
         }
     }
-    // add a new var if we have the arity for it
-    if original_pattern.arity < shared.cfg.max_arity {
-        ivars_expansions.push(((original_pattern.arity as i32), new_ivar(match_locations, hole_idx, hole_depth, shared)));
-    }
-
-    ivars_expansions.into_iter().map(|(ivar, locs)| (ExpandsTo::IVar(ivar), locs)).collect()
+    locs_of_ivar
 }
 
-// #[inline(never)]
-// fn new_ivar(match_locations: &MatchLocations, hole_idx: usize, hole_depth: i32, shared: &Arc<SharedData>) -> MatchLocations {
-//     let mut res = match_locations.clone();
-//     res.iter_mut().for_each(|loc| {
-//         let unshifted_id = loc.hole_unshifted_ids[hole_idx];
-//         let shifted_id = shared.shifted_of_id[usize::from(unshifted_id)].shifted_by(- hole_depth);
-//         loc.arg_shifted_ids.push(shifted_id)
-//     });
-//     res
-//     // match_locations.iter().map(|loc| {
-//     //     // assert_eq!(loc.arg_shifted_ids.len(), original_pattern.arity);
-//     //     let mut new_loc = loc.clone();
-//     //     new_loc..;
-//     //     new_loc
-//     // }).collect()
-// }
+
+
+pub fn expand_and_finish(pattern: &Pattern, shared: &Shared) -> Vec<Pattern> {
+    // for debugging
+    let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, &hole_zip, &shared);
+    if tracked { found_tracked = true; }
+    if shared.cfg.follow_track && !tracked { continue 'expansion; }
+    
+    if opt_single_use(locs, tracked, &shared) { continue 'expansion };
+    if opt_single_task(locs, tracked, &shared) { continue 'expansion };
+
+    // check for free variables: if an invention has free variables in the body then it's not a real function and we can discard it
+    // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
+    if let ExpandsTo::Var(i) = expands_to {
+        if *i >= hole_depth {
+            if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
+            if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared)); }
+            continue 'expansion; // free var
+        }
+    }
+
+    // update the upper bound
+    let util_upper_bound: i32 = utility_upper_bound(&locs, state.body_utility_no_refinement, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
+    assert!(util_upper_bound <= original_pattern.utility_upper_bound);
+
+    if opt_upper_bound(util_upper_bound, tracked, &shared) { continue 'expansion };
+    if opt_force_multiuse(locs, tracked, &shared) { continue 'expansion };
+    if opt_useless_abstract(locs, tracked, &shared) { continue 'expansion };
+
+    if tracked { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(&hole_zip, &shared), new_pattern.utility_upper_bound); }
+
+    if !state.hole_zips.is_empty() {
+        instructions.push(Instruction::new(offset + inner_offset, inner_len, Action::Expansion(expands_to.clone(), util_upper_bound)));
+    } else {
+        finish_pattern(&state, tracked, &shared);
+    }
+}
 
 
 /// refines a new pattern inplace
