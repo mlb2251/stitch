@@ -925,35 +925,6 @@ fn get_worklist_item(
     // * MULTITHREADING: CRITICAL SECTION END *
 }
 
-// pub fn blackbox1<T>(dummy: T) -> T {
-//     unsafe {
-//         let ret = std::ptr::read_volatile(&dummy);
-//         std::mem::forget(dummy);
-//         ret
-//     }
-// }
-// pub fn blackbox2<T>(dummy: T) -> T {
-//     unsafe {
-//         let ret = std::ptr::read_volatile(&dummy);
-//         std::mem::forget(dummy);
-//         ret
-//     }
-// }
-// pub fn blackbox3<T>(dummy: T) -> T {
-//     unsafe {
-//         let ret = std::ptr::read_volatile(&dummy);
-//         std::mem::forget(dummy);
-//         ret
-//     }
-// }
-// pub fn blackbox<T>(dummy: T) -> T {
-//     unsafe {
-//         let ret = std::ptr::read_volatile(&dummy);
-//         std::mem::forget(dummy);
-//         ret
-//     }
-// }
-
 
 
 struct Instruction {
@@ -979,6 +950,11 @@ impl Instruction {
             action,
             idxs: Some(idxs),
         }
+    }
+    fn undo_of(i: Instruction) -> Instruction {
+        if let Action::Expansion(expands_to,_) = i.action {
+            Instruction { action: Action::Undo(expands_to), ..i }
+        } else { unreachable!() }
     }
     #[inline]
     fn bound(&self) -> i32 {
@@ -1046,9 +1022,9 @@ fn stitch_search(
             None => { break }
         };
 
-        let offset = instruction.offset;
-        let len = instruction.len;
-        let locs = &mut match_locations[offset..offset+len];
+        let mut offset = instruction.offset;
+        let mut len = instruction.len;
+        let mut locs = &mut match_locations[offset..offset+len];
 
         match instruction.action {
             Action::Expansion(expands_to, bound) => {
@@ -1092,7 +1068,19 @@ fn stitch_search(
                         }
                     },
                     ExpandsTo::IVar(i) => {
-                        let new_var = (i as usize == state.arity);
+                        let new_var = instruction.idxs.is_none();
+                        assert_eq!(new_var, i as usize == state.arity);
+                        if new_var {
+                            // refinements.push(None);
+                            state.arity += 1;
+                        } else {
+                            // subsetting to the multiuse ivar indices and adjusting len and locs appropriately
+                            let idxs = instruction.idxs.as_ref().unwrap();
+                            select_indices(locs, idxs);
+                            len = idxs.len();
+                            locs = &mut locs[..len];
+                        }
+
                         for &mut loc in locs {
                             let hole_id = loc.hole_unshifted_ids.remove(hole_idx);
                             loc.undo_hole_id.push(hole_id);
@@ -1101,23 +1089,15 @@ fn stitch_search(
                                 loc.arg_shifted_ids.push(shifted_id)
                             }
                         }
-                        if new_var {
-                            // refinements.push(None);
-                            state.arity += 1;
-                        } else {
-                            // select_indices is its own inverse so we can restore the original ordering like this...
-                            select_indices(&locs[..ivar_locs.len()], &ivar_locs);
-                        }
                         state.arg_zips.push(LabelledZip::new(hole_zip, i as usize));
                         unimplemented!()
                     }
                 }
 
-
-
-
                 // push an undo instruction
-                instructions.push(Instruction::new(offset, len, Action::Undo(expands_to)));
+                instructions.push(Instruction::undo_of(instruction));
+                // save our old hole_idx and hole_zip. offset and len are intentionally unused.
+                instructions.push(Instruction::new(0, 0, Action::SetHoleChoice(hole_idx, hole_zip)));
             }
 
             Action::Undo(expands_to) => {
@@ -1147,23 +1127,34 @@ fn stitch_search(
                         unimplemented!()
                     },
                     ExpandsTo::IVar(i) => {
-                        let new_var = unimplemented!(); // hm how do u do this? maybe via the .unwrap()
+                        let new_var = instruction.idxs.is_none();
+
+                        if !new_var {
+                            // adjust len and locs before we iterate locs so that our len bound is okay
+                            let idxs = instruction.idxs.as_ref().unwrap();
+                            len = idxs.len();
+                            locs = &mut locs[..len];
+                        }
+
                         for &mut loc in locs {
                             loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
+                            if new_var {
+                                loc.arg_shifted_ids.pop();
+                            }
                         }
-                        if new_var {
-                            arity -= 1;
-                        } else {
-                            // select_indices is its own inverse so we can restore the original ordering like this...
-                            select_indices(&locs[..ivar_locs.len()], &ivar_locs);
+                        if !new_var {
+                            // now it's safe to re-run select_indices to undo it (since it is its own inverse)
+                            let idxs = instruction.idxs.as_ref().unwrap();
+                            select_indices(locs, idxs);
                         }
-                        unimplemented!()
+                        if new_var { state.arity -= 1 } 
                     }
                 }
                 continue
             }
 
             Action::SetHoleChoice(old_hole_idx, old_hole_zip) => {
+                assert!(offset == 0 && len == 0);
                 // re-insert our current hole idx and hole zip
                 state.hole_zips.insert(hole_idx, hole_zip);
                 // now set them to their old values
@@ -1179,8 +1170,6 @@ fn stitch_search(
         //     println!("[bound={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.as_ref().unwrap().iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>(), original_pattern.to_expr(&shared));
         // }
 
-        // save our old hole_idx and hole_zip
-        instructions.push(Instruction::new(offset, len, Action::SetHoleChoice(hole_idx, hole_zip)));
 
         // choose our new hole_idx and hole_zip
         hole_idx = shared.cfg.hole_choice.choose_hole(unimplemented!(), &shared);
@@ -1228,10 +1217,11 @@ fn stitch_search(
 
         for (ivar,ivar_locs) in locs_of_ivar.into_iter().enumerate() {
             if ivar_locs.is_empty() { continue; }
-            select_indices(&locs[..ivar_locs.len()], &ivar_locs);
+            select_indices(locs, &ivar_locs);
+            // todo pass full true offset and len in since you need them to run select_indices
             expand_and_finish() 
             // select_indices is its own inverse so we can restore the original ordering like this...
-            select_indices(&locs[..ivar_locs.len()], &ivar_locs);
+            select_indices(locs, &ivar_locs);
         }
 
         // add a new var if we have the arity for it
