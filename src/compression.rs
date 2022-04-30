@@ -212,6 +212,8 @@ pub struct MatchLocation {
     pub id: Id, // unshifted id of subtree we're matching at
     pub hole_unshifted_ids: Vec<Id>,
     pub arg_shifted_ids: Vec<Shifted>,
+    pub cached_expands_to: ExpandsTo,
+    pub undo_hole_id: Vec<Id>,
     // pub arg_info: Vec<ArgInfo>,
 }
 impl MatchLocation {
@@ -952,301 +954,363 @@ fn get_worklist_item(
 //     }
 // }
 
+
+
+struct Instruction {
+    offset: usize,
+    len: usize,
+    action: Action,
+}
+
+impl Instruction {
+    fn new(offset: usize, len: usize, action: Action) -> Instruction {
+        Instruction {
+            offset,
+            len,
+            action,
+        }
+    }
+    #[inline]
+    fn bound(&self) -> i32 {
+        if let Action::Expansion(_, bound) = self.action {
+            return bound
+        } else {
+            panic!("Instruction::bound() called on non-expansion instruction");
+        }
+    }
+}
+
+enum Action {
+    Expansion(ExpandsTo, i32), // expansion and bound
+    Undo(ExpandsTo),
+    SetHoleChoice(usize, Zip), // hole_idx, hole_zip
+}
+
+struct SearchState {
+    pub hole_zips: Vec<Zip>,
+    pub arg_zips: Vec<LabelledZip>,
+    pub arity: usize,
+    pub body_utility_no_refinement: i32,
+    // pub undo_hole_choice: Vec<usize>,
+    // pub undo_hole_zips: Vec<Zip>,
+}
+
+impl SearchState {
+    pub fn new(shared: &SharedData) -> SearchState {
+        SearchState {
+            // instructions: vec![],
+            // hole_idx: 0,
+            // hole_zip: vec![],
+            hole_zips: vec![],
+            arg_zips: vec![],
+            arity: 0,
+            body_utility_no_refinement: 0,
+            // undo_hole_choice: vec![],
+            // undo_hole_zips: vec![],
+        }
+    }
+}
+
+
 /// The core top down branch and bound search
 fn stitch_search(
     shared: Arc<SharedData>,
 ) {
+
+    let mut instructions: Vec<Instruction> = vec![];
+    let mut state =  SearchState::new(&shared);
+    let mut match_locations: Vec<MatchLocation> = shared.treenodes.iter().map(|&id| MatchLocation::new(id, vec![id], vec![])).collect();
+
+    let mut hole_idx: usize = 0;
+    let mut hole_zip: Zip = vec![];
     
-    // local buffers to eventually pour into the global worklist and donelist when we take the mutex
-    let mut worklist_buf: Vec<HeapItem> = Default::default();
-    let mut donelist_buf: Vec<_> = Default::default();
+    match_locations.sort_by_key(|m|m.id); // we assume match_locations is always sorted
+    if shared.cfg.no_top_lambda {
+        match_locations.retain(|m| expands_to_of_node(&shared.node_of_id[usize::from(m.id)]) != ExpandsTo::Lam);
+    } 
 
     loop {
 
-        // get a new worklist item along with pruning cutoffs
-        let (patterns, mut weak_utility_pruning_cutoff) =
-            match get_worklist_item(
-                &mut worklist_buf,
-                &mut donelist_buf,
-                &shared,
-            ) {
-                Some(pattern) => pattern,
-                None => return,
+        let instruction = match instructions.pop() {
+            Some(instruction) => instruction,
+            None => { break }
         };
 
-        for mut original_pattern in patterns {
+        let offset = instruction.offset;
+        let len = instruction.len;
+        let locs = &mut match_locations[offset..offset+len];
 
-            if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
-            if !shared.cfg.no_stats { if shared.cfg.print_stats > 0 &&  shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 { println!("{:?} \n\t@ [bound={}; uses={}] chose: {}",shared.stats.lock().deref_mut(),   original_pattern.utility_upper_bound, original_pattern.match_locations.as_ref().unwrap().iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>(), original_pattern.to_expr(&shared)); }};
+        match instruction.action {
+            Action::Expansion(expands_to, bound) => {
+                // todo check bound here and possibly just discard
+                match expands_to {
+                    ExpandsTo::App => {
+                        // push 2 to hole_zips
+                        state.hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Func)).collect());
+                        state.hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Arg)).collect());
+                        // body += NONTERM
+                        state.body_utility_no_refinement += COST_NONTERMINAL;
+                        // push 2 holes to all locs
+                        for &mut loc in locs {
+                            let hole_id = loc.hole_unshifted_ids.remove(hole_idx);
+                            loc.undo_hole_id.push(hole_id);
+                            if let Lambda::App([f,x]) = shared.node_of_id[usize::from(hole_id)] {
+                                loc.hole_unshifted_ids.push(f);
+                                loc.hole_unshifted_ids.push(x);
+                            } else { unreachable!() }
+                        }
+                    },
+                    ExpandsTo::Lam => {
+                        // push 1 to hole_zips
+                        state.hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Body)).collect());
+                        // body += NONTERM
+                        state.body_utility_no_refinement += COST_NONTERMINAL;
+                        // push 1 hole to all locs
+                        for &mut loc in locs {
+                            let hole_id = loc.hole_unshifted_ids.remove(hole_idx);
+                            loc.undo_hole_id.push(hole_id);
+                            if let Lambda::Lam([b]) = shared.node_of_id[usize::from(hole_id)] {
+                                loc.hole_unshifted_ids.push(b);
+                            } else { unreachable!() }
+                        }
+                    },
+                    ExpandsTo::Var(_) | ExpandsTo::Prim(_) => {
+                        state.body_utility_no_refinement += COST_TERMINAL;
+                        for &mut loc in locs {
+                            let hole_id = loc.hole_unshifted_ids.remove(hole_idx);
+                            loc.undo_hole_id.push(hole_id);
+                        }
+                    },
+                    ExpandsTo::IVar(i) => {
+                        let new_var = (i as usize == state.arity);
+                        for &mut loc in locs {
+                            let hole_id = loc.hole_unshifted_ids.remove(hole_idx);
+                            loc.undo_hole_id.push(hole_id);
+                            if new_var {
+                                let shifted_id = shared.shifted_of_id[usize::from(unshifted_id)].shifted_by(- hole_depth);
+                                loc.arg_shifted_ids.push(shifted_id)
+                            }
+                        }
+                        if new_var {
+                            // refinements.push(None);
+                            state.arity += 1;
+                        }
+                        state.arg_zips.push(LabelledZip::new(hole_zip, i as usize));
+                        unimplemented!()
+                    }
+                }
+                // push an undo instruction
+                instructions.push(Instruction { offset, len, action: Action::Undo(expands_to) });
 
-            if shared.cfg.verbose_worklist {
-                println!("[bound={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.as_ref().unwrap().iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>(), original_pattern.to_expr(&shared));
             }
 
-            // choose which hole we're going to expand
-            let hole_idx: usize = shared.cfg.hole_choice.choose_hole(&original_pattern, &shared);
+            Action::Undo(expands_to) => {
+                match expands_to {
+                    ExpandsTo::App => {
+                        state.hole_zips.truncate(state.hole_zips.len() - 2);
+                        state.body_utility_no_refinement -= COST_NONTERMINAL;
+                        for &mut loc in locs {
+                            loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
+                            loc.hole_unshifted_ids.truncate(loc.hole_unshifted_ids.len() - 2);
+                        }
+                    },
+                    ExpandsTo::Lam => {
+                        state.hole_zips.truncate(state.hole_zips.len() - 1);
+                        state.body_utility_no_refinement -= COST_NONTERMINAL;
+                        for &mut loc in locs {
+                            loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
+                            loc.hole_unshifted_ids.truncate(loc.hole_unshifted_ids.len() - 1);
+                        }
+                        unimplemented!()
+                    },
+                    ExpandsTo::Var(_) | ExpandsTo::Prim(_) => {
+                        state.body_utility_no_refinement -= COST_TERMINAL;
+                        for &mut loc in locs {
+                            loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
+                        }
+                        unimplemented!()
+                    },
+                    ExpandsTo::IVar(i) => {
+                        for &mut loc in locs {
+                            loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
+                        }
+                        unimplemented!()
+                    }
+                }
+                continue
+            }
 
-            // pop that hole form the list of holes
-            // let mut holes_after_pop: Vec<ZId> = original_pattern.holes.clone();
-            let mut hole_zips_after_pop: Vec<Zip> = original_pattern.hole_zips.clone();
-            // let mut hole_unshifted_ids_after_pop: Vec<Id> = original_pattern.hole_unshifted_ids.clone();
-            
-            // let hole_zid: ZId = holes_after_pop.remove(hole_idx);
-            let hole_zip: Zip = hole_zips_after_pop.remove(hole_idx);
-            let hole_depth: i32 = hole_zip.iter().filter(|z| **z == ZNode::Body).count() as i32;
-            // let hole_unshifted_id: Id = hole_unshifted_ids_after_pop.remove(hole_idx);
+            Action::SetHoleChoice(old_hole_idx, old_hole_zip) => {
+                // re-insert our current hole idx and hole zip
+                state.hole_zips.insert(hole_idx, hole_zip);
+                // now set them to their old values
+                hole_idx = old_hole_idx;
+                hole_zip = old_hole_zip;
+                continue
+            }
+        }
 
-            // get the hashmap of args for this hole
+        // if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
+        // if !shared.cfg.no_stats { if shared.cfg.print_stats > 0 &&  shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 { println!("{:?} \n\t@ [bound={}; uses={}] chose: {}",shared.stats.lock().deref_mut(),   original_pattern.utility_upper_bound, original_pattern.match_locations.as_ref().unwrap().iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>(), original_pattern.to_expr(&shared)); }};
+        // if shared.cfg.verbose_worklist {
+        //     println!("[bound={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.as_ref().unwrap().iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>(), original_pattern.to_expr(&shared));
+        // }
 
-            // sort the match locations by node type (ie what theyll expand into) so that we can do a group_by() on
-            // node type in order to iterate over all the different expansions
-            // We also sort secondarily by `loc` to ensure each groupby subsequence has the locations in sorted order
-            let mut match_locations = original_pattern.match_locations.take().unwrap();
-            match_locations.sort_by_cached_key(|loc| (expands_to_of_node(&shared.node_of_id[usize::from(loc.hole_unshifted_ids[hole_idx])]), loc.id)); // todo maybe cache idk
+        // save our old hole_idx and hole_zip
+        instructions.push(Instruction { offset, len, action: Action::SetHoleChoice(hole_idx, hole_zip) });
 
-            let ivars_expansions = get_ivars_expansions(&original_pattern, &match_locations, hole_idx, hole_depth, &shared);
+        // choose our new hole_idx and hole_zip
+        hole_idx = shared.cfg.hole_choice.choose_hole(unimplemented!(), &shared);
+        hole_zip = state.hole_zips.remove(hole_idx);
 
-            let mut found_tracked = false;
-            // for each way of expanding the hole...
+        let hole_depth: i32 = hole_zip.iter().filter(|z| **z == ZNode::Body).count() as i32;
 
-            // let mut num_groups = 0;
-            'expansion:
-                for (expands_to, mut locs) in match_locations.into_iter()
-                .group_by(|loc| expands_to_of_node(&shared.node_of_id[usize::from(loc.hole_unshifted_ids[hole_idx])])).into_iter() // todo maybe cache idk
-                .map(|(expands_to, locs)| (expands_to.clone(), locs.collect::<Vec<MatchLocation>>()))
-                .chain(ivars_expansions.into_iter())
-            {
+        let mut found_tracked = false;
+
+
+        // sort the match locations by node type (ie what theyll expand into) so that we can do a group_by() on
+        // node type in order to iterate over all the different expansions
+        // We also sort secondarily by `loc` to ensure each groupby subsequence has the locations in sorted order
+        // parent_locs.sort_by_key(|loc| (loc.last_expands_to, loc.id));
+        // todo if sorting is slow can do something smarter
+        for loc in locs {
+            loc.cached_expands_to = expands_to_of_node(&shared.node_of_id[usize::from(loc.hole_unshifted_ids[hole_idx])]);
+        }
+        locs.sort_unstable_by_key(|loc| loc.cached_expands_to);
+
+        let mut expands_to = &locs[0].cached_expands_to;
+
+        // add all expansions to instructions, finishing anything that lacks holes
+
+        let new_instructions_start = instructions.len();
+
+        let mut inner_len = 0;
+        'expansion:
+        for (inner_offset, loc) in locs.iter().enumerate() {
+            if &loc.cached_expands_to != expands_to {
                 // for debugging
                 let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, &hole_zip, &shared);
                 if tracked { found_tracked = true; }
                 if shared.cfg.follow_track && !tracked { continue 'expansion; }
 
-                // num_groups += 1;
 
-                // prune inventions that only match at a single unique (structurally hashed) subtree. This only applies if we
-                // also are priming with arity 0 inventions. Basically if something only matches at one subtree then the best you can
-                // do is the arity zero invention which is the whole subtree, and since we already primed with arity 0 inventions we can
-                // prune here. The exception is when there are free variables so arity 0 wouldn't have applied.
-                // Also, note that upper bounding + arity 0 priming does nearly perfectly handle this already, but there are cases where
-                // you can't improve your structure penalty bound enough to catch everything hence this separate single_use thing.
-                if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.free_vars_of_node[usize::from(locs[0].id)].is_empty() {
-                    if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_fired += 1; }
-                    continue 'expansion;
-                }
-
-                // prune inventions specific to one single task
-                if !shared.cfg.no_opt_single_task
-                        && locs.iter().all(|loc| shared.tasks_of_node[usize::from(loc.id)].len() == 1)
-                        && locs.iter().all(|loc| shared.tasks_of_node[usize::from(locs[0].id)].iter().next() == shared.tasks_of_node[usize::from(loc.id)].iter().next()) {
-                    if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
-                    if tracked { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&hole_zip, &format!("<{}>",expands_to))); }
-                    continue 'expansion;
-                }
+                if opt_single_use(locs, tracked, &shared) { continue 'expansion };
+                if opt_single_task(locs, tracked, &shared) { continue 'expansion };
 
                 // check for free variables: if an invention has free variables in the body then it's not a real function and we can discard it
                 // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
-                if true || !shared.cfg.no_opt_free_vars {
-                    if let ExpandsTo::Var(i) = expands_to {
-                        if i >= hole_zip.iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
-                            if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
-                            if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared)); }
-                            continue 'expansion; // free var
-                        }
+                if let ExpandsTo::Var(i) = expands_to {
+                    if *i >= hole_depth {
+                        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
+                        if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared)); }
+                        continue 'expansion; // free var
                     }
                 }
-
-                
-
-
-                // update the body utility
-                let body_utility_no_refinement = original_pattern.body_utility_no_refinement +  match expands_to {
-                    ExpandsTo::Lam | ExpandsTo::App => COST_NONTERMINAL,
-                    ExpandsTo::Var(_) | ExpandsTo::Prim(_) => COST_TERMINAL,
-                    ExpandsTo::IVar(_) => 0,
-                };
-                let refinement_body_utility = original_pattern.refinement_body_utility;
 
                 // update the upper bound
-                let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility_no_refinement + refinement_body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
+                let util_upper_bound: i32 = utility_upper_bound(&locs, state.body_utility_no_refinement, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
                 assert!(util_upper_bound <= original_pattern.utility_upper_bound);
 
-                // branch and bound: if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
-                if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
-                    if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-                    if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared)); }
-                    continue 'expansion; // too low utility
-                }
+                if opt_upper_bound(util_upper_bound, tracked, &shared) { continue 'expansion };
+                if opt_force_multiuse(locs, tracked, &shared) { continue 'expansion };
+                if opt_useless_abstract(locs, tracked, &shared) { continue 'expansion };
 
-                assert!(shared.cfg.no_opt_upper_bound || !(hole_zips_after_pop.is_empty() && original_pattern.arg_zips.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
-                        "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
-                // assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
-                //         "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
+                if tracked { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(&hole_zip, &shared), new_pattern.utility_upper_bound); }
 
-                // add any new holes to the list of holes
-                let mut hole_zips = hole_zips_after_pop.clone();
-                match expands_to {
-                    ExpandsTo::Lam => {
-                        hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Body)).collect());
-                    }
-                    ExpandsTo::App => {
-                        hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Func)).collect());
-                        hole_zips.push(hole_zip.clone().into_iter().chain(once(ZNode::Arg)).collect());
-                    }
-                    _ => {}
-                }
-
-                // remove old hole_unshifted_id and add new ones! This is a little unclea, we special-case the ivar check
-                if !matches!(expands_to, ExpandsTo::IVar(_)) {
-                    for loc in locs.iter_mut() {
-                        match shared.node_of_id[usize::from(loc.hole_unshifted_ids.remove(hole_idx))] {
-                            Lambda::Lam([b]) => {
-                                loc.hole_unshifted_ids.push(b);
-                                assert_eq!(expands_to, ExpandsTo::Lam);
-                            }
-                            Lambda::App([f,x]) => {
-                                loc.hole_unshifted_ids.push(f);
-                                loc.hole_unshifted_ids.push(x);
-                                assert_eq!(expands_to, ExpandsTo::App);
-                            }
-                            _ => {assert_ne!(expands_to, ExpandsTo::Lam); assert_ne!(expands_to, ExpandsTo::App)}
-                        }
-                    }
+                if !state.hole_zips.is_empty() {
+                    instructions.push(Instruction { offset: offset + inner_offset, len: inner_len, action: Action::Expansion(expands_to.clone(), util_upper_bound) });
                 } else {
-                    // boring IVar case just remove everything
-                    for loc in locs.iter_mut() {
-                        loc.hole_unshifted_ids.remove(hole_idx);
-                    }
+                    finish_pattern(&state, tracked, &shared);
                 }
+                expands_to = &loc.cached_expands_to;
+            }
+        }
 
-                // let mut arg_choices = original_pattern.arg_choices.clone();
-                // let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
-                let mut refinements = original_pattern.refinements.clone();
-                let mut arg_zips = original_pattern.arg_zips.clone();
-                let mut arity = original_pattern.arity;
-                // let mut arg_shifted_ids = original_pattern.arg_shifted_ids.clone();
-                if let ExpandsTo::IVar(i) = expands_to {
-                    // arg_choices.push(LabelledZId::new(hole_zid, i as usize));
-                    arg_zips.push(LabelledZip::new(hole_zip.clone(), i as usize));
-                    // arg_shifted_ids.push(hole_unshifted_id); // todo this is WRONG! It's only temporary
-                    if i as usize == original_pattern.arity {
-                        // first_zid_of_ivar.push(shared.zid_of_zip[&hole_zip]);
-                        refinements.push(None);
-                        arity += 1;
-                    }
-                }
+        drop(expands_to); // so we dont accidentally use it
 
-                // if two different ivars #i and #j have the same arg at every location, then we can prune this pattern
-                // because there must exist another pattern where theyre just both the same ivar. Note that this pruning
-                // happens here and not just at the ivar creation point because new subsetting can happen
-                if !shared.cfg.no_opt_force_multiuse {
-                    // for all pairs of ivars #i and #j, get the first zipper and compare the arg value across all locations
-                    for i in (0..arity) {
-                        // let ref arg_of_loc_1 = shared.arg_of_zid_node[*ivar_zid_1];
-                        for j in (i+1..arity) {
-                            // let ref arg_of_loc_2 = shared.arg_of_zid_node[*ivar_zid_2];
-                            if locs.iter().all(|loc|
-                                loc.arg_shifted_ids[i] == loc.arg_shifted_ids[j])
-                                // arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
-                            {
-                                if !shared.cfg.no_stats { shared.stats.lock().deref_mut().force_multiuse_fired += 1; };
-                                if tracked { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared)); }
-                                continue 'expansion;
-                            }
-                        }
-                    }
-                }
-
-                // check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
-                // because subsetting of match_locations can turn previously useful abstractions into useless ones.
-                if !shared.cfg.no_opt_useless_abstract {
-                    for ivar in 0..arity{
-                        // if its the same arg in every place
-                        if locs.iter().map(|loc| &loc.arg_shifted_ids[ivar]).all_equal()
-                            // AND there's no potential for refining that arg
-                            && (!shared.cfg.refine || locs.iter().all(|loc| shared.free_vars_of_node[usize::from(loc.arg_shifted_ids[ivar].downshifted_id)].is_empty())) // safe: emptiness of free vars is equiv to emptiness of downshifted free vars
-                        {
-                            if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
-                            continue 'expansion; // useless abstraction
-                        }
-                    }
-
-                }
-
-            // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
-            // from the old pattern.
-            let mut new_pattern = Pattern {
-                // holes,
-                // arg_choices,
-                // first_zid_of_ivar,
-                refinements,
-                match_locations: Some(locs),
-                utility_upper_bound: util_upper_bound,
-                body_utility_no_refinement,
-                refinement_body_utility,
-                tracked,
-                hole_zips,
-                // hole_unshifted_ids,
-                arg_zips,
-                // arg_shifted_ids,
-                arity,
-            };
-
-            // new_pattern.utility_upper_bound = utility_upper_bound_with_conflicts(&new_pattern, body_utility_no_refinement + refinement_body_utility, &shared);
-            // // branch and bound again
-            // if !shared.cfg.no_opt_upper_bound && new_pattern.utility_upper_bound <= weak_utility_pruning_cutoff {
-            //     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().conflict_upper_bound_fired += 1; };
-            //     if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
-            //     continue 'expansion; // too low utility
-            // }
-
-
-
-            if new_pattern.hole_zips.is_empty() {
-                // it's a finished pattern
-                // refinement
-
-                if shared.cfg.refine {
-                    refine(&mut new_pattern, tracked, &shared);
-                }
-
-                let finished_pattern = FinishedPattern::new(new_pattern, &shared);
-
-                if !shared.cfg.no_stats { shared.stats.lock().calc_final_utility += 1; };
-
-                if shared.cfg.rewrite_check {
-                    // run rewriting just to make sure the assert in it passes
-                    rewrite_fast(&finished_pattern, &shared, &"fake_inv");
-                }
-
-                if tracked {
-                    println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);
-                }
-
-                if shared.cfg.inv_candidates == 1 && finished_pattern.utility > weak_utility_pruning_cutoff {
-                    // if we're only looking for one invention, we can directly update our cutoff here
-                    weak_utility_pruning_cutoff = finished_pattern.utility;
-                }
-
-                donelist_buf.push(finished_pattern);
-
-                } else {
-                    // it's a partial pattern so just add it to the worklist
-                    if tracked { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(&hole_zip, &shared), new_pattern.utility_upper_bound); }
-                    worklist_buf.push(HeapItem::new(new_pattern, &shared))
+        // sort in increasing order so highest bound is at the end (top of stack)
+        instructions[new_instructions_start..].sort_unstable_by_key(|instruction| instruction.bound());
+    
+        for (i,loc) in locs.iter().enumerate() {
+            let unshifted_id = loc.hole_unshifted_ids[hole_idx];
+            let shift = - hole_depth;
+            let shifted_id = shared.shifted_of_id[usize::from(unshifted_id)].shifted_by(shift);
+            
+            // reusing an old var
+            // todo continue here
+            for ivar in 0..state.arity {
+                if shifted_id == loc.arg_shifted_ids[ivar] {
+                    ivars_expansions[ivar].1.push(loc.clone())
                 }
             }
+        }
 
-            if original_pattern.tracked && !found_tracked {
-                // let new = format!("<{}>",tracked_expands_to(&original_pattern, hole_zid, &shared));
-                // let mut s = original_pattern.to_expr(&shared).zipper_replace(&hole_zip, &new ).to_string();
-                // s = s.replace(&new, &new.clone().magenta().bold().to_string());
+        // add a new var if we have the arity for it
+        if state.arity < shared.cfg.max_arity {
+            // same offset and len as parent since it matches everywhere! And same bound!
+            instructions.push(Instruction { offset, len, action: Action::Expansion(ExpandsTo::IVar(state.arity as i32), state.bound) });
+        }
+
+
+
+        if original_pattern.tracked && !found_tracked {
             println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared));
-            }
+        }
+
+        // possibly add new var to instruction, finishing anything that lacks holes
+
+
+
+
+        // let mut num_groups = 0;
+
+        //     for (expands_to, mut locs) in match_locations.into_iter()
+        //     .group_by(|loc| expands_to_of_node(&shared.node_of_id[usize::from(loc.hole_unshifted_ids[hole_idx])])).into_iter() // todo maybe cache idk
+        //     .map(|(expands_to, locs)| (expands_to.clone(), locs.collect::<Vec<MatchLocation>>()))
+        //     .chain(ivars_expansions.into_iter())
+        // {
+
+            // assert!(shared.cfg.no_opt_upper_bound || !(hole_zips_after_pop.is_empty() && original_pattern.arg_zips.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
+            //         "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
+
+
+
+        // // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
+        // // from the old pattern.
+        // let mut new_pattern = Pattern {
+        //     // holes,
+        //     // arg_choices,
+        //     // first_zid_of_ivar,
+        //     refinements,
+        //     match_locations: Some(locs),
+        //     utility_upper_bound: util_upper_bound,
+        //     body_utility_no_refinement,
+        //     refinement_body_utility,
+        //     tracked,
+        //     hole_zips,
+        //     // hole_unshifted_ids,
+        //     arg_zips,
+        //     // arg_shifted_ids,
+        //     arity,
+        // };
+
+        // new_pattern.utility_upper_bound = utility_upper_bound_with_conflicts(&new_pattern, body_utility_no_refinement + refinement_body_utility, &shared);
+        // // branch and bound again
+        // if !shared.cfg.no_opt_upper_bound && new_pattern.utility_upper_bound <= weak_utility_pruning_cutoff {
+        //     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().conflict_upper_bound_fired += 1; };
+        //     if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+        //     continue 'expansion; // too low utility
+        // }
+
+
+
+        
+
+
 
             // println!("num groups: {}", num_groups)
         
-        } 
-    }
+    // }
 
 }
 
@@ -1269,14 +1333,6 @@ fn get_ivars_expansions(original_pattern: &Pattern, match_locations: &MatchLocat
                 ivars_expansions[ivar].1.push(loc.clone())
             }
         }
-        // add a new var if we have the arity for it
-        // if original_pattern.arity < shared.cfg.max_arity {
-        //     assert_eq!(loc.arg_shifted_ids.len(), original_pattern.arity);
-        //     let mut new_loc = loc.clone();
-        //     new_loc.arg_shifted_ids.push(shifted_id);
-        //     new_loc.arg_info.push(ArgInfo { unshifted_id, shift });
-        //     ivars_expansions[original_pattern.arity].1.push(new_loc);
-        // }
     }
     // add a new var if we have the arity for it
     if original_pattern.arity < shared.cfg.max_arity {
@@ -1286,22 +1342,22 @@ fn get_ivars_expansions(original_pattern: &Pattern, match_locations: &MatchLocat
     ivars_expansions.into_iter().map(|(ivar, locs)| (ExpandsTo::IVar(ivar), locs)).collect()
 }
 
-#[inline(never)]
-fn new_ivar(match_locations: &MatchLocations, hole_idx: usize, hole_depth: i32, shared: &Arc<SharedData>) -> MatchLocations {
-    let mut res = match_locations.clone();
-    res.iter_mut().for_each(|loc| {
-        let unshifted_id = loc.hole_unshifted_ids[hole_idx];
-        let shifted_id = shared.shifted_of_id[usize::from(unshifted_id)].shifted_by(- hole_depth);
-        loc.arg_shifted_ids.push(shifted_id)
-    });
-    res
-    // match_locations.iter().map(|loc| {
-    //     // assert_eq!(loc.arg_shifted_ids.len(), original_pattern.arity);
-    //     let mut new_loc = loc.clone();
-    //     new_loc..;
-    //     new_loc
-    // }).collect()
-}
+// #[inline(never)]
+// fn new_ivar(match_locations: &MatchLocations, hole_idx: usize, hole_depth: i32, shared: &Arc<SharedData>) -> MatchLocations {
+//     let mut res = match_locations.clone();
+//     res.iter_mut().for_each(|loc| {
+//         let unshifted_id = loc.hole_unshifted_ids[hole_idx];
+//         let shifted_id = shared.shifted_of_id[usize::from(unshifted_id)].shifted_by(- hole_depth);
+//         loc.arg_shifted_ids.push(shifted_id)
+//     });
+//     res
+//     // match_locations.iter().map(|loc| {
+//     //     // assert_eq!(loc.arg_shifted_ids.len(), original_pattern.arity);
+//     //     let mut new_loc = loc.clone();
+//     //     new_loc..;
+//     //     new_loc
+//     // }).collect()
+// }
 
 
 /// refines a new pattern inplace
@@ -1383,6 +1439,119 @@ pub fn refine(new_pattern: &mut Pattern, tracked: bool, shared: &SharedData) {
     // set to the best
     new_pattern.refinements = best_refinement.clone();
     new_pattern.refinement_body_utility = best_refinement_body_utility;
+}
+
+
+fn opt_single_use(locs: &[MatchLocation], tracked: bool, shared: &SharedData) -> bool {
+    // prune inventions that only match at a single unique (structurally hashed) subtree. This only applies if we
+    // also are priming with arity 0 inventions. Basically if something only matches at one subtree then the best you can
+    // do is the arity zero invention which is the whole subtree, and since we already primed with arity 0 inventions we can
+    // prune here. The exception is when there are free variables so arity 0 wouldn't have applied.
+    // Also, note that upper bounding + arity 0 priming does nearly perfectly handle this already, but there are cases where
+    // you can't improve your structure penalty bound enough to catch everything hence this separate single_use thing.
+    if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.free_vars_of_node[usize::from(locs[0].id)].is_empty() {
+        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_fired += 1; }
+        if tracked { println!("{} single use pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&hole_zip, &format!("<{}>",expands_to))); }
+        return true
+    }
+    return false
+}
+
+fn opt_single_task(locs: &[MatchLocation], tracked: bool, shared: &SharedData) -> bool {
+    // prune inventions specific to one single task
+    if !shared.cfg.no_opt_single_task
+            && locs.iter().all(|loc| shared.tasks_of_node[usize::from(loc.id)].len() == 1)
+            && locs.iter().all(|loc| shared.tasks_of_node[usize::from(locs[0].id)].iter().next() == shared.tasks_of_node[usize::from(loc.id)].iter().next()) {
+        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
+        if tracked { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&hole_zip, &format!("<{}>",expands_to))); }
+        return true
+    }
+    return false
+}
+
+fn opt_upper_bound(util_upper_bound: i32, tracked: bool, shared: &SharedData) -> bool {
+    // branch and bound: if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
+    if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
+        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
+        if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared)); }
+        return true // too low utility
+    }
+    return false
+}
+
+fn opt_force_multiuse(locs: &[MatchLocation], tracked: bool, shared: &SharedData) -> bool {
+    // if two different ivars #i and #j have the same arg at every location, then we can prune this pattern
+    // because there must exist another pattern where theyre just both the same ivar. Note that this pruning
+    // happens here and not just at the ivar creation point because new subsetting can happen
+    if !shared.cfg.no_opt_force_multiuse {
+        // for all pairs of ivars #i and #j, get the first zipper and compare the arg value across all locations
+        for i in (0..arity) {
+            // let ref arg_of_loc_1 = shared.arg_of_zid_node[*ivar_zid_1];
+            for j in (i+1..arity) {
+                // let ref arg_of_loc_2 = shared.arg_of_zid_node[*ivar_zid_2];
+                if locs.iter().all(|loc|
+                    loc.arg_shifted_ids[i] == loc.arg_shifted_ids[j])
+                    // arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
+                {
+                    if !shared.cfg.no_stats { shared.stats.lock().deref_mut().force_multiuse_fired += 1; };
+                    if tracked { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(&hole_zip, &shared)); }
+                    return true
+                }
+            }
+        }
+    }
+    return false
+}
+
+fn opt_useless_abstract(locs: &[MatchLocation], tracked: bool, shared: &SharedData) -> bool {
+    // check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
+    // because subsetting of match_locations can turn previously useful abstractions into useless ones.
+    if !shared.cfg.no_opt_useless_abstract {
+        for ivar in 0..arity{
+            // if its the same arg in every place
+            if locs.iter().map(|loc| &loc.arg_shifted_ids[ivar]).all_equal()
+                // AND there's no potential for refining that arg
+                && (!shared.cfg.refine || locs.iter().all(|loc| shared.free_vars_of_node[usize::from(loc.arg_shifted_ids[ivar].downshifted_id)].is_empty())) // safe: emptiness of free vars is equiv to emptiness of downshifted free vars
+            {
+                if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
+                return true // useless abstraction
+            }
+        }
+
+    }
+    return false
+}
+
+fn finish_pattern(state: &State, tracked:bool, shared: &SharedData) {
+    assert!(state.hole_zips.is_empty());
+    // it's a finished pattern
+    // refinement
+
+    if shared.cfg.refine {
+        refine(&mut state, tracked, &shared);
+    }
+
+    let finished_pattern = FinishedPattern::new(new_pattern, &shared);
+
+    if !shared.cfg.no_stats { shared.stats.lock().calc_final_utility += 1; };
+
+    if shared.cfg.rewrite_check {
+        // run rewriting just to make sure the assert in it passes
+        rewrite_fast(&finished_pattern, &shared, &"fake_inv");
+    }
+
+    if tracked {
+        println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);
+    }
+
+    if shared.cfg.inv_candidates == 1 && finished_pattern.utility > weak_utility_pruning_cutoff {
+        // if we're only looking for one invention, we can directly update our cutoff here
+        weak_utility_pruning_cutoff = finished_pattern.utility;
+    }
+
+    donelist_buf.push(finished_pattern);
+
+    }
 }
 
 
