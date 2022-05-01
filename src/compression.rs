@@ -1033,7 +1033,7 @@ fn stitch_search(
             None => { break }
         };
 
-        println!("Processing {:?}", instruction);
+        println!("{} {:?} in {}", "Processing".yellow().bold(), instruction, pattern.to_expr(&shared));
 
         let mut offset = instruction.offset;
         let mut len = instruction.len;
@@ -1115,13 +1115,13 @@ fn stitch_search(
 
                 // push an undo instruction
                 instructions.push(Instruction::undo_of(instruction));
-                println!("Pushing {:?}", instructions.last().unwrap());
+                println!("Pushing {:?} in {}", instructions.last().unwrap(), pattern.to_expr(&shared));
 
                 // save our old hole_idx and hole_zip. offset and len are intentionally unused.
                 // note this only happens if holezips is nonempty
                 if !pattern.hole_zips.is_empty() {
                     instructions.push(Instruction::new(0, 0, Action::SetHoleChoice(hole_idx, hole_zip.clone(), hole_depth)));
-                    println!("Pushing {:?}", instructions.last().unwrap());
+                    println!("Pushing {:?} in {}", instructions.last().unwrap(), pattern.to_expr(&shared));
                 }
 
             }
@@ -1167,6 +1167,15 @@ fn stitch_search(
                                 loc.arg_shifted_ids.pop();
                             }
                         }
+
+                        // re-sort things by hole_idx expansion since we mangled it
+                        // todo im pretty sure 
+                        for loc in locs[..len].iter_mut() {
+                            loc.cached_expands_to = expands_to_of_node(&shared.node_of_id[usize::from(loc.hole_unshifted_ids[hole_idx])]);
+                        }
+                        locs[..len].sort_unstable_by(|loc1,loc2| loc1.cached_expands_to.cmp(&loc2.cached_expands_to).then(loc1.id.cmp(&loc2.id)));                
+
+
                         if !new_var {
                             // now it's safe to re-run select_indices to undo it (since it is its own inverse)
                             let idxs = instruction.idxs.as_ref().unwrap();
@@ -1204,6 +1213,7 @@ fn stitch_search(
 
         if pattern.hole_zips.is_empty() {
             let tracked = false; // todo fix
+            println!("{} {}", "Finishing".green().bold(), pattern.to_expr(&shared));
             finish_pattern(&mut pattern, locs, &mut weak_utility_pruning_cutoff, tracked, &mut donelist_buf, &shared);
             continue;
         }
@@ -1235,7 +1245,6 @@ fn stitch_search(
         for loc in locs.iter_mut() {
             loc.cached_expands_to = expands_to_of_node(&shared.node_of_id[usize::from(loc.hole_unshifted_ids[hole_idx])]);
         }
-        // ascending order sort
         locs.sort_unstable_by(|loc1,loc2| loc1.cached_expands_to.cmp(&loc2.cached_expands_to).then(loc1.id.cmp(&loc2.id)));
         
         // add all expansions to instructions, finishing anything that lacks holes
@@ -1364,7 +1373,7 @@ pub fn expand_and_finish(
     //     println!("pushin {:?}", expands_to);
     let mut instruction = Instruction::new_with_idxs(parent_offset + inner_offset, inner_len, Action::Expansion(expands_to.clone(), util_upper_bound), ivar_locs);
     instructions.push(instruction);
-    println!("Pushing {:?}", instructions.last().unwrap());
+    println!("Pushing {:?} in {}", instructions.last().unwrap(), pattern.to_expr(shared));
     // } else {
     //     println!("finishin {}", pattern.to_expr(shared));
     // }

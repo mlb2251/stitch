@@ -3,6 +3,7 @@ use sexp::{Sexp,Atom};
 use std::fmt::Debug;
 use ahash::{AHashMap};
 use std::hash::Hash;
+use std::cmp::Ordering;
 
 
 /// Uncurries an s expression. For example: (app (app foo x) y) -> (foo x y)
@@ -386,6 +387,20 @@ pub fn select_indices<T>(v: &mut [T], idxs: &Vec<usize>) {
         offset += 1;
     }
 }
+
+
+/// from unstable rust
+fn is_sorted_by<T,F>(slice: &[T], compare: F) -> bool
+    where
+        F: Fn(&T, &T) -> Option<Ordering>,
+    {
+        for i in 0..slice.len() - 1 {
+            if let Some(Ordering::Greater) = compare(&slice[i], &slice[i + 1]) {
+                return false;
+            }
+        }
+        true
+    }
 
 // pub trait IterUtil : Iterator {
 //     /// same as Itertools::counts() but returns an AHashMap instead of a HashMap
