@@ -1033,7 +1033,7 @@ fn stitch_search(
             None => { break }
         };
 
-        println!("Processing {:?} on pattern {}", instruction, pattern.to_expr(&shared));
+        println!("Processing {:?}", instruction);
 
         let mut offset = instruction.offset;
         let mut len = instruction.len;
@@ -1088,7 +1088,7 @@ fn stitch_search(
                     },
                     ExpandsTo::IVar(i) => {
                         let new_var = instruction.idxs.is_none();
-                        assert_eq!(new_var, *i as usize == pattern.arity);
+                        assert_eq!(new_var, *i as usize == pattern.arity, "{} {} {}", *i, pattern.arity, pattern.arg_zips.len());
                         if new_var {
                             pattern.refinements.push(None);
                             pattern.arity += 1;
@@ -1115,11 +1115,14 @@ fn stitch_search(
 
                 // push an undo instruction
                 instructions.push(Instruction::undo_of(instruction));
-                println!("Pushing {:?} on pattern {}", instructions.last().unwrap(), pattern.to_expr(&shared));
+                println!("Pushing {:?}", instructions.last().unwrap());
 
                 // save our old hole_idx and hole_zip. offset and len are intentionally unused.
-                instructions.push(Instruction::new(0, 0, Action::SetHoleChoice(hole_idx, hole_zip.clone(), hole_depth)));
-                println!("Pushing {:?} on pattern {}", instructions.last().unwrap(), pattern.to_expr(&shared));
+                // note this only happens if holezips is nonempty
+                if !pattern.hole_zips.is_empty() {
+                    instructions.push(Instruction::new(0, 0, Action::SetHoleChoice(hole_idx, hole_zip.clone(), hole_depth)));
+                    println!("Pushing {:?}", instructions.last().unwrap());
+                }
 
             }
 
@@ -1171,7 +1174,8 @@ fn stitch_search(
                         if new_var {
                             pattern.arity -= 1;
                             pattern.refinements.pop();
-                        } 
+                        }
+                        pattern.arg_zips.pop();
                     }
                 }
                 continue
@@ -1181,6 +1185,7 @@ fn stitch_search(
                 assert!(offset == 0 && len == 0);
                 // re-insert our current hole idx and hole zip
                 pattern.hole_zips.insert(hole_idx, hole_zip);
+                println!("hole zips after setholechoice: {:?}", pattern.hole_zips);
                 // now set them to their old values
                 hole_idx = *old_hole_idx;
                 hole_zip = old_hole_zip.clone();
@@ -1189,6 +1194,13 @@ fn stitch_search(
             }
         }
 
+        pattern.any_loc_id = locs[0].id;
+
+        let tracked = false; // todo fix
+        // we put these here because they need to come after the args have been  pointwise updated at every loc
+        if opt_force_multiuse(&pattern, locs, tracked, &shared) { continue };
+        if opt_useless_abstract(&pattern, locs, tracked, &shared) { continue };    
+
         if pattern.hole_zips.is_empty() {
             let tracked = false; // todo fix
             finish_pattern(&mut pattern, locs, &mut weak_utility_pruning_cutoff, tracked, &mut donelist_buf, &shared);
@@ -1196,7 +1208,6 @@ fn stitch_search(
         }
 
 
-        pattern.any_loc_id = locs[0].id;
 
         // if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
         // if !shared.cfg.no_stats { if shared.cfg.print_stats > 0 &&  shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 { println!("{:?} \n\t@ [bound={}; uses={}] chose: {}",shared.stats.lock().deref_mut(),   original_pattern.utility_upper_bound, original_pattern.match_locations.as_ref().unwrap().iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>(), original_pattern.to_expr(&shared)); }};
@@ -1204,10 +1215,15 @@ fn stitch_search(
         //     println!("[bound={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.as_ref().unwrap().iter().map(|loc| shared.num_paths_to_node[usize::from(loc.id)]).sum::<i32>(), original_pattern.to_expr(&shared));
         // }
 
+        println!("hole zips before choice: {:?}", pattern.hole_zips);
+
         // choose our new hole_idx and hole_zip
         hole_idx = shared.cfg.hole_choice.choose_hole(&pattern, &shared);
-        hole_zip = pattern.hole_zips.remove(hole_idx);
+        hole_zip = pattern.hole_zips.get(hole_idx).unwrap().clone();
         hole_depth = hole_zip.iter().filter(|z| **z == ZNode::Body).count() as i32;
+
+
+        // println!("hole zips after choice: {:?}", pattern.hole_zips);
 
         let mut found_tracked = false;
 
@@ -1276,6 +1292,7 @@ fn stitch_search(
             println!("{} pruned when expanding because there were no match locations for the target expansion of {}", "[TRACK]".red().bold(), pattern.show_track_expansion(&hole_zip, &shared));
         }
 
+        pattern.hole_zips.remove(hole_idx);
 }
 
 pub fn get_locs_of_ivar(pattern: &Pattern, locs: &[MatchLocation], hole_idx: usize, hole_depth: i32, shared :&SharedData) ->  Vec<Vec<usize>> {
@@ -1338,15 +1355,13 @@ pub fn expand_and_finish(
     println!("expand and finish on {:?}", expands_to);
 
     if opt_upper_bound(&pattern,  util_upper_bound, *weak_utility_pruning_cutoff, hole_zip, expands_to, tracked, &shared) { return };
-    if opt_force_multiuse(&pattern, inner_locs, hole_zip, tracked, &shared) { return };
-    if opt_useless_abstract(&pattern, inner_locs, tracked, &shared) { return };
 
     if tracked { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), pattern.show_track_expansion(&hole_zip, &shared), util_upper_bound); }
 
     // if !pattern.hole_zips.is_empty() || expands_to.has_holes() {
     //     println!("pushin {:?}", expands_to);
     instructions.push(Instruction::new(parent_offset + inner_offset, inner_len, Action::Expansion(expands_to.clone(), util_upper_bound)));
-    println!("Pushing {:?} on pattern {}", instructions.last().unwrap(), pattern.to_expr(&shared));
+    println!("Pushing {:?}", instructions.last().unwrap());
     // } else {
     //     println!("finishin {}", pattern.to_expr(shared));
     // }
@@ -1472,7 +1487,7 @@ fn opt_upper_bound(pattern: &Pattern, util_upper_bound: i32, weak_utility_prunin
     return false
 }
 
-fn opt_force_multiuse(pattern: &Pattern, locs: &[MatchLocation], hole_zip: &Zip, tracked: bool, shared: &SharedData) -> bool {
+fn opt_force_multiuse(pattern: &Pattern, locs: &[MatchLocation], tracked: bool, shared: &SharedData) -> bool {
     // if two different ivars #i and #j have the same arg at every location, then we can prune this pattern
     // because there must exist another pattern where theyre just both the same ivar. Note that this pruning
     // happens here and not just at the ivar creation point because new subsetting can happen
@@ -1487,7 +1502,7 @@ fn opt_force_multiuse(pattern: &Pattern, locs: &[MatchLocation], hole_zip: &Zip,
                     // arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
                 {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().force_multiuse_fired += 1; };
-                    if tracked { println!("{} force multiuse pruned when expanding to {}", "[TRACK]".red().bold(), pattern.show_track_expansion(&hole_zip, &shared)); }
+                    if tracked { println!("{} force multiuse pruned when expanding to {}", "[TRACK]".red().bold(), pattern.to_expr(&shared)); }
                     return true
                 }
             }
