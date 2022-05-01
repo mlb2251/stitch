@@ -1169,7 +1169,7 @@ fn stitch_search(
                         }
 
                         // re-sort things by hole_idx expansion since we mangled it
-                        // todo im pretty sure 
+                        // todo im pretty sure this is precisely the point of cached_key?
                         for loc in locs[..len].iter_mut() {
                             loc.cached_expands_to = expands_to_of_node(&shared.node_of_id[usize::from(loc.hole_unshifted_ids[hole_idx])]);
                         }
