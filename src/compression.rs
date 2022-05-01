@@ -971,12 +971,12 @@ impl Instruction {
             idxs: None,
         }
     }
-    fn new_with_idxs(offset: usize, len: usize, action: Action, idxs: Vec<usize>) -> Instruction {
+    fn new_with_idxs(offset: usize, len: usize, action: Action, idxs: Option<Vec<usize>>) -> Instruction {
         Instruction {
             offset,
             len,
             action,
-            idxs: Some(idxs),
+            idxs,
         }
     }
     fn undo_of(i: Instruction) -> Instruction {
@@ -1157,10 +1157,11 @@ fn stitch_search(
                             // adjust len and locs before we iterate locs so that our len bound is okay
                             let idxs = instruction.idxs.as_ref().unwrap();
                             len = idxs.len();
-                            locs = &mut locs[..len];
                         }
 
-                        for loc in locs.iter_mut() {
+                        // here we iter only up to `len` which is everything in the new_var case and is just idxs.len()
+                        // in the non-newvar case
+                        for loc in locs[..len].iter_mut() {
                             loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
                             if new_var {
                                 loc.arg_shifted_ids.pop();
@@ -1231,13 +1232,11 @@ fn stitch_search(
         // sort the match locations by node type (ie what theyll expand into) so that we can do a group_by() on
         // node type in order to iterate over all the different expansions
         // We also sort secondarily by `loc` to ensure each groupby subsequence has the locations in sorted order
-        // parent_locs.sort_by_key(|loc| (loc.last_expands_to, loc.id));
-        // todo if sorting is slow can do something smarter
         for loc in locs.iter_mut() {
             loc.cached_expands_to = expands_to_of_node(&shared.node_of_id[usize::from(loc.hole_unshifted_ids[hole_idx])]);
         }
         // ascending order sort
-        locs.sort_unstable_by(|loc1,loc2| loc1.cached_expands_to.cmp(&loc2.cached_expands_to) );
+        locs.sort_unstable_by(|loc1,loc2| loc1.cached_expands_to.cmp(&loc2.cached_expands_to).then(loc1.id.cmp(&loc2.id)));
         
         // add all expansions to instructions, finishing anything that lacks holes
 
@@ -1249,7 +1248,7 @@ fn stitch_search(
             let mut inner_len = 0;
             for (i,loc) in locs.iter().enumerate() {
                 if &loc.cached_expands_to != expands_to {
-                    expand_and_finish(&mut pattern, &locs, inner_offset, inner_len, offset, expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
+                    expand_and_finish(&mut pattern, &locs, None, inner_offset, inner_len, offset, expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
                     expands_to = &loc.cached_expands_to;
                     inner_offset = i;
                     inner_len = 0; // reset it to 0 which will immediately get incremented to 1
@@ -1268,10 +1267,11 @@ fn stitch_search(
         for (ivar,ivar_locs) in locs_of_ivar.into_iter().enumerate() {
             if ivar_locs.is_empty() { continue; }
             select_indices(locs, &ivar_locs);
+            println!("old");
             let expands_to = ExpandsTo::IVar(ivar as i32);
             let inner_offset = 0;
             let inner_len = len; // here we pass in the full length since we need that to run select_indices when recursing
-            expand_and_finish(&mut pattern, &locs, inner_offset, inner_len, offset, &expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
+            expand_and_finish(&mut pattern, &locs, Some(ivar_locs.clone()), inner_offset, inner_len, offset, &expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
             // select_indices is its own inverse so we can restore the original ordering like this...
             select_indices(locs, &ivar_locs);
         }
@@ -1282,7 +1282,8 @@ fn stitch_search(
             let expands_to = ExpandsTo::IVar(pattern.arity as i32);
             let inner_offset = 0;
             let inner_len = len;
-            expand_and_finish(&mut pattern, &locs, inner_offset, inner_len, offset, &expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
+            println!("new");
+            expand_and_finish(&mut pattern, &locs, None, inner_offset, inner_len, offset, &expands_to, &hole_zip, hole_depth, &mut found_tracked, &mut weak_utility_pruning_cutoff, &mut instructions, &mut donelist_buf, &shared);
             // instructions.push(Instruction::new(offset, len, Action::Expansion(ExpandsTo::IVar(pattern.arity as i32), pattern.bound)));
         }
 
@@ -1316,6 +1317,7 @@ pub fn get_locs_of_ivar(pattern: &Pattern, locs: &[MatchLocation], hole_idx: usi
 pub fn expand_and_finish(
     pattern: &mut Pattern,
     locs: &[MatchLocation],
+    ivar_locs: Option<Vec<usize>>,
     inner_offset: usize,
     inner_len: usize,
     parent_offset: usize,
@@ -1360,7 +1362,8 @@ pub fn expand_and_finish(
 
     // if !pattern.hole_zips.is_empty() || expands_to.has_holes() {
     //     println!("pushin {:?}", expands_to);
-    instructions.push(Instruction::new(parent_offset + inner_offset, inner_len, Action::Expansion(expands_to.clone(), util_upper_bound)));
+    let mut instruction = Instruction::new_with_idxs(parent_offset + inner_offset, inner_len, Action::Expansion(expands_to.clone(), util_upper_bound), ivar_locs);
+    instructions.push(instruction);
     println!("Pushing {:?}", instructions.last().unwrap());
     // } else {
     //     println!("finishin {}", pattern.to_expr(shared));
