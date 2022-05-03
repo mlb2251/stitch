@@ -1,13 +1,11 @@
 use stitch::*;
 // extern crate log;
 use clap::Parser;
+use itertools::Itertools;
 use rand::seq::SliceRandom;
 use serde::Serialize;
-use std::path::PathBuf;
 use serde_json::json;
-use itertools::Itertools;
-
-
+use std::path::PathBuf;
 
 /// Compression
 #[derive(Parser, Debug, Serialize)]
@@ -25,7 +23,7 @@ pub struct Args {
     #[clap(short, long, default_value = "3")]
     pub iterations: usize,
 
-    /// shuffle order of set of inventions 
+    /// shuffle order of set of inventions
     #[clap(long)]
     pub shuffle: bool,
 
@@ -56,7 +54,6 @@ pub struct Args {
 
     #[clap(flatten)]
     pub step: CompressionStepConfig,
-
 }
 
 fn main() {
@@ -79,25 +76,22 @@ fn main() {
     // let out_dir_p = std::path::Path::new(out_dir.as_str());
     // assert!(!out_dir_p.exists());
     // std::fs::create_dir(out_dir_p).unwrap();
-    
-    let (mut programs, tasks, num_prior_inventions) = args.fmt.load_programs_and_tasks(&args.file).unwrap();
-    
+    let mut input = args.fmt.load_programs_and_tasks(&args.file).unwrap();
     if args.shuffle {
-        programs.shuffle(&mut rand::thread_rng());
+        input.programs.shuffle(&mut rand::thread_rng());
     }
     if let Some(n) = args.truncate {
-        programs.truncate(n);
+        input.programs.truncate(n);
     }
-    
     // parse the program strings into expressions
-    let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
+    let programs: Vec<Expr> = input.programs.iter().map(|p| p.parse().unwrap()).collect();
 
     // for prog in programs.iter() {
     //     println!("{}", prog);
     // }
-    println!("{}","**********".blue().bold());
-    println!("{}","* Stitch *".blue().bold());
-    println!("{}","**********".blue().bold());
+    println!("{}", "**********".blue().bold());
+    println!("{}", "* Stitch *".blue().bold());
+    println!("{}", "**********".blue().bold());
     programs_info(&programs);
 
     // build a single `Expr::Programs` node from these programs. Stitch uses these because often we want to treat
@@ -109,7 +103,13 @@ fn main() {
         println!("Normal dreamcoder programs never have unapplied lambdas in them! Who knows what might happen if you run this. Probably it will be fine");
     }
 
-    let step_results = compression(&programs, args.iterations, &args.step, &tasks, num_prior_inventions);
+    let step_results = compression(
+        &programs,
+        args.iterations,
+        &args.step,
+        &input.tasks,
+        &input.prev_dc_inv_to_inv_strs,
+    );
 
     // write everything to json
     let out = json!({
@@ -131,15 +131,28 @@ fn main() {
 
     if let Some(out_path) = args.save_rewritten {
         println!("Wrote to {:?}", out_path);
-        std::fs::write(&out_path, serde_json::to_string_pretty(&step_results.iter().last().unwrap().rewritten.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>()).unwrap()).unwrap();
+        std::fs::write(
+            &out_path,
+            serde_json::to_string_pretty(
+                &step_results
+                    .iter()
+                    .last()
+                    .unwrap()
+                    .rewritten
+                    .split_programs()
+                    .iter()
+                    .map(|p| p.to_string())
+                    .collect::<Vec<String>>(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
     }
-
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     /**
      * Regression test.
@@ -148,11 +161,11 @@ mod tests {
      */
     #[test]
     fn dc_logo_it_1_top_10_match_expected() {
-    
         let input_file = std::path::Path::new("data/dc/logo_iteration_1.json");
-        let (programs, tasks, num_prior_inventions) = InputFormat::Dreamcoder.load_programs_and_tasks(input_file).unwrap();
-    
-        let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
+        let mut input = InputFormat::Dreamcoder
+            .load_programs_and_tasks(input_file)
+            .unwrap();
+        let programs: Vec<Expr> = input.programs.iter().map(|p| p.parse().unwrap()).collect();
         let programs: Expr = Expr::programs(programs);
 
         // Run compression with the default argument values
@@ -160,10 +173,15 @@ mod tests {
             &programs,
             10,
             &CompressionStepConfig::parse_from("compress -a2 ".split_whitespace()),
-            &tasks,
-            num_prior_inventions);
+            &input.tasks,
+            &input.prev_dc_inv_to_inv_strs,
+        );
 
-        let inventions = step_results.iter().take(10).map(|inv| inv.inv.body.to_string()).collect::<Vec<String>>();
+        let inventions = step_results
+            .iter()
+            .take(10)
+            .map(|inv| inv.inv.body.to_string())
+            .collect::<Vec<String>>();
         // let expected_inventions = vec!["(lam (logo_forLoop #0 (lam (lam (#1 $0))) $0))", "(logo_FWRT #0 (logo_DIVA logo_UA #1))", "(logo_MULL logo_UL)", "(logo_FWRT logo_UL)", "(logo_FWRT (logo_MULL logo_epsL #0))", "(fn_9 #0 (lam (logo_GETSET (lam (#1 $0)) (fn_10 logo_ZL #0 $0))))", "(logo_DIVL logo_UL)", "(fn_9 #0 (logo_FWRT (fn_11 4) (logo_MULA (logo_DIVA logo_UA #0) #1)))", "(logo_PT (lam (fn_12 #0 $0)))", "(logo_forLoop logo_IFTY (lam (lam (logo_FWRT #0 #1 $0))))"];
         // let expected_inventions = vec!["(lam (logo_forLoop #0 (lam (lam (#1 $0))) $0))", "(logo_FWRT #0 (logo_DIVA logo_UA #1))", "(logo_MULL logo_UL)", "(logo_FWRT logo_UL)", "(logo_FWRT (logo_MULL logo_epsL #0))", "(fn_9 #0 (lam (logo_GETSET (lam (#1 $0)) (fn_10 logo_ZL #0 $0))))", "(logo_DIVL logo_UL)", "(fn_9 #0 (logo_FWRT (fn_11 4) (logo_MULA (logo_DIVA logo_UA #0) #1)))", "(logo_PT (lam (fn_12 #0 $0)))", "(logo_forLoop logo_IFTY (lam (lam (logo_FWRT #0 #1 $0))))"];
         let expected_inventions = vec!["(lam (logo_forLoop #0 #1 $0))",
@@ -176,7 +194,6 @@ mod tests {
                                                 "(lam (logo_FWRT logo_ZL #1 (#0 $0)))",
                                                 "(logo_MULL logo_epsL)",
                                                 "(logo_PT (fn_10 #0 logo_UL))"];
-        
         // Assert single threaded results match expected results
         assert_eq!(inventions, expected_inventions);
     }
@@ -188,30 +205,40 @@ mod tests {
      */
     #[test]
     fn dc_logo_it_1_top_10_st_match_mt() {
-
         let input_file = std::path::Path::new("data/dc/logo_iteration_1.json");
-        let (programs, tasks, num_prior_inventions) = InputFormat::Dreamcoder.load_programs_and_tasks(input_file).unwrap();
-    
-        let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
+        let mut input = InputFormat::Dreamcoder
+            .load_programs_and_tasks(input_file)
+            .unwrap();
+        let programs: Vec<Expr> = input.programs.iter().map(|p| p.parse().unwrap()).collect();
         let programs: Expr = Expr::programs(programs);
 
         let step_results = compression(
             &programs,
             10,
             &CompressionStepConfig::parse_from("compress -a2 ".split_whitespace()),
-            &tasks,
-            num_prior_inventions);
+            &input.tasks,
+            &input.prev_dc_inv_to_inv_strs,
+        );
 
-        let singlethreaded_inventions = step_results.iter().take(10).map(|inv| inv.inv.body.to_string()).collect::<Vec<String>>();
+        let singlethreaded_inventions = step_results
+            .iter()
+            .take(10)
+            .map(|inv| inv.inv.body.to_string())
+            .collect::<Vec<String>>();
 
         let step_results = compression(
             &programs,
             10,
             &CompressionStepConfig::parse_from("compress -a2 -t4".split_whitespace()),
-            &tasks,
-            num_prior_inventions);
+            &input.tasks,
+            &input.prev_dc_inv_to_inv_strs,
+        );
 
-        let multithreaded_inventions = step_results.iter().take(10).map(|inv| inv.inv.body.to_string()).collect::<Vec<String>>();
+        let multithreaded_inventions = step_results
+            .iter()
+            .take(10)
+            .map(|inv| inv.inv.body.to_string())
+            .collect::<Vec<String>>();
 
         // Assert single threaded results match multithreaded results
         assert_eq!(singlethreaded_inventions, multithreaded_inventions);
@@ -224,11 +251,11 @@ mod tests {
      */
     #[test]
     fn ctx_thread_1_match_expected() {
-    
         let input_file = std::path::Path::new("data/basic/ctx_thread_1.json");
-        let (programs, tasks, num_prior_inventions) = InputFormat::ProgramsList.load_programs_and_tasks(input_file).unwrap();
-    
-        let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
+        let mut input = InputFormat::ProgramsList
+            .load_programs_and_tasks(input_file)
+            .unwrap();
+        let programs: Vec<Expr> = input.programs.iter().map(|p| p.parse().unwrap()).collect();
         let programs: Expr = Expr::programs(programs);
 
         // Run compression with the default argument values
@@ -236,10 +263,15 @@ mod tests {
             &programs,
             10,
             &CompressionStepConfig::parse_from("compress".split_whitespace()),
-            &tasks,
-            num_prior_inventions);
+            &input.tasks,
+            &input.prev_dc_inv_to_inv_strs,
+        );
 
-        let inventions = step_results.iter().take(2).map(|inv| inv.inv.body.to_string()).collect::<Vec<String>>();
+        let inventions = step_results
+            .iter()
+            .take(2)
+            .map(|inv| inv.inv.body.to_string())
+            .collect::<Vec<String>>();
         let expected_inventions = vec!["(+ #0 #0)", "(A (lam (lam (fn_0 (a b #0 $0 f)))))"];
 
         // Assert single threaded results match expected results

@@ -68,7 +68,21 @@ fn main() {
             .expect("json deserializing error");
     let inventions = inventions_data["invs"].as_array().unwrap();
 
-    let dreamcoder_translation: Vec<(String,String)> = inventions.iter().map(|invention| (invention["name"].as_str().unwrap().to_string(),invention["dreamcoder"].as_str().unwrap().to_string())).collect();
+    // Get any prior inventions from the existing DSL.
+    let mut input = args
+        .fmt
+        .load_programs_and_tasks(&args.program_file)
+        .unwrap();
+
+    let dreamcoder_translation: Vec<(String, String)> = inventions
+        .iter()
+        .map(|invention| {
+            (
+                invention["name"].as_str().unwrap().to_string(),
+                invention["dreamcoder"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
 
     let inventions: Vec<Invention> = inventions
         .iter()
@@ -90,6 +104,7 @@ fn main() {
             let json: serde_json::Value =
                 from_reader(File::open(&args.program_file).expect("file not found"))
                     .expect("json deserializing error");
+
             let frontiers = json["frontiers"].as_array().unwrap();
             println!("Read in {} frontiers", frontiers.len());
             let mut program_id = 0;
@@ -107,7 +122,7 @@ fn main() {
                 }
             }
             println!("Read in {} programs from these frontiers", programs.len());
-        },
+        }
         InputFormat::ProgramsList => {
             // Read in programs to rewrite.
             programs = from_reader(File::open(&args.program_file).expect("file not found"))
@@ -139,6 +154,13 @@ fn main() {
                 let task_name = program_id_to_task_name[&i].clone();
                 let mut pretty_program = pretty_program.to_string();
                 if args.dreamcoder_output {
+                    // Rewrite using any existing inventions.
+                    for (past_inv_name, past_dc_inv_str) in &input.prev_dc_inv_to_inv_strs {
+                        pretty_program =
+                            replace_prim_with(&pretty_program, past_inv_name, past_dc_inv_str);
+                    }
+
+                    // Rewrite using the current inventions.
                     for (name, dc_translation) in dreamcoder_translation.iter() {
                         pretty_program = replace_prim_with(&pretty_program, name, dc_translation);
                     }
@@ -147,11 +169,7 @@ fn main() {
                 rewritten_frontiers
                     .entry(task_name)
                     .or_insert(Vec::new())
-                    .push(
-                        pretty_program
-                            .replace("(lam ", "(lambda ")
-                            .clone(),
-                    );
+                    .push(pretty_program.replace("(lam ", "(lambda ").clone());
             }
             fn rewritten_to_dc_fmt_frontiers(
                 task_name: &String,
@@ -176,7 +194,7 @@ fn main() {
 
             let json: serde_json::Value = json!({ "frontiers": dc_fmt_frontiers });
             std::fs::write(&args.out, serde_json::to_string_pretty(&json).unwrap()).unwrap();
-        },
+        }
         InputFormat::ProgramsList => {
             let json: serde_json::Value = json!({ "rewritten": rewritten.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>() });
             std::fs::write(&args.out, serde_json::to_string_pretty(&json).unwrap()).unwrap();
