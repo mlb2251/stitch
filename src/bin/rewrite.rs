@@ -68,12 +68,6 @@ fn main() {
             .expect("json deserializing error");
     let inventions = inventions_data["invs"].as_array().unwrap();
 
-    // Get any prior inventions from the existing DSL.
-    let mut input = args
-        .fmt
-        .load_programs_and_tasks(&args.program_file)
-        .unwrap();
-
     let dreamcoder_translation: Vec<(String, String)> = inventions
         .iter()
         .map(|invention| {
@@ -94,43 +88,15 @@ fn main() {
         .collect();
     println!("Number of inventions: {}", inventions.len());
 
-    // Read in the programs. Maintain the DC format if we're using it.
-    let mut programs: Vec<String> = Vec::new();
-    let mut program_id_to_task_name: HashMap<usize, String> = HashMap::new();
+    // Read in the programs and any previous inventions from the DSL.
+    let mut input = args
+        .fmt
+        .load_programs_and_tasks(&args.program_file)
+        .unwrap();
+
     let mut rewritten_frontiers: HashMap<String, Vec<String>> = HashMap::new();
-    match args.fmt {
-        InputFormat::Dreamcoder => {
-            // Read in frontiers to programs, but preserve their original task.
-            let json: serde_json::Value =
-                from_reader(File::open(&args.program_file).expect("file not found"))
-                    .expect("json deserializing error");
 
-            let frontiers = json["frontiers"].as_array().unwrap();
-            println!("Read in {} frontiers", frontiers.len());
-            let mut program_id = 0;
-            for frontier in frontiers.into_iter() {
-                let task_name = frontier["task"].as_str().unwrap().to_string();
-                for dc_program in frontier["programs"].as_array().unwrap() {
-                    let stitch_program = dc_program["program"]
-                        .as_str()
-                        .unwrap()
-                        .to_string()
-                        .replace("(lambda ", "(lam ");
-                    program_id_to_task_name.insert(program_id, task_name.clone());
-                    program_id += 1;
-                    programs.push(stitch_program);
-                }
-            }
-            println!("Read in {} programs from these frontiers", programs.len());
-        }
-        InputFormat::ProgramsList => {
-            // Read in programs to rewrite.
-            programs = from_reader(File::open(&args.program_file).expect("file not found"))
-                .expect("json deserializing error");
-        }
-    }
-
-    let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
+    let programs: Vec<Expr> = input.programs.iter().map(|p| p.parse().unwrap()).collect();
     programs_info(&programs);
 
     let programs: Expr = Expr::programs(programs);
@@ -151,7 +117,7 @@ fn main() {
 
             // Rewrite back the lambda and optionally rewrite back the DC invention format.
             for (i, pretty_program) in rewritten.split_programs().iter().enumerate() {
-                let task_name = program_id_to_task_name[&i].clone();
+                let task_name = input.tasks[i].clone();
                 let mut pretty_program = pretty_program.to_string();
                 if args.dreamcoder_output {
                     // Rewrite using any existing inventions.

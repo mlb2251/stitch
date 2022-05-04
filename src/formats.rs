@@ -1,6 +1,7 @@
 use clap::ArgEnum;
 use serde::Serialize;
 use serde_json::de::from_reader;
+use std::collections::HashMap;
 use std::fs::File;
 use std::iter::repeat;
 use std::path::Path;
@@ -13,7 +14,7 @@ pub enum InputFormat {
 
 pub struct Input {
     pub programs: Vec<String>,                          // Program strings.
-    pub tasks: Vec<String>,                             // Task names.
+    pub tasks: Vec<String>, // Task names for each corresponding program string.
     pub prev_dc_inv_to_inv_strs: Vec<(String, String)>, // Vec of  [#(dreamcoder invention), fn_i] tuples for any existing inventions in the DSL.
 }
 
@@ -42,7 +43,7 @@ impl InputFormat {
                 let inv_dc_strs: Vec<(String, String)> = dc_invs
                     .into_iter()
                     .enumerate()
-                    .map(|(i, dc_str)| (format!("fn_{}", i), dc_str))
+                    .map(|(i, dc_str)| (format!("previous_dc_inv_{}", i), dc_str)) // Use a different naming prefix to avoid conflict with NEW inventions.
                     .collect();
                 let mut programs: Vec<String> = Vec::default();
                 let mut tasks: Vec<String> = Vec::default();
