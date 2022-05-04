@@ -12,7 +12,7 @@ pub fn uncurry_sexp(e: &Sexp) -> Sexp {
         Sexp::List(orig_list) => {
             assert!(orig_list.len() > 1);
             // recurse on children
-            let uncurried_children: Vec<Sexp> = orig_list.iter().map(|e| uncurry_sexp(e)).collect();
+            let uncurried_children: Vec<Sexp> = orig_list.iter().map(uncurry_sexp).collect();
             match uncurried_children[0].to_string().as_str() {
                 "lam" => {
                     Sexp::List(uncurried_children)
@@ -62,7 +62,7 @@ pub fn curry_sexp(e: &Sexp) -> Sexp {
         Sexp::List(list) => {
             assert!(list.len() > 1);
             // recurse on children
-            let list: Vec<Sexp> = list.iter().map(|e| curry_sexp(e)).collect();
+            let list: Vec<Sexp> = list.iter().map(curry_sexp).collect();
             match list[0].to_string().as_str() {
                 "lam" => {
                     Sexp::List(list)
@@ -86,7 +86,7 @@ pub fn curry_sexp(e: &Sexp) -> Sexp {
 }
 
 /// print some info about a Vec of programs
-pub fn programs_info(programs: &Vec<Expr>) {
+pub fn programs_info(programs: &[Expr]) {
     let max_cost = programs.iter().map(|p| p.cost()).max().unwrap();
     let max_depth = programs.iter().map(|p| p.depth()).max().unwrap();
     println!("Programs:");
@@ -149,7 +149,7 @@ pub fn compression_factor(original: &Expr, compressed: &Expr) -> f64 {
 /// Replace the ivars in an expr based on an i32->Expr map
 pub fn ivar_replace(e: &Expr, child: Id, map: &AHashMap<i32, Expr>) -> Expr {
     match e.get(child) {
-        Lambda::IVar(i) => map.get(&i).unwrap_or(&e).clone(),
+        Lambda::IVar(i) => map.get(i).unwrap_or(e).clone(),
         Lambda::Var(v) => Expr::var(*v),
         Lambda::Prim(p) => Expr::prim(*p),
         Lambda::App([f,x]) => Expr::app(ivar_replace(e, *f, map), ivar_replace(e, *x, map)),
@@ -170,7 +170,7 @@ pub fn ivar_to_dc(e: &Expr, child: Id, depth: i32, arity: i32) -> Expr {
     }
 }
 
-pub fn dc_inv_str(inv: &Invention, past_step_results: &Vec<CompressionStepResult>) -> String {
+pub fn dc_inv_str(inv: &Invention, past_step_results: &[CompressionStepResult]) -> String {
     let mut body: Expr = ivar_to_dc(&inv.body, inv.body.root(), 0, inv.arity as i32);
     // wrap in lambdas for dremacoder
     for _ in 0..inv.arity {
@@ -354,7 +354,7 @@ pub fn group_by_key<T: Copy, U: Ord>(v: Vec<T>, key: impl Fn(&T)->U) -> Vec<Vec<
 
 /// Returns a hashmap from node id to number of places that node is used in the tree. Essentially this just
 /// follows all paths down from the root and logs how many times it encounters each node
-pub fn num_paths_to_node(roots: &[Id], treenodes: &Vec<Id>, egraph: &crate::EGraph) -> Vec<i32> {
+pub fn num_paths_to_node(roots: &[Id], treenodes: &[Id], egraph: &crate::EGraph) -> Vec<i32> {
     let mut num_paths_to_node: Vec<i32> = vec![0; treenodes.len()];
     // treenodes.iter().for_each(|treenode| {
     //     num_paths_to_node.insert(*treenode, 0);
@@ -363,7 +363,7 @@ pub fn num_paths_to_node(roots: &[Id], treenodes: &Vec<Id>, egraph: &crate::EGra
         // num_paths_to_node.insert(*child, num_paths_to_node[node] + 1);
         num_paths_to_node[usize::from(*node)] += 1;
         for child in egraph[*node].nodes[0].children() {
-            helper(num_paths_to_node, &child, egraph);
+            helper(num_paths_to_node, child, egraph);
         }
     }
     roots.iter().for_each(|root| {
@@ -373,7 +373,7 @@ pub fn num_paths_to_node(roots: &[Id], treenodes: &Vec<Id>, egraph: &crate::EGra
 }
 
 /// same as Itertools::counts() but returns an AHashMap instead of a HashMap
-pub fn counts_ahash<T: Hash + Eq + Clone>(v: &Vec<T>) -> AHashMap<T, usize>
+pub fn counts_ahash<T: Hash + Eq + Clone>(v: &[T]) -> AHashMap<T, usize>
 {
     let mut counts = AHashMap::new();
     v.iter().for_each(|item| *counts.entry(item.clone()).or_default() += 1);

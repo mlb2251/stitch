@@ -61,14 +61,14 @@ impl<T: From<Val>> From<Val> for Vec<T> {
 
 // These Into<Val>s are convenience functions. It's okay if theres not a one to one mapping
 // like this in all domains - it just makes .into() save us a lot of work if there is.
-impl Into<Val> for i32 {
-    fn into(self) -> Val {
-        Dom(Int(self))
+impl From<i32> for Val {
+    fn from(i: i32) -> Val {
+        Dom(Int(i))
     }
 }
-impl<T: Into<Val>> Into<Val> for Vec<T> {
-    fn into(self) -> Val {
-        Dom(List(self.into_iter().map(|v| v.into()).collect()))
+impl<T: Into<Val>> From<Vec<T>> for Val {
+    fn from(vec: Vec<T>) -> Val {
+        Dom(List(vec.into_iter().map(|v| v.into()).collect()))
     }
 }
 
@@ -98,7 +98,7 @@ impl Domain for SimpleVal {
                 Some(Int(i).into())
             }
             // starts with `[` -> List (must be all ints)
-            else if p.as_str().chars().next().unwrap() == '[' {
+            else if p.as_str().starts_with('[') {
                 let intvec: Vec<i32> = serde_json::from_str(p.as_str()).ok()?;
                 let valvec: Vec<Val> = intvec.into_iter().map(|v|Dom(Int(v))).collect();
                 Some(List(valvec).into())

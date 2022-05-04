@@ -5,17 +5,18 @@ use std::hash::Hash;
 use std::cell::RefCell;
 use serde::{Serialize, Deserialize};
 
+type Env<D> = Vec<LazyVal<D>>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Val<D: Domain> {
     Dom(D),
     PrimFun(CurriedFn<D>), // function ptr, arity, any args that have been partially filled in
-    LamClosure(Id, Vec<LazyVal<D>>) // body, captured env
+    LamClosure(Id, Env<D>) // body, captured env
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LazyValSource<D: Domain> {
-    Lazy(Id, Vec<LazyVal<D>>),
+    Lazy(Id, Env<D>),
     Strict(Val<D>),
 }
 
@@ -26,7 +27,7 @@ pub struct LazyVal<D: Domain> {
 }
 
 impl<D: Domain> LazyVal<D> {
-    pub fn new_lazy(child: Id, env: Vec<LazyVal<D>>) -> Self {
+    pub fn new_lazy(child: Id, env: Env<D>) -> Self {
         LazyVal {
             val: None,
             source: LazyValSource::Lazy(child, env)
@@ -55,7 +56,7 @@ impl<D: Domain> LazyVal<D> {
 
 pub type VResult<D> = Result<Val<D>,VError>;
 pub type VError = String;
-pub type DSLFn<D> = fn(Vec<LazyVal<D>>, &Executable<D>) -> VResult<D>;
+pub type DSLFn<D> = fn(Env<D>, &Executable<D>) -> VResult<D>;
 
 pub enum TrustLevel {
     MayLoopMayPanic,
@@ -66,7 +67,8 @@ pub enum TrustLevel {
 #[derive(Debug, Clone)]
 pub struct Executable<D: Domain> {
     pub expr: Expr,
-    pub evals: RefCell<HashMap<(Id,Vec<LazyVal<D>>), Val<D>>>, // from (node,env) to result
+    #[allow(clippy::type_complexity)]
+    pub evals: RefCell<HashMap<(Id, Env<D>), Val<D>>>, // from (node,env) to result
     pub data: RefCell<D::Data>,
 }
 
@@ -104,7 +106,7 @@ impl<D: Domain> std::str::FromStr for Executable<D> {
 pub struct CurriedFn<D: Domain> {
     name: egg::Symbol,
     arity: usize,
-    partial_args: Vec<LazyVal<D>>,
+    partial_args: Env<D>,
 }
 
 impl<D: Domain> CurriedFn<D> {
@@ -115,7 +117,7 @@ impl<D: Domain> CurriedFn<D> {
             partial_args: Vec::new(),
         }
     }
-    pub fn new_with_args(name: egg::Symbol, arity: usize, partial_args: Vec<LazyVal<D>>) -> Self {
+    pub fn new_with_args(name: egg::Symbol, arity: usize, partial_args: Env<D>) -> Self {
         Self {
             name,
             arity,
@@ -220,9 +222,9 @@ impl<D: Domain> Executable<D> {
     // apply a function (Val) to an argument (LazyVal)
     pub fn apply_lazy(&self, f: &Val<D>, x: LazyVal<D>) -> VResult<D> {
         match f {
-            Val::PrimFun(f) => f.apply(x.clone(), self),
+            Val::PrimFun(f) => f.apply(x, self),
             Val::LamClosure(f, env) => {
-                let mut new_env = vec![x.clone()];
+                let mut new_env = vec![x];
                 new_env.extend(env.iter().cloned());
                 self.eval_child(*f, &mut new_env)
             }
@@ -285,7 +287,7 @@ impl<D: Domain> Executable<D> {
             }
             Lambda::Prim(p) => {
                 match D::val_of_prim(p) {
-                    Some(v) => v.clone(),
+                    Some(v) => v,
                     None => panic!("Prim `{}` not found",p),
                 }
             }

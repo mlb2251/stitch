@@ -93,7 +93,7 @@ fn main() {
             let frontiers = json["frontiers"].as_array().unwrap();
             println!("Read in {} frontiers", frontiers.len());
             let mut program_id = 0;
-            for frontier in frontiers.into_iter() {
+            for frontier in frontiers.iter() {
                 let task_name = frontier["task"].as_str().unwrap().to_string();
                 for dc_program in frontier["programs"].as_array().unwrap() {
                     let stitch_program = dc_program["program"]
@@ -146,7 +146,7 @@ fn main() {
 
                 rewritten_frontiers
                     .entry(task_name)
-                    .or_insert(Vec::new())
+                    .or_insert_with(Vec::new)
                     .push(
                         pretty_program
                             .replace("(lam ", "(lambda ")
@@ -154,8 +154,8 @@ fn main() {
                     );
             }
             fn rewritten_to_dc_fmt_frontiers(
-                task_name: &String,
-                string_programs: &Vec<String>,
+                task_name: &str,
+                string_programs: &[String],
             ) -> DcFrontier {
                 let programs = string_programs
                     .iter()
@@ -163,11 +163,11 @@ fn main() {
                         program: p.to_string(),
                     })
                     .collect();
-                let frontier = DcFrontier {
+                
+                DcFrontier {
                     task: task_name.to_string(),
-                    programs: programs,
-                };
-                frontier
+                    programs,
+                }
             }
             let dc_fmt_frontiers: Vec<DcFrontier> = rewritten_frontiers
                 .iter()

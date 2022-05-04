@@ -73,24 +73,24 @@ impl<T: From<Val>> From<Val> for Vec<T> {
 
 // These Into<Val>s are convenience functions. It's okay if theres not a one to one mapping
 // like this in all domains - it just makes .into() save us a lot of work if there is.
-impl Into<Val> for i32 {
-    fn into(self) -> Val {
-        Dom(Int(self))
+impl From<i32> for Val {
+    fn from(i: i32) -> Val {
+        Dom(Int(i))
     }
 }
-impl Into<Val> for bool {
-    fn into(self) -> Val {
-        Dom(Bool(self))
+impl From<bool> for Val {
+    fn from(b: bool) -> Val {
+        Dom(Bool(b))
     }
 }
-impl<T: Into<Val>> Into<Val> for Vec<T> {
-    fn into(self) -> Val {
-        Dom(List(self.into_iter().map(|v| v.into()).collect()))
+impl<T: Into<Val>> From<Vec<T>> for Val {
+    fn from(vec: Vec<T>) -> Val {
+        Dom(List(vec.into_iter().map(|v| v.into()).collect()))
     }
 }
 
-fn parse_vec(vec: & Vec<serde_json::value::Value>) -> Vec<Val> {
-    let valvec: Vec<Val> = vec.into_iter().map(|v| {
+fn parse_vec(vec: &[serde_json::value::Value]) -> Vec<Val> {
+    let valvec: Vec<Val> = vec.iter().map(|v| {
         if let Some(i) = v.as_i64() {
             Dom(Int(i as i32))
         } else if let Some(b) = v.as_bool() {
@@ -102,7 +102,7 @@ fn parse_vec(vec: & Vec<serde_json::value::Value>) -> Vec<Val> {
             Dom(List(parse_vec(arr)))
         }
     }).collect();
-    return valvec;
+    valvec
 }
 
 impl Domain for ListVal {
@@ -124,7 +124,7 @@ impl Domain for ListVal {
                 Some(Int(i).into())
             }
             // starts with "f" or "t" -> must be a bool (if not found in PRIMS)
-            else if p.as_str().chars().next().unwrap() == 'f' || p.as_str().chars().next().unwrap() == 't' {
+            else if p.as_str().starts_with('f') || p.as_str().starts_with('t') {
                 let s: String = p.as_str().parse().ok()?;
                 if s == "false" {
                     Some(Dom(Bool(false)))
@@ -136,7 +136,7 @@ impl Domain for ListVal {
             }
             // starts with `[` -> List
             // Note lists may contain ints, bools, or other lists in this domain
-            else if p.as_str().chars().next().unwrap() == '[' {
+            else if p.as_str().starts_with('[') {
                 let elems: Vec<serde_json::value::Value> = serde_json::from_str(p.as_str()).ok()?;
                 let valvec: Vec<Val> = parse_vec(&elems);
                 Some(List(valvec).into())
@@ -158,7 +158,7 @@ impl Domain for ListVal {
 
 fn cons(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     load_args!(handle, args, x:Val, xs:Vec<Val>); 
-    let mut rxs = xs.clone();
+    let mut rxs = xs;
     rxs.insert(0, x);
     ok(rxs)
 }
@@ -182,21 +182,21 @@ fn branch(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     load_args!(handle, args, b: bool);
     load_args_lazy!(args, tbranch: LazyVal, fbranch: LazyVal); 
     if b { 
-        tbranch.eval(&handle)
+        tbranch.eval(handle)
     } else { 
-        fbranch.eval(&handle)
+        fbranch.eval(handle)
     }
 }
 
 fn eq(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     load_args!(handle, args, x:Val, y:Val); 
     match (x, y) {
-        (Dom(Int(i)),  Dom(Int(j)))  => { return ok(i==j); },
-        (Dom(Bool(a)), Dom(Bool(b))) => { return ok(a==b); },
+        (Dom(Int(i)),  Dom(Int(j)))  => { ok(i==j) },
+        (Dom(Bool(a)), Dom(Bool(b))) => { ok(a==b) },
         (Dom(List(l)), Dom(List(k))) => {
             let l_len = l.len();
             if l_len != k.len() {
-                return ok(false);
+                ok(false)
             } else {
                 let mut all_elems_equal = true;
                 for i in 0..l_len {
@@ -210,10 +210,10 @@ fn eq(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
                         }
                     }
                 }
-                return ok(all_elems_equal);
+                ok(all_elems_equal)
             }
         }
-        _                              => { return ok(false); }
+        _                              => { ok(false) }
     }
 }
 

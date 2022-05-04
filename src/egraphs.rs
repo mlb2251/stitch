@@ -78,9 +78,9 @@ impl Analysis<Lambda> for LambdaAnalysis {
             }
         };
         Data {
-               free_vars: free_vars,
-               free_ivars: free_ivars,
-               inventionless_cost: inventionless_cost
+               free_vars,
+               free_ivars,
+               inventionless_cost
             }
     }
 
@@ -168,7 +168,7 @@ fn topological_ordering_rec(root: Id, egraph: &EGraph, vec: &mut Vec<Id>) {
     }
 }
 
-pub fn associate_tasks(programs_root: Id, egraph: &EGraph, treenodes: &Vec<Id>, tasks: &Vec<String>) -> Vec<AHashSet<usize>> {
+pub fn associate_tasks(programs_root: Id, egraph: &EGraph, treenodes: &[Id], tasks: &[String]) -> Vec<AHashSet<usize>> {
 
     // this is the map from egraph node ids to tasks (represented with unique usizes) that we will be building
     let mut tasks_of_node = vec![AHashSet::new(); treenodes.len()];
@@ -263,14 +263,14 @@ pub fn has_free_ivars(shifted_arg: Id, refinements: &Option<Vec<Id>>, egraph: &E
         return !egraph[shifted_arg].data.free_ivars.is_empty();
     }
     let refinements = refinements.as_ref().unwrap();
-    fn helper(id: Id, refinements: &Vec<Id>, egraph: &EGraph) -> bool {
+    fn helper(id: Id, refinements: &[Id], egraph: &EGraph) -> bool {
         if refinements.contains(&id) {
             return false; // refinement itself is safe!
         }
         if egraph[id].data.free_ivars.is_empty() {
             return false; // no free ivars in this subtree
         }
-        return match egraph[id].nodes[0] {
+        match egraph[id].nodes[0] {
             Lambda::Prim(_) | Lambda::Var(_) => false,
             Lambda::IVar(_) => true, // found an ivar!
             Lambda::App([f,x]) => helper(f, refinements, egraph) || helper(x, refinements, egraph),
@@ -278,7 +278,7 @@ pub fn has_free_ivars(shifted_arg: Id, refinements: &Option<Vec<Id>>, egraph: &E
             _ => unreachable!()
         }
     }
-    helper(shifted_arg, &refinements, egraph)
+    helper(shifted_arg, refinements, egraph)
 }
 
 #[inline]
