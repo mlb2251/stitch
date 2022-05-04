@@ -378,8 +378,9 @@ impl NodeCost {
     /// improve the cost using a new invention, or do nothing if we've already seen
     /// a better cost for this invention. Also skip if inventionless cost is better.
     fn new_cost_under_inv(&mut self, inv: PtrInvention, cost:i32, args: Option<Vec<Id>>) {
-        if cost < self.inventionless_cost && (!self.inventionful_cost.contains_key(&inv)
-               || cost < self.inventionful_cost[&inv].0) {
+        if cost < self.inventionless_cost
+                && (!self.inventionful_cost.contains_key(&inv) || cost < self.inventionful_cost[&inv].0)
+        {
             self.inventionful_cost.insert(inv, (cost,args));
         }
     }
@@ -556,8 +557,9 @@ fn threadables_of_inv(inv: PtrInvention, egraph: &crate::EGraph) -> AHashSet<Id>
     let nodes = topological_ordering(inv.body, egraph);
     for node in nodes {
         if let Lambda::App([f,x]) = egraph[node].nodes[0] {
-            if matches!(egraph[x].nodes[0], Lambda::Var(_)) && (matches!(egraph[f].nodes[0], Lambda::IVar(_)) ||
-                  threadables.contains(&f)) {
+            if matches!(egraph[x].nodes[0], Lambda::Var(_))
+                    && (matches!(egraph[f].nodes[0], Lambda::IVar(_)) || threadables.contains(&f))
+            {
                 threadables.insert(node);
                 // println!("Identified threadable: {}", extract(node,egraph));
             }
