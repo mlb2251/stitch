@@ -145,6 +145,10 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub rewrite_check: bool,
 
+    /// calculate utility exhaustively by performing a full rewrite; mainly used when cost mismatches are happening and we need something slow but accurate
+    #[clap(long)]
+    pub utility_by_rewrite: bool,
+
     /// anything related to running a dreamcoder comparison
     #[clap(long)]
     pub dreamcoder_comparison: bool,
@@ -1174,14 +1178,20 @@ impl FinishedPattern {
         let noncompressive_utility = noncompressive_utility(pattern.body_utility_no_refinement + pattern.refinement_body_utility, &shared.cfg);
         let utility = noncompressive_utility + compressive_utility.util;
         assert!(utility <= pattern.utility_upper_bound, "{} BUT utility is higher: {} (usages: {})", pattern.info(shared), utility, usages);
-        FinishedPattern {
+        let mut res = FinishedPattern {
             pattern,
             utility,
             compressive_utility: compressive_utility.util,
             util_calc: compressive_utility,
             arity,
             usages,
+        };
+        if shared.cfg.utility_by_rewrite {
+            res.compressive_utility = shared.init_cost - rewrite_fast(&res, shared, "fake_inv").iter().map(|e|e.cost()).sum::<i32>();
+            res.util_calc.util = res.compressive_utility;
+            res.utility = res.compressive_utility + noncompressive_utility;
         }
+        res
     }
     // convert finished invention to an Expr
     pub fn to_expr(&self, shared: &SharedData) -> Expr {

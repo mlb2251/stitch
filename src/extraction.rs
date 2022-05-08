@@ -153,7 +153,7 @@ pub fn rewrite_fast(
         helper(pattern, shared, *root, 0, shift_rules, inv_name, None)
     }).collect();
 
-    if !shared.cfg.no_mismatch_check {
+    if !shared.cfg.no_mismatch_check && !shared.cfg.utility_by_rewrite {
         assert_eq!(
             rewritten_exprs.iter().map(|e|e.cost()).sum::<i32>(),
             shared.init_cost - pattern.util_calc.util,
