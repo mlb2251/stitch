@@ -5,6 +5,9 @@ authors = ["Matt Bowers <mlbowers@mit.edu>", "Theo Olausson <theoxo@mit.edu>"]
 edition = "2018"
 license = "MIT"
 
+[features]
+python = ["pyo3"]
+
 [[example]]
 name = "stitch"
 crate-type = ["cdylib"]
@@ -33,6 +36,7 @@ ahash = "0.7.6"
 [dependencies.pyo3]
 version = "0.16.1"
 features = ["extension-module"]
+optional = true
 
 [profile.release]
 debug = true # for flamegraphs
