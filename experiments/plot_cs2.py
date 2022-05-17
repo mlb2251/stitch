@@ -41,8 +41,8 @@ def get_data(path, mode):
             return float(ratio)
 
         elif mode == 'ex3':
-            steps = []
-            ratios = []
+            steps = [0]
+            ratios = [1.0]
             total_steps = None 
             for line in infile:
                 if '[new best utility]' in line:
@@ -188,22 +188,52 @@ elif mode == 'ex2':
     plt.savefig(f"cs2-ex2.pdf")
 
 elif mode == 'ex3':
-    color = plt.cm.get_cmap('viridis')(0.5)
-    fig, hosts = plt.subplots(4, 2, figsize=(18,15), sharex=False)
-    for idx, (wl, host) in enumerate(zip(workloads, hosts.flatten())):
+    fig = plt.figure(figsize=(15,15))
+    markers = ['o', '8', 's', 'p', 'P', '*', 'h', 'D']
+    for wl, marker in zip(workloads, markers):
         infile = [f for f in os.listdir('/'.join([path, wl])) if f.endswith('.stderrandout')]
         assert len(infile) == 1
         infile = infile[0]
         total_steps, steps, ratios = get_data('/'.join([path, wl, infile]), 'ex3')
 
         # make da plot yo
-        p1 = host.step(steps, ratios, color=color, marker='o', where='post')
-        host.set_xscale('log')
-        host.set_title(wl_to_human_readable[wl])
-        host.set_xlim((0.5, total_steps))
+        steps = [100. * s / total_steps for s in steps]
+        ratios = [100. * (r - 1.0) / (ratios[-1] - 1.0) for r in ratios]
+        ax = plt.step(steps, ratios, marker=marker, where='post', label=wl_to_human_readable[wl], ms=10)
+    plt.xscale('log')
+    #fig.set_title(wl_to_human_readable[wl])
+    plt.legend(loc='best')
+    #host.set_xlim((0.5, total_steps))
+    plt.xlim((0.0001, 100))
+    xticks = [0.001, 0.01, 0.1, 1.0, 10, 100]
+    plt.xticks(xticks, [f'{t}%' for t in xticks])
+    yticks = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]#[50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
+    plt.yticks(yticks, [f'{t}%' for t in yticks])
+    plt.grid(True, which='minor', ls=':')
+    plt.xlabel('Search progress (log scale; %)')
+    plt.ylabel('Reduction in size obtained thus far vs optimal reduction (%)')
+    #host.set_xlim((-1, 100))
+    #fig, hosts = plt.subplots(4, 2, figsize=(18,15), sharex=True, sharey=True)
+    #for idx, (wl, host) in enumerate(zip(workloads, hosts.flatten())):
+    #    infile = [f for f in os.listdir('/'.join([path, wl])) if f.endswith('.stderrandout')]
+    #    assert len(infile) == 1
+    #    infile = infile[0]
+    #    total_steps, steps, ratios = get_data('/'.join([path, wl, infile]), 'ex3')
 
-    fig.supxlabel('Number of nodes explored')
-    fig.supylabel('Training set compression ratio')
+    #    # make da plot yo
+    #    steps = [100. * s / total_steps for s in steps]
+    #    ratios = [100. * r / ratios[-1] for r in ratios]
+    #    p1 = host.step(steps, ratios, color=color, marker='o', where='post')
+    #    print(steps)
+    #    print(ratios)
+    #    host.set_xscale('log')
+    #    host.set_title(wl_to_human_readable[wl])
+    #    #host.set_xlim((0.5, total_steps))
+    #    host.set_xlim((0.5, 100))
+    #    #host.set_xlim((-1, 100))
+
+    #fig.supxlabel('Number of nodes explored')
+    #fig.supylabel('Training set compression ratio')
     fig.tight_layout()
     plt.savefig(f"cs2-ex3.pdf")
 
