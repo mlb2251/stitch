@@ -114,6 +114,31 @@ impl CostFunction<Lambda> for ProgramCost {
     }
 }
 
+// Length of a program, i.e. the number of *terminals only*
+pub struct ProgramLength {}
+impl CostFunction<Lambda> for ProgramLength {
+    type Cost = i32;
+    fn cost<C>(&mut self, enode: &Lambda, mut costs: C) -> Self::Cost
+    where
+        C: FnMut(Id) -> Self::Cost
+    {
+        match enode {
+            Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => 1,
+            Lambda::App([f, x]) => {
+                costs(*f) + costs(*x)
+            }
+            Lambda::Lam([b]) => {
+                costs(*b)
+            }
+            Lambda::Programs(ps) => {
+                ps.iter()
+                .map(|p|costs(*p))
+                .sum()
+            }
+        }
+    }
+}
+
 /// depth of a program. For example a leaf is depth 1.
 pub struct ProgramDepth {}
 impl CostFunction<Lambda> for ProgramDepth {
