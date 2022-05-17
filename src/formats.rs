@@ -18,7 +18,7 @@ pub struct Input {
 }
 
 impl InputFormat {
-    pub fn load_programs_and_tasks(&self, path: &Path) -> Result<(Input), String> {
+    pub fn load_programs_and_tasks(&self, path: &Path) -> Result<Input, String> {
         match *self {
             InputFormat::Dreamcoder => {
                 // read dreamcoder format

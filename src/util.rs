@@ -170,7 +170,7 @@ pub fn ivar_to_dc(e: &Expr, child: Id, depth: i32, arity: i32) -> Expr {
     }
 }
 
-pub fn dc_inv_str(inv: &Invention, dreamcoder_translations: &Vec<(String, String)>) -> String {
+pub fn dc_inv_str(inv: &Invention, dreamcoder_translations: &[(String, String)]) -> String {
     let mut body: Expr = ivar_to_dc(&inv.body, inv.body.root(), 0, inv.arity as i32);
     // wrap in lambdas for dremacoder
     for _ in 0..inv.arity {
