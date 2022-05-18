@@ -170,7 +170,7 @@ pub fn ivar_to_dc(e: &Expr, child: Id, depth: i32, arity: i32) -> Expr {
     }
 }
 
-pub fn dc_inv_str(inv: &Invention, past_step_results: &[CompressionStepResult]) -> String {
+pub fn dc_inv_str(inv: &Invention, dreamcoder_translations: &[(String, String)]) -> String {
     let mut body: Expr = ivar_to_dc(&inv.body, inv.body.root(), 0, inv.arity as i32);
     // wrap in lambdas for dremacoder
     for _ in 0..inv.arity {
@@ -180,8 +180,8 @@ pub fn dc_inv_str(inv: &Invention, past_step_results: &[CompressionStepResult]) 
     let mut res: String = format!("#{}", body);
     res = res.replace("(lam ", "(lambda ");
     // inline any past inventions using their dc_inv_str. Match on "fn_i)" and "fn_i " to avoid matching fn_1 on fn_10 or any other prefix
-    for past_step_result in past_step_results.iter() {
-        res = replace_prim_with(&res, &past_step_result.inv.name, &past_step_result.dc_inv_str);
+    for (inv_name, dc_translation) in dreamcoder_translations.iter() {
+        res = replace_prim_with(&res, inv_name, dc_translation);
         // res = res.replace(&format!("{})",past_step_result.inv.name), &format!("{})",past_step_result.dc_inv_str));
         // res = res.replace(&format!("{} ",past_step_result.inv.name), &format!("{} ", past_step_result.dc_inv_str));
     }

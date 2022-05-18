@@ -11,8 +11,14 @@ pub enum InputFormat {
     ProgramsList
 }
 
+pub struct Input {
+    pub programs : Vec<String>, // Program strings. 
+    pub tasks : Vec<String>, // Task names for each corresponding string.
+    pub prev_dc_inv_to_inv_strs: Vec<(String, String)>, // Vec of [#Dreamcoder invention, fn_i] tuples for any existing inventions in the DSL.
+}
+
 impl InputFormat {
-    pub fn load_programs_and_tasks(&self, path: &Path) -> Result<(Vec<String>, Vec<String>, usize), String> {
+    pub fn load_programs_and_tasks(&self, path: &Path) -> Result<Input, String> {
         match *self {
             InputFormat::Dreamcoder => {
                 // read dreamcoder format
@@ -22,9 +28,11 @@ impl InputFormat {
                     .filter(|s| s.starts_with('#'))
                     .collect();
                 dc_invs.sort_by_key(|s| s.len()); // increasing length so inventions that build on earlier ones come later
-                let inv_dc_strs: Vec<(String,String)> = dc_invs.into_iter().enumerate()
-                    .map(|(i,dc_str)| (format!("fn_{}",i),dc_str)).collect();
-                let num_prior_inventions: usize = inv_dc_strs.len();
+                let inv_dc_strs: Vec<(String, String)> = dc_invs
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, dc_str)| (format!("prev_dc_inv_{}", i), dc_str)) // TODO: determine if we need to replace these in the future.
+                    .collect();
                 let mut programs: Vec<String> = Vec::default();
                 let mut tasks: Vec<String> = Vec::default();
                 for (i,frontier) in frontiers.iter().enumerate() {
@@ -40,7 +48,12 @@ impl InputFormat {
                     programs.extend(programs_in_frontier);
                     tasks.extend(task_repeated);
                 }
-                Ok((programs, tasks, num_prior_inventions))
+                let input = Input {
+                    programs,
+                    tasks,
+                    prev_dc_inv_to_inv_strs: inv_dc_strs,
+                };
+                Ok(input)
             }
             InputFormat::ProgramsList => {
                 let programs: Vec<String> = from_reader(File::open(path).map_err(|e| format!("file not found, error code {:?}", e))?).map_err(|e| format!("json parser error, are you sure you wanted format {:?}? Error code was {:?}", self, e))?;
@@ -52,7 +65,12 @@ impl InputFormat {
                 while programs.iter().any(|p| p.contains(&format!("fn_{}", num_prior_inventions))) {
                     num_prior_inventions += 1;
                 }
-                Ok((programs, tasks, num_prior_inventions))
+                let input = Input {
+                    programs,
+                    tasks,
+                    prev_dc_inv_to_inv_strs: Vec::new(),
+                };
+                Ok(input)
             }
         }
     }

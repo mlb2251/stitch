@@ -1412,7 +1412,7 @@ pub struct CompressionStepResult {
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, past_invs: &[CompressionStepResult]) -> Self {
+    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, past_invs: &[CompressionStepResult], prev_dc_inv_to_inv_strs: &Vec<(String, String)>) -> Self {
 
         // cost of the very first initial program before any inventions
         let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { shared.init_cost };
@@ -1435,17 +1435,25 @@ impl CompressionStepResult {
                 extract(shared.arg_of_zid_node[*zid][node].shifted_id, &shared.egraph)
             ).collect()).collect();
         
+        // Combine the past_invs with the existing dreamcoder inventions.
+        let mut dreamcoder_translations: Vec<(String, String)>  = past_invs.iter().map(|compression_step_result| (compression_step_result.inv.name.clone(), compression_step_result.dc_inv_str.clone())).collect();
+
+        dreamcoder_translations.extend(prev_dc_inv_to_inv_strs.iter().cloned());
+
         // dreamcoder compatability
-        let dc_inv_str: String = dc_inv_str(&inv, past_invs);
+        let dc_inv_str: String = dc_inv_str(&inv, &dreamcoder_translations);
         // Rewrite to dreamcoder syntax with all past invention
         // we rewrite "inv1)" and "inv1 " instead of just "inv1" because we dont want to match on "inv10"
+
         let rewritten_dreamcoder: Vec<String> = rewritten.split_programs().iter().map(|p|{
             let mut res = p.to_string();
-            for past_inv in past_invs {
-                res = replace_prim_with(&res, &past_inv.inv.name, &past_inv.dc_inv_str);
+            for (prev_inv_name, prev_dc_inv_str) in prev_dc_inv_to_inv_strs {
+                res = replace_prim_with(&res, prev_inv_name, prev_dc_inv_str);
                 // res = res.replace(&format!("{})",past_inv.inv.name), &format!("{})",past_inv.dc_inv_str));
                 // res = res.replace(&format!("{} ",past_inv.inv.name), &format!("{} ",past_inv.dc_inv_str));
             }
+
+            // Now go ahead and replace the current invention.
             res = replace_prim_with(&res, inv_name, &dc_inv_str);
             // res = res.replace(&format!("{})",inv_name), &format!("{})",dc_inv_str));
             // res = res.replace(&format!("{} ",inv_name), &format!("{} ",dc_inv_str));
@@ -1845,9 +1853,9 @@ pub fn compression(
     iterations: usize,
     cfg: &CompressionStepConfig,
     tasks: &[String],
-    num_prior_inventions: usize,
+    prev_dc_inv_to_inv_strs: &Vec<(String, String)>,
 ) -> Vec<CompressionStepResult> {
-
+    let num_prior_inventions = prev_dc_inv_to_inv_strs.len();
     let mut rewritten: Expr = programs_expr.clone();
     let mut step_results: Vec<CompressionStepResult> = Default::default();
 
@@ -1863,7 +1871,8 @@ pub fn compression(
             &inv_name,
             cfg,
             &step_results,
-            tasks);
+            tasks,
+            prev_dc_inv_to_inv_strs,);
 
         if !res.is_empty() {
             // rewrite with the invention
@@ -1911,6 +1920,7 @@ pub fn compression_step(
     cfg: &CompressionStepConfig,
     past_invs: &[CompressionStepResult], // past inventions we've found
     tasks: &[String],
+    prev_dc_inv_to_inv_strs: &Vec<(String, String)>,
 ) -> Vec<CompressionStepResult> {
 
     let tstart_total = std::time::Instant::now();
@@ -2143,7 +2153,7 @@ pub fn compression_step(
     // construct CompressionStepResults and print some info about them)
     println!("Cost before: {}", shared.init_cost);
     for (i,done) in donelist.iter().enumerate() {
-        let res = CompressionStepResult::new(done.clone(), new_inv_name, &mut shared, past_invs);
+        let res = CompressionStepResult::new(done.clone(), new_inv_name, &mut shared, past_invs, prev_dc_inv_to_inv_strs);
 
         println!("{}: {}", i, res);
         if cfg.show_rewritten {
