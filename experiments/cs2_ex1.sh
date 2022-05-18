@@ -10,7 +10,7 @@ fi
 
 echo "WARNING: The results of this experiment are sensitive to noise, e.g. caused by other processes using up your CPU."
 
-OUT_DIR="cs2/ex1/$(TZ='America/New_York' date '+%Y-%m-%d_%H-%M-%S')"
+OUT_DIR="$STITCH_DIR/experiments/cs2/ex1/$(TZ='America/New_York' date '+%Y-%m-%d_%H-%M-%S')"
 mkdir -p $OUT_DIR
 
 # Save some info about what state of the repo this experiment was run in
@@ -28,16 +28,36 @@ popd
 
 for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
     WL=$(basename -s .json $WL_PATH)
-    for ARITY in {1..10} ; do
-    for SEED in {1..50} ; do
-    OUTF=$OUT_DIR/$WL/$ARITY
+    # first chunk the dataset
+    pushd $STITCH_DIR
+    cargo run --bin=chunk-dataset -- -n 5 -o $OUT_DIR/$WL $WL_PATH
+    popd
+
+    # then do 50 stitch runs over each chunk
+    for MODE in "length" "depth" ; do
+    for CHUNK in {0..4} ; do
+    for RUN in {1..10} ; do
+    OUTF=$OUT_DIR/$WL/$MODE/runs/$RUN
     mkdir -p $OUTF
-    echo "[case_study_2.sh] Starting workload $WL, arity $ARITY, seed $SEED"
-    /usr/bin/time -v $STITCH_DIR/target/release/compress $WL_PATH --hole-choice=last --heap-choice=max-bound --fmt=programs-list --max-arity=$ARITY --iterations=1 --no-mismatch-check --out=$OUTF/$SEED.json > $OUTF/$SEED.stderrandout 2>&1 &
+    $STITCH_DIR/target/release/compress $OUT_DIR/$WL/$MODE/$CHUNK.json --hole-choice=last --heap-choice=max-bound --fmt=programs-list --max-arity=3 --iterations=10 --out=$OUT_DIR/$WL/$MODE/$CHUNK-out.json | grep -F "Time: " >> $OUTF/times
     done
-    wait  # move this up/down between loops to change how many jobs to run at once
+    done
     done
 done
 
+
+# The below is the old cs2-ex1, where we varied the arity
+#for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
+#    WL=$(basename -s .json $WL_PATH)
+#    for ARITY in {1..10} ; do
+#    for SEED in {1..50} ; do
+#    OUTF=$OUT_DIR/$WL/$ARITY
+#    mkdir -p $OUTF
+#    echo "[case_study_2.sh] Starting workload $WL, arity $ARITY, seed $SEED"
+#    /usr/bin/time -v $STITCH_DIR/target/release/compress $WL_PATH --hole-choice=last --heap-choice=max-bound --fmt=programs-list --max-arity=$ARITY --iterations=1 --no-mismatch-check --out=$OUTF/$SEED.json > $OUTF/$SEED.stderrandout 2>&1 &
+#    done
+#    wait  # move this up/down between loops to change how many jobs to run at once
+#    done
+#done
 
 echo "Done: $OUT_DIR"

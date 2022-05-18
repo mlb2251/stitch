@@ -13,18 +13,21 @@ def get_data(path, mode):
     #print(path)
     #input()
     with open(path, 'r') as infile:
-
         if mode == 'ex1':
-            s = None
-            mb = None
+            ss = []
             for line in infile:
-                if line.startswith('TOTAL PREP + SEARCH'):
-                    assert s is None
-                    s = float(re.match(r'TOTAL PREP \+ SEARCH: ([^m]*)ms.*', line).group(1))/1000
-                elif 'Maximum resident set size (kbytes):' in line:
-                    assert mb is None
-                    mb = float(re.match(r'.*Maximum resident set size \(kbytes\): (.*)', line).group(1))/1000
-            return (s, mb)
+                ss.append(float(re.match(r'Time: ([^m]*)ms', line).group(1))/1000.)
+            return ss
+            #s = None
+            #mb = None
+            #for line in infile:
+            #    if line.startswith('TOTAL PREP + SEARCH'):
+            #        assert s is None
+            #        s = float(re.match(r'TOTAL PREP \+ SEARCH: ([^m]*)ms.*', line).group(1))/1000
+            #    elif 'Maximum resident set size (kbytes):' in line:
+            #        assert mb is None
+            #        mb = float(re.match(r'.*Maximum resident set size \(kbytes\): (.*)', line).group(1))/1000
+            #return (s, mb)
 
         elif mode == 'ex2':
             target_line = None
@@ -80,61 +83,72 @@ if mode == 'ex1':
     # idk TODO
     color1 = plt.cm.get_cmap('viridis')(0.25)
     color2 = plt.cm.get_cmap('viridis')(0.8)
-    for idx, (wl, host) in enumerate(zip(workloads, hosts.flatten())):
-        ms_means   = []
-        ms_stds    = []
-        kb_means   = []
-        kb_stds    = []
-        arities = []
-        for arity in os.listdir('/'.join([path, wl])):
-            arities.append(int(arity))
-        arities.sort()  # just in case they're not read in a sorted way
-
-        verified_arities = []
-        for arity in arities:
-
-            verified = False
-            ms_local = []
-            kb_local = []
-            seeds = os.listdir('/'.join([path, wl, str(arity)]))
-            for f in seeds:
-                if f.endswith('.stderrandout'):
-                    ms, kb = get_data('/'.join([path, wl, str(arity), f]), 'ex1')
-                    if ms is None:
-                        assert kb is None
-                        continue
-                    if kb is None:
-                        assert ms is None
-                        continue
-
-                    ms_local.append(ms)
-                    kb_local.append(kb)
-                    verified = True
-
-            if verified:
-                # Essentially, only want to keep xs for which we have ys
-                verified_arities.append(arity)
-                ms_means.append(np.mean(ms_local))
-                ms_stds.append(np.std(ms_local))
-                kb_means.append(np.mean(kb_local))
-                kb_stds.append(np.std(kb_local))
-
-
-        # make da plot yo
-            
-        par1 = host.twinx()
-        
-        p1, = host.plot(verified_arities, ms_means, label='Run-time (s)', color=color1, marker='o')
-        host.fill_between(verified_arities, np.subtract(ms_means, ms_stds), np.add(ms_means, ms_stds), color=color1, alpha=0.2)
-        p2, = par1.plot(verified_arities, kb_means, label='Peak mem. usage (MB)', color=color2, marker='x')
-        par1.fill_between(verified_arities, np.subtract(kb_means, kb_stds), np.add(kb_means, kb_stds), color=color2, alpha=0.2)
-        
+    colors = [color1, color2]
+    markers= ['o', '*']
+    for wl, host in zip(workloads, hosts.flatten()):
+        wl_path = f"{path}/{wl}-chunked"
+        for m, color, marker in zip(["depth", "length"], colors, markers):
+            ms = get_data(f"{wl_path}/{m}/stitch-results", "ex1")
+            host.plot(list(range(1, 6)), ms, color=color, marker=marker, label=f'split by {m}')
+        host.legend(loc='best')
         host.set_title(wl_to_human_readable[wl])
+    fig.supxlabel('Chunk')
+    fig.supylabel('Runtime (s)')
+    #for idx, (wl, host) in enumerate(zip(workloads, hosts.flatten())):
+    #    ms_means   = []
+    #    ms_stds    = []
+    #    kb_means   = []
+    #    kb_stds    = []
+    #    arities = []
+    #    for arity in os.listdir('/'.join([path, wl])):
+    #        arities.append(int(arity))
+    #    arities.sort()  # just in case they're not read in a sorted way
 
-        if idx == 0:
-            par1.legend(handles=[p1, p2], loc='upper left', framealpha=0.95)
+    #    verified_arities = []
+    #    for arity in arities:
 
-    fig.supxlabel('Maximum invention arity')
+    #        verified = False
+    #        ms_local = []
+    #        kb_local = []
+    #        seeds = os.listdir('/'.join([path, wl, str(arity)]))
+    #        for f in seeds:
+    #            if f.endswith('.stderrandout'):
+    #                ms, kb = get_data('/'.join([path, wl, str(arity), f]), 'ex1')
+    #                if ms is None:
+    #                    assert kb is None
+    #                    continue
+    #                if kb is None:
+    #                    assert ms is None
+    #                    continue
+
+    #                ms_local.append(ms)
+    #                kb_local.append(kb)
+    #                verified = True
+
+    #        if verified:
+    #            # Essentially, only want to keep xs for which we have ys
+    #            verified_arities.append(arity)
+    #            ms_means.append(np.mean(ms_local))
+    #            ms_stds.append(np.std(ms_local))
+    #            kb_means.append(np.mean(kb_local))
+    #            kb_stds.append(np.std(kb_local))
+
+
+    #    # make da plot yo
+    #        
+    #    par1 = host.twinx()
+    #    
+    #    p1, = host.plot(verified_arities, ms_means, label='Run-time (s)', color=color1, marker='o')
+    #    host.fill_between(verified_arities, np.subtract(ms_means, ms_stds), np.add(ms_means, ms_stds), color=color1, alpha=0.2)
+    #    p2, = par1.plot(verified_arities, kb_means, label='Peak mem. usage (MB)', color=color2, marker='x')
+    #    par1.fill_between(verified_arities, np.subtract(kb_means, kb_stds), np.add(kb_means, kb_stds), color=color2, alpha=0.2)
+    #    
+    #    host.set_title(wl_to_human_readable[wl])
+
+    #    if idx == 0:
+    #        par1.legend(handles=[p1, p2], loc='upper left', framealpha=0.95)
+
+    #fig.supxlabel('Maximum invention arity')
     fig.tight_layout()
     plt.savefig(f"cs2-ex1.pdf")
 elif mode == 'ex2':
@@ -188,7 +202,7 @@ elif mode == 'ex2':
     plt.savefig(f"cs2-ex2.pdf")
 
 elif mode == 'ex3':
-    fig = plt.figure(figsize=(15,15))
+    fig = plt.figure(figsize=(10,10))
     markers = ['o', '8', 's', 'p', 'P', '*', 'h', 'D']
     for wl, marker in zip(workloads, markers):
         infile = [f for f in os.listdir('/'.join([path, wl])) if f.endswith('.stderrandout')]
@@ -211,7 +225,7 @@ elif mode == 'ex3':
     plt.yticks(yticks, [f'{t}%' for t in yticks])
     plt.grid(True, which='minor', ls=':')
     plt.xlabel('Search progress (log scale; %)')
-    plt.ylabel('Reduction in size obtained thus far vs optimal reduction (%)')
+    plt.ylabel('Reduction in size thus far vs optimal reduction (%)')
     #host.set_xlim((-1, 100))
     #fig, hosts = plt.subplots(4, 2, figsize=(18,15), sharex=True, sharey=True)
     #for idx, (wl, host) in enumerate(zip(workloads, hosts.flatten())):

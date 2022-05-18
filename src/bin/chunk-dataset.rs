@@ -51,15 +51,15 @@ fn main() {
     for (i, chunk) in programs_sorted_depth.chunks(programs_sorted_depth.len() / args.num_chunks).enumerate() {
         let mut path: PathBuf = out_path_dir.clone();
         path.push("depth");
-        std::fs::create_dir(&path);
-        path.push(usize::to_string(&i));
+        if !path.exists() { std::fs::create_dir(&path).unwrap(); }
+        path.push(format!("{}.json", &i));
         std::fs::write(path, serde_json::to_string_pretty(chunk).unwrap()).unwrap();
     }
     for (i, chunk) in programs_sorted_length.chunks(programs_sorted_length.len() / args.num_chunks).enumerate() {
         let mut path: PathBuf = out_path_dir.clone();
         path.push("length");
-        std::fs::create_dir(&path);
-        path.push(usize::to_string(&i));
+        if !path.exists() { std::fs::create_dir(&path).unwrap(); }
+        path.push(format!("{}.json", &i));
         std::fs::write(path, serde_json::to_string_pretty(chunk).unwrap()).unwrap();
     }
 
