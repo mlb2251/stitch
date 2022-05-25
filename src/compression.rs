@@ -1132,16 +1132,16 @@ fn stitch_search(
                         pattern.hole_zips.truncate(pattern.hole_zips.len() - 2);
                         pattern.body_utility_no_refinement -= COST_NONTERMINAL;
                         for loc in locs {
-                            loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
                             loc.hole_unshifted_ids.truncate(loc.hole_unshifted_ids.len() - 2);
+                            loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
                         }
                     },
                     ExpandsTo::Lam => {
                         pattern.hole_zips.truncate(pattern.hole_zips.len() - 1);
                         pattern.body_utility_no_refinement -= COST_NONTERMINAL;
                         for loc in locs {
-                            loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
                             loc.hole_unshifted_ids.truncate(loc.hole_unshifted_ids.len() - 1);
+                            loc.hole_unshifted_ids.insert(hole_idx, loc.undo_hole_id.pop().unwrap());
                         }
                     },
                     ExpandsTo::Var(_) | ExpandsTo::Prim(_) => {
