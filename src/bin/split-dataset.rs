@@ -54,14 +54,14 @@ fn main() {
 
     let mut window_start = 0;
     while window_start <= programs.len() - args.slide_length {
-        let window_end = std::cmp::min(programs.len() - 1, window_start + args.slide_length);
+        let window_end = std::cmp::min(programs.len(), window_start + args.slide_length) - 1;
 
         // depth
         let mut path: PathBuf = out_path_dir.clone();
         path.push("depth");
         if !path.exists() { std::fs::create_dir(&path).unwrap(); }
         path.push(format!("{}-{}.json", &window_start, &window_end));
-        let window = programs_sorted_depth.get(window_start..window_end).unwrap();
+        let window = programs_sorted_depth.get(window_start..window_end+1).unwrap();
         std::fs::write(path, serde_json::to_string_pretty(window).unwrap()).unwrap();
 
         // length
@@ -69,10 +69,10 @@ fn main() {
         path.push("length");
         if !path.exists() { std::fs::create_dir(&path).unwrap(); }
         path.push(format!("{}-{}.json", &window_start, &window_end));
-        let window = programs_sorted_length.get(window_start..window_end).unwrap();
+        let window = programs_sorted_length.get(window_start..window_end+1).unwrap();
         std::fs::write(path, serde_json::to_string_pretty(window).unwrap()).unwrap();
 
-        window_start += args.slide_length;
+        window_start = window_end + 1;
 
     }
 
