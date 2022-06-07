@@ -49,12 +49,12 @@ done
 # The below is the old cs2-ex1, where we varied the arity
 #for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
 #    WL=$(basename -s .json $WL_PATH)
-#    for ARITY in {1..10} ; do
+#    for ARITY in {1..6} ; do
 #    for SEED in {1..50} ; do
 #    OUTF=$OUT_DIR/$WL/$ARITY
 #    mkdir -p $OUTF
-#    echo "[case_study_2.sh] Starting workload $WL, arity $ARITY, seed $SEED"
-#    /usr/bin/time -v $STITCH_DIR/target/release/compress $WL_PATH --hole-choice=last --heap-choice=max-bound --fmt=programs-list --max-arity=$ARITY --iterations=1 --no-mismatch-check --out=$OUTF/$SEED.json > $OUTF/$SEED.stderrandout 2>&1 &
+#    echo "[cs2_ex1.sh] Starting workload $WL, arity $ARITY, seed $SEED"
+#    timeout 1000s /usr/bin/time -v $STITCH_DIR/target/release/compress $WL_PATH --hole-choice=last --heap-choice=max-bound --fmt=programs-list --max-arity=$ARITY --iterations=1 --no-mismatch-check --out=$OUTF/$SEED.json > $OUTF/$SEED.stderrandout 2>&1 &
 #    done
 #    wait  # move this up/down between loops to change how many jobs to run at once
 #    done
