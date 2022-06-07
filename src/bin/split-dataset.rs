@@ -25,9 +25,13 @@ pub struct Args {
     #[clap(long, short='o', parse(from_os_str))]
     pub out: Option<PathBuf>,
 
-    // The number of chunks to split the dataset into
-    #[clap(long, short='n')]
-    pub num_chunks: usize,
+    // The size of the window of programs to consider
+    #[clap(long, short='w')]
+    pub window_size: usize,
+
+    // How many programs to jump when sliding the window.
+    #[clap(long, short='s')]
+    pub slide_length: usize,
 
 }
 
@@ -39,28 +43,37 @@ fn main() {
     let programs_sorted_depth = programs.clone().into_iter().sorted_by_key(|p| p.parse::<Expr>().unwrap().depth()).collect::<Vec<String>>();
     let programs_sorted_length = programs.clone().into_iter().sorted_by_key(|p| p.parse::<Expr>().unwrap().length()).collect::<Vec<String>>();
 
-    println!("Number of programs (unchunked): {}", programs.len());
-    println!("Number of chunks: {}", args.num_chunks);
-    println!("Chunking will split dataset perfectly: {}", programs.len() % args.num_chunks == 0);
+    println!("Number of programs: {}", programs.len());
+    println!("Window size: {}", args.window_size);
+    println!("Slide length: {}", args.slide_length);
 
     let out_path_dir = &args.out.unwrap_or(PathBuf::from_str(format!("{}-chunked", args.file.file_stem().unwrap().to_str().unwrap()).as_str()).unwrap());
     if !out_path_dir.exists() {
         std::fs::create_dir_all(out_path_dir).unwrap();
     }
 
-    for (i, chunk) in programs_sorted_depth.chunks(programs_sorted_depth.len() / args.num_chunks).enumerate() {
+    let mut window_start = 0;
+    while window_start <= programs.len() - args.slide_length {
+        let window_end = std::cmp::min(programs.len() - 1, window_start + args.slide_length);
+
+        // depth
         let mut path: PathBuf = out_path_dir.clone();
         path.push("depth");
         if !path.exists() { std::fs::create_dir(&path).unwrap(); }
-        path.push(format!("{}.json", &i));
-        std::fs::write(path, serde_json::to_string_pretty(chunk).unwrap()).unwrap();
-    }
-    for (i, chunk) in programs_sorted_length.chunks(programs_sorted_length.len() / args.num_chunks).enumerate() {
+        path.push(format!("{}-{}.json", &window_start, &window_end));
+        let window = programs_sorted_depth.get(window_start..window_end).unwrap();
+        std::fs::write(path, serde_json::to_string_pretty(window).unwrap()).unwrap();
+
+        // length
         let mut path: PathBuf = out_path_dir.clone();
         path.push("length");
         if !path.exists() { std::fs::create_dir(&path).unwrap(); }
-        path.push(format!("{}.json", &i));
-        std::fs::write(path, serde_json::to_string_pretty(chunk).unwrap()).unwrap();
+        path.push(format!("{}-{}.json", &window_start, &window_end));
+        let window = programs_sorted_length.get(window_start..window_end).unwrap();
+        std::fs::write(path, serde_json::to_string_pretty(window).unwrap()).unwrap();
+
+        window_start += args.slide_length;
+
     }
 
     println!("Wrote to {:?}", out_path_dir.as_os_str());
