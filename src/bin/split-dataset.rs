@@ -53,8 +53,8 @@ fn main() {
     }
 
     let mut window_start = 0;
-    while window_start <= programs.len() - args.slide_length {
-        let window_end = std::cmp::min(programs.len(), window_start + args.slide_length) - 1;
+    while window_start < programs.len() {
+        let window_end = std::cmp::min(programs.len(), window_start + args.window_size) - 1;
 
         // depth
         let mut path: PathBuf = out_path_dir.clone();
@@ -72,7 +72,7 @@ fn main() {
         let window = programs_sorted_length.get(window_start..window_end+1).unwrap();
         std::fs::write(path, serde_json::to_string_pretty(window).unwrap()).unwrap();
 
-        window_start = window_end + 1;
+        window_start += args.slide_length;
 
     }
 
