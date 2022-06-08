@@ -177,23 +177,23 @@ impl Display for Expr {
                 Lambda::App([fun,x]) => {
                     // if you are the left side of an application, and you are an application, you dont need parens
                     if !left_of_app { write!(f,"(")? }
-                    fmt_local(&e, *fun, true, f)?;
+                    fmt_local(e, *fun, true, f)?;
                     write!(f," ")?;
-                    fmt_local(&e, *x, false, f)?;
+                    fmt_local(e, *x, false, f)?;
                     if !left_of_app { write!(f,")") } else { Ok(()) }
                 },
                 Lambda::Lam([b]) => {
                     write!(f,"(lam ")?;
-                    fmt_local(&e, *b, false, f)?;
+                    fmt_local(e, *b, false, f)?;
                     write!(f,")")
                 },
                 Lambda::Programs(ids) => {
                     write!(f,"(")?;
                     for id in ids[..ids.len()-1].iter() {
-                        fmt_local(&e, *id, false, f)?;
+                        fmt_local(e, *id, false, f)?;
                         write!(f," ")?;
                     }
-                    fmt_local(&e, *ids.last().unwrap(), false, f)?;
+                    fmt_local(e, *ids.last().unwrap(), false, f)?;
                     write!(f,")")
                 },
             }
