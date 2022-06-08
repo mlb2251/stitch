@@ -1,7 +1,9 @@
 use crate::*;
 use sexp::{Sexp,Atom};
 use std::fmt::Debug;
-use std::collections::HashMap;
+use ahash::{AHashMap};
+use std::hash::Hash;
+
 
 /// Uncurries an s expression. For example: (app (app foo x) y) -> (foo x y)
 /// panics if sexp is already uncurried.
@@ -10,7 +12,7 @@ pub fn uncurry_sexp(e: &Sexp) -> Sexp {
         Sexp::List(orig_list) => {
             assert!(orig_list.len() > 1);
             // recurse on children
-            let uncurried_children: Vec<Sexp> = orig_list.iter().map(|e| uncurry_sexp(e)).collect();
+            let uncurried_children: Vec<Sexp> = orig_list.iter().map(uncurry_sexp).collect();
             match uncurried_children[0].to_string().as_str() {
                 "lam" => {
                     Sexp::List(uncurried_children)
@@ -60,7 +62,7 @@ pub fn curry_sexp(e: &Sexp) -> Sexp {
         Sexp::List(list) => {
             assert!(list.len() > 1);
             // recurse on children
-            let list: Vec<Sexp> = list.iter().map(|e| curry_sexp(e)).collect();
+            let list: Vec<Sexp> = list.iter().map(curry_sexp).collect();
             match list[0].to_string().as_str() {
                 "lam" => {
                     Sexp::List(list)
@@ -84,7 +86,7 @@ pub fn curry_sexp(e: &Sexp) -> Sexp {
 }
 
 /// print some info about a Vec of programs
-pub fn programs_info(programs: &Vec<Expr>) {
+pub fn programs_info(programs: &[Expr]) {
     let max_cost = programs.iter().map(|p| p.cost()).max().unwrap();
     let max_depth = programs.iter().map(|p| p.depth()).max().unwrap();
     println!("Programs:");
@@ -145,9 +147,9 @@ pub fn compression_factor(original: &Expr, compressed: &Expr, inv_size: f64) -> 
 }
 
 /// Replace the ivars in an expr based on an i32->Expr map
-pub fn ivar_replace(e: &Expr, child: Id, map: &HashMap<i32, Expr>) -> Expr {
+pub fn ivar_replace(e: &Expr, child: Id, map: &AHashMap<i32, Expr>) -> Expr {
     match e.get(child) {
-        Lambda::IVar(i) => map.get(&i).unwrap_or(&e).clone(),
+        Lambda::IVar(i) => map.get(i).unwrap_or(e).clone(),
         Lambda::Var(v) => Expr::var(*v),
         Lambda::Prim(p) => Expr::prim(*p),
         Lambda::App([f,x]) => Expr::app(ivar_replace(e, *f, map), ivar_replace(e, *x, map)),
@@ -168,7 +170,7 @@ pub fn ivar_to_dc(e: &Expr, child: Id, depth: i32, arity: i32) -> Expr {
     }
 }
 
-pub fn dc_inv_str(inv: &Invention, past_step_results: &Vec<CompressionStepResult>) -> String {
+pub fn dc_inv_str(inv: &Invention, past_step_results: &[CompressionStepResult]) -> String {
     let mut body: Expr = ivar_to_dc(&inv.body, inv.body.root(), 0, inv.arity as i32);
     // wrap in lambdas for dremacoder
     for _ in 0..inv.arity {
@@ -189,7 +191,11 @@ pub fn dc_inv_str(inv: &Invention, past_step_results: &Vec<CompressionStepResult
 pub fn replace_prim_with(s: &str, prim: &str, new: &str) -> String {
     let mut res: String = s.to_string();
     res = res.replace(&format!(" {})",prim), &format!(" {})",new));
+    // we need to do the " {} " case twice to handle multioverlaps like fn_i fn_i fn_i fn_i which will replace at locations 1 and 3
+    // in the first replace() and 2 and 4 in the second replace due to overlapping matches.
     res = res.replace(&format!(" {} ",prim), &format!(" {} ",new));
+    res = res.replace(&format!(" {} ",prim), &format!(" {} ",new));
+    assert!(!res.contains(&format!(" {} ",prim)));
     res = res.replace(&format!("({} ",prim), &format!("({} ",new));
     if res.starts_with(&format!("{} ",prim)) {
         res = format!("{} {}", new, &res[prim.len()..]);
@@ -204,7 +210,7 @@ pub fn replace_prim_with(s: &str, prim: &str, new: &str) -> String {
 }
 
 /// cache for shift()
-pub type RecVarModCache = HashMap<(Id,i32),Option<Id>>;
+pub type RecVarModCache = AHashMap<(Id,i32),Option<Id>>;
 
 
 /// This is a helper function for implementing various recursive operations that only
@@ -348,16 +354,16 @@ pub fn group_by_key<T: Copy, U: Ord>(v: Vec<T>, key: impl Fn(&T)->U) -> Vec<Vec<
 
 /// Returns a hashmap from node id to number of places that node is used in the tree. Essentially this just
 /// follows all paths down from the root and logs how many times it encounters each node
-pub fn num_paths_to_node(roots: &[Id], treenodes: &Vec<Id>, egraph: &crate::EGraph) -> HashMap<Id,i32> {
-    let mut num_paths_to_node: HashMap<Id,i32> = HashMap::new();
-    treenodes.iter().for_each(|treenode| {
-        num_paths_to_node.insert(*treenode, 0);
-    });
-    fn helper(num_paths_to_node: &mut HashMap<Id,i32>, node: &Id, egraph: &crate::EGraph) {
+pub fn num_paths_to_node(roots: &[Id], treenodes: &[Id], egraph: &crate::EGraph) -> Vec<i32> {
+    let mut num_paths_to_node: Vec<i32> = vec![0; treenodes.len()];
+    // treenodes.iter().for_each(|treenode| {
+    //     num_paths_to_node.insert(*treenode, 0);
+    // });
+    fn helper(num_paths_to_node: &mut Vec<i32>, node: &Id, egraph: &crate::EGraph) {
         // num_paths_to_node.insert(*child, num_paths_to_node[node] + 1);
-        *num_paths_to_node.get_mut(node).unwrap() += 1;
+        num_paths_to_node[usize::from(*node)] += 1;
         for child in egraph[*node].nodes[0].children() {
-            helper(num_paths_to_node, &child, egraph);
+            helper(num_paths_to_node, child, egraph);
         }
     }
     roots.iter().for_each(|root| {
@@ -365,3 +371,25 @@ pub fn num_paths_to_node(roots: &[Id], treenodes: &Vec<Id>, egraph: &crate::EGra
     });
     num_paths_to_node
 }
+
+/// same as Itertools::counts() but returns an AHashMap instead of a HashMap
+pub fn counts_ahash<T: Hash + Eq + Clone>(v: &[T]) -> AHashMap<T, usize>
+{
+    let mut counts = AHashMap::new();
+    v.iter().for_each(|item| *counts.entry(item.clone()).or_default() += 1);
+    counts
+}
+
+
+// pub trait IterUtil : Iterator {
+//     /// same as Itertools::counts() but returns an AHashMap instead of a HashMap
+//     fn counts_ahash(self) -> AHashMap<Self::Item, usize>
+//     where
+//         Self: Sized,
+//         Self::Item: Eq + Hash,
+//     {
+//         let mut counts = AHashMap::new();
+//         self.for_each(|item| *counts.entry(item).or_default() += 1);
+//         counts
+//     }
+// }

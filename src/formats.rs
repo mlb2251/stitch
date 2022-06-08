@@ -45,7 +45,7 @@ impl InputFormat {
                     let programs_in_frontier: Vec<String> = frontier["programs"].as_array().unwrap().iter().map(|p|p["program"].as_str().unwrap().to_string())
                         .map(|p| inv_dc_strs.iter().rev().fold(p, |p, s| p.replace(&s.1, &s.0))) // replace #(lambda ...) with fn_2 etc. Start with highest numbered fn to avoid mangling bodies of other fns.
                         .map(|p| p.replace("(lambda ","(lam ")).collect();
-                    assert!(!programs_in_frontier.iter().any(|p| p.contains("#")));
+                    assert!(!programs_in_frontier.iter().any(|p| p.contains('#')));
                     let task: String = match frontier["task"].as_str(){
                         Some(name) => name.to_string(),
                         None => i.to_string()
@@ -75,13 +75,11 @@ impl InputFormat {
 
                 let programs: Vec<String> = from_reader(File::open(path).map_err(|e| format!("file not found, error code {:?}", e))?).map_err(|e| format!("json parser error, are you sure you wanted format {:?}? Error code was {:?}", self, e))?;
                 let mut tasks: Vec<String> = Vec::with_capacity(programs.len());
-                let mut task_num: usize = 0;
-                for _ in programs.iter() {
+                for (task_num, _) in programs.iter().enumerate() {
                     tasks.push(task_num.to_string());
-                    task_num += 1;
                 }
                 let mut  num_prior_inventions = 0;
-                while programs.iter().any(|p| p.contains(&format!("fn_{}",num_prior_inventions))) {
+                while programs.iter().any(|p| p.contains(&format!("fn_{}", num_prior_inventions))) {
                     num_prior_inventions += 1;
                 }
                 Ok((programs, None, tasks, num_prior_inventions))

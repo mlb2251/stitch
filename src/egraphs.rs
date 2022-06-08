@@ -1,7 +1,8 @@
-use itertools::Itertools;
+// use itertools::Itertools;
 
 use crate::*;
-use std::collections::{HashMap, HashSet};
+use ahash::{AHashMap, AHashSet};
+
 
 pub type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
 
@@ -11,8 +12,8 @@ pub struct LambdaAnalysis;
 /// The analysis data associated with each Lambda node
 #[derive(Debug)]
 pub struct Data {
-    pub free_vars: HashSet<i32>, // $i vars. For example (lam $2) has free_vars = {1}.
-    pub free_ivars: HashSet<i32>, // #i ivars
+    pub free_vars: AHashSet<i32>, // $i vars. For example (lam $2) has free_vars = {1}.
+    pub free_ivars: AHashSet<i32>, // #i ivars
     pub inventionless_cost: i32,
 }
 
@@ -27,8 +28,8 @@ impl Analysis<Lambda> for LambdaAnalysis {
         // false // didnt modify anything
     }
     fn make(egraph: &EGraph, enode: &Lambda) -> Data {
-        let mut free_vars: HashSet<i32> = HashSet::new();
-        let mut free_ivars: HashSet<i32> = HashSet::new();
+        let mut free_vars: AHashSet<i32> = AHashSet::new();
+        let mut free_ivars: AHashSet<i32> = AHashSet::new();
         match enode {
             Lambda::Var(i) => {
                 free_vars.insert(*i);
@@ -77,9 +78,9 @@ impl Analysis<Lambda> for LambdaAnalysis {
             }
         };
         Data {
-               free_vars: free_vars,
-               free_ivars: free_ivars,
-               inventionless_cost: inventionless_cost
+               free_vars,
+               free_ivars,
+               inventionless_cost
             }
     }
 
@@ -192,17 +193,17 @@ fn topological_ordering_rec(root: Id, egraph: &EGraph, vec: &mut Vec<Id>) {
     }
 }
 
-pub fn associate_tasks(programs_root: Id, egraph: &EGraph, tasks: &Vec<String>) -> HashMap<Id, HashSet<usize>> {
+pub fn associate_tasks(programs_root: Id, egraph: &EGraph, treenodes: &[Id], tasks: &[String]) -> Vec<AHashSet<usize>> {
 
     // this is the map from egraph node ids to tasks (represented with unique usizes) that we will be building
-    let mut tasks_of_node = HashMap::new();
+    let mut tasks_of_node = vec![AHashSet::new(); treenodes.len()];
 
     let program_roots = egraph[programs_root].nodes[0].children();
     assert_eq!(program_roots.len(), tasks.len());
 
     // since the tasks may not be listed in any specific order, we need to keep track of whether we've already
     // made an id for a given task or not
-    let mut ids_of_tasks = HashMap::new();  // Keep track of the task -> task id mapping as we build the result
+    let mut ids_of_tasks = AHashMap::new();  // Keep track of the task -> task id mapping as we build the result
     let mut task_id: usize = 0;
     for (program_root, task) in program_roots.iter().zip(tasks) {
         if !ids_of_tasks.contains_key(task) {
@@ -213,17 +214,14 @@ pub fn associate_tasks(programs_root: Id, egraph: &EGraph, tasks: &Vec<String>) 
     }
 
     // defensive sanity check that each entry is non-empty
-    assert!(tasks_of_node.values().all(|tasks| !tasks.is_empty()));
+    assert!(tasks_of_node.iter().all(|tasks| !tasks.is_empty()));
 
     tasks_of_node
 }
 
-fn associate_task_rec(node: Id, egraph: &EGraph, task_id: usize, tasks_of_node: &mut HashMap<Id, HashSet<usize>>) {
-    if !tasks_of_node.keys().contains(&node) {
-        tasks_of_node.insert(node, HashSet::new());
-    }
-    let entry = tasks_of_node.get_mut(&node).unwrap();
-    entry.insert(task_id);
+fn associate_task_rec(node: Id, egraph: &EGraph, task_id: usize, tasks_of_node: &mut Vec<AHashSet<usize>>) {
+    // tasks_of_node.entry(node).or_default().insert(task_id);
+    tasks_of_node[usize::from(node)].insert(task_id);
     for child in egraph[node].nodes[0].children() {
         associate_task_rec(*child, egraph, task_id, tasks_of_node);
     }
@@ -290,14 +288,14 @@ pub fn has_free_ivars(shifted_arg: Id, refinements: &Option<Vec<Id>>, egraph: &E
         return !egraph[shifted_arg].data.free_ivars.is_empty();
     }
     let refinements = refinements.as_ref().unwrap();
-    fn helper(id: Id, refinements: &Vec<Id>, egraph: &EGraph) -> bool {
+    fn helper(id: Id, refinements: &[Id], egraph: &EGraph) -> bool {
         if refinements.contains(&id) {
             return false; // refinement itself is safe!
         }
         if egraph[id].data.free_ivars.is_empty() {
             return false; // no free ivars in this subtree
         }
-        return match egraph[id].nodes[0] {
+        match egraph[id].nodes[0] {
             Lambda::Prim(_) | Lambda::Var(_) => false,
             Lambda::IVar(_) => true, // found an ivar!
             Lambda::App([f,x]) => helper(f, refinements, egraph) || helper(x, refinements, egraph),
@@ -305,7 +303,7 @@ pub fn has_free_ivars(shifted_arg: Id, refinements: &Option<Vec<Id>>, egraph: &E
             _ => unreachable!()
         }
     }
-    helper(shifted_arg, &refinements, egraph)
+    helper(shifted_arg, refinements, egraph)
 }
 
 #[inline]

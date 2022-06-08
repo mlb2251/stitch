@@ -1,5 +1,6 @@
 use crate::*;
-use std::collections::{HashMap, HashSet};
+use ahash::{AHashMap, AHashSet};
+// use std::collections::BTreeSet;
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
@@ -148,6 +149,10 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub rewrite_check: bool,
 
+    /// calculate utility exhaustively by performing a full rewrite; mainly used when cost mismatches are happening and we need something slow but accurate
+    #[clap(long)]
+    pub utility_by_rewrite: bool,
+
     /// anything related to running a dreamcoder comparison
     #[clap(long)]
     pub dreamcoder_comparison: bool,
@@ -190,6 +195,7 @@ pub struct Pattern {
 }
 
 impl Expr {
+    #[allow(clippy::ptr_arg)]
     fn zipper_replace(&self, zip: &Zip, new: &str) -> Expr {
         let child = self.apply_zipper(zip).unwrap();
         // clone and overwrite that node
@@ -199,6 +205,7 @@ impl Expr {
     }
     /// replaces the node at the end of the zipper with `new` prim,
     /// returning the new expression
+    #[allow(clippy::ptr_arg)]
     fn apply_zipper(&self, zip: &Zip) -> Option<Id> {
         let mut child = self.root();
         for znode in zip.iter() {
@@ -214,7 +221,7 @@ impl Expr {
 }
 
 /// returns the vec of zippers to each ivar
-fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &HashMap<Zip,ZId>) -> Vec<Vec<ZId>> {
+fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &AHashMap<Zip,ZId>) -> Vec<Vec<ZId>> {
 
     // quickly determine arity
     let mut arity = 0;
@@ -229,7 +236,7 @@ fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &HashMap<Zip,ZId>) -> Vec<Vec<Z
     let mut curr_zip: Zip = vec![];
     let mut zids_of_ivar = vec![vec![]; arity as usize];
 
-    fn helper(curr_node: Id, expr: &Expr, curr_zip: &mut Zip, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &HashMap<Zip,ZId>) {
+    fn helper(curr_node: Id, expr: &Expr, curr_zip: &mut Zip, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &AHashMap<Zip,ZId>) {
         match expr.get(curr_node) {
             Lambda::Prim(_) => {},
             Lambda::Var(_) => {},
@@ -262,6 +269,7 @@ fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &HashMap<Zip,ZId>) -> Vec<Vec<Z
 
 impl Pattern {
     /// create a single hole pattern `??`
+    #[inline(never)]
     fn single_hole(shared: &SharedData) -> Self {
         let body_utility_no_refinement = 0;
         let refinement_body_utility = 0;
@@ -293,7 +301,7 @@ impl Pattern {
 
                     // extract the refinement and remap #i to $(i+depth) where depth is depth of #i in `extracted`
                     let mut extracted = refinements.iter().map(|refinement| extract(*refinement, &shared.egraph)).collect::<Vec<_>>();
-                    extracted.iter_mut().for_each(|e| arg_ivars_to_vars(e));
+                    extracted.iter_mut().for_each(arg_ivars_to_vars);
                     let mut expr = Expr::ivar(labelled_zid.ivar as i32);
                     // todo are these applied in the right order?
                     for e in extracted {
@@ -305,27 +313,27 @@ impl Pattern {
                 }))).collect();
 
 
-        fn helper(curr_node: Id, curr_zip: &mut Zip, zips: &Vec<(Zip,Expr)>, shared: &SharedData) -> Expr {
+        fn helper(curr_node: Id, curr_zip: &mut Zip, zips: &[(Zip,Expr)], shared: &SharedData) -> Expr {
             match zips.iter().find(|(zip,_)| zip == curr_zip) {
                 // current zip matches a hole
                 Some((_,e)) => e.clone(),
                 // no ivar zip match, so recurse
                 None => {
-                    match &shared.egraph[curr_node].nodes[0] {
+                    match &shared.node_of_id[usize::from(curr_node)] {
                         Lambda::Prim(p) => Expr::prim(*p),
                         Lambda::Var(v) => Expr::var(*v),
                         Lambda::Lam([b]) => {
                             curr_zip.push(ZNode::Body);
-                            let b_expr = helper(*b, curr_zip, &zips, shared);
+                            let b_expr = helper(*b, curr_zip, zips, shared);
                             curr_zip.pop();
                             Expr::lam(b_expr) 
                         }
                         Lambda::App([f,x]) => {
                             curr_zip.push(ZNode::Func);
-                            let f_expr = helper(*f, curr_zip, &zips, shared);
+                            let f_expr = helper(*f, curr_zip, zips, shared);
                             curr_zip.pop();
                             curr_zip.push(ZNode::Arg);
-                            let x_expr = helper(*x, curr_zip, &zips, shared);
+                            let x_expr = helper(*x, curr_zip, zips, shared);
                             curr_zip.pop();
                             Expr::app(f_expr, x_expr)
                         }
@@ -339,12 +347,12 @@ impl Pattern {
         helper(self.match_locations[0], &mut curr_zip, &zips, shared)
     }
     fn show_track_expansion(&self, hole_zid: ZId, shared: &SharedData) -> String {
-        let mut s = self.to_expr(shared).zipper_replace(&shared.zip_of_zid[hole_zid], &"<REPLACE>" ).to_string();
-        s = s.replace(&"<REPLACE>", &format!("{}",tracked_expands_to(self, hole_zid, shared)).clone().magenta().bold().to_string());
+        let mut s = self.to_expr(shared).zipper_replace(&shared.zip_of_zid[hole_zid], "<REPLACE>" ).to_string();
+        s = s.replace(&"<REPLACE>", &format!("{}",tracked_expands_to(self, hole_zid, shared)).magenta().bold().to_string());
         s
     }
     pub fn info(&self, shared: &SharedData) -> String {
-        format!("{}: utility_upper_bound={}, body_utility=({},{}), refinements={}, match_locations={}, usages={}",self.to_expr(shared), self.utility_upper_bound, self.body_utility_no_refinement, self.refinement_body_utility, self.refinements.iter().filter(|x|x.is_some()).count(), self.match_locations.len(), self.match_locations.iter().map(|loc|shared.num_paths_to_node[loc]).sum::<i32>())
+        format!("{}: utility_upper_bound={}, body_utility=({},{}), refinements={}, match_locations={}, usages={}",self.to_expr(shared), self.utility_upper_bound, self.body_utility_no_refinement, self.refinement_body_utility, self.refinements.iter().filter(|x|x.is_some()).count(), self.match_locations.len(), self.match_locations.iter().map(|loc|shared.num_paths_to_node[usize::from(*loc)]).sum::<i32>())
     }
 }
 
@@ -373,10 +381,7 @@ impl ExpandsTo {
     }
     #[inline]
     fn is_ivar(&self) -> bool {
-        match self {
-            ExpandsTo::IVar(_) => true,
-            _ => false
-        }
+        matches!(self, ExpandsTo::IVar(_))
     }
 }
 
@@ -450,7 +455,7 @@ fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData) -> 
                 }
             }
             // it's a new ivar that hasnt been used already so it must take on the next largest var number
-            return ExpandsTo::IVar(pattern.first_zid_of_ivar.len() as i32);
+            ExpandsTo::IVar(pattern.first_zid_of_ivar.len() as i32)
         }
         e => e
     }
@@ -489,7 +494,7 @@ pub struct CriticalMultithreadData {
     donelist: Vec<FinishedPattern>,
     worklist: BinaryHeap<HeapItem>,
     utility_pruning_cutoff: i32,
-    active_threads: HashSet<std::thread::ThreadId>, // list of threads currently holding worklist items
+    active_threads: AHashSet<std::thread::ThreadId>, // list of threads currently holding worklist items
 }
 
 /// All the data shared among threads, mostly read-only
@@ -498,21 +503,23 @@ pub struct CriticalMultithreadData {
 pub struct SharedData {
     pub crit: Mutex<CriticalMultithreadData>,
     pub max_heapkey: Mutex<HeapKey>,
-    pub arg_of_zid_node: Vec<HashMap<Id,Arg>>,
+    pub arg_of_zid_node: Vec<AHashMap<Id,Arg>>,
     pub treenodes: Vec<Id>,
+    pub node_of_id: Vec<Lambda>,
     pub programs_node: Id,
-    pub zids_of_node: HashMap<Id,Vec<ZId>>,
+    pub zids_of_node: AHashMap<Id,Vec<ZId>>,
     pub zip_of_zid: Vec<Zip>,
-    pub zid_of_zip: HashMap<Zip, ZId>,
+    pub zid_of_zip: AHashMap<Zip, ZId>,
     pub extensions_of_zid: Vec<ZIdExtension>,
-    // pub refinables_of_shifted_arg: HashMap<Id,Vec<Id>>,
-    // pub uses_of_zid_refinable_loc: HashMap<(ZId,Id,Id),i32>,
-    pub uses_of_shifted_arg_refinement: HashMap<Id,HashMap<Id,usize>>,
+    // pub refinables_of_shifted_arg: AHashMap<Id,Vec<Id>>,
+    // pub uses_of_zid_refinable_loc: AHashMap<(ZId,Id,Id),i32>,
+    pub uses_of_shifted_arg_refinement: AHashMap<Id,AHashMap<Id,usize>>,
     pub egraph: EGraph,
-    pub num_paths_to_node: HashMap<Id,i32>,
-    pub tasks_of_node: HashMap<Id, HashSet<usize>>,
-    pub cost_of_node_once: HashMap<Id,i32>,
-    pub cost_of_node_all: HashMap<Id,i32>,
+    pub num_paths_to_node: Vec<i32>,
+    pub tasks_of_node: Vec<AHashSet<usize>>,
+    pub cost_of_node_once: Vec<i32>,
+    pub cost_of_node_all: Vec<i32>,
+    pub free_vars_of_node: Vec<AHashSet<i32>>,
     pub stats: Mutex<Stats>,
     pub cfg: CompressionStepConfig,
     pub tracking: Option<Tracking>,
@@ -529,19 +536,19 @@ pub struct Tracking {
 impl CriticalMultithreadData {
     /// Create a new mutable multithread data struct with
     /// a worklist that just has a single hole on it
-    fn new(donelist: Vec<FinishedPattern>, treenodes: &Vec<Id>, cost_of_node_all: &HashMap<Id,i32>, num_paths_to_node: &HashMap<Id,i32>, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
-        // push an empty hole onto a new worklist        
+    fn new(donelist: Vec<FinishedPattern>, cfg: &CompressionStepConfig) -> Self {
         let mut res = CriticalMultithreadData {
             donelist,
             worklist: BinaryHeap::new(),
             utility_pruning_cutoff: 0,
-            active_threads: HashSet::new(),
+            active_threads: AHashSet::new(),
         };
         res.update(cfg);
         res
     }
     /// sort the donelist by utility, truncate to cfg.inv_candidates, update 
     /// update utility_pruning_cutoff to be the lowest utility
+    #[inline(never)]
     fn update(&mut self, cfg: &CompressionStepConfig) {
         // sort in decreasing order by utility primarily, and break ties using the argchoice zids (just in order to be deterministic!)
         // let old_best = self.donelist.first().map(|x|x.utility).unwrap_or(0);
@@ -570,7 +577,7 @@ impl Invention {
     /// replace any #i with args[i], returning a new expression
     pub fn apply(&self, args: &[Expr]) -> Expr {
         assert_eq!(args.len(), self.arity);
-        let map: HashMap<i32, Expr> = args.iter().enumerate().map(|(i,e)| (i as i32, e.clone())).collect();
+        let map: AHashMap<i32, Expr> = args.iter().enumerate().map(|(i,e)| (i as i32, e.clone())).collect();
         ivar_replace(&self.body, self.body.root(), &map)
     }
 }
@@ -584,7 +591,7 @@ impl Display for Invention {
 /// A node in an ZPath
 /// Ord: Func < Body < Arg
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-enum ZNode {
+pub enum ZNode {
     // * order of variants here is important because the derived Ord will use it
     Func, // zipper went into the function, so Id is the arg
     Body, 
@@ -606,7 +613,9 @@ struct LabelledZId {
 pub struct Stats {
     worklist_steps: usize,
     finished: usize,
+    calc_final_utility: usize,
     upper_bound_fired: usize,
+    // conflict_upper_bound_fired: usize,
     free_vars_fired: usize,
     single_use_fired: usize,
     single_task_fired: usize,
@@ -614,51 +623,12 @@ pub struct Stats {
     force_multiuse_fired: usize,
 }
 
-impl HoleChoice {
-    fn choose_hole(&self, pattern: &Pattern, shared: &SharedData) -> usize {
-        if pattern.holes.len() == 1 {
-            return 0;
-        }
-        match self {
-            &HoleChoice::First => 0,
-            &HoleChoice::Last => pattern.holes.len() - 1,
-            &HoleChoice::Random => {
-                let mut rng = rand::thread_rng();
-                rng.gen_range(0..pattern.holes.len())
-            },
-            &HoleChoice::FewApps => {
-                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().filter(|loc|shared.arg_of_zid_node[*hole_zid][loc].expands_to == ExpandsTo::App).count()))
-                        .min_by_key(|x|x.1).unwrap().0
-            }
-            &HoleChoice::MaxCost => {
-                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
-                        .max_by_key(|x|x.1).unwrap().0
-            }
-            &HoleChoice::MinCost => {
-                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
-                        .min_by_key(|x|x.1).unwrap().0
-            }
-            &HoleChoice::MaxLargestSubset => {
-                // todo warning this is extremely slow, partially bc of counts() but I think
-                // mainly because where there are like dozens of holes doing all these lookups and clones and hashmaps is a LOT
-                pattern.holes.iter().enumerate()
-                    .map(|(hole_idx,hole_zid)| (hole_idx, *pattern.match_locations.iter()
-                        .map(|loc| shared.arg_of_zid_node[*hole_zid][loc].expands_to.clone()).counts().values().max().unwrap())).max_by_key(|&(_,max_count)| max_count).unwrap().0
-            }
-            _ => unimplemented!()
-        }
-    }
-}
-
 /// a strategy for choosing which hole to expand next in a partial pattern
 #[derive(Debug, Clone, clap::ArgEnum, Serialize)]
 pub enum HoleChoice {
     Random,
-    First,
-    Last,
+    BreadthFirst,
+    DepthFirst,
     MaxLargestSubset,
     HighEntropy,
     LowEntropy,
@@ -669,6 +639,45 @@ pub enum HoleChoice {
     FewApps,
 }
 
+impl HoleChoice {
+    #[inline(never)]
+    fn choose_hole(&self, pattern: &Pattern, shared: &SharedData) -> usize {
+        if pattern.holes.len() == 1 {
+            return 0;
+        }
+        match *self {
+            HoleChoice::BreadthFirst => 0,
+            HoleChoice::DepthFirst => pattern.holes.len() - 1,
+            HoleChoice::Random => {
+                let mut rng = rand::thread_rng();
+                rng.gen_range(0..pattern.holes.len())
+            },
+            HoleChoice::FewApps => {
+                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
+                    (hole_idx, pattern.match_locations.iter().filter(|loc|shared.arg_of_zid_node[*hole_zid][loc].expands_to == ExpandsTo::App).count()))
+                        .min_by_key(|x|x.1).unwrap().0
+            }
+            HoleChoice::MaxCost => {
+                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
+                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
+                        .max_by_key(|x|x.1).unwrap().0
+            }
+            HoleChoice::MinCost => {
+                pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
+                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
+                        .min_by_key(|x|x.1).unwrap().0
+            }
+            HoleChoice::MaxLargestSubset => {
+                // todo warning this is extremely slow, partially bc of counts() but I think
+                // mainly because where there are like dozens of holes doing all these lookups and clones and hashmaps is a LOT
+                pattern.holes.iter().enumerate()
+                    .map(|(hole_idx,hole_zid)| (hole_idx, *pattern.match_locations.iter()
+                        .map(|loc| shared.arg_of_zid_node[*hole_zid][loc].expands_to.clone()).counts().values().max().unwrap())).max_by_key(|&(_,max_count)| max_count).unwrap().0
+            }
+            _ => unimplemented!()
+        }
+    }
+}
 
 /// a strategy for choosing worklist item to use next
 #[derive(Debug, Clone, clap::ArgEnum, Serialize)]
@@ -721,7 +730,7 @@ impl HeapChoice {
                 HeapKey::Int(pattern.utility_upper_bound)
             },
             &HeapChoice::MaxBodyLocations => {
-                HeapKey::Int(pattern.body_utility_no_refinement * pattern.match_locations.iter().map(|loc|shared.num_paths_to_node[loc]).sum::<i32>())
+                HeapKey::Int(pattern.body_utility_no_refinement * pattern.match_locations.iter().map(|loc|shared.num_paths_to_node[usize::from(*loc)]).sum::<i32>())
             },
             &HeapChoice::LowArityHighBound => {
                 HeapKey::IntInt(pattern.first_zid_of_ivar.len() as i32, pattern.utility_upper_bound)
@@ -732,7 +741,7 @@ impl HeapChoice {
 
 impl LabelledZId {
     fn new(zid: ZId, ivar: usize) -> LabelledZId {
-        LabelledZId { zid: zid, ivar: ivar }
+        LabelledZId { zid, ivar }
     }
 }
 
@@ -745,16 +754,9 @@ pub struct ZIdExtension {
     func: Option<ZId>,
 }
 
-
-
-
-
-
-
-
-
 /// empties worklist_buf and donelist_buf into the shared worklist while holding the mutex, updates
 /// the donelist and cutoffs, and grabs and returns a new worklist item along with new cutoff bounds.
+#[inline(never)]
 fn get_worklist_item(
     worklist_buf: &mut Vec<HeapItem>,
     donelist_buf: &mut Vec<FinishedPattern>,
@@ -796,9 +798,9 @@ fn get_worklist_item(
     crit.active_threads.remove(&thread::current().id()); // remove ourself from the active threads
     // println!("worklist len: {}", crit.worklist.len());
 
-    // with dynamic batch size, take worklist_size/num_threads items from the worklist
-    let batch_size = if shared.cfg.dynamic_batch { std::cmp::max(1, crit.worklist.len() / shared.cfg.threads ) } else { shared.cfg.batch };
     loop {
+        // with dynamic batch size, take worklist_size/num_threads items from the worklist
+        let batch_size = if shared.cfg.dynamic_batch { std::cmp::max(1, crit.worklist.len() / shared.cfg.threads ) } else { shared.cfg.batch };
         while crit.worklist.is_empty() {
             if !returned_items.is_empty() {
                 // give up and return whatever we've got
@@ -826,12 +828,39 @@ fn get_worklist_item(
                 crit.active_threads.insert(thread::current().id());
                 return Some((returned_items, utility_pruning_cutoff));
             }
-        } else {
-            if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-        }
+        } else if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; }
     }
     // * MULTITHREADING: CRITICAL SECTION END *
 }
+
+// pub fn blackbox1<T>(dummy: T) -> T {
+//     unsafe {
+//         let ret = std::ptr::read_volatile(&dummy);
+//         std::mem::forget(dummy);
+//         ret
+//     }
+// }
+// pub fn blackbox2<T>(dummy: T) -> T {
+//     unsafe {
+//         let ret = std::ptr::read_volatile(&dummy);
+//         std::mem::forget(dummy);
+//         ret
+//     }
+// }
+// pub fn blackbox3<T>(dummy: T) -> T {
+//     unsafe {
+//         let ret = std::ptr::read_volatile(&dummy);
+//         std::mem::forget(dummy);
+//         ret
+//     }
+// }
+// pub fn blackbox<T>(dummy: T) -> T {
+//     unsafe {
+//         let ret = std::ptr::read_volatile(&dummy);
+//         std::mem::forget(dummy);
+//         ret
+//     }
+// }
 
 /// The core top down branch and bound search
 fn stitch_search(
@@ -860,10 +889,10 @@ fn stitch_search(
         for original_pattern in patterns {
 
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
-            if !shared.cfg.no_stats { if shared.cfg.print_stats > 0 &&  shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 { println!("{:?}",shared.stats.lock().deref_mut()); }};
+            if !shared.cfg.no_stats && shared.cfg.print_stats > 0 &&  shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 { println!("{:?} \n\t@ [bound={}; uses={}] chose: {}",shared.stats.lock().deref_mut(),   original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[usize::from(*loc)]).sum::<i32>(), original_pattern.to_expr(&shared)); };
 
             if shared.cfg.verbose_worklist {
-                println!("[prio={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.len(), original_pattern.to_expr(&shared));
+                println!("[bound={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[usize::from(*loc)]).sum::<i32>(), original_pattern.to_expr(&shared));
             }
 
             // choose which hole we're going to expand
@@ -874,40 +903,23 @@ fn stitch_search(
             let hole_zid: ZId = holes_after_pop.remove(hole_idx);
 
             // get the hashmap of args for this hole
-            let ref arg_of_loc = shared.arg_of_zid_node[hole_zid];
+            let arg_of_loc = &shared.arg_of_zid_node[hole_zid];
 
             // sort the match locations by node type (ie what theyll expand into) so that we can do a group_by() on
             // node type in order to iterate over all the different expansions
             // We also sort secondarily by `loc` to ensure each groupby subsequence has the locations in sorted order
             let mut match_locations = original_pattern.match_locations.clone();
-            match_locations.sort_unstable_by_key(|loc| (arg_of_loc[loc].expands_to.clone(), *loc));
+            match_locations.sort_by_cached_key(|loc| (&arg_of_loc[loc].expands_to, *loc));
 
-            let mut ivars_expansions = vec![];
-
-            // consider all ivars used previously
-            for ivar in 0..original_pattern.first_zid_of_ivar.len() {
-                let ref arg_of_loc_ivar = shared.arg_of_zid_node[original_pattern.first_zid_of_ivar[ivar]];
-                let locs: Vec<Id> = original_pattern.match_locations.iter()
-                    .filter(|loc|
-                        arg_of_loc[loc].shifted_id == 
-                        arg_of_loc_ivar[loc].shifted_id).cloned().collect();
-                if locs.is_empty() { continue; }
-                ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
-            }
-
-            // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
-            if original_pattern.first_zid_of_ivar.len() < shared.cfg.max_arity {
-                let ivar = original_pattern.first_zid_of_ivar.len();
-                let locs = original_pattern.match_locations.clone();
-                ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
-            }
+            let ivars_expansions = get_ivars_expansions(&original_pattern, arg_of_loc, &shared);
 
             let mut found_tracked = false;
             // for each way of expanding the hole...
+
             'expansion:
                 for (expands_to, locs) in match_locations.into_iter()
-                .group_by(|loc| arg_of_loc[loc].expands_to.clone()).into_iter()
-                .map(|(expands_to, locs)| (expands_to, locs.collect::<Vec<Id>>()))
+                .group_by(|loc| &arg_of_loc[loc].expands_to).into_iter()
+                .map(|(expands_to, locs)| (expands_to.clone(), locs.collect::<Vec<Id>>()))
                 .chain(ivars_expansions.into_iter())
             {
                 // for debugging
@@ -922,15 +934,15 @@ fn stitch_search(
                 // prune here. The exception is when there are free variables so arity 0 wouldn't have applied.
                 // Also, note that upper bounding + arity 0 priming does nearly perfectly handle this already, but there are cases where
                 // you can't improve your structure penalty bound enough to catch everything hence this separate single_use thing.
-                if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.egraph[locs[0]].data.free_vars.is_empty() {
+                if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.free_vars_of_node[usize::from(locs[0])].is_empty() {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_fired += 1; }
                     continue 'expansion;
                 }
 
                 // prune inventions specific to one single task
                 if !shared.cfg.no_opt_single_task
-                        && locs.iter().all(|node| shared.tasks_of_node[&node].len() == 1)
-                        && locs.iter().all(|node| shared.tasks_of_node[&locs[0]].iter().next() == shared.tasks_of_node[&node].iter().next()) {
+                        && locs.iter().all(|node| shared.tasks_of_node[usize::from(*node)].len() == 1)
+                        && locs.iter().all(|node| shared.tasks_of_node[usize::from(locs[0])].iter().next() == shared.tasks_of_node[usize::from(*node)].iter().next()) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
                     if tracked { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
                     continue 'expansion;
@@ -938,7 +950,7 @@ fn stitch_search(
 
                 // check for free variables: if an invention has free variables in the body then it's not a real function and we can discard it
                 // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
-                if true || !shared.cfg.no_opt_free_vars {
+                if true {  // TODO: condition should be "!shared.cfg.no_opt_free_vars" once this is no longer unsound
                     if let ExpandsTo::Var(i) = expands_to {
                         if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
                             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
@@ -955,7 +967,7 @@ fn stitch_search(
                         // if its the same arg in every place
                         if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
                             // AND there's no potential for refining that arg
-                            && (!shared.cfg.refine || locs.iter().all(|loc| shared.egraph[shared.arg_of_zid_node[argchoice.zid][loc].shifted_id].data.free_ivars.is_empty()))
+                            && (!shared.cfg.refine || locs.iter().all(|loc| shared.free_vars_of_node[usize::from(shared.arg_of_zid_node[argchoice.zid][loc].shifted_id)].is_empty()))
                         {
                             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
                             continue 'expansion; // useless abstraction
@@ -975,7 +987,6 @@ fn stitch_search(
 
                 // update the upper bound
                 let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility_no_refinement + refinement_body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
-
                 assert!(util_upper_bound <= original_pattern.utility_upper_bound);
 
                 // branch and bound: if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
@@ -985,7 +996,7 @@ fn stitch_search(
                     continue 'expansion; // too low utility
                 }
 
-                assert!(shared.cfg.no_opt_upper_bound || shared.cfg.no_opt_arity_zero || !(holes_after_pop.is_empty() && original_pattern.arg_choices.is_empty() && !expands_to.has_holes() && !expands_to.is_ivar()),
+                assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_ivar(),
                         "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
                 // assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
                 //         "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
@@ -1022,9 +1033,9 @@ fn stitch_search(
                 if !shared.cfg.no_opt_force_multiuse {
                     // for all pairs of ivars #i and #j, get the first zipper and compare the arg value across all locations
                     for (i,ivar_zid_1) in first_zid_of_ivar.iter().enumerate() {
-                        let ref arg_of_loc_1 = shared.arg_of_zid_node[*ivar_zid_1];
+                        let arg_of_loc_1 = &shared.arg_of_zid_node[*ivar_zid_1];
                         for ivar_zid_2 in first_zid_of_ivar.iter().skip(i+1) {
-                            let ref arg_of_loc_2 = shared.arg_of_zid_node[*ivar_zid_2];
+                            let arg_of_loc_2 = &shared.arg_of_zid_node[*ivar_zid_2];
                             if locs.iter().all(|loc|
                                 arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
                             {
@@ -1050,89 +1061,27 @@ fn stitch_search(
                 tracked
             };
 
+            // new_pattern.utility_upper_bound = utility_upper_bound_with_conflicts(&new_pattern, body_utility_no_refinement + refinement_body_utility, &shared);
+            // // branch and bound again
+            // if !shared.cfg.no_opt_upper_bound && new_pattern.utility_upper_bound <= weak_utility_pruning_cutoff {
+            //     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().conflict_upper_bound_fired += 1; };
+            //     if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+            //     continue 'expansion; // too low utility
+            // }
+
+
 
             if new_pattern.holes.is_empty() {
                 // it's a finished pattern
                 // refinement
 
                 if shared.cfg.refine {
-                    if tracked {
-                        println!("{} refining {}", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared));
-                    }
-
-                    let mut best_refinement: Vec<Option<Vec<Id>>> = new_pattern.refinements.clone(); // initially all Nones
-                    let mut best_utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
-                    let mut best_refinement_body_utility = 0;
-                    assert!(new_pattern.refinement_body_utility == 0);
-                    assert!(new_pattern.refinements.iter().all(|refinement| refinement.is_none()));
-
-                    // get all refinement options for each arg, deduped
-                    let mut refinements_by_arg: Vec<Vec<Id>> = new_pattern.first_zid_of_ivar.iter().map(|zid| 
-                        new_pattern.match_locations.iter().flat_map(|loc|
-                            shared.uses_of_shifted_arg_refinement.get(&shared.arg_of_zid_node[*zid][loc].shifted_id).map(|uses_of_refinement| uses_of_refinement.keys())
-                        ).flatten().cloned().collect::<HashSet<_>>().into_iter().collect()).collect();
-
-                    for (i,_) in new_pattern.first_zid_of_ivar.iter().enumerate() { // for each arg
-                        if new_pattern.arg_choices.iter().filter(|l |l.ivar == i).count() > 1 {
-                            refinements_by_arg[i] = Vec::new(); // todo limitation: we dont refine multiuse
-                        }
-                    }
-
-                    let mut num_refinements = 0;
-
-                    'refinements: for refinements in refinements_by_arg.into_iter()
-                        .map(|refinements|
-                                (1..=shared.cfg.max_refinement_arity).map(move |k| refinements.clone().into_iter()
-                                    .combinations(k))
-                                .flatten()
-                                .map(|r| Some(r))
-                                .chain(std::iter::once(None))
-                                )
-                        .multi_cartesian_product()
-                    {
-                        num_refinements += 1;
-                        // insert the refinement
-                        new_pattern.refinements = refinements.clone();
-                        // body grows by an APP and the refined out subtree's size
-                        new_pattern.refinement_body_utility = refinements.iter()
-                            .flat_map(|r| r)
-                            .map(|r| r.iter()
-                                .map(|r_id| COST_NONTERMINAL + shared.egraph[*r_id].data.inventionless_cost).sum::<i32>()).sum::<i32>();
-
-                        let utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(&new_pattern,&shared).util;
-                        if utility > best_utility {
-                            best_refinement = refinements.clone();
-                            best_utility = utility;
-                            best_refinement_body_utility = new_pattern.refinement_body_utility;
-                        }
-                        if tracked {
-                            println!("{} refined to {} (util: {})", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(&shared), utility);
-                            println!("{:?}", refinements);
-                            if let Some(track_refined) = &shared.tracking.as_ref().unwrap().refined {
-                                let refined = new_pattern.to_expr(&shared).to_string();
-                                let track_refined = track_refined.to_string();
-                                if refined == track_refined {
-                                    println!("{} previous refinement was the tracked one! Forcing it to accept that one", "[TRACK:REFINE]".green().bold());
-                                    best_refinement = refinements.clone();
-                                    best_refinement_body_utility = new_pattern.refinement_body_utility;
-                                    new_pattern.refinement_body_utility = 0;
-                                    break 'refinements;
-                                }
-                            }
-                        }
-                        // reset body utility
-                        new_pattern.refinement_body_utility = 0;
-                    }
-                    if num_refinements > 1000 {
-                        println!("[many refinements] tried {} refinements for {}", num_refinements, new_pattern.to_expr(&shared));
-                    }
-
-                    // set to the best
-                    new_pattern.refinements = best_refinement.clone();
-                    new_pattern.refinement_body_utility = best_refinement_body_utility;
+                    refine(&mut new_pattern, tracked, &shared);
                 }
 
                 let finished_pattern = FinishedPattern::new(new_pattern, &shared);
+
+                if !shared.cfg.no_stats { shared.stats.lock().calc_final_utility += 1; };
 
                 if tracked {
                     println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);
@@ -1163,6 +1112,105 @@ fn stitch_search(
 
 }
 
+#[inline(never)]
+fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &AHashMap<Id,Arg>, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<Id>)> {
+    let mut ivars_expansions = vec![];
+    // consider all ivars used previously
+    for ivar in 0..original_pattern.first_zid_of_ivar.len() {
+        let arg_of_loc_ivar = &shared.arg_of_zid_node[original_pattern.first_zid_of_ivar[ivar]];
+        let locs: Vec<Id> = original_pattern.match_locations.iter()
+            .filter(|loc|
+                arg_of_loc[loc].shifted_id == 
+                arg_of_loc_ivar[loc].shifted_id).cloned().collect();
+        if locs.is_empty() { continue; }
+        ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
+    }
+    // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
+    if original_pattern.first_zid_of_ivar.len() < shared.cfg.max_arity {
+        let ivar = original_pattern.first_zid_of_ivar.len();
+        let locs = original_pattern.match_locations.clone();
+        ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
+    }
+    ivars_expansions
+}
+
+/// refines a new pattern inplace
+#[inline(never)]
+pub fn refine(new_pattern: &mut Pattern, tracked: bool, shared: &SharedData) {
+    if tracked {
+        println!("{} refining {}", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(shared));
+    }
+
+    let mut best_refinement: Vec<Option<Vec<Id>>> = new_pattern.refinements.clone(); // initially all Nones
+    let mut best_utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(new_pattern,shared).util;
+    let mut best_refinement_body_utility = 0;
+    assert!(new_pattern.refinement_body_utility == 0);
+    assert!(new_pattern.refinements.iter().all(|refinement| refinement.is_none()));
+
+    // get all refinement options for each arg, deduped
+    let mut refinements_by_arg: Vec<Vec<Id>> = new_pattern.first_zid_of_ivar.iter().map(|zid| 
+        new_pattern.match_locations.iter().flat_map(|loc|
+            shared.uses_of_shifted_arg_refinement.get(&shared.arg_of_zid_node[*zid][loc].shifted_id).map(|uses_of_refinement| uses_of_refinement.keys())
+        ).flatten().cloned().collect::<AHashSet<_>>().into_iter().collect()).collect();
+
+    for (i,_) in new_pattern.first_zid_of_ivar.iter().enumerate() { // for each arg
+        if new_pattern.arg_choices.iter().filter(|l |l.ivar == i).count() > 1 {
+            refinements_by_arg[i] = Vec::new(); // todo limitation: we dont refine multiuse
+        }
+    }
+
+    let mut num_refinements = 0;
+
+    'refinements: for refinements in refinements_by_arg.into_iter()
+        .map(|refinements|
+                (1..=shared.cfg.max_refinement_arity).flat_map(move |k| refinements.clone().into_iter()
+                    .combinations(k))
+                .map(Some)
+                .chain(std::iter::once(None))
+                )
+        .multi_cartesian_product()
+    {
+        num_refinements += 1;
+        // insert the refinement
+        new_pattern.refinements = refinements.clone();
+        // body grows by an APP and the refined out subtree's size
+        new_pattern.refinement_body_utility = refinements.iter()
+            .flatten()
+            .map(|r| r.iter()
+                .map(|r_id| COST_NONTERMINAL + shared.cost_of_node_once[usize::from(*r_id)]).sum::<i32>()).sum::<i32>();
+
+        let utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(new_pattern,shared).util;
+        if utility > best_utility {
+            best_refinement = refinements.clone();
+            best_utility = utility;
+            best_refinement_body_utility = new_pattern.refinement_body_utility;
+        }
+        if tracked {
+            println!("{} refined to {} (util: {})", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(shared), utility);
+            println!("{:?}", refinements);
+            if let Some(track_refined) = &shared.tracking.as_ref().unwrap().refined {
+                let refined = new_pattern.to_expr(shared).to_string();
+                let track_refined = track_refined.to_string();
+                if refined == track_refined {
+                    println!("{} previous refinement was the tracked one! Forcing it to accept that one", "[TRACK:REFINE]".green().bold());
+                    best_refinement = refinements;
+                    best_refinement_body_utility = new_pattern.refinement_body_utility;
+                    new_pattern.refinement_body_utility = 0;
+                    break 'refinements;
+                }
+            }
+        }
+        // reset body utility
+        new_pattern.refinement_body_utility = 0;
+    }
+    if num_refinements > 1000 {
+        println!("[many refinements] tried {} refinements for {}", num_refinements, new_pattern.to_expr(shared));
+    }
+
+    // set to the best
+    new_pattern.refinements = best_refinement;
+    new_pattern.refinement_body_utility = best_refinement_body_utility;
+}
 
 
 
@@ -1178,13 +1226,14 @@ pub struct FinishedPattern {
 }
 
 impl FinishedPattern {
+    #[inline(never)]
     fn new(pattern: Pattern, shared: &SharedData) -> Self {
         let arity = pattern.first_zid_of_ivar.len();
-        let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[loc]).sum();
+        let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[usize::from(*loc)]).sum();
         let compressive_utility = compressive_utility(&pattern,shared);
         let noncompressive_utility = noncompressive_utility(pattern.body_utility_no_refinement + pattern.refinement_body_utility, &shared.cfg);
         let utility = noncompressive_utility + compressive_utility.util;
-        assert!(utility <= pattern.utility_upper_bound, "{} BUT utility is higher: {} (usages: {})", pattern.info(&shared), utility, usages);
+        assert!(utility <= pattern.utility_upper_bound, "{} BUT utility is higher: {} (usages: {})", pattern.info(shared), utility, usages);
         FinishedPattern {
             pattern,
             utility,
@@ -1214,7 +1263,7 @@ impl FinishedPattern {
 // }
 
 /// return all possible refinements you could use here along with counts for how many of each you can use
-fn get_refinements_of_shifted_id(shifted_id: Id, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> HashMap<Id,usize>
+fn get_refinements_of_shifted_id(shifted_id: Id, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> AHashMap<Id,usize>
 {
     fn helper(id: Id, egraph: &crate::EGraph, cfg: &CompressionStepConfig, refinements: &mut Vec<Id>) {
         let ivars =  egraph[id].data.free_ivars.len();
@@ -1237,36 +1286,36 @@ fn get_refinements_of_shifted_id(shifted_id: Id, egraph: &crate::EGraph, cfg: &C
     }
     let mut refinements = vec![];
     helper(shifted_id, egraph, cfg, &mut refinements);
-    refinements.into_iter().counts()
+    counts_ahash(&refinements)
 }
 
 /// figure out all the N^2 zippers from choosing any given node and then choosing a descendant and returning the zipper from
 /// the node to the descendant. We also collect a bunch of other useful stuff like the argument you would get if you abstracted
 /// the descendant and introduced an invention rooted at the ancestor node.
+#[allow(clippy::type_complexity)]
 fn get_zippers(
     treenodes: &[Id],
-    cost_of_node_once: &HashMap<Id,i32>,
+    cost_of_node_once: &[i32],
     no_cache: bool,
     egraph: &mut crate::EGraph,
     cfg: &CompressionStepConfig
-) -> (HashMap<Zip, ZId>, Vec<Zip>, Vec<HashMap<Id,Arg>>, HashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>, HashMap<Id,HashMap<Id,usize>>) {
-    let cache: &mut Option<RecVarModCache> = &mut if no_cache { None } else { Some(HashMap::new()) };
+) -> (AHashMap<Zip, ZId>, Vec<Zip>, Vec<AHashMap<Id,Arg>>, AHashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>, AHashMap<Id,AHashMap<Id,usize>>) {
+    let cache: &mut Option<RecVarModCache> = &mut if no_cache { None } else { Some(AHashMap::new()) };
 
-    let mut zid_of_zip: HashMap<Zip, ZId> = Default::default();
+    let mut zid_of_zip: AHashMap<Zip, ZId> = Default::default();
     let mut zip_of_zid: Vec<Zip> = Default::default();
-    let mut arg_of_zid_node: Vec<HashMap<Id,Arg>> = Default::default();
-    let mut zids_of_node: HashMap<Id,Vec<ZId>> = Default::default();
+    let mut arg_of_zid_node: Vec<AHashMap<Id,Arg>> = Default::default();
+    let mut zids_of_node: AHashMap<Id,Vec<ZId>> = Default::default();
 
 
-    // let mut refinements_of_shifted_arg: HashMap<Id,HashSet<Id>> = Default::default();
-    // let mut uses_of_zid_refinable_loc: HashMap<(ZId,Id,Id),i32> = Default::default();
-    let mut uses_of_shifted_arg_refinement: HashMap<Id,HashMap<Id,usize>> = Default::default();
+    // let mut refinements_of_shifted_arg: AHashMap<Id,AHashSet<Id>> = Default::default();
+    // let mut uses_of_zid_refinable_loc: AHashMap<(ZId,Id,Id),i32> = Default::default();
+    let mut uses_of_shifted_arg_refinement: AHashMap<Id,AHashMap<Id,usize>> = Default::default();
 
 
     zid_of_zip.insert(vec![], EMPTY_ZID);
     zip_of_zid.push(vec![]);
-    arg_of_zid_node.push(HashMap::new());
-    assert!(EMPTY_ZID == 0);
+    arg_of_zid_node.push(AHashMap::new());
     
     // loop over all nodes in all programs in bottom up order
     for treenode in treenodes.iter() {
@@ -1280,7 +1329,7 @@ fn get_zippers(
         // any node can become the identity function (the empty zipper with itself as the arg)
         let mut zids: Vec<ZId> = vec![EMPTY_ZID];
         arg_of_zid_node[EMPTY_ZID].insert(*treenode,
-            Arg { shifted_id: *treenode, unshifted_id: *treenode, shift: 0, cost: cost_of_node_once[treenode], expands_to: expands_to_of_node(&node) });
+            Arg { shifted_id: *treenode, unshifted_id: *treenode, shift: 0, cost: cost_of_node_once[usize::from(*treenode)], expands_to: expands_to_of_node(&node) });
         
         match node {
             Lambda::IVar(_) => { panic!("attempted to abstract an IVar") }
@@ -1294,7 +1343,7 @@ fn get_zippers(
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
-                        arg_of_zid_node.push(HashMap::new());
+                        arg_of_zid_node.push(AHashMap::new());
                         zid
                     });
                     // add new zid to this node
@@ -1312,7 +1361,7 @@ fn get_zippers(
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
-                        arg_of_zid_node.push(HashMap::new());
+                        arg_of_zid_node.push(AHashMap::new());
                         zid
                     });
                     // add new zid to this node
@@ -1332,7 +1381,7 @@ fn get_zippers(
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip.clone());
-                        arg_of_zid_node.push(HashMap::new());
+                        arg_of_zid_node.push(AHashMap::new());
                         zid
                     });
                     // add new zid to this node
@@ -1359,7 +1408,7 @@ fn get_zippers(
                         if cfg.refine {
                             // refinements:
                             if !uses_of_shifted_arg_refinement.contains_key(&arg.shifted_id) {
-                                uses_of_shifted_arg_refinement.insert(arg.shifted_id,get_refinements_of_shifted_id(arg.shifted_id, &egraph, cfg));
+                                uses_of_shifted_arg_refinement.insert(arg.shifted_id,get_refinements_of_shifted_id(arg.shifted_id, egraph, cfg));
                             }
                             // refinements_of_shifted_arg.entry(arg.shifted_id).or_default().extend(refinement_counts.keys().cloned());
                             // uses_of_zid_refinable_loc
@@ -1408,7 +1457,7 @@ pub struct CompressionStepData {
 }
 
 impl CompressionStepData {
-    fn new(done: FinishedPattern, programs_node: Id, inv: &Invention, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>, very_first_cost: Option<i32>, do_fast_rewrite: bool, is_test: bool) -> Self {
+    fn new(done: FinishedPattern, programs_node: Id, inv: &Invention, shared: &mut SharedData, past_invs: &[CompressionStepResult], very_first_cost: Option<i32>, do_fast_rewrite: bool, is_test: bool) -> Self {
         let initial_cost = shared.egraph[programs_node].data.inventionless_cost;
         let roots: Vec<Id> = shared.egraph[programs_node].nodes[0].children().iter().cloned().collect();
 
@@ -1498,7 +1547,7 @@ pub struct CompressionStepResult {
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedPattern, train_programs_node: Id, test_programs_node: Option<Id>, inv_name: &str, shared: &mut SharedData, past_invs: &Vec<CompressionStepResult>, first_train_cost: Option<i32>, first_test_cost: Option<i32>) -> Self {
+    fn new(done: FinishedPattern, train_programs_node: Id, test_programs_node: Option<Id>, inv_name: &str, shared: &mut SharedData, past_invs: &[CompressionStepResult], first_train_cost: Option<i32>, first_test_cost: Option<i32>) -> Self {
 
         let inv = done.to_invention(inv_name, shared);
 
@@ -1543,12 +1592,12 @@ impl fmt::Display for CompressionStepResult {
 }
 
 /// calculates the total upper bound on compressive + noncompressive utility
-#[inline]
+#[inline(never)]
 fn utility_upper_bound(
-    match_locations: &Vec<Id>,
+    match_locations: &[Id],
     body_utility_with_refinement_lower_bound: i32,
-    cost_of_node_all: &HashMap<Id,i32>,
-    num_paths_to_node: &HashMap<Id,i32>,
+    cost_of_node_all: &[i32],
+    num_paths_to_node: &[i32],
     cfg: &CompressionStepConfig,
 ) -> i32 {
     compressive_utility_upper_bound(match_locations, cost_of_node_all, num_paths_to_node)
@@ -1557,6 +1606,7 @@ fn utility_upper_bound(
 
 /// This utility is just for any utility terms that we care about that don't directly correspond
 /// to changes in size that come from rewriting with an invention
+#[inline(never)]
 fn noncompressive_utility(
     body_utility_with_refinement: i32,
     cfg: &CompressionStepConfig,
@@ -1564,27 +1614,43 @@ fn noncompressive_utility(
     if cfg.no_other_util { return 0; }
     // this is a bit like the structure penalty from dreamcoder except that
     // that penalty uses inlined versions of nested inventions.
-    let structure_penalty = - body_utility_with_refinement;
-    structure_penalty
+    
+    - body_utility_with_refinement
 }
 
 /// This takes a partial invention and gives an upper bound on the maximum
 /// compressive_utility() that any completed offspring of this partial invention could have.
-#[inline]
+#[inline(never)]
 fn compressive_utility_upper_bound(
-    match_locations: &Vec<Id>,
-    cost_of_node_all: &HashMap<Id,i32>,
-    num_paths_to_node: &HashMap<Id,i32>
+    match_locations: &[Id],
+    cost_of_node_all: &[i32],
+    num_paths_to_node: &[i32],
 ) -> i32 {
     match_locations.iter().map(|node|
-        cost_of_node_all[node] 
-        - num_paths_to_node[node] * COST_TERMINAL).sum::<i32>()
-    // COST_TERMINAL is from cost of the invention primitive
+        cost_of_node_all[usize::from(*node)] 
+        - num_paths_to_node[usize::from(*node)] * COST_TERMINAL).sum::<i32>()
 }
+
+/// calculates the total upper bound on compressive + noncompressive utility
+// #[inline(never)]
+// fn utility_upper_bound_with_conflicts(
+//     pattern: &Pattern,
+//     body_utility_with_refinement_lower_bound: i32,
+//     shared: &SharedData,
+// ) -> i32 {
+//     let utility_of_loc_once: Vec<i32> = pattern.match_locations.iter().map(|node|
+//         shared.cost_of_node_once[usize::from(*node)] - COST_TERMINAL).collect();
+//     let compressive_utility: i32 = pattern.match_locations.iter()
+//         .zip(utility_of_loc_once.iter())
+//         .map(|(loc,utility)| utility * shared.num_paths_to_node[usize::from(*loc)])
+//         .sum();
+//     use_conflicts(pattern, utility_of_loc_once, compressive_utility, shared).util + noncompressive_utility_upper_bound(body_utility_with_refinement_lower_bound, &shared.cfg)
+// }
+
 
 /// This takes a partial invention and gives an upper bound on the maximum
 /// other_utility() that any completed offspring of this partial invention could have.
-#[inline]
+#[inline(never)]
 fn noncompressive_utility_upper_bound(
     body_utility_with_refinement_lower_bound: i32,
     cfg: &CompressionStepConfig,
@@ -1592,10 +1658,11 @@ fn noncompressive_utility_upper_bound(
     if cfg.no_other_util { return 0; }
     // safe bound: since structure_penalty is negative an upper bound is anything less negative or exact. Since
     // left_utility < body_utility we know that this will be a less negative bound.
-    let structure_penalty = - body_utility_with_refinement_lower_bound;
-    structure_penalty
+    
+    - body_utility_with_refinement_lower_bound
 }
 
+#[inline(never)]
 fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
     // * BASIC CALCULATION
@@ -1607,7 +1674,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         .iter().filter_map(|(ivar,count)| if *count > 1 { Some((*ivar, (*count-1) as i32)) } else { None }).collect();
 
     // (parent,child) show up in here if they conflict
-    let mut refinement_conflicts: HashSet<(Id,Id)> = Default::default();
+    let mut refinement_conflicts: AHashSet<(Id,Id)> = Default::default();
     for r in pattern.refinements.iter().filter_map(|r|r.as_ref()) {
         for ancestor in r.iter() {
             for descendant in r.iter() {
@@ -1637,16 +1704,16 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
             let shifted_arg: Id = shared.arg_of_zid_node[pattern.first_zid_of_ivar[ivar]][loc].shifted_id;
             if let Some(uses_of_refinement) =  shared.uses_of_shifted_arg_refinement.get(&shifted_arg) {
                 return refinements.iter().map(|refinement| {
-                    if let Some(uses) = uses_of_refinement.get(&refinement) {
+                    if let Some(uses) = uses_of_refinement.get(refinement) {
                         // we subtract COST_TERMINAL because we need to leave behind a $i in place of it in the arg
-                        let mut util = (*uses as i32) * (shared.egraph[*refinement].data.inventionless_cost - COST_TERMINAL);
+                        let mut util = (*uses as i32) * (shared.cost_of_node_once[usize::from(*refinement)] - COST_TERMINAL);
                         // println!("gained util {} from {}", util, extract(*refinement, &shared.egraph));
                         for r in refinements.iter().filter(|r| refinement_conflicts.contains(&(*refinement,**r))) {
                             // we (an ancestor) conflicted with a descendant so we lose some of that descendants util
                             // todo: importantly this doesnt when a grandparent negates both a parent and a child... 
                             // todo that would be necessary for 3+ refinements and would be closer to our full conflict resolution setup
                             assert!(refinements.len() < 3);
-                            util -=  (*uses as i32) * (shared.egraph[*r].data.inventionless_cost - COST_TERMINAL);
+                            util -=  (*uses as i32) * (shared.cost_of_node_once[usize::from(*r)] - COST_TERMINAL);
                         }
                         util
                     } else { 0 }
@@ -1684,70 +1751,48 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
 
     let compressive_utility: i32 = pattern.match_locations.iter()
         .zip(utility_of_loc_once.iter())
-        .map(|(loc,utility)| utility * shared.num_paths_to_node[loc])
+        .map(|(loc,utility)| utility * shared.num_paths_to_node[usize::from(*loc)])
         .sum();
 
-    // * ACCOUNTING FOR USE CONFLICTS:
+
+    // assertion to make sure pattern.match_locations is sorted (for binary searching + bottom up iterating)
+    // {
+    //     let mut largest_seen = -1;
+    //     assert!(pattern.match_locations.iter().all(|x| {
+    //         let res = largest_seen < usize::from(*x) as i32;
+    //         largest_seen = usize::from(*x) as i32;
+    //         res
+    //         }));
+    // }
+
+        // * ACCOUNTING FOR USE CONFLICTS:
+
+
+    use_conflicts(pattern, utility_of_loc_once, compressive_utility, shared)
+}
+
+#[inline(never)]
+fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_utility: i32, shared: &SharedData) -> UtilityCalculation {
 
     // todo opt include holes too
     // zips and ivars
-    let zips: Vec<(Zip,usize)> = pattern.arg_choices.iter().map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(),labelled_zid.ivar)).collect();
-    
-    {
-        // assertion to make sure pattern.match_locations is sorted (for binary searching + bottom up iterating)
-        let mut largest_seen = -1;
-        assert!(pattern.match_locations.iter().all(|x| {
-            let res = largest_seen < usize::from(*x) as i32;
-            largest_seen = usize::from(*x) as i32;
-            res
-            }));
-    }
+    let zips: Vec<(Zip,Option<usize>)> = pattern.arg_choices.iter()
+        .map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(),Some(labelled_zid.ivar)))
+        .chain(pattern.holes.iter().map(|zid| (shared.zip_of_zid[*zid].clone(), None)))
+        .collect();
+    // if holes {
+    //     zips.extend(pattern.holes.iter().map(|zid| (shared.zip_of_zid[zid].clone(),labelled_zid.ivar)))
+    // }
 
     // the idea here is we want the fast-path to be the case where no conflicts happen. If no conflicts happen, there should be
     // zero heap allocations in this whole section! Since empty vecs and hashmaps dont cause allocations yet.
-    let mut corrected_utils: HashMap<Id,CorrectedUtil> = Default::default();
+    let mut corrected_utils: AHashMap<Id,CorrectedUtil> = Default::default();
     let mut global_correction = 0; // this is going to get added to the compressive_utility at the end to correct for use-conflicts
 
     // bottom up traversal since we assume match_locations is sorted
     for (loc_idx,loc) in pattern.match_locations.iter().enumerate() {
         // get all the nodes this could conflict with (by idx within `locs` not by id)
-        let mut conflict_idxs: Vec<(Id,usize)> = vec![];
-        for (zip,ivar) in zips.iter().filter(|(zip,_)| !zip.is_empty()) {
-            let mut id = loc;
-            // for all except the last node in the zipper, push the childs location on as a potential conflict
-            for znode in zip[..zip.len()-1].iter() {
-                // step one deeper
-                id = match (znode, &shared.egraph[*id].nodes[0]) {
-                    (ZNode::Body, Lambda::Lam([b])) => b,
-                    (ZNode::Func, Lambda::App([f,_])) => f,
-                    (ZNode::Arg, Lambda::App([_,x])) => x,
-                    _ => unreachable!()
-                };
-                // if its also a location, push it to the conflicts list (do NOT dedup)
-                if let Ok(idx) = pattern.match_locations.binary_search(id) {
-                    conflict_idxs.push((*id,idx));
-                }
-            }
-            // if this is a refinement, push every descendant of the unshifted argument including it itself as a potential conflict
-            if let Some(_) = pattern.refinements[*ivar] {
-                fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut Vec<(Id,usize)>, pattern: &Pattern) {
-                    if let Ok(idx) = pattern.match_locations.binary_search(&id) {
-                        conflict_idxs.push((id,idx));
-                    }
-                    match &shared.egraph[id].nodes[0] {
-                        Lambda::Lam([b]) => {helper(*b, shared, conflict_idxs, pattern);},
-                        Lambda::App([f,x]) => {
-                            helper(*f, shared, conflict_idxs, pattern);
-                            helper(*x, shared, conflict_idxs, pattern);
-                        }
-                        Lambda::Prim(_) | Lambda::Var(_) | Lambda::IVar(_) => {},
-                        _ => unreachable!()
-                    }
-                }
-                let unshifted_arg: Id = shared.arg_of_zid_node[pattern.first_zid_of_ivar[*ivar]][loc].unshifted_id;
-                helper(unshifted_arg, shared, &mut conflict_idxs, pattern);
-            }
-        }
+        let conflict_idxs: AHashSet<(Id,usize)> = get_conflicts(&zips, loc, shared, pattern);
 
         // now we basically record how much we would affect global utility by if we accept vs reject vs choose the best of those options.
         // and recording this will let us change our mind later if we decide to force-reject something
@@ -1759,7 +1804,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         // (it benefits us or rather brings us back to 0, and leaves maximal flexibility for other things to be accepted/rejected).
         // and theres nothing else we need to account for here.
         if reject >= 0 {
-            global_correction += reject * shared.num_paths_to_node[loc];
+            global_correction += reject * shared.num_paths_to_node[usize::from(*loc)];
             corrected_utils.insert(*loc, CorrectedUtil {
                 accept: false, // we rejected
                 best_util_correction: reject, // we rejected
@@ -1792,7 +1837,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         // update global correction with this applied to all our nodes (note that the same choice makes sense for all nodes
         // from the point of view of this being the top of the tree - it's our parents job to use change_to_reject if they
         // want to reject only certain ones of us)
-        global_correction += best_util_correction * shared.num_paths_to_node[loc];
+        global_correction += best_util_correction * shared.num_paths_to_node[usize::from(*loc)];
 
         let util_change_to_reject = reject - best_util_correction;
 
@@ -1836,10 +1881,56 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     UtilityCalculation { util: (compressive_utility + global_correction), corrected_utils}
 }
 
+#[inline(never)]
+fn get_conflicts(zips: &[(Vec<ZNode>, Option<usize>)], loc: &Id, shared: &SharedData, pattern: &Pattern) -> AHashSet<(Id, usize)> {
+    let mut conflict_idxs = AHashSet::new();
+    for (zip,ivar) in zips.iter().filter(|(zip,_)| !zip.is_empty()) {
+        let mut id = loc;
+        // for all except the last node in the zipper, push the childs location on as a potential conflict
+        for znode in zip[..zip.len()-1].iter() {
+            // step one deeper
+            id = match (znode, &shared.node_of_id[usize::from(*id)]) {
+                (ZNode::Body, Lambda::Lam([b])) => b,
+                (ZNode::Func, Lambda::App([f,_])) => f,
+                (ZNode::Arg, Lambda::App([_,x])) => x,
+                _ => unreachable!()
+            };
+            // if its also a location, push it to the conflicts list (do NOT dedup)
+            if let Ok(idx) = pattern.match_locations.binary_search(id) {
+                conflict_idxs.insert((*id,idx));
+            }
+        }
+        // if this is a refinement, push every descendant of the unshifted argument including it itself as a potential conflict
+        if let Some(ivar) = ivar {
+            if pattern.refinements[*ivar].is_some() {
+                #[inline(never)]
+                fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut AHashSet<(Id,usize)>, pattern: &Pattern) {
+                    if let Ok(idx) = pattern.match_locations.binary_search(&id) {
+                        conflict_idxs.insert((id,idx));
+                    }
+                    match &shared.node_of_id[usize::from(id)] {
+                        Lambda::Lam([b]) => {helper(*b, shared, conflict_idxs, pattern);},
+                        Lambda::App([f,x]) => {
+                            helper(*f, shared, conflict_idxs, pattern);
+                            helper(*x, shared, conflict_idxs, pattern);
+                        }
+                        Lambda::Prim(_) | Lambda::Var(_) | Lambda::IVar(_) => {},
+                        _ => unreachable!()
+                    }
+                }
+                let unshifted_arg: Id = shared.arg_of_zid_node[pattern.first_zid_of_ivar[*ivar]][loc].unshifted_id;
+                helper(unshifted_arg, shared, &mut conflict_idxs, pattern);
+            }
+        }
+    }
+    // conflict_idxs.range(..).into_iter().collect()
+    conflict_idxs
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UtilityCalculation {
     pub util: i32,
-    pub corrected_utils: HashMap<Id,CorrectedUtil>,
+    pub corrected_utils: AHashMap<Id,CorrectedUtil>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1857,7 +1948,7 @@ pub fn compression(
     test_programs_expr: &Option<Expr>,
     iterations: usize,
     cfg: &CompressionStepConfig,
-    tasks: &Vec<String>,
+    tasks: &[String],
     num_prior_inventions: usize,
 ) -> Vec<CompressionStepResult> {
 
@@ -1887,7 +1978,7 @@ pub fn compression(
             &train_rewritten,
             &test_rewritten,
             &inv_name,
-            &cfg,
+            cfg,
             &step_results,
             tasks);
 
@@ -1905,7 +1996,7 @@ pub fn compression(
     }
 
     if cfg.dreamcoder_drop_last {
-        println!("{}",format!("{}","[--dreamcoder-drop-last] dropping final invention".yellow().bold()));
+        println!("{}", "[--dreamcoder-drop-last] dropping final invention".yellow().bold());
         step_results.pop();
     }
 
@@ -1948,8 +2039,8 @@ pub fn compression_step(
     test_programs_expr: &Option<Expr>,
     new_inv_name: &str, // name of the new invention, like "inv4"
     cfg: &CompressionStepConfig,
-    past_invs: &Vec<CompressionStepResult>, // past inventions we've found
-    tasks: &Vec<String>,
+    past_invs: &[CompressionStepResult], // past inventions we've found
+    tasks: &[String],
 ) -> Vec<CompressionStepResult> {
 
     let tstart_total = std::time::Instant::now();
@@ -1966,31 +2057,36 @@ pub fn compression_step(
     println!("set up egraph: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
-    let roots: Vec<Id> = egraph[train_programs_node].nodes[0].children().iter().cloned().collect();
+    let roots: Vec<Id> = egraph[train_programs_node].nodes[0].children().to_vec();
 
     // all nodes in child-first order except for the Programs node
     let mut treenodes: Vec<Id> = topological_ordering(train_programs_node, &egraph);
+    assert!(treenodes.iter().enumerate().all(|(i,node)| i == usize::from(*node)));
+    // assert_eq!(treenodes.iter().map(|n| usize::from(*n)).collect::<Vec<_>>(), (0..treenodes.len()).collect::<Vec<_>>());
+    let node_of_id: Vec<Lambda> = treenodes.iter().map(|node| egraph[*node].nodes[0].clone()).collect();
     treenodes.retain(|id| *id != train_programs_node);
 
-    println!("got roots and treenodes: {:?}ms", tstart.elapsed().as_millis());
+    println!("got roots, treenodes, and cloned egraph contents: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
     // populate num_paths_to_node so we know how many different parts of the programs tree
     // a node participates in (ie multiple uses within a single program or among programs)
-    let num_paths_to_node: HashMap<Id,i32> = num_paths_to_node(&roots, &treenodes, &egraph);
+    let num_paths_to_node: Vec<i32> = num_paths_to_node(&roots, &treenodes, &egraph);
 
     println!("num_paths_to_node(): {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
-    let tasks_of_node: HashMap<Id, HashSet<usize>> = associate_tasks(train_programs_node, &egraph, tasks);
+    let tasks_of_node: Vec<AHashSet<usize>> = associate_tasks(train_programs_node, &egraph, &treenodes, tasks);
 
     println!("associate_tasks(): {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
     // cost of a single usage of a node (same as inventionless_cost)
-    let cost_of_node_once: HashMap<Id,i32> = treenodes.iter().map(|node| (*node,egraph[*node].data.inventionless_cost)).collect();
+    let cost_of_node_once: Vec<i32> = treenodes.iter().map(|node| egraph[*node].data.inventionless_cost).collect();
     // cost of a single usage times number of paths to node
-    let cost_of_node_all: HashMap<Id,i32> = treenodes.iter().map(|node| (*node,cost_of_node_once[node] * num_paths_to_node[node])).collect();
+    let cost_of_node_all: Vec<i32> = treenodes.iter().map(|node| cost_of_node_once[usize::from(*node)] * num_paths_to_node[usize::from(*node)]).collect();
+
+    let free_vars_of_node: Vec<AHashSet<i32>> = treenodes.iter().map(|node| egraph[*node].data.free_vars.clone()).collect();
 
     println!("cost_of_node structs: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
@@ -2037,7 +2133,7 @@ pub fn compression_step(
             }
 
             // check whether this invention is useful in > 1 task
-            if !cfg.no_opt_single_task && tasks_of_node[&node].len() < 2 {
+            if !cfg.no_opt_single_task && tasks_of_node[usize::from(*node)].len() < 2 {
                 if !cfg.no_stats { stats.single_task_fired += 1; };
                 continue;
             }
@@ -2046,10 +2142,10 @@ pub fn compression_step(
             // be useful at that node
 
             let match_locations = vec![*node];
-            let body_utility_no_refinement = cost_of_node_once[node];
+            let body_utility_no_refinement = cost_of_node_once[usize::from(*node)];
             let refinement_body_utility = 0;
             // compressive_utility for arity-0 is cost_of_node_all[node] minus the penalty of using the new prim
-            let compressive_utility = cost_of_node_all[node] - num_paths_to_node[node] * COST_TERMINAL;
+            let compressive_utility = cost_of_node_all[usize::from(*node)] - num_paths_to_node[usize::from(*node)] * COST_TERMINAL;
             let utility = compressive_utility + noncompressive_utility(body_utility_no_refinement + refinement_body_utility, cfg);
             if utility <= 0 { continue; }
 
@@ -2070,7 +2166,7 @@ pub fn compression_step(
                 compressive_utility,
                 util_calc: UtilityCalculation { util: compressive_utility, corrected_utils: Default::default()},
                 arity: 0,
-                usages: num_paths_to_node[node]
+                usages: num_paths_to_node[usize::from(*node)]
             };
             donelist.push(finished_pattern);
         }
@@ -2081,12 +2177,13 @@ pub fn compression_step(
 
     println!("got {} arity zero inventions", donelist.len());
 
-    let crit = CriticalMultithreadData::new(donelist, &treenodes, &cost_of_node_all, &num_paths_to_node, &egraph, &cfg);
+    let crit = CriticalMultithreadData::new(donelist, cfg);
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
         max_heapkey: Mutex::new(cfg.heap_choice.init()),
         arg_of_zid_node,
         treenodes: treenodes.clone(),
+        node_of_id,
         programs_node: train_programs_node,
         zids_of_node,
         zip_of_zid,
@@ -2098,13 +2195,14 @@ pub fn compression_step(
         tasks_of_node,
         cost_of_node_once,
         cost_of_node_all,
+        free_vars_of_node,
         stats: Mutex::new(stats),
         cfg: cfg.clone(),
         tracking,
     });
 
     { // scoping to ensure lock drops, not sure if this is needed
-        shared.crit.lock().deref_mut().worklist.push(HeapItem::new(Pattern::single_hole(&*shared), &*shared));
+        shared.crit.lock().deref_mut().worklist.push(HeapItem::new(Pattern::single_hole(&shared), &*shared));
     }
 
     println!("built SharedData: {:?}ms", tstart.elapsed().as_millis());
@@ -2158,7 +2256,7 @@ pub fn compression_step(
     let mut shared: SharedData = Arc::try_unwrap(shared).unwrap();
 
     // one last .update()
-    shared.crit.lock().deref_mut().update(&cfg);
+    shared.crit.lock().deref_mut().update(cfg);
 
     println!("{:?}", shared.stats.lock().deref_mut());
     assert!(shared.crit.lock().deref_mut().worklist.is_empty());

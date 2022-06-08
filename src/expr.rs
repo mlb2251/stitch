@@ -124,13 +124,13 @@ impl FromOp for Lambda {
             }
             "programs" => Ok(Self::Programs(children)),
             _ => {
-                if children.len() != 0 {
+                if !children.is_empty() {
                     return Err(format!("{} needs 0 children, got {}", op, children.len()))
                 }
-                if op.starts_with("$") {
+                if op.starts_with('$') {
                     let i = op.chars().skip(1).collect::<String>().parse::<i32>().unwrap();
                     Ok(Self::Var(i))
-                } else if op.starts_with("#") {
+                } else if op.starts_with('#') {
                     let i = op.chars().skip(1).collect::<String>().parse::<i32>().unwrap();
                     Ok(Self::IVar(i))
                 } else {
@@ -192,7 +192,7 @@ impl std::str::FromStr for Expr {
 impl Expr {
     /// Construct a new Expr
     pub fn new(nodes: Vec<Lambda>) -> Self {
-        Self { nodes: nodes }
+        Self { nodes }
     }
 
     /// Returns the root
@@ -349,7 +349,7 @@ impl Expr {
     /// Uncurried: (foo x y)
     /// Curried: (app (app foo x) y)
     pub fn to_string_uncurried(&self, child:Option<Id>) -> String {
-        uncurry_sexp(&self.to_sexp(child.unwrap_or(self.root()))).to_string()
+        uncurry_sexp(&self.to_sexp(child.unwrap_or_else(|| self.root()))).to_string()
     }
 
     /// convert to an s expression. Useful for printing / parsing purposes

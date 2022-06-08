@@ -1,5 +1,5 @@
 use crate::*;
-use std::collections::{HashMap, HashSet};
+use ahash::{AHashSet, AHashMap};
 use compression::*;
 
 
@@ -70,7 +70,7 @@ pub fn rewrite_fast(
             let mut expr = Expr::prim(inv_name.into());
             // wrap the prim in all the Apps to args
             for (ivar,zid) in pattern.pattern.first_zid_of_ivar.iter().enumerate() {
-                let ref arg: Arg = shared.arg_of_zid_node[*zid][&unshifted_id];
+                let arg: &Arg = &shared.arg_of_zid_node[*zid][&unshifted_id];
 
 
                 // assert!(shared.egraph[arg.shifted_id].data.free_vars.iter().all(|v| *v >= 0));
@@ -111,7 +111,7 @@ pub fn rewrite_fast(
         }
 
 
-        match &shared.egraph[unshifted_id].nodes[0] {
+        match &shared.node_of_id[usize::from(unshifted_id)] {
             Lambda::Prim(p) => Expr::prim(*p),
             Lambda::Var(i) => {
                 let mut j = *i;
@@ -156,7 +156,7 @@ pub fn rewrite_fast(
         helper(pattern, shared, *root, 0, shift_rules, inv_name, None)
     }).collect();
 
-    if !shared.cfg.no_mismatch_check {
+    if !shared.cfg.no_mismatch_check && !shared.cfg.utility_by_rewrite {
         assert_eq!(
             rewritten_exprs.iter().map(|e|e.cost()).sum::<i32>(),
             init_cost - pattern.util_calc.util,
@@ -246,7 +246,7 @@ pub fn rewrite_with_invention_egraph(
     assert!(!treenodes.iter().any(|n| egraph[*n].nodes[0] == Lambda::Prim(Symbol::from(&inv.name))),
         "Invention {} already in tree", inv.name);
 
-    let mut nodecost_of_treenode: HashMap<Id,NodeCost> = Default::default();
+    let mut nodecost_of_treenode: AHashMap<Id,NodeCost> = Default::default();
     
     for treenode in treenodes.iter() {
         // println!("processing id={}: {}", treenode, extract(*treenode, egraph) );
@@ -262,7 +262,7 @@ pub fn rewrite_with_invention_egraph(
                 COST_TERMINAL // the new primitive for this invention
                 + COST_NONTERMINAL * inv.arity as i32 // the chain of app()s needed to apply the new primitive
                 + args.iter()
-                    .map(|id| nodecost_of_treenode[&id]
+                    .map(|id| nodecost_of_treenode[id]
                         .cost_under_inv(&inv)) // cost under ANY of the invs since we allow multiple to be used!
                     .sum::<i32>(); // sum costs of actual args
                     nodecost.new_cost_under_inv(inv.clone(), cost, Some(args));
@@ -275,8 +275,8 @@ pub fn rewrite_with_invention_egraph(
             Lambda::Var(_) => {},
             Lambda::Prim(_) => {},
             Lambda::App([f,x]) => {
-                let ref f_nodecost = nodecost_of_treenode[&f];
-                let ref x_nodecost = nodecost_of_treenode[&x];
+                let f_nodecost = &nodecost_of_treenode[&f];
+                let x_nodecost = &nodecost_of_treenode[&x];
                                 
                 // costs with inventions as 1 + fcost + xcost. Use inventionless cost as a default.
                 // if either fcost or xcost is None (ie infinite)
@@ -287,7 +287,7 @@ pub fn rewrite_with_invention_egraph(
             }
             Lambda::Lam([b]) => {
                 // just map +1 over the costs
-                let ref b_nodecost = nodecost_of_treenode[&b];
+                let b_nodecost = &nodecost_of_treenode[&b];
                 let bcost = b_nodecost.cost_under_inv(&inv);
                 nodecost.new_cost_under_inv(inv.clone(), bcost + COST_NONTERMINAL, None);
             }
@@ -310,11 +310,11 @@ pub fn rewrite_with_invention_egraph(
 fn extract_from_nodecosts(
     root: Id,
     inv: &PtrInvention,
-    nodecost_of_treenode: &HashMap<Id,NodeCost>,
+    nodecost_of_treenode: &AHashMap<Id,NodeCost>,
     egraph: &crate::EGraph,
 ) -> Expr {
 
-    let target_cost = nodecost_of_treenode[&root].cost_under_inv(&inv);
+    let target_cost = nodecost_of_treenode[&root].cost_under_inv(inv);
 
     if let Some((inv,_cost,args)) = nodecost_of_treenode[&root].top_invention() {
         if let Some(args) = args {
@@ -327,7 +327,7 @@ fn extract_from_nodecosts(
                 expr = Expr::app(expr,arg_expr);
             }
             assert_eq!(target_cost,expr.cost());
-            return expr
+            expr
         } else {
             // inventions were used in our children
             let expr: Expr = match &egraph[root].nodes[0] {
@@ -349,13 +349,13 @@ fn extract_from_nodecosts(
                 }
             };
             assert_eq!(target_cost,expr.cost());
-            return expr
+            expr
         }
     } else {
         // no invention was useful, just return original tree
         let expr =  extract(root, egraph);
         assert_eq!(target_cost,expr.cost());
-        return expr
+        expr
     }
 }
 
@@ -364,14 +364,14 @@ fn extract_from_nodecosts(
 #[derive(Debug,Clone)]
 struct NodeCost {
     inventionless_cost: i32,
-    inventionful_cost: HashMap<PtrInvention, (i32,Option<Vec<Id>>)>, // i32 = cost; and Some(args) gives the arguments if the invention is used at this node
+    inventionful_cost: AHashMap<PtrInvention, (i32,Option<Vec<Id>>)>, // i32 = cost; and Some(args) gives the arguments if the invention is used at this node
 }
 
 impl NodeCost {
     fn new(inventionless_cost: i32) -> Self {
         Self {
-            inventionless_cost: inventionless_cost,
-            inventionful_cost: HashMap::new()
+            inventionless_cost,
+            inventionful_cost: AHashMap::new()
         }
     }
     /// cost under an invention if it's useful for this node, else inventionless cost
@@ -381,11 +381,10 @@ impl NodeCost {
     /// improve the cost using a new invention, or do nothing if we've already seen
     /// a better cost for this invention. Also skip if inventionless cost is better.
     fn new_cost_under_inv(&mut self, inv: PtrInvention, cost:i32, args: Option<Vec<Id>>) {
-        if cost < self.inventionless_cost {
-            if !self.inventionful_cost.contains_key(&inv)
-               || cost < self.inventionful_cost[&inv].0  {
-                self.inventionful_cost.insert(inv, (cost,args));
-            }
+        if cost < self.inventionless_cost
+                && (!self.inventionful_cost.contains_key(&inv) || cost < self.inventionful_cost[&inv].0)
+        {
+            self.inventionful_cost.insert(inv, (cost,args));
         }
     }
     /// Get the top inventions in decreasing order of cost
@@ -405,7 +404,7 @@ impl NodeCost {
 fn match_expr_with_inv(
     root: Id,
     inv: &PtrInvention,
-    best_inventions_of_treenode: &mut HashMap<Id, NodeCost>,
+    best_inventions_of_treenode: &mut AHashMap<Id, NodeCost>,
     egraph: &mut crate::EGraph,
 ) -> Option<Vec<Id>> {
     let mut args: Vec<Option<Id>> = vec![None;inv.arity];
@@ -423,8 +422,8 @@ fn match_expr_with_inv_rec(
     inv: Id,
     depth: i32,
     args: &mut [Option<Id>],
-    threadables: &HashSet<Id>,
-    best_inventions_of_treenode: &mut HashMap<Id, NodeCost>,
+    threadables: &AHashSet<Id>,
+    best_inventions_of_treenode: &mut AHashMap<Id, NodeCost>,
     egraph: &mut crate::EGraph,
 ) -> bool {
     // println!("comparing:\n\t{}\n\t{}",
@@ -440,7 +439,7 @@ fn match_expr_with_inv_rec(
 
             // a thread site only applies when the set of internal pointers is the same
             // as the thread site's set of pointers.
-            let internal_free_vars: HashSet<i32> = egraph[root].data.free_vars.iter().filter(|i| **i < depth).cloned().collect();
+            let internal_free_vars: AHashSet<i32> = egraph[root].data.free_vars.iter().filter(|i| **i < depth).cloned().collect();
             let num_to_thread = internal_free_vars.len() as i32;
             if internal_free_vars == egraph[inv].data.free_vars {
                 // println!("threading");
@@ -449,7 +448,7 @@ fn match_expr_with_inv_rec(
                 // for example when matching (#0 $0) against (inc $0) we can simply set #0=inc instead of #0=(lam (inc $0))
                 // lets clone our args and reset if this fails
                 if let Lambda::App([f,x]) = root_node {
-                    let cloned_args: Vec<_> = args.iter().cloned().collect();
+                    let cloned_args: Vec<_> = args.to_vec();
                     if match_expr_with_inv_rec(*f, *g, depth, args, threadables, best_inventions_of_treenode, egraph)
                     && match_expr_with_inv_rec(*x, *y, depth, args, threadables, best_inventions_of_treenode, egraph) {
                         return true;
@@ -500,7 +499,7 @@ fn match_expr_with_inv_rec(
         },
         (Lambda::App([f,x]), Lambda::App([g,y])) => {
             // not threadable case 
-            return match_expr_with_inv_rec(*f, *g, depth, args, threadables, best_inventions_of_treenode, egraph)
+            match_expr_with_inv_rec(*f, *g, depth, args, threadables, best_inventions_of_treenode, egraph)
             && match_expr_with_inv_rec(*x, *y, depth, args, threadables, best_inventions_of_treenode, egraph)
         }
         (Lambda::Lam([b]), Lambda::Lam([c])) => {
@@ -516,7 +515,7 @@ fn match_expr_with_inv_rec(
                 // 2. `root` has free variables but they all point outside the invention so are safe to decrement
                 
                 // copy the cost of the unshifted node to the shifted node (see PR#1 comments for why this is safe)
-                fn shift_and_fix(node: Id, depth: i32, best_inventions_of_treenode: &mut HashMap<Id,NodeCost>, egraph: &mut crate::EGraph) -> Id {
+                fn shift_and_fix(node: Id, depth: i32, best_inventions_of_treenode: &mut AHashMap<Id,NodeCost>, egraph: &mut crate::EGraph) -> Id {
                     let shifted_node = shift(node, -depth, egraph, &mut None).unwrap();
                     if best_inventions_of_treenode.contains_key(&shifted_node) {
                         return shifted_node; // this has already been handled
@@ -553,20 +552,19 @@ fn match_expr_with_inv_rec(
     }
 }
 
-fn threadables_of_inv(inv: PtrInvention, egraph: &crate::EGraph) -> HashSet<Id> {
+fn threadables_of_inv(inv: PtrInvention, egraph: &crate::EGraph) -> AHashSet<Id> {
     // a threadable is a (app #i $j) or (app <threadable> $j)
     // assert j > k sanity check
     // println!("Invention: {}", inv.to_expr(egraph));
-    let mut threadables: HashSet<Id> = Default::default();
+    let mut threadables: AHashSet<Id> = Default::default();
     let nodes = topological_ordering(inv.body, egraph);
     for node in nodes {
         if let Lambda::App([f,x]) = egraph[node].nodes[0] {
-            if matches!(egraph[x].nodes[0], Lambda::Var(_)) {
-                if matches!(egraph[f].nodes[0], Lambda::IVar(_)) ||
-                  threadables.contains(&f) {
-                    threadables.insert(node);
-                    // println!("Identified threadable: {}", extract(node,egraph));
-                }
+            if matches!(egraph[x].nodes[0], Lambda::Var(_))
+                    && (matches!(egraph[f].nodes[0], Lambda::IVar(_)) || threadables.contains(&f))
+            {
+                threadables.insert(node);
+                // println!("Identified threadable: {}", extract(node,egraph));
             }
         }
     }
