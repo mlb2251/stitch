@@ -38,9 +38,6 @@ version = "0.16.1"
 features = ["extension-module"]
 optional = true
 
-[profile.release]
-debug = true # for flamegraphs
-
 [dev-dependencies]
 criterion = {version = "0.3", features = ["html_reports"]}
 

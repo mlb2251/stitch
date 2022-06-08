@@ -30,16 +30,18 @@ for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
     WL=$(basename -s .json $WL_PATH)
     # first chunk the dataset
     pushd $STITCH_DIR
-    cargo run --bin=chunk-dataset -- -n 5 -o $OUT_DIR/$WL $WL_PATH
+    cargo run --bin=split-dataset -- -w 50 -s 10 -o $OUT_DIR/$WL $WL_PATH
     popd
 
-    # then do 50 stitch runs over each chunk
+    # then do several stitch runs over each chunk
     for MODE in "length" "depth" ; do
-    for CHUNK in {0..4} ; do
+    for CHUNK_PATH in $OUT_DIR/$WL/$MODE/* ; do
     for RUN in {1..10} ; do
     OUTF=$OUT_DIR/$WL/$MODE/runs/$RUN
+    CHUNK=$(basename -s .json $CHUNK_PATH)
     mkdir -p $OUTF
-    $STITCH_DIR/target/release/compress $OUT_DIR/$WL/$MODE/$CHUNK.json --hole-choice=last --heap-choice=max-bound --fmt=programs-list --max-arity=3 --iterations=10 --out=$OUT_DIR/$WL/$MODE/$CHUNK-out.json | grep -F "Time: " >> $OUTF/times
+    echo "Chunk path: $CHUNK_PATH"
+    $STITCH_DIR/target/release/compress $CHUNK_PATH --hole-choice=depth-first --heap-choice=max-bound --fmt=programs-list --max-arity=3 --iterations=10 --out=$OUT_DIR/$WL/$MODE/$CHUNK-out.json | grep -F "Time: " >> $OUTF/times
     done
     done
     done
