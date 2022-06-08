@@ -170,7 +170,35 @@ impl From<&Expr> for &RecExpr<Lambda> {
 
 impl Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_string_uncurried(None))
+        // write!(f, "{}", self.to_string_uncurried(None))
+        fn fmt_local(e: &Expr, child: Id, left_of_app: bool, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match &e.nodes[usize::from(child)] {
+                Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => write!(f,"{}", &e.nodes[usize::from(child)]),
+                Lambda::App([fun,x]) => {
+                    // if you are the left side of an application, and you are an application, you dont need parens
+                    if !left_of_app { write!(f,"(")? }
+                    fmt_local(&e, *fun, true, f)?;
+                    write!(f," ")?;
+                    fmt_local(&e, *x, false, f)?;
+                    if !left_of_app { write!(f,")") } else { Ok(()) }
+                },
+                Lambda::Lam([b]) => {
+                    write!(f,"(lam ")?;
+                    fmt_local(&e, *b, false, f)?;
+                    write!(f,")")
+                },
+                Lambda::Programs(ids) => {
+                    write!(f,"(")?;
+                    for id in ids[..ids.len()-1].iter() {
+                        fmt_local(&e, *id, false, f)?;
+                        write!(f," ")?;
+                    }
+                    fmt_local(&e, *ids.last().unwrap(), false, f)?;
+                    write!(f,")")
+                },
+            }
+        }
+        fmt_local(self, self.root(), false, f)
     }
 }
 
