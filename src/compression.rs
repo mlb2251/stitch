@@ -514,7 +514,11 @@ pub struct SharedData {
     pub uses_of_shifted_arg_refinement: AHashMap<Id,AHashMap<Id,usize>>,
     pub egraph: EGraph,
     pub num_paths_to_node: Vec<i32>,
+    pub num_paths_to_node_by_root_idx: Vec<Vec<i32>>,
     pub tasks_of_node: Vec<AHashSet<usize>>,
+    pub task_name_of_task: Vec<String>,
+    pub task_of_root_idx: Vec<usize>,
+    pub root_idxs_of_task: Vec<Vec<usize>>,
     pub cost_of_node_once: Vec<i32>,
     pub cost_of_node_all: Vec<i32>,
     pub free_vars_of_node: Vec<AHashSet<i32>>,
@@ -1519,7 +1523,6 @@ fn noncompressive_utility(
     if cfg.no_other_util { return 0; }
     // this is a bit like the structure penalty from dreamcoder except that
     // that penalty uses inlined versions of nested inventions.
-    
     - body_utility_with_refinement
 }
 
@@ -1649,16 +1652,22 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         ).sum::<i32>();
         // println!("multiuse {}", multiuse_utility);
 
-        // multiply all this utility by the number of times this node shows up
         base_utility + multiuse_utility + refinement_utility
         }).collect();
 
-
+    let compressive_utility_by_root_idx: Vec<i32> = shared.num_paths_to_node_by_root_idx.iter().map(|num_paths_to_node_local|
+        pattern.match_locations.iter()
+        .zip(utility_of_loc_once.iter())
+        .map(|(loc,utility)| utility * num_paths_to_node_local[usize::from(*loc)])
+        .sum()
+    ).collect();
+    
     let compressive_utility: i32 = pattern.match_locations.iter()
         .zip(utility_of_loc_once.iter())
         .map(|(loc,utility)| utility * shared.num_paths_to_node[usize::from(*loc)])
         .sum();
 
+    assert_eq!(compressive_utility_by_root_idx.iter().sum::<i32>(), compressive_utility);
 
     // assertion to make sure pattern.match_locations is sorted (for binary searching + bottom up iterating)
     // {
@@ -1670,8 +1679,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     //         }));
     // }
 
-        // * ACCOUNTING FOR USE CONFLICTS:
-
+    // * ACCOUNTING FOR USE CONFLICTS:
 
     use_conflicts(pattern, utility_of_loc_once, compressive_utility, shared)
 }
@@ -1691,6 +1699,10 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
 
     // the idea here is we want the fast-path to be the case where no conflicts happen. If no conflicts happen, there should be
     // zero heap allocations in this whole section! Since empty vecs and hashmaps dont cause allocations yet.
+    // corrected_utils is a mapping from node to a struct that says whether we accept/reject the node along with the utility
+    // change that would happen if you switched to rejecting it. If something is not in this struct is means it's accepted for sure.
+    // Note that we never need to actually mutate old entries in this because at the end of the day we'll do a *top down* traversal
+    // during rewriting so as soon as we choose to accept something any rejections that that implies are automatically handled ofc.
     let mut corrected_utils: AHashMap<Id,CorrectedUtil> = Default::default();
     let mut global_correction = 0; // this is going to get added to the compressive_utility at the end to correct for use-conflicts
 
@@ -1919,7 +1931,7 @@ pub fn compression_step(
     new_inv_name: &str, // name of the new invention, like "inv4"
     cfg: &CompressionStepConfig,
     past_invs: &[CompressionStepResult], // past inventions we've found
-    tasks: &[String],
+    task_name_of_root_idx: &[String],
     prev_dc_inv_to_inv_strs: &Vec<(String, String)>,
 ) -> Vec<CompressionStepResult> {
 
@@ -1950,14 +1962,30 @@ pub fn compression_step(
 
     // populate num_paths_to_node so we know how many different parts of the programs tree
     // a node participates in (ie multiple uses within a single program or among programs)
-    let num_paths_to_node: Vec<i32> = num_paths_to_node(&roots, &treenodes, &egraph);
+    let (num_paths_to_node, num_paths_to_node_by_root_idx) : (Vec<i32>, Vec<Vec<i32>>) = num_paths_to_node(&roots, &treenodes, &egraph);
 
     println!("num_paths_to_node(): {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
-    let tasks_of_node: Vec<AHashSet<usize>> = associate_tasks(programs_node, &egraph, &treenodes, tasks);
 
-    println!("associate_tasks(): {:?}ms", tstart.elapsed().as_millis());
+    let mut task_name_of_task: Vec<String> = vec![];
+    let mut task_of_root_idx: Vec<usize> = vec![];
+    let mut root_idxs_of_task: Vec<Vec<usize>> = vec![];
+    for (root_idx,task_name) in task_name_of_root_idx.iter().enumerate() {
+        let task = task_name_of_task.iter().position(|name| name == task_name)
+            .unwrap_or_else(||{
+                task_name_of_task.push(task_name.clone());
+                root_idxs_of_task.push(vec![]);
+                task_name_of_task.len() - 1
+            });
+        task_of_root_idx.push(task);
+        root_idxs_of_task[task].push(root_idx);
+    }
+    let tasks_of_node: Vec<AHashSet<usize>> = associate_tasks(programs_node, &egraph, &treenodes, &task_of_root_idx);
+
+    println!("associate_tasks() and other task stuff: {:?}ms", tstart.elapsed().as_millis());
+    println!("num unique tasks: {}", task_name_of_task.len());
+    println!("num unique programs: {}", roots.len());
     tstart = std::time::Instant::now();
 
     // cost of a single usage of a node (same as inventionless_cost)
@@ -2071,7 +2099,11 @@ pub fn compression_step(
         uses_of_shifted_arg_refinement,
         egraph,
         num_paths_to_node,
+        num_paths_to_node_by_root_idx,
         tasks_of_node,
+        task_name_of_task,
+        task_of_root_idx,
+        root_idxs_of_task,
         cost_of_node_once,
         cost_of_node_all,
         free_vars_of_node,
