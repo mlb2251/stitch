@@ -13,10 +13,12 @@ def get_data(path, mode):
     #print(path)
     #input()
     with open(path, 'r') as infile:
+        print(path)
         if mode == 'ex1':
-            ss = []
+            ss = {}
             for line in infile:
-                ss.append(float(re.match(r'Time: ([^m]*)ms', line).group(1))/1000.)
+                if line.strip():
+                    ss[str(re.match(r'^([^:]*):', line).group(1))] = float(re.match(r'.*Time: ([^m]*)ms', line).group(1))/1000.
             return ss
             #s = None
             #mb = None
@@ -86,12 +88,29 @@ if mode == 'ex1':
     colors = [color1, color2]
     markers= ['o', '*']
     for wl, host in zip(workloads, hosts.flatten()):
-        wl_path = f"{path}/{wl}-chunked"
-        for m, color, marker in zip(["depth", "length"], colors, markers):
-            ms = get_data(f"{wl_path}/{m}/stitch-results", "ex1")
-            host.plot(list(range(1, 6)), ms, color=color, marker=marker, label=f'split by {m}')
+        mss = {'depth': {}, 'length': {}}
+        for m in ["depth", "length"]:
+            seeds = os.listdir('/'.join([path, wl, m, 'runs']))
+            for seed in seeds:
+                data = get_data('/'.join([path, wl, m, 'runs', seed, 'times']), 'ex1')
+                for k, v in data.items():
+                    if k not in mss[m]:
+                        mss[m][k] = np.array([])
+                    mss[m][k] = np.append(mss[m][k], v)
+
+        def sorted_ms_means(ms_map):
+            ranges = list(ms_map.keys())
+            ranges.sort(key=lambda s: int(s[: s.index('-')]))
+            return ranges, [np.mean(ms_map[x]) for x in ranges]
+        depth_r, depth_m = sorted_ms_means(mss['depth'])
+        length_r, length_m = sorted_ms_means(mss['length'])
+        assert depth_r == length_r
+        host.bar(np.arange(len(seeds)) - 0.2, depth_m, width=0.4, color=color1, label=f'by depth')
+        host.bar(np.arange(len(seeds)) + 0.2, length_m, width=0.4, color=color2, label=f'by length')
         host.legend(loc='best')
         host.set_title(wl_to_human_readable[wl])
+        host.set_xticks(np.arange(len(seeds)))
+        host.set_xticklabels(depth_r, rotation=90)
     fig.supxlabel('Chunk')
     fig.supylabel('Runtime (s)')
     #for idx, (wl, host) in enumerate(zip(workloads, hosts.flatten())):
