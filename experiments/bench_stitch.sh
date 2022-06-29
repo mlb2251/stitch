@@ -48,6 +48,10 @@ for BENCH_PATH in $BENCH_DIR/bench*.json; do
     BENCH=$(basename -s .json $BENCH_PATH)
     if [ $MODE == "compare" ]; then
         ITERATIONS=$(python3 analyze.py iteration_budget $COMPARE_TO $BENCH_PATH)
+        if [ $ITERATIONS -eq 0 ]; then
+            echo "skipping $BENCH_PATH since comparison is nonexistant or has zero iterations"
+            continue
+        fi
     else
         ITERATIONS=10 # whatever
     fi

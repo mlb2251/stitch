@@ -1,5 +1,9 @@
 #!/bin/bash
 
+
+echo "this script is old"
+exit 1
+
 # $1 must match the path to the DreamCoder PLDI artifact, and must
 # not include a trailing /
 if [ -z $1 ]

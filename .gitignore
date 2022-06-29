@@ -16,3 +16,7 @@ experiments/benches/
 experiments/compression_dev
 experiments/data_dreamcoder/
 experiments/dreamcoder_logs/
+experiments/benches*
+experiments/cs2*
+experiments/plots
+experiments/launchers

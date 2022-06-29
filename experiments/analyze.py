@@ -286,6 +286,12 @@ def process_dreamcoder_inventions(in_file, out_file):
     in_invs_stitch = to_stitch_invs(in_invs_dc)
     out_invs_stitch = to_stitch_invs(diff_dreamcoder(in_invs_dc, out_invs_dc), start_from=in_invs_stitch)
     new_invs_stitch = diff_stitch(in_invs_stitch, out_invs_stitch)
+
+    in_frontiers_dc = [[p['program'] for p in f['programs']] for f in in_json['frontiers']]
+    out_frontiers_dc = [[p['program'] for p in f['programs']] for f in out_json['frontiers']]
+
+    in_frontiers_stitch = [[to_stitch_program(p,in_invs_stitch) for p in ps] for ps in in_frontiers_dc]
+    out_frontiers_stitch = [[to_stitch_program(p,out_invs_stitch) for p in ps] for ps in out_frontiers_dc]
     
     in_programs_dc = [programs['program'] for f in in_json['frontiers'] for programs in f['programs']]
     out_programs_dc = [programs['program'] for f in out_json['frontiers'] for programs in f['programs']]
@@ -301,10 +307,15 @@ def process_dreamcoder_inventions(in_file, out_file):
     absolute_compression = in_size - (out_size + inv_size)
     compression_ratio = in_size / (out_size + inv_size)
 
+    compression_ratio_min = (sum([min([stitch_size(p) for p in ps]) for ps in in_frontiers_stitch])
+    / (sum([min([stitch_size(p) for p in ps]) for ps in out_frontiers_stitch]) + inv_size))
+
+
     return {
         'metrics': {
             'absolute_compression': absolute_compression,
             'compression_ratio': compression_ratio,
+            'compression_ratio_min': compression_ratio_min,
         },
         'inventions': new_invs_stitch,
     }
@@ -318,10 +329,22 @@ def process_stitch_inventions(in_file, out_file):
 
     new_invs_stitch = stitch_json_to_stitch_invs(out_json)
 
+    in_frontiers_dc = [[p['program'] for p in f['programs']] for f in in_json['frontiers']]
+    in_frontiers_stitch = [[to_stitch_program(p,in_invs_stitch) for p in ps] for ps in in_frontiers_dc]
+
     in_programs_dc = [programs['program'] for f in in_json['frontiers'] for programs in f['programs']]
     in_programs_stitch = [to_stitch_program(p,in_invs_stitch) for p in in_programs_dc]
 
     out_programs_stitch = out_json["invs"][-1]["rewritten"] if len(new_invs_stitch) > 0 else in_programs_stitch
+    out_frontiers_stitch = []
+    # todo assuming stitch maintains the order of input programs so we can reconstruct the frontiers as contiguous
+    i = 0
+    for f in in_frontiers_stitch:
+        out_frontiers_stitch.append([])
+        for p in f:
+            out_frontiers_stitch[-1].append(out_programs_stitch[i])
+            i += 1
+    assert i == len(out_programs_stitch)
 
     in_size = sum([stitch_size(p) for p in in_programs_stitch])
     out_size = sum([stitch_size(p) for p in out_programs_stitch])
@@ -331,6 +354,9 @@ def process_stitch_inventions(in_file, out_file):
     absolute_compression = in_size - (out_size + inv_size)
     compression_ratio = in_size / (out_size + inv_size)
 
+    compression_ratio_min = (sum([min([stitch_size(p) for p in ps]) for ps in in_frontiers_stitch])
+        / (sum([min([stitch_size(p) for p in ps]) for ps in out_frontiers_stitch]) + inv_size))
+
     # todo add checks to make sure these are all the same as whats inside out_json
 
     assert in_size == out_json["original_cost"]
@@ -339,6 +365,7 @@ def process_stitch_inventions(in_file, out_file):
         'metrics': {
             'absolute_compression': absolute_compression,
             'compression_ratio': compression_ratio,
+            'compression_ratio_min': compression_ratio_min,
         },
         'inventions': new_invs_stitch,
     }
@@ -455,7 +482,7 @@ def run_info(dir):
     return res
 
 def get_benches(bench_dir):
-    assert bench_dir.parent.name == 'benches'
+    # assert bench_dir.parent.name == 'benches'
     bench_names = [] # eg ["bench000_iteration_0", ...]
     for file in bench_dir.glob('bench*.json'):
         bench_names.append(file.stem)
@@ -633,9 +660,12 @@ if __name__ == '__main__':
             # time_per_inv_with_rewrite and time_per_inv_no_rewrite
             if mode == 'dreamcoder':
                 no_rewrite = get_times('Timing Comparison Point A (vspace+beam) (millis):')
-                no_rewrite = no_rewrite[:-1] # drop the last one which was rejected
                 with_rewrite = get_times('Timing Comparison Point B (vspace+beam+batched_rewrite) (millis):')
-                with_rewrite = with_rewrite[:-1] # drop the last one which was rejected
+                if len(no_rewrite) == processed['num_inventions'] + 1:
+                    no_rewrite = no_rewrite[:-1] # drop the last one which was rejected
+                if len(with_rewrite) == processed['num_inventions'] + 1:
+                    with_rewrite = with_rewrite[:-1] # drop the last one which was rejected
+
             elif mode == 'stitch':
                 no_rewrite = get_times('Timing Comparison Point A (search) (millis):')
                 with_rewrite = get_times('Timing Comparison Point B (search+rewrite) (millis):')
@@ -710,6 +740,7 @@ if __name__ == '__main__':
         TIME_MIDDLE_REWRITE = 'time_middle_rewrite_seconds'
         TIME_FINAL_REWRITE = 'time_final_rewrite_seconds'
         COMPRESSION_RATIO = 'compression_ratio'
+        COMPRESSION_RATIO_MIN = 'compression_ratio_min'
         COMPRESSION_UTILITY = 'compression_utility'
         STITCH_UTILITY = 'stitch_utility'
         PCFG_SCORE = 'pcfg_score'
@@ -733,7 +764,7 @@ if __name__ == '__main__':
                 ax.bar(xs, bar_heights, width = bar_width, label=f'{run_dir.parent.name}/{run_dir.name}')
 
             # set y axis to start at 1
-            if metric == COMPRESSION_RATIO:
+            if metric in (COMPRESSION_RATIO,COMPRESSION_RATIO_MIN):
                 ax.set_ylim(bottom=1)
             
             if metric in (MEMORY,TIME_BINARY):
@@ -792,7 +823,8 @@ if __name__ == '__main__':
 
             
     elif mode == 'latest':
-        benches = [b for b in Path('benches').iterdir() if b != 'old']
+        benches_dir = Path(sys.argv[3])
+        benches = [b for b in benches_dir.iterdir() if b != 'old']
         assert sys.argv[2] in ('dreamcoder','stitch')
         mode_dir = 'stitch' if sys.argv[2] == 'stitch' else 'dc'
 
@@ -808,7 +840,7 @@ if __name__ == '__main__':
 
     elif mode == 'graph_all':
         """
-        python3 analyze.py graph_all
+        python3 analyze.py graph_all benches/
         """
         import matplotlib.pyplot as plt
         import numpy as np
@@ -816,12 +848,16 @@ if __name__ == '__main__':
         import seaborn as sns
         sns.set_theme(color_codes=True)
 
+        benches_dir = Path(sys.argv[2])
+
 
         # get all the data
 
         data_by_domain = {}
         domains = ['logo', 'list', 'towers', 'text', 'physics']
-        metrics = ["time_per_inv_with_rewrite", "time_per_inv_no_rewrite", "mem_peak_kb", "compression_ratio"]
+        metrics = ["time_per_inv_with_rewrite", "time_per_inv_no_rewrite", "mem_peak_kb", "compression_ratio",
+        "compression_ratio_min"
+        ]
 
 
         for domain in domains:
@@ -834,19 +870,21 @@ if __name__ == '__main__':
                 "time_per_inv_no_rewrite": [],
                 "mem_peak_kb": [],
                 "compression_ratio": [],
+                "compression_ratio_min": [],
             }
             dreamcoder_metrics = {
                 "time_per_inv_with_rewrite": [],
                 "time_per_inv_no_rewrite": [],
                 "mem_peak_kb": [],
                 "compression_ratio": [],
+                "compression_ratio_min": [],
             }
-            benchgroups = [bg for bg in os.listdir('benches') if bg.startswith(domain)]
+            benchgroups = [bg for bg in os.listdir(benches_dir) if bg.startswith(domain)]
             for benchgroup in benchgroups:
-                benches = [b for b in os.listdir(f'benches/{benchgroup}') if b.endswith('.json') and b.startswith('bench')]
+                benches = [b for b in os.listdir(benches_dir/benchgroup) if b.endswith('.json') and b.startswith('bench')]
                 total_benches += len(benches)
-                stitch_dir = Path('benches') / benchgroup / 'out' / 'stitch'
-                dreamcoder_dir = Path('benches') / benchgroup / 'out' / 'dc'
+                stitch_dir = benches_dir / benchgroup / 'out' / 'stitch'
+                dreamcoder_dir = benches_dir / benchgroup / 'out' / 'dc'
                 if not stitch_dir.exists() or not dreamcoder_dir.exists() or len(list(stitch_dir.iterdir())) == 0 or len(list(dreamcoder_dir.iterdir())) == 0:
                     skipped.append(f'GROUP: {benchgroup}')
                     continue
@@ -886,7 +924,7 @@ if __name__ == '__main__':
                             # stitch_data = [stitch_data] * num_inventions
                             # dreamcoder_data = [dreamcoder_data] * num_inventions
 
-                        if metric == 'compression_ratio':
+                        if metric in ('compression_ratio','compression_ratio_min'):
                             stitch_data, dreamcoder_data = stitch_data / dreamcoder_data, dreamcoder_data / stitch_data
                             # stitch_data = stitch_data**(1/num_inventions)
                             # dreamcoder_data = dreamcoder_data**(1/num_inventions)
@@ -934,14 +972,15 @@ if __name__ == '__main__':
             plt.clf()
             fig,ax = plt.subplots()
 
-            if metric != 'compression_ratio':
+            if metric not in ('compression_ratio','compression_ratio_min'):
                 for i,name in enumerate(['stitch','dreamcoder']):
                     ys = []
                     y_errbars = []
                     xs = []
                     for j,domain in enumerate(domains):
                         ydata = data_by_domain[domain][name][metric]
-                        # if len(ydata) != 0:
+                        if len(ydata) == 0:
+                            continue
                         ys.append(sum(ydata)/len(ydata))
                         y_errbars.append(np.std(ydata))
                         # else:
@@ -959,13 +998,17 @@ if __name__ == '__main__':
                 plt.xticks(xs, domains)
             else:
                 data = []
+                included_domains = []
                 for j,domain in enumerate(domains):
                     ydata = data_by_domain[domain]['stitch'][metric]
-                    data.append(ydata)
-                ax.violinplot(data)
-                plt.axhline(y=1, color='b', linewidth=1, linestyle='dashed')
+                    if len(ydata) > 0:
+                        data.append(ydata)
+                        included_domains.append(domain)
+                if len(data) != 0:
+                    ax.violinplot(data)
+                    plt.axhline(y=1, color='b', linewidth=1, linestyle='dashed')
 
-                plt.xticks(list(range(1,len(domains)+1)), domains)
+                    plt.xticks(list(range(1,len(included_domains)+1)), included_domains)
 
 
             # set y axis to start at 1
@@ -984,15 +1027,16 @@ if __name__ == '__main__':
                     'time_per_inv_no_rewrite': 'Time per invention (s) (no rewriting)',
                     'mem_peak_kb': 'Peak Memory Use (KB)',
                     'compression_ratio': '(Size rewritten by DreamCoder) / (Size rewritten by Stitch)',
+                    'compression_ratio_min': '(Size rewritten by DreamCoder) / (Size rewritten by Stitch) with min over programs in task',
                 }[metric])
             # plt.ylabel(f'{metric}')
             plt.legend()
             plt.tight_layout()
 
             # os.makedirs(bench_dir / 'plots', exist_ok=True)
-            plt.savefig(f'plots/{metric}.png',dpi=400)
-            plt.savefig(f'plots/{metric}.pdf')
-            print(f"wrote to plots/{metric}.png")
+            plt.savefig(f'plots/{benches_dir.name}_{metric}.png',dpi=400)
+            plt.savefig(f'plots/{benches_dir.name}_{metric}.pdf')
+            print(f"wrote to plots/{benches_dir.name}_{metric}.png and pdf")
 
 
     elif mode == 'show_usages':

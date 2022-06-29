@@ -9,7 +9,7 @@ fi
 
 if [ -z $1 ]
 then
-    echo "Usage: ./bench_dreamcoder.sh benches/bench_name"
+    echo "Usage: ./bench_dreamcoder.sh benches/bench_name [path/to/resume]"
     exit 1
 fi
 
