@@ -265,7 +265,7 @@ fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &AHashMap<Zip,ZId>) -> Vec<Vec<
 
 impl Pattern {
     /// create a single hole pattern `??`
-    #[inline(never)]
+    //#[inline(never)]
     fn single_hole(treenodes: &[Id], cost_of_node_all: &[i32], num_paths_to_node: &[i32], egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
         let body_utility_no_refinement = 0;
         let refinement_body_utility = 0;
@@ -556,7 +556,7 @@ impl CriticalMultithreadData {
     }
     /// sort the donelist by utility, truncate to cfg.inv_candidates, update 
     /// update utility_pruning_cutoff to be the lowest utility
-    #[inline(never)]
+    //#[inline(never)]
     fn update(&mut self, cfg: &CompressionStepConfig) {
         // sort in decreasing order by utility primarily, and break ties using the argchoice zids (just in order to be deterministic!)
         // let old_best = self.donelist.first().map(|x|x.utility).unwrap_or(0);
@@ -648,7 +648,7 @@ pub enum HoleChoice {
 }
 
 impl HoleChoice {
-    #[inline(never)]
+    //#[inline(never)]
     fn choose_hole(&self, pattern: &Pattern, shared: &SharedData) -> usize {
         if pattern.holes.len() == 1 {
             return 0;
@@ -704,7 +704,7 @@ pub struct ZIdExtension {
 
 /// empties worklist_buf and donelist_buf into the shared worklist while holding the mutex, updates
 /// the donelist and cutoffs, and grabs and returns a new worklist item along with new cutoff bounds.
-#[inline(never)]
+//#[inline(never)]
 fn get_worklist_item(
     worklist_buf: &mut Vec<HeapItem>,
     donelist_buf: &mut Vec<FinishedPattern>,
@@ -940,8 +940,8 @@ fn stitch_search(
                     continue 'expansion; // too low utility
                 }
 
-                assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_ivar(),
-                        "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
+                // assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_ivar(),
+                        // "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
                 // assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
                 //         "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
 
@@ -1061,7 +1061,7 @@ fn stitch_search(
 
 }
 
-#[inline(never)]
+//#[inline(never)]
 fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &AHashMap<Id,Arg>, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<Id>)> {
     let mut ivars_expansions = vec![];
     // consider all ivars used previously
@@ -1084,7 +1084,7 @@ fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &AHashMap<Id,Arg
 }
 
 /// refines a new pattern inplace
-#[inline(never)]
+//#[inline(never)]
 pub fn refine(new_pattern: &mut Pattern, tracked: bool, shared: &SharedData) {
     if tracked {
         println!("{} refining {}", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(shared));
@@ -1175,7 +1175,7 @@ pub struct FinishedPattern {
 }
 
 impl FinishedPattern {
-    #[inline(never)]
+    //#[inline(never)]
     fn new(pattern: Pattern, shared: &SharedData) -> Self {
         let arity = pattern.first_zid_of_ivar.len();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[usize::from(*loc)]).sum();
@@ -1502,7 +1502,7 @@ impl fmt::Display for CompressionStepResult {
 }
 
 /// calculates the total upper bound on compressive + noncompressive utility
-#[inline(never)]
+//#[inline(never)]
 fn utility_upper_bound(
     match_locations: &[Id],
     body_utility_with_refinement_lower_bound: i32,
@@ -1516,7 +1516,7 @@ fn utility_upper_bound(
 
 /// This utility is just for any utility terms that we care about that don't directly correspond
 /// to changes in size that come from rewriting with an invention
-#[inline(never)]
+//#[inline(never)]
 fn noncompressive_utility(
     body_utility_with_refinement: i32,
     cfg: &CompressionStepConfig,
@@ -1529,7 +1529,7 @@ fn noncompressive_utility(
 
 /// This takes a partial invention and gives an upper bound on the maximum
 /// compressive_utility() that any completed offspring of this partial invention could have.
-#[inline(never)]
+//#[inline(never)]
 fn compressive_utility_upper_bound(
     match_locations: &[Id],
     cost_of_node_all: &[i32],
@@ -1545,7 +1545,7 @@ fn compressive_utility_upper_bound(
 }
 
 /// calculates the total upper bound on compressive + noncompressive utility
-// #[inline(never)]
+// //#[inline(never)]
 // fn utility_upper_bound_with_conflicts(
 //     pattern: &Pattern,
 //     body_utility_with_refinement_lower_bound: i32,
@@ -1563,7 +1563,7 @@ fn compressive_utility_upper_bound(
 
 /// This takes a partial invention and gives an upper bound on the maximum
 /// other_utility() that any completed offspring of this partial invention could have.
-#[inline(never)]
+//#[inline(never)]
 fn noncompressive_utility_upper_bound(
     body_utility_with_refinement_lower_bound: i32,
     cfg: &CompressionStepConfig,
@@ -1575,7 +1575,7 @@ fn noncompressive_utility_upper_bound(
     - body_utility_with_refinement_lower_bound
 }
 
-#[inline(never)]
+//#[inline(never)]
 fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
     // * BASIC CALCULATION
@@ -1696,7 +1696,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     UtilityCalculation { util: adjusted_compressive_utility, corrected_utils }
 }
 
-#[inline(never)]
+//#[inline(never)]
 fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, shared: &SharedData) -> (Vec<i32>, AHashMap<Id,CorrectedUtil>) {
 
     // todo opt include holes too
@@ -1815,7 +1815,7 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, shared: &Shar
     // UtilityCalculation { util: (compressive_utility + global_correction), corrected_utils}
 }
 
-#[inline(never)]
+//#[inline(never)]
 fn get_conflicts(zips: &[(Vec<ZNode>, Option<usize>)], loc: &Id, shared: &SharedData, pattern: &Pattern) -> AHashSet<(Id, usize)> {
     let mut conflict_idxs = AHashSet::new();
     for (zip,ivar) in zips.iter().filter(|(zip,_)| !zip.is_empty()) {
@@ -1837,7 +1837,7 @@ fn get_conflicts(zips: &[(Vec<ZNode>, Option<usize>)], loc: &Id, shared: &Shared
         // if this is a refinement, push every descendant of the unshifted argument including it itself as a potential conflict
         if let Some(ivar) = ivar {
             if pattern.refinements[*ivar].is_some() {
-                #[inline(never)]
+                //#[inline(never)]
                 fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut AHashSet<(Id,usize)>, pattern: &Pattern) {
                     if let Ok(idx) = pattern.match_locations.binary_search(&id) {
                         conflict_idxs.insert((id,idx));
