@@ -523,6 +523,7 @@ pub struct SharedData {
     pub cost_of_node_all: Vec<i32>,
     pub free_vars_of_node: Vec<AHashSet<i32>>,
     pub init_cost: i32,
+    pub init_cost_by_root_idx: Vec<i32>,
     pub stats: Mutex<Stats>,
     pub cfg: CompressionStepConfig,
     pub tracking: Option<Tracking>,
@@ -1537,6 +1538,10 @@ fn compressive_utility_upper_bound(
     match_locations.iter().map(|node|
         cost_of_node_all[usize::from(*node)] 
         - num_paths_to_node[usize::from(*node)] * COST_TERMINAL).sum::<i32>()
+    
+    // shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
+    //     root_idxs.iter().map(|idx| shared.init_cost_by_root_idx[*idx] - adjusted_util_by_root_idx[*idx]).min().unwrap()
+    // ).sum::<i32>()
 }
 
 /// calculates the total upper bound on compressive + noncompressive utility
@@ -1681,11 +1686,18 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
 
     // * ACCOUNTING FOR USE CONFLICTS:
 
-    use_conflicts(pattern, utility_of_loc_once, compressive_utility, shared)
+    let (correction_by_root_idx, corrected_utils) = use_conflicts(pattern, utility_of_loc_once, shared);
+    let adjusted_util_by_root_idx: Vec<i32> = compressive_utility_by_root_idx.iter().zip(correction_by_root_idx.iter()).map(|(util,corr)| util + corr).collect();
+
+    let adjusted_compressive_utility: i32 = shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
+        root_idxs.iter().map(|idx| shared.init_cost_by_root_idx[*idx] - adjusted_util_by_root_idx[*idx]).min().unwrap()
+    ).sum::<i32>();
+
+    UtilityCalculation { util: adjusted_compressive_utility, corrected_utils }
 }
 
 #[inline(never)]
-fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_utility: i32, shared: &SharedData) -> UtilityCalculation {
+fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, shared: &SharedData) -> (Vec<i32>, AHashMap<Id,CorrectedUtil>) {
 
     // todo opt include holes too
     // zips and ivars
@@ -1704,7 +1716,7 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
     // Note that we never need to actually mutate old entries in this because at the end of the day we'll do a *top down* traversal
     // during rewriting so as soon as we choose to accept something any rejections that that implies are automatically handled ofc.
     let mut corrected_utils: AHashMap<Id,CorrectedUtil> = Default::default();
-    let mut global_correction = 0; // this is going to get added to the compressive_utility at the end to correct for use-conflicts
+    let mut correction_by_root_idx = vec![0; shared.task_of_root_idx.len()]; // this is going to get added to the compressive_utility at the end to correct for use-conflicts
 
     // bottom up traversal since we assume match_locations is sorted
     for (loc_idx,loc) in pattern.match_locations.iter().enumerate() {
@@ -1721,7 +1733,9 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
         // (it benefits us or rather brings us back to 0, and leaves maximal flexibility for other things to be accepted/rejected).
         // and theres nothing else we need to account for here.
         if reject >= 0 {
-            global_correction += reject * shared.num_paths_to_node[usize::from(*loc)];
+            for (i,num_paths_local) in shared.num_paths_to_node_by_root_idx.iter().enumerate() {
+                correction_by_root_idx[i] += reject * num_paths_local[usize::from(*loc)];
+            }
             corrected_utils.insert(*loc, CorrectedUtil {
                 accept: false, // we rejected
                 best_util_correction: reject, // we rejected
@@ -1754,7 +1768,9 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
         // update global correction with this applied to all our nodes (note that the same choice makes sense for all nodes
         // from the point of view of this being the top of the tree - it's our parents job to use change_to_reject if they
         // want to reject only certain ones of us)
-        global_correction += best_util_correction * shared.num_paths_to_node[usize::from(*loc)];
+        for (i,num_paths_local) in shared.num_paths_to_node_by_root_idx.iter().enumerate() {
+            correction_by_root_idx[i] += best_util_correction * num_paths_local[usize::from(*loc)];
+        }
 
         let util_change_to_reject = reject - best_util_correction;
 
@@ -1795,7 +1811,8 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
 
     }
 
-    UtilityCalculation { util: (compressive_utility + global_correction), corrected_utils}
+    (correction_by_root_idx, corrected_utils)
+    // UtilityCalculation { util: (compressive_utility + global_correction), corrected_utils}
 }
 
 #[inline(never)]
@@ -1943,12 +1960,12 @@ pub fn compression_step(
     let mut egraph: EGraph = Default::default();
     let programs_node = egraph.add_expr(programs_expr.into());
     egraph.rebuild();
-    let init_cost = egraph[programs_node].data.inventionless_cost;
 
     println!("set up egraph: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
     let roots: Vec<Id> = egraph[programs_node].nodes[0].children().to_vec();
+
 
     // all nodes in child-first order except for the Programs node
     let mut treenodes: Vec<Id> = topological_ordering(programs_node,&egraph);
@@ -1982,6 +1999,13 @@ pub fn compression_step(
         root_idxs_of_task[task].push(root_idx);
     }
     let tasks_of_node: Vec<AHashSet<usize>> = associate_tasks(programs_node, &egraph, &treenodes, &task_of_root_idx);
+
+    let init_cost_by_root_idx: Vec<i32> = roots.iter().map(|id| egraph[*id].data.inventionless_cost).collect();
+    // assert_eq!(init_cost, init_cost_by_root_idx.iter().sum::<i32>());
+    let init_cost: i32 = root_idxs_of_task.iter().map(|root_idxs|
+        root_idxs.iter().map(|idx| init_cost_by_root_idx[*idx]).min().unwrap()
+    ).sum();
+    //  = egraph[programs_node].data.inventionless_cost;
 
     println!("associate_tasks() and other task stuff: {:?}ms", tstart.elapsed().as_millis());
     println!("num unique tasks: {}", task_name_of_task.len());
@@ -2108,6 +2132,7 @@ pub fn compression_step(
         cost_of_node_all,
         free_vars_of_node,
         init_cost,
+        init_cost_by_root_idx,
         stats: Mutex::new(stats),
         cfg: cfg.clone(),
         tracking,
