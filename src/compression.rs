@@ -366,6 +366,7 @@ pub enum ExpandsTo {
 impl ExpandsTo {
     #[inline]
     /// true if expanding a node of this ExpandsTo will yield new holes
+    #[allow(dead_code)]
     fn has_holes(&self) -> bool {
         match self {
             ExpandsTo::Lam => true,
@@ -376,6 +377,7 @@ impl ExpandsTo {
         }
     }
     #[inline]
+    #[allow(dead_code)]
     fn is_ivar(&self) -> bool {
         matches!(self, ExpandsTo::IVar(_))
     }
@@ -1421,7 +1423,7 @@ pub struct CompressionStepResult {
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, past_invs: &[CompressionStepResult], prev_dc_inv_to_inv_strs: &Vec<(String, String)>) -> Self {
+    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, past_invs: &[CompressionStepResult], prev_dc_inv_to_inv_strs: &[(String, String)]) -> Self {
 
         // cost of the very first initial program before any inventions
         let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { shared.init_cost };
@@ -1888,7 +1890,7 @@ pub fn compression(
     iterations: usize,
     cfg: &CompressionStepConfig,
     tasks: &[String],
-    prev_dc_inv_to_inv_strs: &Vec<(String, String)>,
+    prev_dc_inv_to_inv_strs: &[(String, String)],
 ) -> Vec<CompressionStepResult> {
     let num_prior_inventions = prev_dc_inv_to_inv_strs.len();
     let mut rewritten: Expr = programs_expr.clone();
@@ -1907,7 +1909,7 @@ pub fn compression(
             cfg,
             &step_results,
             tasks,
-            prev_dc_inv_to_inv_strs,);
+            prev_dc_inv_to_inv_strs);
 
         if !res.is_empty() {
             // rewrite with the invention
@@ -1955,7 +1957,7 @@ pub fn compression_step(
     cfg: &CompressionStepConfig,
     past_invs: &[CompressionStepResult], // past inventions we've found
     task_name_of_root_idx: &[String],
-    prev_dc_inv_to_inv_strs: &Vec<(String, String)>,
+    prev_dc_inv_to_inv_strs: &[(String, String)],
 ) -> Vec<CompressionStepResult> {
 
     let tstart_total = std::time::Instant::now();
