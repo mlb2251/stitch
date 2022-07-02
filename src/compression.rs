@@ -265,7 +265,7 @@ fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &AHashMap<Zip,ZId>) -> Vec<Vec<
 
 impl Pattern {
     /// create a single hole pattern `??`
-    #[inline(never)]
+    //#[inline(never)]
     fn single_hole(treenodes: &[Id], cost_of_node_all: &[i32], num_paths_to_node: &[i32], egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
         let body_utility_no_refinement = 0;
         let refinement_body_utility = 0;
@@ -366,6 +366,7 @@ pub enum ExpandsTo {
 impl ExpandsTo {
     #[inline]
     /// true if expanding a node of this ExpandsTo will yield new holes
+    #[allow(dead_code)]
     fn has_holes(&self) -> bool {
         match self {
             ExpandsTo::Lam => true,
@@ -376,6 +377,7 @@ impl ExpandsTo {
         }
     }
     #[inline]
+    #[allow(dead_code)]
     fn is_ivar(&self) -> bool {
         matches!(self, ExpandsTo::IVar(_))
     }
@@ -514,11 +516,16 @@ pub struct SharedData {
     pub uses_of_shifted_arg_refinement: AHashMap<Id,AHashMap<Id,usize>>,
     pub egraph: EGraph,
     pub num_paths_to_node: Vec<i32>,
+    pub num_paths_to_node_by_root_idx: Vec<Vec<i32>>,
     pub tasks_of_node: Vec<AHashSet<usize>>,
+    pub task_name_of_task: Vec<String>,
+    pub task_of_root_idx: Vec<usize>,
+    pub root_idxs_of_task: Vec<Vec<usize>>,
     pub cost_of_node_once: Vec<i32>,
     pub cost_of_node_all: Vec<i32>,
     pub free_vars_of_node: Vec<AHashSet<i32>>,
     pub init_cost: i32,
+    pub init_cost_by_root_idx: Vec<i32>,
     pub stats: Mutex<Stats>,
     pub cfg: CompressionStepConfig,
     pub tracking: Option<Tracking>,
@@ -551,7 +558,7 @@ impl CriticalMultithreadData {
     }
     /// sort the donelist by utility, truncate to cfg.inv_candidates, update 
     /// update utility_pruning_cutoff to be the lowest utility
-    #[inline(never)]
+    //#[inline(never)]
     fn update(&mut self, cfg: &CompressionStepConfig) {
         // sort in decreasing order by utility primarily, and break ties using the argchoice zids (just in order to be deterministic!)
         // let old_best = self.donelist.first().map(|x|x.utility).unwrap_or(0);
@@ -643,7 +650,7 @@ pub enum HoleChoice {
 }
 
 impl HoleChoice {
-    #[inline(never)]
+    //#[inline(never)]
     fn choose_hole(&self, pattern: &Pattern, shared: &SharedData) -> usize {
         if pattern.holes.len() == 1 {
             return 0;
@@ -699,7 +706,7 @@ pub struct ZIdExtension {
 
 /// empties worklist_buf and donelist_buf into the shared worklist while holding the mutex, updates
 /// the donelist and cutoffs, and grabs and returns a new worklist item along with new cutoff bounds.
-#[inline(never)]
+//#[inline(never)]
 fn get_worklist_item(
     worklist_buf: &mut Vec<HeapItem>,
     donelist_buf: &mut Vec<FinishedPattern>,
@@ -935,8 +942,8 @@ fn stitch_search(
                     continue 'expansion; // too low utility
                 }
 
-                assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_ivar(),
-                        "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
+                // assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_ivar(),
+                        // "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
                 // assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
                 //         "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
 
@@ -1056,7 +1063,7 @@ fn stitch_search(
 
 }
 
-#[inline(never)]
+//#[inline(never)]
 fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &AHashMap<Id,Arg>, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<Id>)> {
     let mut ivars_expansions = vec![];
     // consider all ivars used previously
@@ -1079,7 +1086,7 @@ fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &AHashMap<Id,Arg
 }
 
 /// refines a new pattern inplace
-#[inline(never)]
+//#[inline(never)]
 pub fn refine(new_pattern: &mut Pattern, tracked: bool, shared: &SharedData) {
     if tracked {
         println!("{} refining {}", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(shared));
@@ -1170,7 +1177,7 @@ pub struct FinishedPattern {
 }
 
 impl FinishedPattern {
-    #[inline(never)]
+    //#[inline(never)]
     fn new(pattern: Pattern, shared: &SharedData) -> Self {
         let arity = pattern.first_zid_of_ivar.len();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[usize::from(*loc)]).sum();
@@ -1187,7 +1194,11 @@ impl FinishedPattern {
             usages,
         };
         if shared.cfg.utility_by_rewrite {
-            res.compressive_utility = shared.init_cost - rewrite_fast(&res, shared, "fake_inv").iter().map(|e|e.cost()).sum::<i32>();
+            let rewritten: Vec<Expr> = rewrite_fast(&res, shared, "fake_inv");
+            res.compressive_utility = shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
+                root_idxs.iter().map(|idx| rewritten[*idx].cost()).min().unwrap()
+            ).sum::<i32>();
+            // res.compressive_utility = shared.init_cost - rewritten.iter().map(|e|e.cost()).sum::<i32>();
             res.util_calc.util = res.compressive_utility;
             res.utility = res.compressive_utility + noncompressive_utility;
         }
@@ -1412,17 +1423,19 @@ pub struct CompressionStepResult {
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, past_invs: &[CompressionStepResult], prev_dc_inv_to_inv_strs: &Vec<(String, String)>) -> Self {
+    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, past_invs: &[CompressionStepResult], prev_dc_inv_to_inv_strs: &[(String, String)]) -> Self {
 
         // cost of the very first initial program before any inventions
         let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { shared.init_cost };
 
         let inv = done.to_invention(inv_name, shared);
-        let rewritten = Expr::programs(rewrite_fast(&done, shared, &inv.name));
-
+        let rewritten = rewrite_fast(&done, shared, &inv.name);
 
         let expected_cost = shared.init_cost - done.compressive_utility;
-        let final_cost = rewritten.cost();
+        // let final_cost = rewritten.cost();
+        let final_cost = shared.root_idxs_of_task.iter().map(|root_idxs|
+            root_idxs.iter().map(|idx| rewritten[*idx].cost()).min().unwrap()
+        ).sum::<i32>();
         if expected_cost != final_cost {
             println!("*** expected cost {} != final cost {}", expected_cost, final_cost);
         }
@@ -1445,7 +1458,7 @@ impl CompressionStepResult {
         // Rewrite to dreamcoder syntax with all past invention
         // we rewrite "inv1)" and "inv1 " instead of just "inv1" because we dont want to match on "inv10"
 
-        let rewritten_dreamcoder: Vec<String> = rewritten.split_programs().iter().map(|p|{
+        let rewritten_dreamcoder: Vec<String> = rewritten.iter().map(|p|{
             let mut res = p.to_string();
             for (prev_inv_name, prev_dc_inv_str) in prev_dc_inv_to_inv_strs {
                 res = replace_prim_with(&res, prev_inv_name, prev_dc_inv_str);
@@ -1461,7 +1474,7 @@ impl CompressionStepResult {
             res
         }).collect();
 
-        CompressionStepResult { inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost: shared.init_cost }
+        CompressionStepResult { inv, rewritten: Expr::programs(rewritten), rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost: shared.init_cost }
     }
     pub fn json(&self) -> serde_json::Value {        
         let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| expr.to_string()).collect();
@@ -1497,7 +1510,7 @@ impl fmt::Display for CompressionStepResult {
 }
 
 /// calculates the total upper bound on compressive + noncompressive utility
-#[inline(never)]
+//#[inline(never)]
 fn utility_upper_bound(
     match_locations: &[Id],
     body_utility_with_refinement_lower_bound: i32,
@@ -1511,7 +1524,7 @@ fn utility_upper_bound(
 
 /// This utility is just for any utility terms that we care about that don't directly correspond
 /// to changes in size that come from rewriting with an invention
-#[inline(never)]
+//#[inline(never)]
 fn noncompressive_utility(
     body_utility_with_refinement: i32,
     cfg: &CompressionStepConfig,
@@ -1519,13 +1532,12 @@ fn noncompressive_utility(
     if cfg.no_other_util { return 0; }
     // this is a bit like the structure penalty from dreamcoder except that
     // that penalty uses inlined versions of nested inventions.
-    
     - body_utility_with_refinement
 }
 
 /// This takes a partial invention and gives an upper bound on the maximum
 /// compressive_utility() that any completed offspring of this partial invention could have.
-#[inline(never)]
+//#[inline(never)]
 fn compressive_utility_upper_bound(
     match_locations: &[Id],
     cost_of_node_all: &[i32],
@@ -1534,10 +1546,14 @@ fn compressive_utility_upper_bound(
     match_locations.iter().map(|node|
         cost_of_node_all[usize::from(*node)] 
         - num_paths_to_node[usize::from(*node)] * COST_TERMINAL).sum::<i32>()
+    
+    // shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
+    //     root_idxs.iter().map(|idx| shared.init_cost_by_root_idx[*idx] - adjusted_util_by_root_idx[*idx]).min().unwrap()
+    // ).sum::<i32>()
 }
 
 /// calculates the total upper bound on compressive + noncompressive utility
-// #[inline(never)]
+// //#[inline(never)]
 // fn utility_upper_bound_with_conflicts(
 //     pattern: &Pattern,
 //     body_utility_with_refinement_lower_bound: i32,
@@ -1555,7 +1571,7 @@ fn compressive_utility_upper_bound(
 
 /// This takes a partial invention and gives an upper bound on the maximum
 /// other_utility() that any completed offspring of this partial invention could have.
-#[inline(never)]
+//#[inline(never)]
 fn noncompressive_utility_upper_bound(
     body_utility_with_refinement_lower_bound: i32,
     cfg: &CompressionStepConfig,
@@ -1567,7 +1583,7 @@ fn noncompressive_utility_upper_bound(
     - body_utility_with_refinement_lower_bound
 }
 
-#[inline(never)]
+//#[inline(never)]
 fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
     // * BASIC CALCULATION
@@ -1649,16 +1665,22 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         ).sum::<i32>();
         // println!("multiuse {}", multiuse_utility);
 
-        // multiply all this utility by the number of times this node shows up
         base_utility + multiuse_utility + refinement_utility
         }).collect();
 
-
+    let compressive_utility_by_root_idx: Vec<i32> = shared.num_paths_to_node_by_root_idx.iter().map(|num_paths_to_node_local|
+        pattern.match_locations.iter()
+        .zip(utility_of_loc_once.iter())
+        .map(|(loc,utility)| utility * num_paths_to_node_local[usize::from(*loc)])
+        .sum()
+    ).collect();
+    
     let compressive_utility: i32 = pattern.match_locations.iter()
         .zip(utility_of_loc_once.iter())
         .map(|(loc,utility)| utility * shared.num_paths_to_node[usize::from(*loc)])
         .sum();
 
+    assert_eq!(compressive_utility_by_root_idx.iter().sum::<i32>(), compressive_utility);
 
     // assertion to make sure pattern.match_locations is sorted (for binary searching + bottom up iterating)
     // {
@@ -1670,14 +1692,20 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     //         }));
     // }
 
-        // * ACCOUNTING FOR USE CONFLICTS:
+    // * ACCOUNTING FOR USE CONFLICTS:
 
+    let (correction_by_root_idx, corrected_utils) = use_conflicts(pattern, utility_of_loc_once, shared);
+    let adjusted_util_by_root_idx: Vec<i32> = compressive_utility_by_root_idx.iter().zip(correction_by_root_idx.iter()).map(|(util,corr)| util + corr).collect();
 
-    use_conflicts(pattern, utility_of_loc_once, compressive_utility, shared)
+    let adjusted_compressive_utility: i32 = shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
+        root_idxs.iter().map(|idx| shared.init_cost_by_root_idx[*idx] - adjusted_util_by_root_idx[*idx]).min().unwrap()
+    ).sum::<i32>();
+
+    UtilityCalculation { util: adjusted_compressive_utility, corrected_utils }
 }
 
-#[inline(never)]
-fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_utility: i32, shared: &SharedData) -> UtilityCalculation {
+//#[inline(never)]
+fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, shared: &SharedData) -> (Vec<i32>, AHashMap<Id,CorrectedUtil>) {
 
     // todo opt include holes too
     // zips and ivars
@@ -1691,8 +1719,12 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
 
     // the idea here is we want the fast-path to be the case where no conflicts happen. If no conflicts happen, there should be
     // zero heap allocations in this whole section! Since empty vecs and hashmaps dont cause allocations yet.
+    // corrected_utils is a mapping from node to a struct that says whether we accept/reject the node along with the utility
+    // change that would happen if you switched to rejecting it. If something is not in this struct is means it's accepted for sure.
+    // Note that we never need to actually mutate old entries in this because at the end of the day we'll do a *top down* traversal
+    // during rewriting so as soon as we choose to accept something any rejections that that implies are automatically handled ofc.
     let mut corrected_utils: AHashMap<Id,CorrectedUtil> = Default::default();
-    let mut global_correction = 0; // this is going to get added to the compressive_utility at the end to correct for use-conflicts
+    let mut correction_by_root_idx = vec![0; shared.task_of_root_idx.len()]; // this is going to get added to the compressive_utility at the end to correct for use-conflicts
 
     // bottom up traversal since we assume match_locations is sorted
     for (loc_idx,loc) in pattern.match_locations.iter().enumerate() {
@@ -1709,7 +1741,9 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
         // (it benefits us or rather brings us back to 0, and leaves maximal flexibility for other things to be accepted/rejected).
         // and theres nothing else we need to account for here.
         if reject >= 0 {
-            global_correction += reject * shared.num_paths_to_node[usize::from(*loc)];
+            for (i,num_paths_local) in shared.num_paths_to_node_by_root_idx.iter().enumerate() {
+                correction_by_root_idx[i] += reject * num_paths_local[usize::from(*loc)];
+            }
             corrected_utils.insert(*loc, CorrectedUtil {
                 accept: false, // we rejected
                 best_util_correction: reject, // we rejected
@@ -1742,7 +1776,9 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
         // update global correction with this applied to all our nodes (note that the same choice makes sense for all nodes
         // from the point of view of this being the top of the tree - it's our parents job to use change_to_reject if they
         // want to reject only certain ones of us)
-        global_correction += best_util_correction * shared.num_paths_to_node[usize::from(*loc)];
+        for (i,num_paths_local) in shared.num_paths_to_node_by_root_idx.iter().enumerate() {
+            correction_by_root_idx[i] += best_util_correction * num_paths_local[usize::from(*loc)];
+        }
 
         let util_change_to_reject = reject - best_util_correction;
 
@@ -1783,10 +1819,11 @@ fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, compressive_u
 
     }
 
-    UtilityCalculation { util: (compressive_utility + global_correction), corrected_utils}
+    (correction_by_root_idx, corrected_utils)
+    // UtilityCalculation { util: (compressive_utility + global_correction), corrected_utils}
 }
 
-#[inline(never)]
+//#[inline(never)]
 fn get_conflicts(zips: &[(Vec<ZNode>, Option<usize>)], loc: &Id, shared: &SharedData, pattern: &Pattern) -> AHashSet<(Id, usize)> {
     let mut conflict_idxs = AHashSet::new();
     for (zip,ivar) in zips.iter().filter(|(zip,_)| !zip.is_empty()) {
@@ -1808,7 +1845,7 @@ fn get_conflicts(zips: &[(Vec<ZNode>, Option<usize>)], loc: &Id, shared: &Shared
         // if this is a refinement, push every descendant of the unshifted argument including it itself as a potential conflict
         if let Some(ivar) = ivar {
             if pattern.refinements[*ivar].is_some() {
-                #[inline(never)]
+                //#[inline(never)]
                 fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut AHashSet<(Id,usize)>, pattern: &Pattern) {
                     if let Ok(idx) = pattern.match_locations.binary_search(&id) {
                         conflict_idxs.insert((id,idx));
@@ -1853,7 +1890,7 @@ pub fn compression(
     iterations: usize,
     cfg: &CompressionStepConfig,
     tasks: &[String],
-    prev_dc_inv_to_inv_strs: &Vec<(String, String)>,
+    prev_dc_inv_to_inv_strs: &[(String, String)],
 ) -> Vec<CompressionStepResult> {
     let num_prior_inventions = prev_dc_inv_to_inv_strs.len();
     let mut rewritten: Expr = programs_expr.clone();
@@ -1872,7 +1909,7 @@ pub fn compression(
             cfg,
             &step_results,
             tasks,
-            prev_dc_inv_to_inv_strs,);
+            prev_dc_inv_to_inv_strs);
 
         if !res.is_empty() {
             // rewrite with the invention
@@ -1919,8 +1956,8 @@ pub fn compression_step(
     new_inv_name: &str, // name of the new invention, like "inv4"
     cfg: &CompressionStepConfig,
     past_invs: &[CompressionStepResult], // past inventions we've found
-    tasks: &[String],
-    prev_dc_inv_to_inv_strs: &Vec<(String, String)>,
+    task_name_of_root_idx: &[String],
+    prev_dc_inv_to_inv_strs: &[(String, String)],
 ) -> Vec<CompressionStepResult> {
 
     let tstart_total = std::time::Instant::now();
@@ -1931,12 +1968,12 @@ pub fn compression_step(
     let mut egraph: EGraph = Default::default();
     let programs_node = egraph.add_expr(programs_expr.into());
     egraph.rebuild();
-    let init_cost = egraph[programs_node].data.inventionless_cost;
 
     println!("set up egraph: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
     let roots: Vec<Id> = egraph[programs_node].nodes[0].children().to_vec();
+
 
     // all nodes in child-first order except for the Programs node
     let mut treenodes: Vec<Id> = topological_ordering(programs_node,&egraph);
@@ -1950,15 +1987,41 @@ pub fn compression_step(
 
     // populate num_paths_to_node so we know how many different parts of the programs tree
     // a node participates in (ie multiple uses within a single program or among programs)
-    let num_paths_to_node: Vec<i32> = num_paths_to_node(&roots, &treenodes, &egraph);
+    let (num_paths_to_node, num_paths_to_node_by_root_idx) : (Vec<i32>, Vec<Vec<i32>>) = num_paths_to_node(&roots, &treenodes, &egraph);
 
     println!("num_paths_to_node(): {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
-    let tasks_of_node: Vec<AHashSet<usize>> = associate_tasks(programs_node, &egraph, &treenodes, tasks);
 
-    println!("associate_tasks(): {:?}ms", tstart.elapsed().as_millis());
+    let mut task_name_of_task: Vec<String> = vec![];
+    let mut task_of_root_idx: Vec<usize> = vec![];
+    let mut root_idxs_of_task: Vec<Vec<usize>> = vec![];
+    for (root_idx,task_name) in task_name_of_root_idx.iter().enumerate() {
+        let task = task_name_of_task.iter().position(|name| name == task_name)
+            .unwrap_or_else(||{
+                task_name_of_task.push(task_name.clone());
+                root_idxs_of_task.push(vec![]);
+                task_name_of_task.len() - 1
+            });
+        task_of_root_idx.push(task);
+        root_idxs_of_task[task].push(root_idx);
+    }
+    let tasks_of_node: Vec<AHashSet<usize>> = associate_tasks(programs_node, &egraph, &treenodes, &task_of_root_idx);
+
+    let init_cost_by_root_idx: Vec<i32> = roots.iter().map(|id| egraph[*id].data.inventionless_cost).collect();
+    // assert_eq!(init_cost, init_cost_by_root_idx.iter().sum::<i32>());
+    let init_cost: i32 = root_idxs_of_task.iter().map(|root_idxs|
+        root_idxs.iter().map(|idx| init_cost_by_root_idx[*idx]).min().unwrap()
+    ).sum();
+    //  = egraph[programs_node].data.inventionless_cost;
+
+    println!("associate_tasks() and other task stuff: {:?}ms", tstart.elapsed().as_millis());
+    println!("num unique tasks: {}", task_name_of_task.len());
+    println!("num unique programs: {}", roots.len());
     tstart = std::time::Instant::now();
+
+    // arity inference
+    // let mut arity_of_node: Vec<usize> = arity_inference(programs_node, &egraph, &treenodes);
 
     // cost of a single usage of a node (same as inventionless_cost)
     let cost_of_node_once: Vec<i32> = treenodes.iter().map(|node| egraph[*node].data.inventionless_cost).collect();
@@ -2024,7 +2087,14 @@ pub fn compression_step(
             let body_utility_no_refinement = cost_of_node_once[usize::from(*node)];
             let refinement_body_utility = 0;
             // compressive_utility for arity-0 is cost_of_node_all[node] minus the penalty of using the new prim
-            let compressive_utility = cost_of_node_all[usize::from(*node)] - num_paths_to_node[usize::from(*node)] * COST_TERMINAL;
+
+            let compressive_utility: i32 = init_cost - root_idxs_of_task.iter().map(|root_idxs|
+                root_idxs.iter().map(|idx| init_cost_by_root_idx[*idx] - num_paths_to_node_by_root_idx[*idx][usize::from(*node)] * (cost_of_node_once[usize::from(*node)] - COST_TERMINAL))
+                    .min().unwrap()
+            ).sum::<i32>();
+            // println!("utility: {}", compressive_utility);
+            
+            // let compressive_utility = cost_of_node_all[usize::from(*node)] - num_paths_to_node[usize::from(*node)] * COST_TERMINAL;
             let utility = compressive_utility + noncompressive_utility(body_utility_no_refinement + refinement_body_utility, cfg);
             if utility <= 0 { continue; }
 
@@ -2071,11 +2141,16 @@ pub fn compression_step(
         uses_of_shifted_arg_refinement,
         egraph,
         num_paths_to_node,
+        num_paths_to_node_by_root_idx,
         tasks_of_node,
+        task_name_of_task,
+        task_of_root_idx,
+        root_idxs_of_task,
         cost_of_node_once,
         cost_of_node_all,
         free_vars_of_node,
         init_cost,
+        init_cost_by_root_idx,
         stats: Mutex::new(stats),
         cfg: cfg.clone(),
         tracking,

@@ -155,7 +155,9 @@ pub fn rewrite_fast(
 
     if !shared.cfg.no_mismatch_check && !shared.cfg.utility_by_rewrite {
         assert_eq!(
-            rewritten_exprs.iter().map(|e|e.cost()).sum::<i32>(),
+            shared.root_idxs_of_task.iter().map(|root_idxs|
+                root_idxs.iter().map(|idx| rewritten_exprs[*idx].cost()).min().unwrap()
+            ).sum::<i32>(),
             shared.init_cost - pattern.util_calc.util,
             "\n{}\n", pattern.info(shared)
         );

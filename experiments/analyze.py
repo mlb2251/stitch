@@ -1027,7 +1027,7 @@ if __name__ == '__main__':
                     'time_per_inv_no_rewrite': 'Time per invention (s) (no rewriting)',
                     'mem_peak_kb': 'Peak Memory Use (KB)',
                     'compression_ratio': '(Size rewritten by DreamCoder) / (Size rewritten by Stitch)',
-                    'compression_ratio_min': '(Size rewritten by DreamCoder) / (Size rewritten by Stitch) with min over programs in task',
+                    'compression_ratio_min': 'Rewritten corpus size ratio (DreamCoder / Stitch)'
                 }[metric])
             # plt.ylabel(f'{metric}')
             plt.legend()

@@ -352,10 +352,10 @@ pub fn group_by_key<T: Copy, U: Ord>(v: Vec<T>, key: impl Fn(&T)->U) -> Vec<Vec<
     groups
 }
 
-/// Returns a hashmap from node id to number of places that node is used in the tree. Essentially this just
+/// Returns a vec from node id to number of places that node is used in the tree. Essentially this just
 /// follows all paths down from the root and logs how many times it encounters each node
-pub fn num_paths_to_node(roots: &[Id], treenodes: &[Id], egraph: &crate::EGraph) -> Vec<i32> {
-    let mut num_paths_to_node: Vec<i32> = vec![0; treenodes.len()];
+pub fn num_paths_to_node(roots: &[Id], treenodes: &[Id], egraph: &crate::EGraph) -> (Vec<i32>, Vec<Vec<i32>>) {
+    let mut num_paths_to_node_by_root_idx: Vec<Vec<i32>> = vec![vec![0; treenodes.len()]; roots.len()];
     // treenodes.iter().for_each(|treenode| {
     //     num_paths_to_node.insert(*treenode, 0);
     // });
@@ -366,10 +366,15 @@ pub fn num_paths_to_node(roots: &[Id], treenodes: &[Id], egraph: &crate::EGraph)
             helper(num_paths_to_node, child, egraph);
         }
     }
-    roots.iter().for_each(|root| {
-        helper(&mut num_paths_to_node, root, egraph);
+    let mut num_paths_to_node_all: Vec<i32> = vec![0; treenodes.len()];
+    num_paths_to_node_by_root_idx.iter_mut().enumerate().for_each(|(i,num_paths_to_node)| {
+        helper(num_paths_to_node, &roots[i], egraph);
+        for i in 0..treenodes.len() {
+            num_paths_to_node_all[i] += num_paths_to_node[i];
+        }
     });
-    num_paths_to_node
+    
+    (num_paths_to_node_all, num_paths_to_node_by_root_idx)
 }
 
 /// same as Itertools::counts() but returns an AHashMap instead of a HashMap
