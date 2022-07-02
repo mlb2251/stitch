@@ -1195,7 +1195,7 @@ impl FinishedPattern {
             let rewritten: Vec<Expr> = rewrite_fast(&res, shared, "fake_inv");
             res.compressive_utility = shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
                 root_idxs.iter().map(|idx| rewritten[*idx].cost()).min().unwrap()
-            ).sum::<i32>(),
+            ).sum::<i32>();
             // res.compressive_utility = shared.init_cost - rewritten.iter().map(|e|e.cost()).sum::<i32>();
             res.util_calc.util = res.compressive_utility;
             res.utility = res.compressive_utility + noncompressive_utility;
@@ -1433,7 +1433,7 @@ impl CompressionStepResult {
         // let final_cost = rewritten.cost();
         let final_cost = shared.root_idxs_of_task.iter().map(|root_idxs|
             root_idxs.iter().map(|idx| rewritten[*idx].cost()).min().unwrap()
-        ).sum::<i32>()
+        ).sum::<i32>();
         if expected_cost != final_cost {
             println!("*** expected cost {} != final cost {}", expected_cost, final_cost);
         }
@@ -2086,9 +2086,11 @@ pub fn compression_step(
             let refinement_body_utility = 0;
             // compressive_utility for arity-0 is cost_of_node_all[node] minus the penalty of using the new prim
 
-            let compressive_utility: i32 = shared.root_idxs_of_task.iter().map(|root_idxs|
-                root_idxs.iter().map(|idx| init_cost_by_root_idx[*idx] - num_paths_to_node_by_root_idx[*idx] * (cost_of_node_once[usize::from(*node)] - COST_TERMINAL))
-            ).sum();
+            let compressive_utility: i32 = init_cost - root_idxs_of_task.iter().map(|root_idxs|
+                root_idxs.iter().map(|idx| init_cost_by_root_idx[*idx] - num_paths_to_node_by_root_idx[*idx][usize::from(*node)] * (cost_of_node_once[usize::from(*node)] - COST_TERMINAL))
+                    .min().unwrap()
+            ).sum::<i32>();
+            // println!("utility: {}", compressive_utility);
             
             // let compressive_utility = cost_of_node_all[usize::from(*node)] - num_paths_to_node[usize::from(*node)] * COST_TERMINAL;
             let utility = compressive_utility + noncompressive_utility(body_utility_no_refinement + refinement_body_utility, cfg);
