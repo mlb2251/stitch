@@ -295,3 +295,7 @@ pub fn is_descendant(descendant: Id, ancestor: Id, egraph: &EGraph) -> bool {
     }
     helper(descendant, ancestor, egraph)
 }
+
+pub fn arity_inference(programs_root: Id, egraph: &EGraph, treenodes: &[Id]) -> Vec<usize> {
+    unimplemented!()
+}

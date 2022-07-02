@@ -1192,7 +1192,11 @@ impl FinishedPattern {
             usages,
         };
         if shared.cfg.utility_by_rewrite {
-            res.compressive_utility = shared.init_cost - rewrite_fast(&res, shared, "fake_inv").iter().map(|e|e.cost()).sum::<i32>();
+            let rewritten: Vec<Expr> = rewrite_fast(&res, shared, "fake_inv");
+            res.compressive_utility = shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
+                root_idxs.iter().map(|idx| rewritten[*idx].cost()).min().unwrap()
+            ).sum::<i32>(),
+            // res.compressive_utility = shared.init_cost - rewritten.iter().map(|e|e.cost()).sum::<i32>();
             res.util_calc.util = res.compressive_utility;
             res.utility = res.compressive_utility + noncompressive_utility;
         }
@@ -1423,11 +1427,13 @@ impl CompressionStepResult {
         let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { shared.init_cost };
 
         let inv = done.to_invention(inv_name, shared);
-        let rewritten = Expr::programs(rewrite_fast(&done, shared, &inv.name));
-
+        let rewritten = rewrite_fast(&done, shared, &inv.name);
 
         let expected_cost = shared.init_cost - done.compressive_utility;
-        let final_cost = rewritten.cost();
+        // let final_cost = rewritten.cost();
+        let final_cost = shared.root_idxs_of_task.iter().map(|root_idxs|
+            root_idxs.iter().map(|idx| rewritten[*idx].cost()).min().unwrap()
+        ).sum::<i32>()
         if expected_cost != final_cost {
             println!("*** expected cost {} != final cost {}", expected_cost, final_cost);
         }
@@ -1450,7 +1456,7 @@ impl CompressionStepResult {
         // Rewrite to dreamcoder syntax with all past invention
         // we rewrite "inv1)" and "inv1 " instead of just "inv1" because we dont want to match on "inv10"
 
-        let rewritten_dreamcoder: Vec<String> = rewritten.split_programs().iter().map(|p|{
+        let rewritten_dreamcoder: Vec<String> = rewritten.iter().map(|p|{
             let mut res = p.to_string();
             for (prev_inv_name, prev_dc_inv_str) in prev_dc_inv_to_inv_strs {
                 res = replace_prim_with(&res, prev_inv_name, prev_dc_inv_str);
@@ -1466,7 +1472,7 @@ impl CompressionStepResult {
             res
         }).collect();
 
-        CompressionStepResult { inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost: shared.init_cost }
+        CompressionStepResult { inv, rewritten: Expr::programs(rewritten), rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost: shared.init_cost }
     }
     pub fn json(&self) -> serde_json::Value {        
         let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| expr.to_string()).collect();
@@ -2012,6 +2018,9 @@ pub fn compression_step(
     println!("num unique programs: {}", roots.len());
     tstart = std::time::Instant::now();
 
+    // arity inference
+    // let mut arity_of_node: Vec<usize> = arity_inference(programs_node, &egraph, &treenodes);
+
     // cost of a single usage of a node (same as inventionless_cost)
     let cost_of_node_once: Vec<i32> = treenodes.iter().map(|node| egraph[*node].data.inventionless_cost).collect();
     // cost of a single usage times number of paths to node
@@ -2076,7 +2085,12 @@ pub fn compression_step(
             let body_utility_no_refinement = cost_of_node_once[usize::from(*node)];
             let refinement_body_utility = 0;
             // compressive_utility for arity-0 is cost_of_node_all[node] minus the penalty of using the new prim
-            let compressive_utility = cost_of_node_all[usize::from(*node)] - num_paths_to_node[usize::from(*node)] * COST_TERMINAL;
+
+            let compressive_utility: i32 = shared.root_idxs_of_task.iter().map(|root_idxs|
+                root_idxs.iter().map(|idx| init_cost_by_root_idx[*idx] - num_paths_to_node_by_root_idx[*idx] * (cost_of_node_once[usize::from(*node)] - COST_TERMINAL))
+            ).sum();
+            
+            // let compressive_utility = cost_of_node_all[usize::from(*node)] - num_paths_to_node[usize::from(*node)] * COST_TERMINAL;
             let utility = compressive_utility + noncompressive_utility(body_utility_no_refinement + refinement_body_utility, cfg);
             if utility <= 0 { continue; }
 
