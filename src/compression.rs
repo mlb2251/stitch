@@ -1254,6 +1254,7 @@ fn get_refinements_of_shifted_id(shifted_id: Id, egraph: &crate::EGraph, cfg: &C
 /// the node to the descendant. We also collect a bunch of other useful stuff like the argument you would get if you abstracted
 /// the descendant and introduced an invention rooted at the ancestor node.
 #[allow(clippy::type_complexity)]
+//#[inline(never)]
 fn get_zippers(
     treenodes: &[Id],
     cost_of_node_once: &[i32],
@@ -1594,59 +1595,12 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     let ivar_multiuses: Vec<(usize,i32)> = pattern.arg_choices.iter().map(|labelled|labelled.ivar).counts()
         .iter().filter_map(|(ivar,count)| if *count > 1 { Some((*ivar, (*count-1) as i32)) } else { None }).collect();
 
-    // (parent,child) show up in here if they conflict
-    let mut refinement_conflicts: AHashSet<(Id,Id)> = Default::default();
-    for r in pattern.refinements.iter().filter_map(|r|r.as_ref()) {
-        for ancestor in r.iter() {
-            for descendant in r.iter() {
-                if ancestor != descendant && is_descendant(*descendant, *ancestor, &shared.egraph) {
-                    refinement_conflicts.insert((*ancestor, *descendant));
-                }
-            }
-        }
-    }
-
     // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
     // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
     // Also an extra COST_NONTERMINAL for each argument that is refined (for the lambda).
     let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * pattern.first_zid_of_ivar.len() as i32 + COST_NONTERMINAL * pattern.refinements.iter().map(|r|if let Some(refinements) = r {refinements.len() as i32} else {0}).sum::<i32>());
 
-
     let utility_of_loc_once: Vec<i32> = pattern.match_locations.iter().map(|loc| {
-        // println!("calculating util of {}", extract(*loc, &shared.egraph));
-        // compressivity of body (no refinement) minus slight penalty from the application
-        let base_utility = pattern.body_utility_no_refinement + app_penalty;
-        // println!("base {}", base_utility);
-
-        // each use of the refined out arg gives a benefit equal to the size of the arg
-        let refinement_utility: i32 = pattern.refinements.iter().enumerate().filter(|(_,r)| r.is_some()).map(|(ivar,r)| {
-            let refinements = r.as_ref().unwrap();
-            // grab shifted arg
-            let shifted_arg: Id = shared.arg_of_zid_node[pattern.first_zid_of_ivar[ivar]][loc].shifted_id;
-            if let Some(uses_of_refinement) =  shared.uses_of_shifted_arg_refinement.get(&shifted_arg) {
-                return refinements.iter().map(|refinement| {
-                    if let Some(uses) = uses_of_refinement.get(refinement) {
-                        // we subtract COST_TERMINAL because we need to leave behind a $i in place of it in the arg
-                        let mut util = (*uses as i32) * (shared.cost_of_node_once[usize::from(*refinement)] - COST_TERMINAL);
-                        // println!("gained util {} from {}", util, extract(*refinement, &shared.egraph));
-                        for r in refinements.iter().filter(|r| refinement_conflicts.contains(&(*refinement,**r))) {
-                            // we (an ancestor) conflicted with a descendant so we lose some of that descendants util
-                            // todo: importantly this doesnt when a grandparent negates both a parent and a child... 
-                            // todo that would be necessary for 3+ refinements and would be closer to our full conflict resolution setup
-                            assert!(refinements.len() < 3);
-                            util -=  (*uses as i32) * (shared.cost_of_node_once[usize::from(*r)] - COST_TERMINAL);
-                        }
-                        util
-                    } else { 0 }
-                }).sum::<i32>()
-            }
-            // if uses_of_shifted_arg_refinement lacks this shifted_arg then it must not have any refinements so we must not be getting any refinement gain here
-            // likewise if the inner hashmap uses_of_shifted_arg_refinement[shifted_arg] lacks this refinement then we wont get any benefit
-            0 
-        }).sum();
-
-        // println!("refinement {}", refinement_utility);
-
 
         // the bad refinement override: if there are any free ivars in the arg at this location (ignoring the refinement itself if there
         // is one) then we can't apply this invention here so *total* util should be 0
@@ -1657,6 +1611,11 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
             }
         }
 
+        // println!("calculating util of {}", extract(*loc, &shared.egraph));
+        // compressivity of body (no refinement) minus slight penalty from the application
+        let base_utility = pattern.body_utility_no_refinement + app_penalty;
+        // println!("base {}", base_utility);
+
         // for each extra usage of an argument, we gain the cost of that argument as
         // extra utility. Note we use `first_zid_of_ivar` since it doesn't matter which
         // of the zids we use as long as it corresponds to the right ivar
@@ -1665,222 +1624,365 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         ).sum::<i32>();
         // println!("multiuse {}", multiuse_utility);
 
-        base_utility + multiuse_utility + refinement_utility
-        }).collect();
+        base_utility + multiuse_utility
+    }).collect();
 
-    let compressive_utility_by_root_idx: Vec<i32> = shared.num_paths_to_node_by_root_idx.iter().map(|num_paths_to_node_local|
-        pattern.match_locations.iter()
-        .zip(utility_of_loc_once.iter())
-        .map(|(loc,utility)| utility * num_paths_to_node_local[usize::from(*loc)])
-        .sum()
-    ).collect();
-    
-    let compressive_utility: i32 = pattern.match_locations.iter()
-        .zip(utility_of_loc_once.iter())
-        .map(|(loc,utility)| utility * shared.num_paths_to_node[usize::from(*loc)])
-        .sum();
+    let mut cumulative_utility_of_node: Vec<i32> = vec![0; shared.treenodes.len()];
+    let mut corrected_utils: AHashMap<Id,bool> = Default::default();
 
-    assert_eq!(compressive_utility_by_root_idx.iter().sum::<i32>(), compressive_utility);
+    for node in shared.treenodes.iter() {
 
-    // assertion to make sure pattern.match_locations is sorted (for binary searching + bottom up iterating)
-    // {
-    //     let mut largest_seen = -1;
-    //     assert!(pattern.match_locations.iter().all(|x| {
-    //         let res = largest_seen < usize::from(*x) as i32;
-    //         largest_seen = usize::from(*x) as i32;
-    //         res
-    //         }));
-    // }
+        let utility_without_rewrite: i32 = match &shared.node_of_id[usize::from(*node)] {
+            Lambda::Lam([b]) => cumulative_utility_of_node[usize::from(*b)],
+            Lambda::App([f,x]) => cumulative_utility_of_node[usize::from(*f)] + cumulative_utility_of_node[usize::from(*x)],
+            Lambda::Prim(_) | Lambda::Var(_) => 0,
+            Lambda::IVar(_) | Lambda::Programs(_) => unreachable!(),
+        };
 
-    // * ACCOUNTING FOR USE CONFLICTS:
+        assert!(utility_without_rewrite >= 0);
 
-    let (correction_by_root_idx, corrected_utils) = use_conflicts(pattern, utility_of_loc_once, shared);
-    let adjusted_util_by_root_idx: Vec<i32> = compressive_utility_by_root_idx.iter().zip(correction_by_root_idx.iter()).map(|(util,corr)| util + corr).collect();
+        if let Ok(idx) = pattern.match_locations.binary_search(node) {
+            // this node is a potential rewrite location
 
-    let adjusted_compressive_utility: i32 = shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
-        root_idxs.iter().map(|idx| shared.init_cost_by_root_idx[*idx] - adjusted_util_by_root_idx[*idx]).min().unwrap()
+            let utility_of_args: i32 = pattern.first_zid_of_ivar.iter()
+                .map(|zid| cumulative_utility_of_node[usize::from(shared.arg_of_zid_node[*zid][node].unshifted_id)])
+                .sum();
+            let utility_with_rewrite = utility_of_args + utility_of_loc_once[idx];
+
+            let chose_to_rewrite = utility_with_rewrite > utility_without_rewrite;
+
+            cumulative_utility_of_node[usize::from(*node)] = std::cmp::max(utility_with_rewrite, utility_without_rewrite);
+
+            corrected_utils.insert(*node,chose_to_rewrite);
+
+
+        } else {
+            if utility_without_rewrite != 0 {
+                cumulative_utility_of_node[usize::from(*node)] = utility_without_rewrite;
+            }
+        }
+    }
+
+    let compressive_utility: i32 = shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
+        root_idxs.iter().map(|idx| shared.init_cost_by_root_idx[*idx] - cumulative_utility_of_node[usize::from(shared.roots[*idx])]).min().unwrap()
     ).sum::<i32>();
 
-    UtilityCalculation { util: adjusted_compressive_utility, corrected_utils }
+    UtilityCalculation { util: compressive_utility, corrected_utils }
 }
 
-//#[inline(never)]
-fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, shared: &SharedData) -> (Vec<i32>, AHashMap<Id,CorrectedUtil>) {
 
-    // todo opt include holes too
-    // zips and ivars
-    let zips: Vec<(Zip,Option<usize>)> = pattern.arg_choices.iter()
-        .map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(),Some(labelled_zid.ivar)))
-        .chain(pattern.holes.iter().map(|zid| (shared.zip_of_zid[*zid].clone(), None)))
-        .collect();
-    // if holes {
-    //     zips.extend(pattern.holes.iter().map(|zid| (shared.zip_of_zid[zid].clone(),labelled_zid.ivar)))
-    // }
 
-    // the idea here is we want the fast-path to be the case where no conflicts happen. If no conflicts happen, there should be
-    // zero heap allocations in this whole section! Since empty vecs and hashmaps dont cause allocations yet.
-    // corrected_utils is a mapping from node to a struct that says whether we accept/reject the node along with the utility
-    // change that would happen if you switched to rejecting it. If something is not in this struct is means it's accepted for sure.
-    // Note that we never need to actually mutate old entries in this because at the end of the day we'll do a *top down* traversal
-    // during rewriting so as soon as we choose to accept something any rejections that that implies are automatically handled ofc.
-    let mut corrected_utils: AHashMap<Id,CorrectedUtil> = Default::default();
-    let mut correction_by_root_idx = vec![0; shared.task_of_root_idx.len()]; // this is going to get added to the compressive_utility at the end to correct for use-conflicts
+// //#[inline(never)]
+// fn compressive_utility_alt(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
-    // bottom up traversal since we assume match_locations is sorted
-    for (loc_idx,loc) in pattern.match_locations.iter().enumerate() {
-        // get all the nodes this could conflict with (by idx within `locs` not by id)
-        let conflict_idxs: AHashSet<(Id,usize)> = get_conflicts(&zips, loc, shared, pattern);
+//     // * BASIC CALCULATION
+//     // Roughly speaking compressive utility is num_usages(invention) * size(invention), however there are a few extra
+//     // terms we need to take care of too.
 
-        // now we basically record how much we would affect global utility by if we accept vs reject vs choose the best of those options.
-        // and recording this will let us change our mind later if we decide to force-reject something
+//     // get a list of (ivar,usages-1) filtering out things that are only used once, this will come in handy for adding multi-use utility later
+//     let ivar_multiuses: Vec<(usize,i32)> = pattern.arg_choices.iter().map(|labelled|labelled.ivar).counts()
+//         .iter().filter_map(|(ivar,count)| if *count > 1 { Some((*ivar, (*count-1) as i32)) } else { None }).collect();
 
-        // if we reject using the invention at this node, we just lose its utility
-        let reject = - utility_of_loc_once[loc_idx];
+//     // (parent,child) show up in here if they conflict
+//     let mut refinement_conflicts: AHashSet<(Id,Id)> = Default::default();
+//     for r in pattern.refinements.iter().filter_map(|r|r.as_ref()) {
+//         for ancestor in r.iter() {
+//             for descendant in r.iter() {
+//                 if ancestor != descendant && is_descendant(*descendant, *ancestor, &shared.egraph) {
+//                     refinement_conflicts.insert((*ancestor, *descendant));
+//                 }
+//             }
+//         }
+//     }
 
-        // Rare case: when utility_of_loc_once is <=0, then reject is >=0 and of course we should do it
-        // (it benefits us or rather brings us back to 0, and leaves maximal flexibility for other things to be accepted/rejected).
-        // and theres nothing else we need to account for here.
-        if reject >= 0 {
-            for (i,num_paths_local) in shared.num_paths_to_node_by_root_idx.iter().enumerate() {
-                correction_by_root_idx[i] += reject * num_paths_local[usize::from(*loc)];
-            }
-            corrected_utils.insert(*loc, CorrectedUtil {
-                accept: false, // we rejected
-                best_util_correction: reject, // we rejected
-                util_change_to_reject: 0 // we rejected so no change to reject
-            });
-            continue
-        }
+//     // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
+//     // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
+//     // Also an extra COST_NONTERMINAL for each argument that is refined (for the lambda).
+//     let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * pattern.first_zid_of_ivar.len() as i32 + COST_NONTERMINAL * pattern.refinements.iter().map(|r|if let Some(refinements) = r {refinements.len() as i32} else {0}).sum::<i32>());
 
-        // common case: no conflicts
-        // (this has to come AFTER the possible forced rejection)
-        if conflict_idxs.is_empty() { continue; }
+
+//     let utility_of_loc_once: Vec<i32> = pattern.match_locations.iter().map(|loc| {
+//         // println!("calculating util of {}", extract(*loc, &shared.egraph));
+//         // compressivity of body (no refinement) minus slight penalty from the application
+//         let base_utility = pattern.body_utility_no_refinement + app_penalty;
+//         // println!("base {}", base_utility);
+
+//         // each use of the refined out arg gives a benefit equal to the size of the arg
+//         let refinement_utility: i32 = pattern.refinements.iter().enumerate().filter(|(_,r)| r.is_some()).map(|(ivar,r)| {
+//             let refinements = r.as_ref().unwrap();
+//             // grab shifted arg
+//             let shifted_arg: Id = shared.arg_of_zid_node[pattern.first_zid_of_ivar[ivar]][loc].shifted_id;
+//             if let Some(uses_of_refinement) =  shared.uses_of_shifted_arg_refinement.get(&shifted_arg) {
+//                 return refinements.iter().map(|refinement| {
+//                     if let Some(uses) = uses_of_refinement.get(refinement) {
+//                         // we subtract COST_TERMINAL because we need to leave behind a $i in place of it in the arg
+//                         let mut util = (*uses as i32) * (shared.cost_of_node_once[usize::from(*refinement)] - COST_TERMINAL);
+//                         // println!("gained util {} from {}", util, extract(*refinement, &shared.egraph));
+//                         for r in refinements.iter().filter(|r| refinement_conflicts.contains(&(*refinement,**r))) {
+//                             // we (an ancestor) conflicted with a descendant so we lose some of that descendants util
+//                             // todo: importantly this doesnt when a grandparent negates both a parent and a child... 
+//                             // todo that would be necessary for 3+ refinements and would be closer to our full conflict resolution setup
+//                             assert!(refinements.len() < 3);
+//                             util -=  (*uses as i32) * (shared.cost_of_node_once[usize::from(*r)] - COST_TERMINAL);
+//                         }
+//                         util
+//                     } else { 0 }
+//                 }).sum::<i32>()
+//             }
+//             // if uses_of_shifted_arg_refinement lacks this shifted_arg then it must not have any refinements so we must not be getting any refinement gain here
+//             // likewise if the inner hashmap uses_of_shifted_arg_refinement[shifted_arg] lacks this refinement then we wont get any benefit
+//             0 
+//         }).sum();
+
+//         // println!("refinement {}", refinement_utility);
+
+
+//         // the bad refinement override: if there are any free ivars in the arg at this location (ignoring the refinement itself if there
+//         // is one) then we can't apply this invention here so *total* util should be 0
+//         for (ivar,zid) in pattern.first_zid_of_ivar.iter().enumerate() {
+//             let shifted_arg = shared.arg_of_zid_node[*zid][loc].shifted_id;
+//             if has_free_ivars(shifted_arg, &pattern.refinements[ivar], &shared.egraph) {
+//                 return 0; // set whole util to 0 for this loc, causing an autoreject
+//             }
+//         }
+
+//         // for each extra usage of an argument, we gain the cost of that argument as
+//         // extra utility. Note we use `first_zid_of_ivar` since it doesn't matter which
+//         // of the zids we use as long as it corresponds to the right ivar
+//         let multiuse_utility = ivar_multiuses.iter().map(|(ivar,count)|
+//             count * shared.arg_of_zid_node[pattern.first_zid_of_ivar[*ivar]][loc].cost
+//         ).sum::<i32>();
+//         // println!("multiuse {}", multiuse_utility);
+
+//         base_utility + multiuse_utility + refinement_utility
+//         }).collect();
+
+//     let compressive_utility_by_root_idx: Vec<i32> = shared.num_paths_to_node_by_root_idx.iter().map(|num_paths_to_node_local|
+//         pattern.match_locations.iter()
+//         .zip(utility_of_loc_once.iter())
+//         .map(|(loc,utility)| utility * num_paths_to_node_local[usize::from(*loc)])
+//         .sum()
+//     ).collect();
+    
+//     let compressive_utility: i32 = pattern.match_locations.iter()
+//         .zip(utility_of_loc_once.iter())
+//         .map(|(loc,utility)| utility * shared.num_paths_to_node[usize::from(*loc)])
+//         .sum();
+
+//     assert_eq!(compressive_utility_by_root_idx.iter().sum::<i32>(), compressive_utility);
+
+//     // assertion to make sure pattern.match_locations is sorted (for binary searching + bottom up iterating)
+//     // {
+//     //     let mut largest_seen = -1;
+//     //     assert!(pattern.match_locations.iter().all(|x| {
+//     //         let res = largest_seen < usize::from(*x) as i32;
+//     //         largest_seen = usize::from(*x) as i32;
+//     //         res
+//     //         }));
+//     // }
+
+//     // * ACCOUNTING FOR USE CONFLICTS:
+
+//     let (correction_by_root_idx, corrected_utils) = use_conflicts(pattern, utility_of_loc_once, shared);
+//     let adjusted_util_by_root_idx: Vec<i32> = compressive_utility_by_root_idx.iter().zip(correction_by_root_idx.iter()).map(|(util,corr)| util + corr).collect();
+
+//     let adjusted_compressive_utility: i32 = shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
+//         root_idxs.iter().map(|idx| shared.init_cost_by_root_idx[*idx] - adjusted_util_by_root_idx[*idx]).min().unwrap()
+//     ).sum::<i32>();
+
+//     // assert_eq!(adjusted_compressive_utility, compressive_utility_alt(pattern, shared).util, "{}", pattern.to_expr(shared) );
+//     if adjusted_compressive_utility != compressive_utility_alt(pattern, shared).util {
+//         println!("{} {} {}", adjusted_compressive_utility, compressive_utility_alt(pattern, shared).util, pattern.to_expr(shared));
+//     } 
+
+//     UtilityCalculation { util: adjusted_compressive_utility, corrected_utils };
+//     compressive_utility_alt(pattern, shared)
+// }
+
+// //#[inline(never)]
+// fn use_conflicts(pattern: &Pattern, utility_of_loc_once: Vec<i32>, shared: &SharedData) -> (Vec<i32>, AHashMap<Id,CorrectedUtil>) {
+
+//     // todo opt include holes too
+//     // zips and ivars
+//     let zips: Vec<(Zip,Option<usize>)> = pattern.arg_choices.iter()
+//         .map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(),Some(labelled_zid.ivar)))
+//         .chain(pattern.holes.iter().map(|zid| (shared.zip_of_zid[*zid].clone(), None)))
+//         .collect();
+//     // if holes {
+//     //     zips.extend(pattern.holes.iter().map(|zid| (shared.zip_of_zid[zid].clone(),labelled_zid.ivar)))
+//     // }
+
+//     // the idea here is we want the fast-path to be the case where no conflicts happen. If no conflicts happen, there should be
+//     // zero heap allocations in this whole section! Since empty vecs and hashmaps dont cause allocations yet.
+//     // corrected_utils is a mapping from node to a struct that says whether we accept/reject the node along with the utility
+//     // change that would happen if you switched to rejecting it. If something is not in this struct is means it's accepted for sure.
+//     // Note that we never need to actually mutate old entries in this because at the end of the day we'll do a *top down* traversal
+//     // during rewriting so as soon as we choose to accept something any rejections that that implies are automatically handled ofc.
+//     let mut corrected_utils: AHashMap<Id,CorrectedUtil> = Default::default();
+//     let mut correction_by_root_idx = vec![0; shared.task_of_root_idx.len()]; // this is going to get added to the compressive_utility at the end to correct for use-conflicts
+
+//     // bottom up traversal since we assume match_locations is sorted
+//     for (loc_idx,loc) in pattern.match_locations.iter().enumerate() {
+//         // get all the nodes this could conflict with (by idx within `locs` not by id)
+//         let conflict_idxs: AHashSet<(Id,usize)> = get_conflicts(&zips, loc, shared, pattern);
+
+//         // now we basically record how much we would affect global utility by if we accept vs reject vs choose the best of those options.
+//         // and recording this will let us change our mind later if we decide to force-reject something
+
+//         // if we reject using the invention at this node, we just lose its utility
+//         let reject = - utility_of_loc_once[loc_idx];
+
+//         // Rare case: when utility_of_loc_once is <=0, then reject is >=0 and of course we should do it
+//         // (it benefits us or rather brings us back to 0, and leaves maximal flexibility for other things to be accepted/rejected).
+//         // and theres nothing else we need to account for here.
+//         if reject >= 0 {
+//             for (i,num_paths_local) in shared.num_paths_to_node_by_root_idx.iter().enumerate() {
+//                 correction_by_root_idx[i] += reject * num_paths_local[usize::from(*loc)];
+//             }
+//             corrected_utils.insert(*loc, CorrectedUtil {
+//                 accept: false, // we rejected
+//                 best_util_correction: reject, // we rejected
+//                 util_change_to_reject: 0 // we rejected so no change to reject
+//             });
+//             continue
+//         }
+
+//         // common case: no conflicts
+//         // (this has to come AFTER the possible forced rejection)
+//         if conflict_idxs.is_empty() {
+//             corrected_utils.insert(*loc, CorrectedUtil {
+//                 accept: true, // we accept
+//                 best_util_correction: 0, // we accepted and it had noo conflicts so theres no correction at all
+//                 util_change_to_reject: - utility_of_loc_once[loc_idx] // switch to reject
+//             });
+//             continue
+//         }
         
-        // if we accept using the invention at this node everywhere, we lose the util of the difference of the best choice of each descendant vs the reject choice
-        // so for example if all the conflicts had chosen to Reject anyways then this would be 0 (optimal)
-        // but if some chose to Accept then our Accept correction will include the difference caused by forcing them to reject
-        // This is easiest to understand if you think of reject as "the effect on global util of rejecting at a single location"
-        // and likewise for accept and best.
-        let accept = conflict_idxs.iter()
-            .map(|(id,idx)|
-                corrected_utils.get(id).map(|x|x.util_change_to_reject)
-                // if it's not in corrected_utils, it must have had no conflicts so we must be switching from accept to reject with no other side effects
-                // so we do (reject - accept) = (- util(idx) - 0) = - util(idx)
-                // where accept was 0 since it caused no conflicts
-                .unwrap_or_else(|| - utility_of_loc_once[*idx]) 
-            ).sum();
+//         // if we accept using the invention at this node everywhere, we lose the util of the difference of the best choice of each descendant vs the reject choice
+//         // so for example if all the conflicts had chosen to Reject anyways then this would be 0 (optimal)
+//         // but if some chose to Accept then our Accept correction will include the difference caused by forcing them to reject
+//         // This is easiest to understand if you think of reject as "the effect on global util of rejecting at a single location"
+//         // and likewise for accept and best.
+//         let accept = conflict_idxs.iter()
+//             .map(|(id,idx)|
+//                 corrected_utils.get(id).map(|x|x.util_change_to_reject)
+//                 // if it's not in corrected_utils, it must have had no conflicts so we must be switching from accept to reject with no other side effects
+//                 // so we do (reject - accept) = (- util(idx) - 0) = - util(idx)
+//                 // where accept was 0 since it caused no conflicts
+//                 .unwrap_or_else(|| - utility_of_loc_once[*idx]) 
+//             ).sum();
 
-        // lets accept the less negative of the options
-        let best_util_correction = std::cmp::max(reject,accept);
+//         // lets accept the less negative of the options
+//         let best_util_correction = std::cmp::max(reject,accept);
 
-        // update global correction with this applied to all our nodes (note that the same choice makes sense for all nodes
-        // from the point of view of this being the top of the tree - it's our parents job to use change_to_reject if they
-        // want to reject only certain ones of us)
-        for (i,num_paths_local) in shared.num_paths_to_node_by_root_idx.iter().enumerate() {
-            correction_by_root_idx[i] += best_util_correction * num_paths_local[usize::from(*loc)];
-        }
+//         // update global correction with this applied to all our nodes (note that the same choice makes sense for all nodes
+//         // from the point of view of this being the top of the tree - it's our parents job to use change_to_reject if they
+//         // want to reject only certain ones of us)
+//         for (i,num_paths_local) in shared.num_paths_to_node_by_root_idx.iter().enumerate() {
+//             correction_by_root_idx[i] += best_util_correction * num_paths_local[usize::from(*loc)];
+//         }
 
-        let util_change_to_reject = reject - best_util_correction;
+//         let util_change_to_reject = reject - best_util_correction;
 
-        corrected_utils.insert(*loc, CorrectedUtil {
-            accept: best_util_correction == accept,
-            best_util_correction,
-            util_change_to_reject
-        });
+//         corrected_utils.insert(*loc, CorrectedUtil {
+//             accept: best_util_correction == accept,
+//             best_util_correction,
+//             util_change_to_reject
+//         });
 
-        // Involved example:
-        // A -> B -> C  (ie A conflicts with B conflicts with C; and A is the parent)
-        // and also A -> C
-        // 
-        // First we calculate C.accept C.reject
-        // B.reject as - util(B)
-        // B.accept as (C.reject - C.best)
-        // A.reject as - util(A)
-        // A.accept as (B.reject - B.best) + (C.reject - C.best)
-        // did we double count C in here since it was a child of both B and A (I mean literally a child of both not just when struct hashed)
-        // if B.best was B.reject, then it would involve allowing C.best to happen so that's good that we have the (C.reject - C.best) term
-        //
-        // if B.best = B.reject:
-        // A.accept = (B.reject - B.best) + (C.reject - C.best)
-        //          = (C.reject - C.best) = force C to reject
-        // which is good because since B was `reject` then yes A needs to include the C rejection term
-        //
-        // if B.best = B.accept:
-        // A.accept = (B.reject - B.best) + (C.reject - C.best)
-        //          = (B.reject - B.accept) + (C.reject - C.best)
-        //          = (B.reject - (C.reject - C.best)) + (C.reject - C.best)
-        //          = B.reject = - util(B)
-        // which is good because we've already modified the global util to incorporate C rejection when we decided that B.best 
-        // was B.accept, so it's good that the C terms cancel out here. You can think of what happened like this: we force-reject C
-        // which creates a (C.reject - C.best) term, but then we force reject B and since B.best was B.accept which involved C rejection,
-        // we get another (C.reject - C.best) term that cancels out the first
-        //
-        // if B.best was B.accept, then (B.reject - B.best) = (B.reject - B.accept) = (B.reject - (C.reject - C.best))
+//         // Involved example:
+//         // A -> B -> C  (ie A conflicts with B conflicts with C; and A is the parent)
+//         // and also A -> C
+//         // 
+//         // First we calculate C.accept C.reject
+//         // B.reject as - util(B)
+//         // B.accept as (C.reject - C.best)
+//         // A.reject as - util(A)
+//         // A.accept as (B.reject - B.best) + (C.reject - C.best)
+//         // did we double count C in here since it was a child of both B and A (I mean literally a child of both not just when struct hashed)
+//         // if B.best was B.reject, then it would involve allowing C.best to happen so that's good that we have the (C.reject - C.best) term
+//         //
+//         // if B.best = B.reject:
+//         // A.accept = (B.reject - B.best) + (C.reject - C.best)
+//         //          = (C.reject - C.best) = force C to reject
+//         // which is good because since B was `reject` then yes A needs to include the C rejection term
+//         //
+//         // if B.best = B.accept:
+//         // A.accept = (B.reject - B.best) + (C.reject - C.best)
+//         //          = (B.reject - B.accept) + (C.reject - C.best)
+//         //          = (B.reject - (C.reject - C.best)) + (C.reject - C.best)
+//         //          = B.reject = - util(B)
+//         // which is good because we've already modified the global util to incorporate C rejection when we decided that B.best 
+//         // was B.accept, so it's good that the C terms cancel out here. You can think of what happened like this: we force-reject C
+//         // which creates a (C.reject - C.best) term, but then we force reject B and since B.best was B.accept which involved C rejection,
+//         // we get another (C.reject - C.best) term that cancels out the first
+//         //
+//         // if B.best was B.accept, then (B.reject - B.best) = (B.reject - B.accept) = (B.reject - (C.reject - C.best))
 
-    }
+//     }
 
-    (correction_by_root_idx, corrected_utils)
-    // UtilityCalculation { util: (compressive_utility + global_correction), corrected_utils}
-}
+//     (correction_by_root_idx, corrected_utils)
+//     // UtilityCalculation { util: (compressive_utility + global_correction), corrected_utils}
+// }
 
-//#[inline(never)]
-fn get_conflicts(zips: &[(Vec<ZNode>, Option<usize>)], loc: &Id, shared: &SharedData, pattern: &Pattern) -> AHashSet<(Id, usize)> {
-    let mut conflict_idxs = AHashSet::new();
-    for (zip,ivar) in zips.iter().filter(|(zip,_)| !zip.is_empty()) {
-        let mut id = loc;
-        // for all except the last node in the zipper, push the childs location on as a potential conflict
-        for znode in zip[..zip.len()-1].iter() {
-            // step one deeper
-            id = match (znode, &shared.node_of_id[usize::from(*id)]) {
-                (ZNode::Body, Lambda::Lam([b])) => b,
-                (ZNode::Func, Lambda::App([f,_])) => f,
-                (ZNode::Arg, Lambda::App([_,x])) => x,
-                _ => unreachable!()
-            };
-            // if its also a location, push it to the conflicts list (do NOT dedup)
-            if let Ok(idx) = pattern.match_locations.binary_search(id) {
-                conflict_idxs.insert((*id,idx));
-            }
-        }
-        // if this is a refinement, push every descendant of the unshifted argument including it itself as a potential conflict
-        if let Some(ivar) = ivar {
-            if pattern.refinements[*ivar].is_some() {
-                //#[inline(never)]
-                fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut AHashSet<(Id,usize)>, pattern: &Pattern) {
-                    if let Ok(idx) = pattern.match_locations.binary_search(&id) {
-                        conflict_idxs.insert((id,idx));
-                    }
-                    match &shared.node_of_id[usize::from(id)] {
-                        Lambda::Lam([b]) => {helper(*b, shared, conflict_idxs, pattern);},
-                        Lambda::App([f,x]) => {
-                            helper(*f, shared, conflict_idxs, pattern);
-                            helper(*x, shared, conflict_idxs, pattern);
-                        }
-                        Lambda::Prim(_) | Lambda::Var(_) | Lambda::IVar(_) => {},
-                        _ => unreachable!()
-                    }
-                }
-                let unshifted_arg: Id = shared.arg_of_zid_node[pattern.first_zid_of_ivar[*ivar]][loc].unshifted_id;
-                helper(unshifted_arg, shared, &mut conflict_idxs, pattern);
-            }
-        }
-    }
-    // conflict_idxs.range(..).into_iter().collect()
-    conflict_idxs
-}
+// //#[inline(never)]
+// fn get_conflicts(zips: &[(Vec<ZNode>, Option<usize>)], loc: &Id, shared: &SharedData, pattern: &Pattern) -> AHashSet<(Id, usize)> {
+//     let mut conflict_idxs = AHashSet::new();
+//     for (zip,ivar) in zips.iter().filter(|(zip,_)| !zip.is_empty()) {
+//         let mut id = loc;
+//         // for all except the last node in the zipper, push the childs location on as a potential conflict
+//         for znode in zip[..zip.len()-1].iter() {
+//             // step one deeper
+//             id = match (znode, &shared.node_of_id[usize::from(*id)]) {
+//                 (ZNode::Body, Lambda::Lam([b])) => b,
+//                 (ZNode::Func, Lambda::App([f,_])) => f,
+//                 (ZNode::Arg, Lambda::App([_,x])) => x,
+//                 _ => unreachable!()
+//             };
+//             // if its also a location, push it to the conflicts list (do NOT dedup)
+//             if let Ok(idx) = pattern.match_locations.binary_search(id) {
+//                 conflict_idxs.insert((*id,idx));
+//             }
+//         }
+//         // if this is a refinement, push every descendant of the unshifted argument including it itself as a potential conflict
+//         if let Some(ivar) = ivar {
+//             if pattern.refinements[*ivar].is_some() {
+//                 //#[inline(never)]
+//                 fn helper(id: Id, shared: &SharedData, conflict_idxs: &mut AHashSet<(Id,usize)>, pattern: &Pattern) {
+//                     if let Ok(idx) = pattern.match_locations.binary_search(&id) {
+//                         conflict_idxs.insert((id,idx));
+//                     }
+//                     match &shared.node_of_id[usize::from(id)] {
+//                         Lambda::Lam([b]) => {helper(*b, shared, conflict_idxs, pattern);},
+//                         Lambda::App([f,x]) => {
+//                             helper(*f, shared, conflict_idxs, pattern);
+//                             helper(*x, shared, conflict_idxs, pattern);
+//                         }
+//                         Lambda::Prim(_) | Lambda::Var(_) | Lambda::IVar(_) => {},
+//                         _ => unreachable!()
+//                     }
+//                 }
+//                 let unshifted_arg: Id = shared.arg_of_zid_node[pattern.first_zid_of_ivar[*ivar]][loc].unshifted_id;
+//                 helper(unshifted_arg, shared, &mut conflict_idxs, pattern);
+//             }
+//         }
+//     }
+//     // conflict_idxs.range(..).into_iter().collect()
+//     conflict_idxs
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UtilityCalculation {
     pub util: i32,
-    pub corrected_utils: AHashMap<Id,CorrectedUtil>,
+    pub corrected_utils: AHashMap<Id,bool>, // whether to accept
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CorrectedUtil {
-    pub accept: bool, // whether it's the best choice to accept applying the invention at this node when there are no other parent nodes above us (ignoring context, would this be the right choice?)
-    pub best_util_correction: i32, // the change in utility that this choice would cause. Always <= 0
-    pub util_change_to_reject: i32, // if accept=false this is 0 otherwise it's the difference in utility between accept and reject. Always <= 0.
-}
+// #[derive(Debug, Clone, PartialEq, Eq)]
+// pub struct CorrectedUtil {
+//     pub accept: bool, // whether it's the best choice to accept applying the invention at this node when there are no other parent nodes above us (ignoring context, would this be the right choice?)
+//     // pub best_util_correction: i32, // the change in utility that this choice would cause. Always <= 0
+//     // pub util_change_to_reject: i32, // if accept=false this is 0 otherwise it's the difference in utility between accept and reject. Always <= 0.
+// }
 
 
 
