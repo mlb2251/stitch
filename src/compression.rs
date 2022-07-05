@@ -1468,11 +1468,11 @@ impl CompressionStepData {
         let rewritten = if do_fast_rewrite {
             Expr::programs(rewrite_fast(&done, &roots, &shared, inv_name))
         } else {
-            let fast = Expr::programs(rewrite_fast(&done, &roots, &shared, inv_name));
             let r = Expr::programs(roots.into_iter().map(|r| rewrite_with_invention_egraph(r, inv, &mut shared.egraph)).collect());
-            if !is_test {
-                assert_eq!(r.cost(), fast.cost());
-            }
+            //if !is_test {
+            //    let fast = Expr::programs(rewrite_fast(&done, &roots, &shared, inv_name));
+            //    assert_eq!(r.cost(), fast.cost());
+            //}
             r
         };
 
@@ -1551,8 +1551,9 @@ impl CompressionStepResult {
 
         let inv = done.to_invention(inv_name, shared);
 
-        let train_data = CompressionStepData::new(done.clone(), train_programs_node, &inv, shared, past_invs, first_train_cost, false, false);
-        let test_data = test_programs_node.map(|n| CompressionStepData::new(done.clone(), n, &inv, shared, past_invs, first_test_cost, false, true));
+        let train_data = CompressionStepData::new(done.clone(), train_programs_node, &inv, shared, past_invs, first_train_cost, true, false);
+        //let test_data = test_programs_node.map(|n| CompressionStepData::new(done.clone(), n, &inv, shared, past_invs, first_test_cost, false, true));
+        let test_data = None;
 
         let dc_inv_str: String = dc_inv_str(&inv, past_invs);
 
@@ -2004,17 +2005,17 @@ pub fn compression(
     println!("Found {} inventions", step_results.len());
     let total_inv_sizes: f64 = step_results.iter().map(|r| r.inv.body.cost()).sum::<i32>() as f64;
     println!("Cost Improvement (train): ({:.2}x better) {} -> {}", compression_factor(train_programs_expr, &train_rewritten, total_inv_sizes), train_programs_expr.cost(), train_rewritten.cost());
-    println!("Cost Improvement (test): {}",
-        test_programs_expr.as_ref().map_or("null".to_string(), |e| format!("({:.2}x better) {} -> {}", compression_factor(e, &test_rewritten.as_ref().unwrap(), total_inv_sizes), e.cost(), test_rewritten.unwrap().cost()))
-    );
+    //println!("Cost Improvement (test): {}",
+    //    test_programs_expr.as_ref().map_or("null".to_string(), |e| format!("({:.2}x better) {} -> {}", compression_factor(e, &test_rewritten.as_ref().unwrap(), total_inv_sizes), e.cost(), test_rewritten.unwrap().cost()))
+    //);
     let mut total_inv_sizes_thus_far: f64 = 0.0;
     for i in 0..step_results.len() {
         let res = &step_results[i];
         total_inv_sizes_thus_far += res.inv.body.cost() as f64;
         println!("train: {} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(train_programs_expr, &res.train_data.rewritten, total_inv_sizes_thus_far), res);
-        println!("test: {}",
-            test_programs_expr.as_ref().map_or("null".to_string(), |e| format!("{} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(e, &res.test_data.as_ref().unwrap().rewritten, total_inv_sizes_thus_far), res))
-        );
+        //println!("test: {}",
+        //    test_programs_expr.as_ref().map_or("null".to_string(), |e| format!("{} ({:.2}x wrt orig): {}", res.inv.name.clone().blue(), compression_factor(e, &res.test_data.as_ref().unwrap().rewritten, total_inv_sizes_thus_far), res))
+        //);
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
     if cfg.follow_track && !(
@@ -2026,6 +2027,10 @@ pub fn compression(
         && cfg.no_opt_arity_zero)
     {
         println!("{} you often want to run --follow-track with --no-opt otherwise your target may get pruned", "[WARNING]".yellow());
+    }
+
+    if let Some(e) = test_programs_expr {
+        println!("Test set compression with all inventions applied: {}", compression_factor(e, &rewrite_with_inventions(e.clone(), &step_results.iter().map(|r| r.inv.clone()).collect::<Vec<Invention>>()), total_inv_sizes));
     }
     step_results
 }
@@ -2293,9 +2298,9 @@ pub fn compression_step(
         println!("{}: {}", i, res);
         if cfg.show_rewritten {
             println!("rewritten (train):\n{}", &res.train_data.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"));
-            println!("rewritten (test):\n{}",
-                res.test_data.as_ref().map_or("null".to_string(), |d| d.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"))
-            );
+            //println!("rewritten (test):\n{}",
+            //    res.test_data.as_ref().map_or("null".to_string(), |d| d.rewritten.split_programs().iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"))
+            //);
         }
         results.push(res);
     }
