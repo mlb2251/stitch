@@ -9,6 +9,14 @@ import seaborn as sns
 sns.set_theme(color_codes=True)
 sns.set(font_scale=2)
 
+def get_stats(path):
+    with open(path, 'r') as infile:
+        ss = {}
+        for line in infile:
+            if line.strip():
+                ss[str(re.match(r'^([^:]*):', line).group(1))] = int(re.match(r'.*Median: ([^$]*)$', line).group(1))
+        return ss
+
 def get_data(path, mode):
     #print(path)
     #input()
@@ -81,7 +89,7 @@ wl_to_human_readable = {
     'house': 'houses',
 }
 if mode == 'ex1':
-    fig, hosts = plt.subplots(4, 2, figsize=(18,15), sharex=True)
+    fig, hosts = plt.subplots(4, 2, figsize=(18,15), sharex=False)
     # idk TODO
     color1 = plt.cm.get_cmap('viridis')(0.25)
     color2 = plt.cm.get_cmap('viridis')(0.8)
@@ -98,78 +106,33 @@ if mode == 'ex1':
                         mss[m][k] = np.array([])
                     mss[m][k] = np.append(mss[m][k], v)
 
-        def sorted_ms_means(ms_map):
+        def sorted_ms_means_stds(ms_map):
             ranges = list(ms_map.keys())
             ranges.sort(key=lambda s: int(s[: s.index('-')]))
-            return ranges, [np.mean(ms_map[x]) for x in ranges]
-        depth_r, depth_m = sorted_ms_means(mss['depth'])
-        length_r, length_m = sorted_ms_means(mss['length'])
+            return ranges, [np.mean(ms_map[x]) for x in ranges], [np.std(ms_map[x]) for x in ranges]
+        depth_r, depth_m, depth_std = sorted_ms_means_stds(mss['depth'])
+        length_r, length_m, length_std = sorted_ms_means_stds(mss['length'])
         assert depth_r == length_r
-        host.bar(np.arange(len(seeds)) - 0.2, depth_m, width=0.4, color=color1, label=f'by depth')
-        host.bar(np.arange(len(seeds)) + 0.2, length_m, width=0.4, color=color2, label=f'by length')
+
+        stats = get_stats('/'.join([path, wl, 'length', 'stats.txt']))
+        host.plot([stats[r] for r in length_r], length_m, color=color1, marker='o')
+        host.fill_between([stats[r] for r in length_r], np.subtract(length_m, length_std), np.add(length_m, length_std), color=color1, alpha=0.2)
+        #stats = get_stats('/'.join([path, wl, 'depth', 'stats.txt']))
+        #host.plot([stats[r] for r in depth_r], depth_m, color=color2, marker='x')
+        #host.fill_between([stats[r] for r in depth_r], np.subtract(depth_m, depth_std), np.add(depth_m, depth_std), color=color1, alpha=0.2)
+
+        # get the median lengths
+        #host.bar(np.arange(len(seeds)) - 0.2, depth_m, width=0.4, color=color1, label=f'by depth')
+        #host.bar(np.arange(len(seeds)) + 0.2, length_m, width=0.4, color=color2, label=f'by length')
         host.legend(loc='best')
         host.set_title(wl_to_human_readable[wl])
-        host.set_xticks(np.arange(len(seeds)))
-        host.set_xticklabels(depth_r, rotation=90)
-    fig.supxlabel('Chunk')
+        #host.set_xticks(np.arange(len(seeds)))
+        #host.set_xticklabels(depth_r, rotation=90)
+    fig.supxlabel('Median program length in chunk')
     fig.supylabel('Runtime (s)')
-    #for idx, (wl, host) in enumerate(zip(workloads, hosts.flatten())):
-    #    ms_means   = []
-    #    ms_stds    = []
-    #    kb_means   = []
-    #    kb_stds    = []
-    #    arities = []
-    #    for arity in os.listdir('/'.join([path, wl])):
-    #        arities.append(int(arity))
-    #    arities.sort()  # just in case they're not read in a sorted way
-
-    #    verified_arities = []
-    #    for arity in arities:
-
-    #        verified = False
-    #        ms_local = []
-    #        kb_local = []
-    #        seeds = os.listdir('/'.join([path, wl, str(arity)]))
-    #        for f in seeds:
-    #            if f.endswith('.stderrandout'):
-    #                ms, kb = get_data('/'.join([path, wl, str(arity), f]), 'ex1')
-    #                if ms is None:
-    #                    assert kb is None
-    #                    continue
-    #                if kb is None:
-    #                    assert ms is None
-    #                    continue
-
-    #                ms_local.append(ms)
-    #                kb_local.append(kb)
-    #                verified = True
-
-    #        if verified:
-    #            # Essentially, only want to keep xs for which we have ys
-    #            verified_arities.append(arity)
-    #            ms_means.append(np.mean(ms_local))
-    #            ms_stds.append(np.std(ms_local))
-    #            kb_means.append(np.mean(kb_local))
-    #            kb_stds.append(np.std(kb_local))
-
-
-    #    # make da plot yo
-    #        
-    #    par1 = host.twinx()
-    #    
-    #    p1, = host.plot(verified_arities, ms_means, label='Run-time (s)', color=color1, marker='o')
-    #    host.fill_between(verified_arities, np.subtract(ms_means, ms_stds), np.add(ms_means, ms_stds), color=color1, alpha=0.2)
-    #    p2, = par1.plot(verified_arities, kb_means, label='Peak mem. usage (MB)', color=color2, marker='x')
-    #    par1.fill_between(verified_arities, np.subtract(kb_means, kb_stds), np.add(kb_means, kb_stds), color=color2, alpha=0.2)
-    #    
-    #    host.set_title(wl_to_human_readable[wl])
-
-    #    if idx == 0:
-    #        par1.legend(handles=[p1, p2], loc='upper left', framealpha=0.95)
-
-    #fig.supxlabel('Maximum invention arity')
     fig.tight_layout()
     plt.savefig(f"cs2-ex1.pdf")
+
 elif mode == 'ex2':
     color = plt.cm.get_cmap('viridis')(0.)
     fig, hosts = plt.subplots(4, 2, figsize=(18,15), sharex=True)
