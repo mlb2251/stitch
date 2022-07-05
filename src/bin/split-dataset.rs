@@ -7,7 +7,7 @@ use std::{path::PathBuf, str::FromStr};
 
 
 
-/// Compression
+/// Dataset splitting/chunking
 #[derive(Parser, Debug, Serialize)]
 #[clap(name = "Stitch")]
 pub struct Args {
