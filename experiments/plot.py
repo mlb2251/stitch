@@ -22,22 +22,19 @@ def get_data(path, mode):
     #input()
     with open(path, 'r') as infile:
         print(path)
-        if mode == 'ex1':
-            ss = {}
+        if mode == 'claim-2':
             for line in infile:
-                if line.strip():
-                    ss[str(re.match(r'^([^:]*):', line).group(1))] = float(re.match(r'.*Time: ([^m]*)ms', line).group(1))/1000.
-            return ss
-            #s = None
-            #mb = None
-            #for line in infile:
-            #    if line.startswith('TOTAL PREP + SEARCH'):
-            #        assert s is None
-            #        s = float(re.match(r'TOTAL PREP \+ SEARCH: ([^m]*)ms.*', line).group(1))/1000
-            #    elif 'Maximum resident set size (kbytes):' in line:
-            #        assert mb is None
-            #        mb = float(re.match(r'.*Maximum resident set size \(kbytes\): (.*)', line).group(1))/1000
-            #return (s, mb)
+                if line.startswith('Cost Improvement: '):
+                    train_ratio = re.match(r'Cost Improvement: \(([^x]*)x.*', line).group(1)
+                if line.startswith('Test set compression with all inventions applied: '):
+                    test_ratio = re.match(r'Test set compression with all inventions applied: (.*)', line).group(1)
+                elif line.startswith('Time: '):
+                    s = float(re.match(r'Time: \(([^m]*)ms.*', line).group(1))/1000.
+                elif 'Maximum resident set size (kbytes):' in line:
+                    assert mb is None
+                    mb = float(re.match(r'.*Maximum resident set size \(kbytes\): (.*)', line).group(1))/1000.
+            return (train_ratio, test_ratio, s, mb)
+
 
         elif mode == 'ex2':
             target_line = None
@@ -88,50 +85,24 @@ wl_to_human_readable = {
     'wheels': 'vehicles',
     'house': 'houses',
 }
-if mode == 'ex1':
-    fig, hosts = plt.subplots(4, 2, figsize=(18,15), sharex=False)
-    # idk TODO
-    color1 = plt.cm.get_cmap('viridis')(0.25)
-    color2 = plt.cm.get_cmap('viridis')(0.8)
-    colors = [color1, color2]
-    markers= ['o', '*']
-    for wl, host in zip(workloads, hosts.flatten()):
-        mss = {'depth': {}, 'length': {}}
-        for m in ["depth", "length"]:
-            seeds = os.listdir('/'.join([path, wl, m, 'runs']))
-            for seed in seeds:
-                data = get_data('/'.join([path, wl, m, 'runs', seed, 'times']), 'ex1')
-                for k, v in data.items():
-                    if k not in mss[m]:
-                        mss[m][k] = np.array([])
-                    mss[m][k] = np.append(mss[m][k], v)
-
-        def sorted_ms_means_stds(ms_map):
-            ranges = list(ms_map.keys())
-            ranges.sort(key=lambda s: int(s[: s.index('-')]))
-            return ranges, [np.mean(ms_map[x]) for x in ranges], [np.std(ms_map[x]) for x in ranges]
-        depth_r, depth_m, depth_std = sorted_ms_means_stds(mss['depth'])
-        length_r, length_m, length_std = sorted_ms_means_stds(mss['length'])
-        assert depth_r == length_r
-
-        stats = get_stats('/'.join([path, wl, 'length', 'stats.txt']))
-        host.plot([stats[r] for r in length_r], length_m, color=color1, marker='o')
-        host.fill_between([stats[r] for r in length_r], np.subtract(length_m, length_std), np.add(length_m, length_std), color=color1, alpha=0.2)
-        #stats = get_stats('/'.join([path, wl, 'depth', 'stats.txt']))
-        #host.plot([stats[r] for r in depth_r], depth_m, color=color2, marker='x')
-        #host.fill_between([stats[r] for r in depth_r], np.subtract(depth_m, depth_std), np.add(depth_m, depth_std), color=color1, alpha=0.2)
-
-        # get the median lengths
-        #host.bar(np.arange(len(seeds)) - 0.2, depth_m, width=0.4, color=color1, label=f'by depth')
-        #host.bar(np.arange(len(seeds)) + 0.2, length_m, width=0.4, color=color2, label=f'by length')
-        host.legend(loc='best')
-        host.set_title(wl_to_human_readable[wl])
-        #host.set_xticks(np.arange(len(seeds)))
-        #host.set_xticklabels(depth_r, rotation=90)
-    fig.supxlabel('Median program length in chunk')
-    fig.supylabel('Runtime (s)')
-    fig.tight_layout()
-    plt.savefig(f"cs2-ex1.pdf")
+if mode == 'claim-2':
+    for wl in workloads:
+        seeds = os.listdir('/'.join([path, wl, m, 'runs']))
+        train_ratios = []
+        test_ratios = []
+        runtimes = []
+        mem_usages = []
+        for seed in seeds:
+            train_ratio, test_ratio, seconds, mb = get_data('/'.join([path, wl, f'{seed}.stderrandout']), mode)
+            train_ratios.append(train_ratio)
+            test_ratios.append(test_ratio)
+            runtimes.append(seconds)
+            mem_usages.append(mb)
+        train_r_stats = (np.mean(train_ratios), np.std(train_ratios))
+        test_r_stats = (np.mean(test_ratios), np.std(test_ratios))
+        runtime_stats = (np.mean(runtimes), np.std(runtimes))
+        mem_stats = (np.mean(mem_usages), np.std(mem_usages))
+        print(f'{wl_to_human_readable[wl]}: train_r_stats={train_r_stats}, test_r_stats={test_r_stats}, runtime_stats={runtime_stats}, mem_stats={mem_stats}')
 
 elif mode == 'ex2':
     color = plt.cm.get_cmap('viridis')(0.)
