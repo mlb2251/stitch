@@ -8,12 +8,14 @@ use serde_json::de::from_reader;
 #[derive(Debug, Clone, ArgEnum, Serialize)]
 pub enum InputFormat {
     Dreamcoder,
-    ProgramsList
+    ProgramsList,
+    SplitProgramsList,
 }
 
 pub struct Input {
-    pub programs : Vec<String>, // Program strings. 
-    pub tasks : Vec<String>, // Task names for each corresponding string.
+    pub train_programs: Vec<String>, // Program strings. 
+    pub test_programs: Option<Vec<String>>, // Program strings. 
+    pub tasks: Vec<String>, // Task names for each corresponding string.
     pub prev_dc_inv_to_inv_strs: Vec<(String, String)>, // Vec of [#Dreamcoder invention, fn_i] tuples for any existing inventions in the DSL.
 }
 
@@ -49,7 +51,8 @@ impl InputFormat {
                     tasks.extend(task_repeated);
                 }
                 let input = Input {
-                    programs,
+                    train_programs: programs,
+                    test_programs: None,
                     tasks,
                     prev_dc_inv_to_inv_strs: inv_dc_strs,
                 };
@@ -66,7 +69,29 @@ impl InputFormat {
                     num_prior_inventions += 1;
                 }
                 let input = Input {
-                    programs,
+                    train_programs: programs,
+                    test_programs: None,
+                    tasks,
+                    prev_dc_inv_to_inv_strs: Vec::new(),
+                };
+                Ok(input)
+            }
+            InputFormat::SplitProgramsList => {
+                let programs: Vec<Vec<String>> = from_reader(File::open(path).map_err(|e| format!("file not found, error code {:?}", e))?).map_err(|e| format!("json parser error, are you sure you wanted format {:?}? Error code was {:?}", self, e))?;
+                assert_eq!(programs.len(), 2);
+                let train_programs = programs.get(0).unwrap().clone();
+                let test_programs = programs.get(1).unwrap().clone();
+                let mut tasks: Vec<String> = Vec::with_capacity(train_programs.len());
+                for (task_num, _) in train_programs.iter().enumerate() {
+                    tasks.push(task_num.to_string());
+                }
+                let mut  num_prior_inventions = 0;
+                while train_programs.iter().any(|p| p.contains(&format!("fn_{}", num_prior_inventions))) {
+                    num_prior_inventions += 1;
+                }
+                let input = Input {
+                    train_programs,
+                    test_programs: Some(test_programs),
                     tasks,
                     prev_dc_inv_to_inv_strs: Vec::new(),
                 };

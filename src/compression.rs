@@ -1988,14 +1988,15 @@ pub struct UtilityCalculation {
 
 /// Multistep compression. See `compression_step` if you'd just like to do a single step of compression.
 pub fn compression(
-    programs_expr: &Expr,
+    train_programs_expr: &Expr,
+    test_programs_expr: &Option<Expr>,
     iterations: usize,
     cfg: &CompressionStepConfig,
     tasks: &[String],
     prev_dc_inv_to_inv_strs: &[(String, String)],
 ) -> Vec<CompressionStepResult> {
     let num_prior_inventions = prev_dc_inv_to_inv_strs.len();
-    let mut rewritten: Expr = programs_expr.clone();
+    let mut rewritten: Expr = train_programs_expr.clone();
     let mut step_results: Vec<CompressionStepResult> = Default::default();
 
     let tstart = std::time::Instant::now();
@@ -2032,9 +2033,9 @@ pub fn compression(
 
     println!("{}","\n=======Compression Summary=======".blue().bold());
     println!("Found {} inventions", step_results.len());
-    println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(programs_expr,&rewritten), programs_expr.cost(), rewritten.cost());
+    println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(train_programs_expr,&rewritten), train_programs_expr.cost(), rewritten.cost());
     for res in step_results.iter() {
-        println!("{} ({:.2}x wrt orig): {}" , res.inv.name.clone().blue(), compression_factor(programs_expr, &res.rewritten), res);
+        println!("{} ({:.2}x wrt orig): {}" , res.inv.name.clone().blue(), compression_factor(train_programs_expr, &res.rewritten), res);
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
     if cfg.follow_track && !(
@@ -2046,6 +2047,10 @@ pub fn compression(
         && cfg.no_opt_arity_zero)
     {
         println!("{} you often want to run --follow-track with --no-opt otherwise your target may get pruned", "[WARNING]".yellow());
+    }
+
+    if let Some(e) = test_programs_expr {
+        println!("Test set compression with all inventions applied: {}", compression_factor(e, &rewrite_with_inventions(e.clone(), &step_results.iter().map(|r| r.inv.clone()).collect::<Vec<Invention>>())));
     }
     step_results
 }
