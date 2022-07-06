@@ -86,7 +86,7 @@ impl InputFormat {
                     tasks.push(task_num.to_string());
                 }
                 let mut  num_prior_inventions = 0;
-                while train_programs.iter().any(|p| p.contains(&format!("fn_{}", num_prior_inventions))) {
+                while train_programs.iter().chain(test_programs.iter()).any(|p| p.contains(&format!("fn_{}", num_prior_inventions))) {
                     num_prior_inventions += 1;
                 }
                 let input = Input {
