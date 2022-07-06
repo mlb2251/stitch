@@ -69,7 +69,7 @@ def get_data(path, mode):
 mode = sys.argv[1]
 path = sys.argv[2]
 
-assert mode in ['ex1', 'ex2', 'ex3']
+assert mode in ['claim-2', 'ex2', 'ex3']
 
 
 plt.rcParams.update({'font.size': 22})
