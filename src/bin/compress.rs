@@ -83,14 +83,15 @@ fn main() {
     let mut input = args.fmt.load_programs_and_tasks(&args.file).unwrap();
     
     if args.shuffle {
-        input.programs.shuffle(&mut rand::thread_rng());
+        input.train_programs.shuffle(&mut rand::thread_rng());
     }
     if let Some(n) = args.truncate {
-        input.programs.truncate(n);
+        input.train_programs.truncate(n);
     }
     
     // parse the program strings into expressions
-    let programs: Vec<Expr> = input.programs.iter().map(|p| p.parse().unwrap()).collect();
+    let train_programs: Vec<Expr> = input.train_programs.iter().map(|p| p.parse().unwrap()).collect();
+    let test_programs: Option<Vec<Expr>> = input.test_programs.map(|ps| ps.iter().map(|p| p.parse().unwrap()).collect());
 
     // for prog in programs.iter() {
     //     println!("{}", prog);
@@ -98,25 +99,30 @@ fn main() {
     println!("{}","**********".blue().bold());
     println!("{}","* Stitch *".blue().bold());
     println!("{}","**********".blue().bold());
-    programs_info(&programs);
+    programs_info(&train_programs);
+    if let Some(ps) = &test_programs {
+        println!("> Running with train/test split active");
+        programs_info(ps);
+    }
 
     // build a single `Expr::Programs` node from these programs. Stitch uses these because often we want to treat
     // different parts of the same programs the same way that we treat different parts of different programs, so
     // treating everything as one big expression makes sense.
-    let programs: Expr = Expr::programs(programs);
+    let train_programs: Expr = Expr::programs(train_programs);
+    let test_programs: Option<Expr> = test_programs.map(|ps| Expr::programs(ps));
 
-    if programs.to_string_curried(None).contains("(app (lam") {
+    if train_programs.to_string_curried(None).contains("(app (lam") {
         println!("Normal dreamcoder programs never have unapplied lambdas in them! Who knows what might happen if you run this. Probably it will be fine");
     }
 
-    let step_results = compression(&programs, args.iterations, &args.step, &input.tasks, &input.prev_dc_inv_to_inv_strs);
+    let step_results = compression(&train_programs, &test_programs, args.iterations, &args.step, &input.tasks, &input.prev_dc_inv_to_inv_strs);
 
     // write everything to json
     let out = json!({
         "cmd": std::env::args().join(" "),
         "args": args,
-        "original_cost": programs.cost(),
-        "original": programs.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+        "original_cost": train_programs.cost(),
+        "original": train_programs.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
         "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
     });
 
@@ -152,12 +158,13 @@ mod tests {
         let input_file = std::path::Path::new("data/dc/logo_iteration_1.json");
         let mut input = InputFormat::Dreamcoder.load_programs_and_tasks(input_file).unwrap();
     
-        let programs: Vec<Expr> = input.programs.iter().map(|p| p.parse().unwrap()).collect();
-        let programs: Expr = Expr::programs(programs);
+        let train_programs: Vec<Expr> = input.train_programs.iter().map(|p| p.parse().unwrap()).collect();
+        let train_programs: Expr = Expr::programs(train_programs);
 
         // Run compression with the default argument values
         let step_results = compression(
-            &programs,
+            &train_programs,
+            None,
             10,
             &CompressionStepConfig::parse_from("compress -a2 ".split_whitespace()),
             &input.tasks,
@@ -192,11 +199,12 @@ mod tests {
         let input_file = std::path::Path::new("data/dc/logo_iteration_1.json");
         let input = InputFormat::Dreamcoder.load_programs_and_tasks(input_file).unwrap();
     
-        let programs: Vec<Expr> = input.programs.iter().map(|p| p.parse().unwrap()).collect();
-        let programs: Expr = Expr::programs(programs);
+        let train_programs: Vec<Expr> = input.train_programs.iter().map(|p| p.parse().unwrap()).collect();
+        let train_programs: Expr = Expr::programs(train_programs);
 
         let step_results = compression(
-            &programs,
+            &train_programs,
+            None,
             10,
             &CompressionStepConfig::parse_from("compress -a2 ".split_whitespace()),
             &input.tasks,
@@ -205,7 +213,8 @@ mod tests {
         let singlethreaded_inventions = step_results.iter().take(10).map(|inv| inv.inv.body.to_string()).collect::<Vec<String>>();
 
         let step_results = compression(
-            &programs,
+            &train_programs,
+            None,
             10,
             &CompressionStepConfig::parse_from("compress -a2 -t4".split_whitespace()),
             &input.tasks,
@@ -228,12 +237,13 @@ mod tests {
         let input_file = std::path::Path::new("data/basic/ctx_thread_1.json");
         let input = InputFormat::ProgramsList.load_programs_and_tasks(input_file).unwrap();
     
-        let programs: Vec<Expr> = input.programs.iter().map(|p| p.parse().unwrap()).collect();
-        let programs: Expr = Expr::programs(programs);
+        let train_programs: Vec<Expr> = input.train_programs.iter().map(|p| p.parse().unwrap()).collect();
+        let train_programs: Expr = Expr::programs(train_programs);
 
         // Run compression with the default argument values
         let step_results = compression(
-            &programs,
+            &train_programs,
+            None,
             10,
             &CompressionStepConfig::parse_from("compress".split_whitespace()),
             &input.tasks,
