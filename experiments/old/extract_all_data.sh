@@ -67,7 +67,7 @@ done
 # for the recursive functional programming domain, the domain name is listed as "list" and K.E.
 # found pickles for each of the 10 iterations. Saving them each separately and setting the domain name
 # to "rec-fp"
-# TODO(theoxo): Is this the most sane behaviour?
+# TODO(): Is this the most sane behaviour?
 for ITERATION in {1..10} ; do
     LOG_FILE="list/2019-07-11T19:49:10.899159/list_aic=1.0_arity=4_ET=57600_it=${ITERATION}_MF=5_noConsolidation=False_pc=30.0_RW=False_solver=ocaml_STM=True_L=1.0_TRR=unsolved_K=5_topkNotMAP=False_rec=False.pickle"
     echo "Started extracting data from $LOG_FILE"

@@ -1,7 +1,7 @@
 [package]
 name = "stitch"
 version = "0.1.0"
-authors = ["Matt Bowers <mlbowers@mit.edu>", "Theo Olausson <theoxo@mit.edu>"]
+authors = ["Anonymous Authors"]
 edition = "2018"
 license = "MIT"
 

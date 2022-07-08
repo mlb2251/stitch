@@ -320,7 +320,6 @@ fn extract_from_nodecosts(
             // invention was used here
             let mut expr = Expr::prim(inv.name.clone().into());
             // wrap the new primitive in app() calls. Note that you pass in the $0 args LAST given how appapplamlam works
-            // todo perhaps this shouldnt be a .rev() - related to what theo found
             for arg in args.iter() {
                 let arg_expr = extract_from_nodecosts(*arg, &inv, nodecost_of_treenode, egraph);
                 expr = Expr::app(expr,arg_expr);
