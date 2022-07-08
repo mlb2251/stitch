@@ -303,7 +303,7 @@ def process_dreamcoder_inventions(in_file, out_file):
     out_size = sum([stitch_size(p) for p in out_programs_stitch])
 
     # todo add in invention size
-    inv_size = 0
+    inv_size = sum([stitch_size(inv['stitch_canonical']) for inv in new_invs_stitch],0)
     absolute_compression = in_size - (out_size + inv_size)
     compression_ratio = in_size / (out_size + inv_size)
 
@@ -350,7 +350,7 @@ def process_stitch_inventions(in_file, out_file):
     out_size = sum([stitch_size(p) for p in out_programs_stitch])
 
     # todo add in invention size
-    inv_size = 0
+    inv_size = sum([stitch_size(inv['stitch_canonical']) for inv in new_invs_stitch],0)
     absolute_compression = in_size - (out_size + inv_size)
     compression_ratio = in_size / (out_size + inv_size)
 
@@ -905,6 +905,11 @@ if __name__ == '__main__':
                     assert stitch_processed['num_inventions'] == dreamcoder_processed['num_inventions']
                     num_inventions = stitch_processed['num_inventions']
 
+                    for inv in dreamcoder_processed['inventions']:
+                        if inv['arity'] > 3:
+                            a = inv['arity']
+                            print(f"dc found high arity ({domain}): {a}")
+
                     # we dont record metrics on runs that have no inventions
                     if num_inventions == 0:
                         done_benches += 1
@@ -1019,11 +1024,15 @@ if __name__ == '__main__':
             
             if metric in ('time_per_inv_with_rewrite','time_per_inv_no_rewrite', 'mem_peak_kb'):
                 ax.set_yscale('log')
+                plt.grid(True, which='minor', linewidth=1, alpha=.5)
+                # plt.grid(True, which='major', linewidth=1, color='gray')
+
+
 
             plt.xlabel('Domain')
             plt.title(
                 {
-                    'time_per_inv_with_rewrite': 'Time per invention (s) (with rewriting)',
+                    'time_per_inv_with_rewrite': 'Time per invention (seconds)',
                     'time_per_inv_no_rewrite': 'Time per invention (s) (no rewriting)',
                     'mem_peak_kb': 'Peak Memory Use (KB)',
                     'compression_ratio': '(Size rewritten by DreamCoder) / (Size rewritten by Stitch)',
