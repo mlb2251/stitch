@@ -1000,7 +1000,15 @@ if __name__ == '__main__':
                     label = {'stitch':'Stitch (1 cpu)','dreamcoder':'Dreamcoder (8 cpus)'}[name]
                     ax.bar(xs, ys, yerr=y_errbars, width = bar_width, bottom=0, label=label)
                 xs = [j + bar_width/2 for j in range(len(domains))]
-                plt.xticks(xs, domains)
+                xticks = [{
+                    'logo':'LOGO',
+                    'towers':'Towers',
+                    'list': 'Lists',
+                    'text': 'Text',
+                    'physics': 'Physics',
+                }[name] for name in domains]
+
+                plt.xticks(xs, xticks)
             else:
                 data = []
                 included_domains = []
@@ -1013,7 +1021,15 @@ if __name__ == '__main__':
                     ax.violinplot(data)
                     plt.axhline(y=1, color='b', linewidth=1, linestyle='dashed')
 
-                    plt.xticks(list(range(1,len(included_domains)+1)), included_domains)
+                    xticks = [{
+                        'logo':'LOGO',
+                        'towers':'Towers',
+                        'list': 'Lists',
+                        'text': 'Text',
+                        'physics': 'Physics',
+                    }[name] for name in included_domains]
+
+                    plt.xticks(list(range(1,len(xticks)+1)), xticks)
 
 
             # set y axis to start at 1
@@ -1030,14 +1046,15 @@ if __name__ == '__main__':
 
 
             plt.xlabel('Domain')
-            plt.title(
-                {
-                    'time_per_inv_with_rewrite': 'Time per invention (seconds)',
-                    'time_per_inv_no_rewrite': 'Time per invention (s) (no rewriting)',
-                    'mem_peak_kb': 'Peak Memory Use (KB)',
-                    'compression_ratio': '(Size rewritten by DreamCoder) / (Size rewritten by Stitch)',
-                    'compression_ratio_min': 'Rewritten corpus size ratio (DreamCoder / Stitch)'
-                }[metric])
+            if metric.startswith('compression_ratio'):
+                plt.title('Rewritten corpus size ratio (DreamCoder / Stitch)')
+            else:
+                plt.ylabel(
+                    {
+                        'time_per_inv_with_rewrite': 'Time per invention (seconds)',
+                        'time_per_inv_no_rewrite': 'Time per invention (s) (no rewriting)',
+                        'mem_peak_kb': 'Peak memory use (KB)',
+                    }[metric])
             # plt.ylabel(f'{metric}')
             plt.legend()
             plt.tight_layout()
