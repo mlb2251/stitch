@@ -1101,7 +1101,22 @@ if __name__ == '__main__':
             assert j == num_usages
             invs += 1
             print()
-
+    elif mode == 'count':
+        from glob import glob
+        total = 0
+        count = 0
+        m = 0
+        for bench in glob('benches/*/out/stitch/*/stderr/*'):
+            with open(bench,'r') as f:
+                for line in f.readlines():
+                    if 'max depth:' in line:
+                        n = int(line.split(' ')[-1])
+                        total += n
+                        count += 1
+                        if n > m:
+                            print(n)
+                            m = n
+            print("Avg",total/count)
     else:
         assert False, f"mode not recognized: {mode}"
 
