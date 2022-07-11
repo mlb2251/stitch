@@ -1,5 +1,7 @@
 <!-- # <img src="dream_egg.png" alt="egg of dreams" height="40" align="left"> DreamEgg -->
 
+A pre-print of Stitch is available [here](https://mlb2251.github.io/stitch_jul11.pdf).
+
 # Stitch
 
 ## Quickstart
