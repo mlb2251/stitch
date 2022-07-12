@@ -1656,10 +1656,8 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
             corrected_utils.insert(*node,chose_to_rewrite);
 
 
-        } else {
-            if utility_without_rewrite != 0 {
-                cumulative_utility_of_node[usize::from(*node)] = utility_without_rewrite;
-            }
+        } else if utility_without_rewrite != 0 {
+            cumulative_utility_of_node[usize::from(*node)] = utility_without_rewrite;
         }
     }
 

@@ -109,7 +109,7 @@ fn main() {
     // different parts of the same programs the same way that we treat different parts of different programs, so
     // treating everything as one big expression makes sense.
     let train_programs: Expr = Expr::programs(train_programs);
-    let test_programs: Option<Expr> = test_programs.map(|ps| Expr::programs(ps));
+    let test_programs: Option<Expr> = test_programs.map(Expr::programs);
 
     if train_programs.to_string_curried(None).contains("(app (lam") {
         println!("Normal dreamcoder programs never have unapplied lambdas in them! Who knows what might happen if you run this. Probably it will be fine");
