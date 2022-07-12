@@ -156,7 +156,7 @@ mod tests {
     fn dc_logo_it_1_top_10_match_expected() {
     
         let input_file = std::path::Path::new("data/dc/logo_iteration_1.json");
-        let mut input = InputFormat::Dreamcoder.load_programs_and_tasks(input_file).unwrap();
+        let input = InputFormat::Dreamcoder.load_programs_and_tasks(input_file).unwrap();
     
         let train_programs: Vec<Expr> = input.train_programs.iter().map(|p| p.parse().unwrap()).collect();
         let train_programs: Expr = Expr::programs(train_programs);
@@ -164,7 +164,7 @@ mod tests {
         // Run compression with the default argument values
         let step_results = compression(
             &train_programs,
-            None,
+            &None,
             10,
             &CompressionStepConfig::parse_from("compress -a2 ".split_whitespace()),
             &input.tasks,
@@ -204,7 +204,7 @@ mod tests {
 
         let step_results = compression(
             &train_programs,
-            None,
+            &None,
             10,
             &CompressionStepConfig::parse_from("compress -a2 ".split_whitespace()),
             &input.tasks,
@@ -214,7 +214,7 @@ mod tests {
 
         let step_results = compression(
             &train_programs,
-            None,
+            &None,
             10,
             &CompressionStepConfig::parse_from("compress -a2 -t4".split_whitespace()),
             &input.tasks,
@@ -243,7 +243,7 @@ mod tests {
         // Run compression with the default argument values
         let step_results = compression(
             &train_programs,
-            None,
+            &None,
             10,
             &CompressionStepConfig::parse_from("compress".split_whitespace()),
             &input.tasks,
