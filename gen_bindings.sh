@@ -6,6 +6,6 @@
 # alternatively, to test the bindings just do `cd bindings && python` and then `import stitch`
 set -e
 mkdir -p bindings
-cargo rustc --release --example=stitch -- -C link-arg=-undefined -C link-arg=dynamic_lookup
+cargo rustc --release --example=stitch --features=python -- -C link-arg=-undefined -C link-arg=dynamic_lookup
 mv target/release/examples/libstitch.dylib bindings/stitch.so
 echo "added bindings: bindings/stitch.so"

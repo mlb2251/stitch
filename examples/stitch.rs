@@ -1,8 +1,9 @@
+#![cfg(features="python")]
+
 use stitch::*;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 use serde_json::json;
-
 
 /// Calls compression.rs::compression(), and has a similar API to bin/compress.rs
 /// `programs` should be a list of program strings. `tasks` should be a list of task name strings,
