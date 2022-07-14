@@ -1,6 +1,5 @@
 use crate::*;
 use ahash::{AHashMap, AHashSet};
-// use std::collections::BTreeSet;
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
@@ -34,18 +33,6 @@ pub struct CompressionStepConfig {
     /// threads will autoadjust how large their batches are based on the worklist size
     #[clap(long)]
     pub dynamic_batch: bool,
-
-    /// disables refinement
-    #[clap(long)]
-    pub refine: bool,
-
-    /// max refinement size
-    #[clap(long)]
-    pub max_refinement_size: Option<i32>,
-
-    /// max number of refined out args that can be passed into a #i
-    #[clap(long, default_value = "1")]
-    pub max_refinement_arity: usize,
 
     /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
     #[clap(short='n', long, default_value = "1")]
@@ -182,11 +169,9 @@ pub struct Pattern {
     pub holes: Vec<ZId>, // in order of when theyre added NOT left to right
     arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an argchoice, again these are in order of when they were added
     pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index of the first use of #i in arg_choices
-    pub refinements: Vec<Option<Vec<Id>>>, // refinements[i] gives the list of refinements for #i
     pub match_locations: Vec<Id>, // places where it applies
     pub utility_upper_bound: i32,
-    pub body_utility_no_refinement: i32, // the size (in `cost`) of a single use of the pattern body so far
-    pub refinement_body_utility: i32, // modifier on body_utility to include the full size account for refinement
+    pub body_utility: i32, // the size (in `cost`) of a single use of the pattern body so far
     pub tracked: bool, // for debugging
 }
 
@@ -267,23 +252,20 @@ impl Pattern {
     /// create a single hole pattern `??`
     //#[inline(never)]
     fn single_hole(treenodes: &[Id], cost_of_node_all: &[i32], num_paths_to_node: &[i32], egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
-        let body_utility_no_refinement = 0;
-        let refinement_body_utility = 0;
+        let body_utility = 0;
         let mut match_locations = treenodes.to_owned();
         match_locations.sort(); // we assume match_locations is always sorted
         if cfg.no_top_lambda {
             match_locations.retain(|node| expands_to_of_node(&egraph[*node].nodes[0]) != ExpandsTo::Lam);
         }
-        let utility_upper_bound = utility_upper_bound(&match_locations, body_utility_no_refinement + refinement_body_utility, cost_of_node_all, num_paths_to_node, cfg);
+        let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cfg);
         Pattern {
             holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
             arg_choices: vec![],
             first_zid_of_ivar: vec![],
-            refinements: vec![],
             match_locations, // single hole matches everywhere
             utility_upper_bound,
-            body_utility_no_refinement, // 0 body utility
-            refinement_body_utility, // 0 body utility
+            body_utility, // 0 body utility
             tracked: cfg.track.is_some(),
         }
     }
@@ -292,21 +274,8 @@ impl Pattern {
         let mut curr_zip: Zip = vec![];
         // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
         let zips: Vec<(Zip,Expr)> = self.holes.iter().map(|zid| (shared.zip_of_zid[*zid].clone(), Expr::prim("??".into())))
-            .chain(self.arg_choices.iter().map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(),
-                if let Some(refinements) = self.refinements[labelled_zid.ivar].as_ref() {
-
-                    // extract the refinement and remap #i to $(i+depth) where depth is depth of #i in `extracted`
-                    let mut extracted = refinements.iter().map(|refinement| extract(*refinement, &shared.egraph)).collect::<Vec<_>>();
-                    extracted.iter_mut().for_each(arg_ivars_to_vars);
-                    let mut expr = Expr::ivar(labelled_zid.ivar as i32);
-                    // todo are these applied in the right order?
-                    for e in extracted {
-                        expr = Expr::app(expr,e);
-                    }
-                    expr
-                } else {
-                    Expr::ivar(labelled_zid.ivar as i32)
-                }))).collect();
+            .chain(self.arg_choices.iter()
+            .map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(), Expr::ivar(labelled_zid.ivar as i32)))).collect();
 
 
         fn helper(curr_node: Id, curr_zip: &mut Zip, zips: &[(Zip,Expr)], shared: &SharedData) -> Expr {
@@ -348,7 +317,7 @@ impl Pattern {
         s
     }
     pub fn info(&self, shared: &SharedData) -> String {
-        format!("{}: utility_upper_bound={}, body_utility=({},{}), refinements={}, match_locations={}, usages={}",self.to_expr(shared), self.utility_upper_bound, self.body_utility_no_refinement, self.refinement_body_utility, self.refinements.iter().filter(|x|x.is_some()).count(), self.match_locations.len(), self.match_locations.iter().map(|loc|shared.num_paths_to_node[usize::from(*loc)]).sum::<i32>())
+        format!("{}: utility_upper_bound={}, body_utility={}, match_locations={}, usages={}",self.to_expr(shared), self.utility_upper_bound, self.body_utility, self.match_locations.len(), self.match_locations.iter().map(|loc|shared.num_paths_to_node[usize::from(*loc)]).sum::<i32>())
     }
 }
 
@@ -511,9 +480,6 @@ pub struct SharedData {
     pub zip_of_zid: Vec<Zip>,
     pub zid_of_zip: AHashMap<Zip, ZId>,
     pub extensions_of_zid: Vec<ZIdExtension>,
-    // pub refinables_of_shifted_arg: AHashMap<Id,Vec<Id>>,
-    // pub uses_of_zid_refinable_loc: AHashMap<(ZId,Id,Id),i32>,
-    pub uses_of_shifted_arg_refinement: AHashMap<Id,AHashMap<Id,usize>>,
     pub egraph: EGraph,
     pub num_paths_to_node: Vec<i32>,
     pub num_paths_to_node_by_root_idx: Vec<Vec<i32>>,
@@ -536,7 +502,6 @@ pub struct SharedData {
 pub struct Tracking {
     expr: Expr,
     zids_of_ivar: Vec<Vec<ZId>>,
-    refined: Option<Expr>,
 }
 
 impl CriticalMultithreadData {
@@ -912,8 +877,6 @@ fn stitch_search(
                     for argchoice in original_pattern.arg_choices.iter(){
                         // if its the same arg in every place
                         if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
-                            // AND there's no potential for refining that arg
-                            && (!shared.cfg.refine || locs.iter().all(|loc| shared.free_vars_of_node[usize::from(shared.arg_of_zid_node[argchoice.zid][loc].shifted_id)].is_empty()))
                         {
                             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
                             continue 'expansion; // useless abstraction
@@ -924,15 +887,13 @@ fn stitch_search(
 
 
                 // update the body utility
-                let body_utility_no_refinement = original_pattern.body_utility_no_refinement +  match expands_to {
+                let body_utility = original_pattern.body_utility +  match expands_to {
                     ExpandsTo::Lam | ExpandsTo::App => COST_NONTERMINAL,
                     ExpandsTo::Var(_) | ExpandsTo::Prim(_) => COST_TERMINAL,
                     ExpandsTo::IVar(_) => 0,
                 };
-                let refinement_body_utility = original_pattern.refinement_body_utility;
-
                 // update the upper bound
-                let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility_no_refinement + refinement_body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
+                let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
                 assert!(util_upper_bound <= original_pattern.utility_upper_bound);
 
                 // branch and bound: if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
@@ -964,12 +925,10 @@ fn stitch_search(
 
                 let mut arg_choices = original_pattern.arg_choices.clone();
                 let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
-                let mut refinements = original_pattern.refinements.clone();
                 if let ExpandsTo::IVar(i) = expands_to {
                     arg_choices.push(LabelledZId::new(hole_zid, i as usize));
                     if i as usize == original_pattern.first_zid_of_ivar.len() {
                         first_zid_of_ivar.push(hole_zid);
-                        refinements.push(None)
                     }
                 }
 
@@ -995,15 +954,13 @@ fn stitch_search(
 
             // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
             // from the old pattern.
-            let mut new_pattern = Pattern {
+            let new_pattern = Pattern {
                 holes,
                 arg_choices,
                 first_zid_of_ivar,
-                refinements,
                 match_locations: locs,
                 utility_upper_bound: util_upper_bound,
-                body_utility_no_refinement,
-                refinement_body_utility,
+                body_utility,
                 tracked
             };
 
@@ -1019,11 +976,6 @@ fn stitch_search(
 
             if new_pattern.holes.is_empty() {
                 // it's a finished pattern
-                // refinement
-
-                if shared.cfg.refine {
-                    refine(&mut new_pattern, tracked, &shared);
-                }
 
                 let finished_pattern = FinishedPattern::new(new_pattern, &shared);
 
@@ -1085,85 +1037,6 @@ fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &AHashMap<Id,Arg
     ivars_expansions
 }
 
-/// refines a new pattern inplace
-//#[inline(never)]
-pub fn refine(new_pattern: &mut Pattern, tracked: bool, shared: &SharedData) {
-    if tracked {
-        println!("{} refining {}", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(shared));
-    }
-
-    let mut best_refinement: Vec<Option<Vec<Id>>> = new_pattern.refinements.clone(); // initially all Nones
-    let mut best_utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(new_pattern,shared).util;
-    let mut best_refinement_body_utility = 0;
-    assert!(new_pattern.refinement_body_utility == 0);
-    assert!(new_pattern.refinements.iter().all(|refinement| refinement.is_none()));
-
-    // get all refinement options for each arg, deduped
-    let mut refinements_by_arg: Vec<Vec<Id>> = new_pattern.first_zid_of_ivar.iter().map(|zid| 
-        new_pattern.match_locations.iter().flat_map(|loc|
-            shared.uses_of_shifted_arg_refinement.get(&shared.arg_of_zid_node[*zid][loc].shifted_id).map(|uses_of_refinement| uses_of_refinement.keys())
-        ).flatten().cloned().collect::<AHashSet<_>>().into_iter().collect()).collect();
-
-    for (i,_) in new_pattern.first_zid_of_ivar.iter().enumerate() { // for each arg
-        if new_pattern.arg_choices.iter().filter(|l |l.ivar == i).count() > 1 {
-            refinements_by_arg[i] = Vec::new(); // todo limitation: we dont refine multiuse
-        }
-    }
-
-    let mut num_refinements = 0;
-
-    'refinements: for refinements in refinements_by_arg.into_iter()
-        .map(|refinements|
-                (1..=shared.cfg.max_refinement_arity).flat_map(move |k| refinements.clone().into_iter()
-                    .combinations(k))
-                .map(Some)
-                .chain(std::iter::once(None))
-                )
-        .multi_cartesian_product()
-    {
-        num_refinements += 1;
-        // insert the refinement
-        new_pattern.refinements = refinements.clone();
-        // body grows by an APP and the refined out subtree's size
-        new_pattern.refinement_body_utility = refinements.iter()
-            .flatten()
-            .map(|r| r.iter()
-                .map(|r_id| COST_NONTERMINAL + shared.cost_of_node_once[usize::from(*r_id)]).sum::<i32>()).sum::<i32>();
-
-        let utility = noncompressive_utility(new_pattern.body_utility_no_refinement + new_pattern.refinement_body_utility, &shared.cfg) + compressive_utility(new_pattern,shared).util;
-        if utility > best_utility {
-            best_refinement = refinements.clone();
-            best_utility = utility;
-            best_refinement_body_utility = new_pattern.refinement_body_utility;
-        }
-        if tracked {
-            println!("{} refined to {} (util: {})", "[TRACK:REFINE]".yellow().bold(), new_pattern.to_expr(shared), utility);
-            println!("{:?}", refinements);
-            if let Some(track_refined) = &shared.tracking.as_ref().unwrap().refined {
-                let refined = new_pattern.to_expr(shared).to_string();
-                let track_refined = track_refined.to_string();
-                if refined == track_refined {
-                    println!("{} previous refinement was the tracked one! Forcing it to accept that one", "[TRACK:REFINE]".green().bold());
-                    best_refinement = refinements;
-                    best_refinement_body_utility = new_pattern.refinement_body_utility;
-                    new_pattern.refinement_body_utility = 0;
-                    break 'refinements;
-                }
-            }
-        }
-        // reset body utility
-        new_pattern.refinement_body_utility = 0;
-    }
-    if num_refinements > 1000 {
-        println!("[many refinements] tried {} refinements for {}", num_refinements, new_pattern.to_expr(shared));
-    }
-
-    // set to the best
-    new_pattern.refinements = best_refinement;
-    new_pattern.refinement_body_utility = best_refinement_body_utility;
-}
-
-
 
 /// A finished invention
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1182,7 +1055,7 @@ impl FinishedPattern {
         let arity = pattern.first_zid_of_ivar.len();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[usize::from(*loc)]).sum();
         let compressive_utility = compressive_utility(&pattern,shared);
-        let noncompressive_utility = noncompressive_utility(pattern.body_utility_no_refinement + pattern.refinement_body_utility, &shared.cfg);
+        let noncompressive_utility = noncompressive_utility(pattern.body_utility, &shared.cfg);
         let utility = noncompressive_utility + compressive_utility.util;
         assert!(utility <= pattern.utility_upper_bound, "{} BUT utility is higher: {} (usages: {})", pattern.info(shared), utility, usages);
         let mut res = FinishedPattern {
@@ -1223,32 +1096,6 @@ impl FinishedPattern {
 //     refined_subtree_cost: i32, // the compressive utility gained by refining it
 // }
 
-/// return all possible refinements you could use here along with counts for how many of each you can use
-fn get_refinements_of_shifted_id(shifted_id: Id, egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> AHashMap<Id,usize>
-{
-    fn helper(id: Id, egraph: &crate::EGraph, cfg: &CompressionStepConfig, refinements: &mut Vec<Id>) {
-        let ivars =  egraph[id].data.free_ivars.len();
-        if ivars == 0 {
-            return; // todo limitation: we dont thread things that dont have ivars, for sortof good reasons.
-        }
-        
-        if !egraph[id].data.free_vars.is_empty() {
-            return; // if something has free vars and theyre not turned into ivars they must either be refs to lambdas within the arg or refs ABOVE the invention which in either case we can't refine
-        }
-
-        if egraph[id].data.inventionless_cost <= cfg.max_refinement_size.unwrap_or(i32::MAX) {
-            refinements.push(id);
-        }
-
-        // ivar!
-        for child in egraph[id].nodes[0].children().iter() {
-            helper(*child, egraph, cfg, refinements);
-        }
-    }
-    let mut refinements = vec![];
-    helper(shifted_id, egraph, cfg, &mut refinements);
-    counts_ahash(&refinements)
-}
 
 /// figure out all the N^2 zippers from choosing any given node and then choosing a descendant and returning the zipper from
 /// the node to the descendant. We also collect a bunch of other useful stuff like the argument you would get if you abstracted
@@ -1260,20 +1107,13 @@ fn get_zippers(
     cost_of_node_once: &[i32],
     no_cache: bool,
     egraph: &mut crate::EGraph,
-    cfg: &CompressionStepConfig
-) -> (AHashMap<Zip, ZId>, Vec<Zip>, Vec<AHashMap<Id,Arg>>, AHashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>, AHashMap<Id,AHashMap<Id,usize>>) {
+) -> (AHashMap<Zip, ZId>, Vec<Zip>, Vec<AHashMap<Id,Arg>>, AHashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>) {
     let cache: &mut Option<RecVarModCache> = &mut if no_cache { None } else { Some(AHashMap::new()) };
 
     let mut zid_of_zip: AHashMap<Zip, ZId> = Default::default();
     let mut zip_of_zid: Vec<Zip> = Default::default();
     let mut arg_of_zid_node: Vec<AHashMap<Id,Arg>> = Default::default();
     let mut zids_of_node: AHashMap<Id,Vec<ZId>> = Default::default();
-
-
-    // let mut refinements_of_shifted_arg: AHashMap<Id,AHashSet<Id>> = Default::default();
-    // let mut uses_of_zid_refinable_loc: AHashMap<(ZId,Id,Id),i32> = Default::default();
-    let mut uses_of_shifted_arg_refinement: AHashMap<Id,AHashMap<Id,usize>> = Default::default();
-
 
     zid_of_zip.insert(vec![], EMPTY_ZID);
     zip_of_zid.push(vec![]);
@@ -1367,14 +1207,6 @@ fn get_zippers(
                         }
                         arg.shifted_id = shift(arg.shifted_id, -1, egraph, cache).unwrap();
                         arg.shift -= 1;
-                        if cfg.refine {
-                            // refinements:
-                            if !uses_of_shifted_arg_refinement.contains_key(&arg.shifted_id) {
-                                uses_of_shifted_arg_refinement.insert(arg.shifted_id,get_refinements_of_shifted_id(arg.shifted_id, egraph, cfg));
-                            }
-                            // refinements_of_shifted_arg.entry(arg.shifted_id).or_default().extend(refinement_counts.keys().cloned());
-                            // uses_of_zid_refinable_loc
-                        }
                     }
                     arg_of_zid_node[*zid].insert(*treenode, arg);
                 }            },
@@ -1400,8 +1232,7 @@ fn get_zippers(
     zip_of_zid,
     arg_of_zid_node,
     zids_of_node,
-    extensions_of_zid,
-    uses_of_shifted_arg_refinement)
+    extensions_of_zid)
 }
 
 /// the complete result of a single step of compression, this is a somewhat expensive data structure
@@ -1514,26 +1345,26 @@ impl fmt::Display for CompressionStepResult {
 //#[inline(never)]
 fn utility_upper_bound(
     match_locations: &[Id],
-    body_utility_with_refinement_lower_bound: i32,
+    body_utility_lower_bound: i32,
     cost_of_node_all: &[i32],
     num_paths_to_node: &[i32],
     cfg: &CompressionStepConfig,
 ) -> i32 {
     compressive_utility_upper_bound(match_locations, cost_of_node_all, num_paths_to_node)
-        + noncompressive_utility_upper_bound(body_utility_with_refinement_lower_bound, cfg)
+        + noncompressive_utility_upper_bound(body_utility_lower_bound, cfg)
 }
 
 /// This utility is just for any utility terms that we care about that don't directly correspond
 /// to changes in size that come from rewriting with an invention
 //#[inline(never)]
 fn noncompressive_utility(
-    body_utility_with_refinement: i32,
+    body_utility: i32,
     cfg: &CompressionStepConfig,
 ) -> i32 {
     if cfg.no_other_util { return 0; }
     // this is a bit like the structure penalty from dreamcoder except that
     // that penalty uses inlined versions of nested inventions.
-    - body_utility_with_refinement
+    - body_utility
 }
 
 /// This takes a partial invention and gives an upper bound on the maximum
@@ -1574,14 +1405,14 @@ fn compressive_utility_upper_bound(
 /// other_utility() that any completed offspring of this partial invention could have.
 //#[inline(never)]
 fn noncompressive_utility_upper_bound(
-    body_utility_with_refinement_lower_bound: i32,
+    body_utility_lower_bound: i32,
     cfg: &CompressionStepConfig,
 ) -> i32 {
     if cfg.no_other_util { return 0; }
     // safe bound: since structure_penalty is negative an upper bound is anything less negative or exact. Since
     // left_utility < body_utility we know that this will be a less negative bound.
     
-    - body_utility_with_refinement_lower_bound
+    - body_utility_lower_bound
 }
 
 //#[inline(never)]
@@ -1598,22 +1429,21 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
     // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
     // Also an extra COST_NONTERMINAL for each argument that is refined (for the lambda).
-    let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * pattern.first_zid_of_ivar.len() as i32 + COST_NONTERMINAL * pattern.refinements.iter().map(|r|if let Some(refinements) = r {refinements.len() as i32} else {0}).sum::<i32>());
+    let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * pattern.first_zid_of_ivar.len() as i32);
 
     let utility_of_loc_once: Vec<i32> = pattern.match_locations.iter().map(|loc| {
 
-        // the bad refinement override: if there are any free ivars in the arg at this location (ignoring the refinement itself if there
-        // is one) then we can't apply this invention here so *total* util should be 0
-        for (ivar,zid) in pattern.first_zid_of_ivar.iter().enumerate() {
+        //  if there are any free ivars in the arg at this location then we can't apply this invention here so *total* util should be 0
+        for (_ivar,zid) in pattern.first_zid_of_ivar.iter().enumerate() {
             let shifted_arg = shared.arg_of_zid_node[*zid][loc].shifted_id;
-            if has_free_ivars(shifted_arg, &pattern.refinements[ivar], &shared.egraph) {
+            if !shared.egraph[shifted_arg].data.free_ivars.is_empty() {
                 return 0; // set whole util to 0 for this loc, causing an autoreject
             }
         }
 
         // println!("calculating util of {}", extract(*loc, &shared.egraph));
         // compressivity of body (no refinement) minus slight penalty from the application
-        let base_utility = pattern.body_utility_no_refinement + app_penalty;
+        let base_utility = pattern.body_utility + app_penalty;
         // println!("base {}", base_utility);
 
         // for each extra usage of an argument, we gain the cost of that argument as
@@ -1833,8 +1663,7 @@ pub fn compression_step(
         zip_of_zid,
         arg_of_zid_node,
         zids_of_node,
-        extensions_of_zid,
-        uses_of_shifted_arg_refinement) = get_zippers(&treenodes, &cost_of_node_once, cfg.no_cache, &mut egraph, cfg);
+        extensions_of_zid) = get_zippers(&treenodes, &cost_of_node_once, cfg.no_cache, &mut egraph);
     
     println!("get_zippers(): {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
@@ -1846,8 +1675,7 @@ pub fn compression_step(
     let tracking: Option<Tracking> = cfg.track.as_ref().map(|s|{
         let expr: Expr = s.parse().unwrap();
         let zids_of_ivar = zids_of_ivar_of_expr(&expr, &zid_of_zip);
-        let refined = cfg.track_refined.as_ref().map(|s| s.parse().unwrap());
-        Tracking { expr, zids_of_ivar, refined }
+        Tracking { expr, zids_of_ivar }
     });
 
     println!("Tracking setup: {:?}ms", tstart.elapsed().as_millis());
@@ -1880,8 +1708,7 @@ pub fn compression_step(
             // be useful at that node
 
             let match_locations = vec![*node];
-            let body_utility_no_refinement = cost_of_node_once[usize::from(*node)];
-            let refinement_body_utility = 0;
+            let body_utility = cost_of_node_once[usize::from(*node)];
             // compressive_utility for arity-0 is cost_of_node_all[node] minus the penalty of using the new prim
 
             let compressive_utility: i32 = init_cost - root_idxs_of_task.iter().map(|root_idxs|
@@ -1891,18 +1718,16 @@ pub fn compression_step(
             // println!("utility: {}", compressive_utility);
             
             // let compressive_utility = cost_of_node_all[usize::from(*node)] - num_paths_to_node[usize::from(*node)] * COST_TERMINAL;
-            let utility = compressive_utility + noncompressive_utility(body_utility_no_refinement + refinement_body_utility, cfg);
+            let utility = compressive_utility + noncompressive_utility(body_utility, cfg);
             if utility <= 0 { continue; }
 
             let pattern = Pattern {
                 holes: vec![],
                 arg_choices: vec![],
                 first_zid_of_ivar: vec![],
-                refinements: vec![],
                 match_locations,
                 utility_upper_bound: utility,
-                body_utility_no_refinement,
-                refinement_body_utility,
+                body_utility,
                 tracked: false,
             };
             let finished_pattern = FinishedPattern {
@@ -1934,7 +1759,6 @@ pub fn compression_step(
         zip_of_zid,
         zid_of_zip,
         extensions_of_zid,
-        uses_of_shifted_arg_refinement,
         egraph,
         num_paths_to_node,
         num_paths_to_node_by_root_idx,

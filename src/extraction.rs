@@ -68,7 +68,7 @@ pub fn rewrite_fast(
             // println!("inv applies at unshifted={} with shift={}", extract(unshifted_id,&shared.egraph), shift);
             let mut expr = Expr::prim(inv_name.into());
             // wrap the prim in all the Apps to args
-            for (ivar,zid) in pattern.pattern.first_zid_of_ivar.iter().enumerate() {
+            for (_ivar,zid) in pattern.pattern.first_zid_of_ivar.iter().enumerate() {
                 let arg: &Arg = &shared.arg_of_zid_node[*zid][&unshifted_id];
 
 
@@ -78,20 +78,7 @@ pub fn rewrite_fast(
                 if arg.shift != 0 {
                     shift_rules.push(ShiftRule{depth_cutoff: total_depth, shift: arg.shift});
                 }
-                let rewritten_arg = if let Some(refinements) = pattern.pattern.refinements[ivar].as_ref() {
-                    // enter refinement mode! We actually recurse on *shifted_id* intentionally here so we can find
-                    // the refinement itself which is a subtree of the shifted_id, and we forbid further rewriting within this call
-                    // println!("refinement recurison for {} in {}", extract(refinement, &shared.egraph), extract(unshifted_id, &shared.egraph));
-                    
-                    let mut e = helper(pattern, shared, arg.shifted_id, total_depth, shift_rules, inv_name, Some((refinements,total_depth)));
-                    for _ in 0..refinements.len() {
-                        e = Expr::lam(e);
-                    }
-                    e
-                } else {
-                    // no refinement, just recurse as usual
-                    helper(pattern, shared, arg.unshifted_id, total_depth, shift_rules, inv_name, None)
-                };
+                let rewritten_arg = helper(pattern, shared, arg.unshifted_id, total_depth, shift_rules, inv_name, None);
                 if arg.shift != 0 {
                     shift_rules.pop(); // pop the rule back off after
                 }
