@@ -92,7 +92,7 @@ fn main() {
 
     let mut rewritten_frontiers: HashMap<String, Vec<String>> = HashMap::new();
 
-    let programs: Vec<Expr> = input.programs.iter().map(|p| p.parse().unwrap()).collect();
+    let programs: Vec<Expr> = input.train_programs.iter().map(|p| p.parse().unwrap()).collect();
     programs_info(&programs);
 
     let programs: Expr = Expr::programs(programs);
@@ -157,6 +157,9 @@ fn main() {
         InputFormat::ProgramsList => {
             let json: serde_json::Value = json!({ "rewritten": rewritten.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>() });
             std::fs::write(&args.out, serde_json::to_string_pretty(&json).unwrap()).unwrap();
+        },
+        InputFormat::SplitProgramsList => {
+            panic!("SplitProgramsList is not a valid format for --bin=rewrite")
         }
     }
 }

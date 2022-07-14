@@ -146,7 +146,6 @@ fn main() {
 mod tests {
     use super::*;
 
-
     /**
      * Regression test.
      * Tests whether the top 10 inventions found after 10 iterations on data/dc/logo_iteration_1.json
