@@ -168,7 +168,7 @@ fn topological_ordering_rec(root: Id, egraph: &EGraph, vec: &mut Vec<Id>) {
     }
 }
 
-#[inline(never)]
+//#[inline(never)]
 pub fn associate_tasks(programs_root: Id, egraph: &EGraph, treenodes: &[Id], task_of_root_idx: &[usize]) -> Vec<AHashSet<usize>> {
 
     // this is the map from egraph node ids to tasks (represented with unique usizes) that we will be building

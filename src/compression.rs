@@ -239,7 +239,7 @@ fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &AHashMap<Zip,ZId>) -> Vec<Vec<
 
 impl Pattern {
     /// create a single hole pattern `??`
-    #[inline(never)]
+    //#[inline(never)]
     fn single_hole(treenodes: &[Id], cost_of_node_all: &[i32], num_paths_to_node: &[i32], egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
         let body_utility = 0;
         let mut match_locations = treenodes.to_owned();
@@ -512,7 +512,7 @@ impl CriticalMultithreadData {
     }
     /// sort the donelist by utility, truncate to cfg.inv_candidates, update 
     /// update utility_pruning_cutoff to be the lowest utility
-    #[inline(never)]
+    //#[inline(never)]
     fn update(&mut self, cfg: &CompressionStepConfig) {
         // sort in decreasing order by utility primarily, and break ties using the argchoice zids (just in order to be deterministic!)
         // let old_best = self.donelist.first().map(|x|x.utility).unwrap_or(0);
@@ -604,7 +604,7 @@ pub enum HoleChoice {
 }
 
 impl HoleChoice {
-    #[inline(never)]
+    //#[inline(never)]
     fn choose_hole(&self, pattern: &Pattern, shared: &SharedData) -> usize {
         if pattern.holes.len() == 1 {
             return 0;
@@ -660,7 +660,7 @@ pub struct ZIdExtension {
 
 /// empties worklist_buf and donelist_buf into the shared worklist while holding the mutex, updates
 /// the donelist and cutoffs, and grabs and returns a new worklist item along with new cutoff bounds.
-#[inline(never)]
+//#[inline(never)]
 fn get_worklist_item(
     worklist_buf: &mut Vec<HeapItem>,
     donelist_buf: &mut Vec<FinishedPattern>,
@@ -1004,7 +1004,7 @@ fn stitch_search(
 
 }
 
-#[inline(never)]
+//#[inline(never)]
 fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &AHashMap<Id,Arg>, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<Id>)> {
     let mut ivars_expansions = vec![];
     // consider all ivars used previously
@@ -1039,7 +1039,7 @@ pub struct FinishedPattern {
 }
 
 impl FinishedPattern {
-    #[inline(never)]
+    //#[inline(never)]
     fn new(pattern: Pattern, shared: &SharedData) -> Self {
         let arity = pattern.first_zid_of_ivar.len();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[usize::from(*loc)]).sum();
@@ -1090,7 +1090,7 @@ impl FinishedPattern {
 /// the node to the descendant. We also collect a bunch of other useful stuff like the argument you would get if you abstracted
 /// the descendant and introduced an invention rooted at the ancestor node.
 #[allow(clippy::type_complexity)]
-#[inline(never)]
+//#[inline(never)]
 fn get_zippers(
     treenodes: &[Id],
     cost_of_node_once: &[i32],
@@ -1330,7 +1330,7 @@ impl fmt::Display for CompressionStepResult {
 }
 
 /// calculates the total upper bound on compressive + noncompressive utility
-#[inline(never)]
+//#[inline(never)]
 fn utility_upper_bound(
     match_locations: &[Id],
     body_utility_lower_bound: i32,
@@ -1344,7 +1344,7 @@ fn utility_upper_bound(
 
 /// This utility is just for any utility terms that we care about that don't directly correspond
 /// to changes in size that come from rewriting with an invention
-#[inline(never)]
+//#[inline(never)]
 fn noncompressive_utility(
     body_utility: i32,
     cfg: &CompressionStepConfig,
@@ -1357,7 +1357,7 @@ fn noncompressive_utility(
 
 /// This takes a partial invention and gives an upper bound on the maximum
 /// compressive_utility() that any completed offspring of this partial invention could have.
-#[inline(never)]
+//#[inline(never)]
 fn compressive_utility_upper_bound(
     match_locations: &[Id],
     cost_of_node_all: &[i32],
@@ -1373,7 +1373,7 @@ fn compressive_utility_upper_bound(
 }
 
 /// calculates the total upper bound on compressive + noncompressive utility
-// #[inline(never)]
+// //#[inline(never)]
 // fn utility_upper_bound_with_conflicts(
 //     pattern: &Pattern,
 //     body_utility_with_refinement_lower_bound: i32,
@@ -1391,7 +1391,7 @@ fn compressive_utility_upper_bound(
 
 /// This takes a partial invention and gives an upper bound on the maximum
 /// other_utility() that any completed offspring of this partial invention could have.
-#[inline(never)]
+//#[inline(never)]
 fn noncompressive_utility_upper_bound(
     body_utility_lower_bound: i32,
     cfg: &CompressionStepConfig,
@@ -1403,7 +1403,7 @@ fn noncompressive_utility_upper_bound(
     - body_utility_lower_bound
 }
 
-#[inline(never)]
+//#[inline(never)]
 fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
     // * BASIC CALCULATION
@@ -1421,7 +1421,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     UtilityCalculation { util: compressive_utility, corrected_utils }
 }
 
-#[inline(never)]
+//#[inline(never)]
 fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
     // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
     // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
@@ -1459,7 +1459,7 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
     }).collect()
 }
 
-#[inline(never)]
+//#[inline(never)]
 fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_of_loc_once: &[i32]) -> (Vec<i32>,AHashMap<Id,bool>) {
     let mut cumulative_utility_of_node: Vec<i32> = vec![0; shared.treenodes.len()];
     let mut corrected_utils: AHashMap<Id,bool> = Default::default();
