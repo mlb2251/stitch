@@ -18,13 +18,18 @@ use rand::Rng;
 #[derive(Parser, Debug, Serialize, Clone)]
 #[clap(name = "Stitch")]
 pub struct CompressionStepConfig {
-    /// max arity of inventions to find (will find all from 0 to this number inclusive)
+    /// max arity of abstractions to find (will find all from 0 to this number inclusive)
     #[clap(short='a', long, default_value = "2")]
     pub max_arity: usize,
 
-    /// num threads (no parallelism if set to 1)
+    /// number of threads (no parallelism if set to 1)
     #[clap(short='t', long, default_value = "1")]
     pub threads: usize,
+
+    /// Disable stat logging - note that stat logging in multithreading requires taking a mutex
+    /// so it can be a source of slowdown in the massively multithreaded case, hence this flag to disable it.
+    #[clap(long)]
+    pub no_stats: bool,
 
     /// how many worklist items a thread will take at once
     #[clap(short='b', long, default_value = "1")]
@@ -34,11 +39,13 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub dynamic_batch: bool,
 
-    /// Number of invention candidates compression_step should return. Raising this may weaken the efficacy of upper bound pruning
+    /// Number of invention candidates compression_step should return in a *single* step. Note that
+    /// these will be the top n optimal candidates modulo subsumption pruning (and the top-1  is guaranteed
+    /// to be globally optimal)
     #[clap(short='n', long, default_value = "1")]
     pub inv_candidates: usize,
 
-    /// pattern or invention to track
+    /// Method for choosing hole to expand at each step, doesn't have a huge effect
     #[clap(long, arg_enum, default_value = "depth-first")]
     pub hole_choice: HoleChoice,
 
@@ -47,23 +54,23 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_mismatch_check: bool,
 
-    /// inventions cant start with a Lambda
+    /// makes it so inventions cant start with a lambda at the top
     #[clap(long)]
     pub no_top_lambda: bool,
 
-    /// pattern or invention to track
+    /// for debugging: pattern or abstraction to track
     #[clap(long)]
     pub track: Option<String>,
 
-    /// pattern or invention to track
+    /// for debugging: prunes all branches except the one that leads to the `--track` abstraction
     #[clap(long)]
     pub follow_track: bool,
 
-    /// print out each step of what gets popped off the worklist
+    /// prints every worklist item as it is processed (will slow things down a ton due to rendering out expressins)
     #[clap(long)]
     pub verbose_worklist: bool,
-
-    /// whenever a new best thing is found, print it
+    
+    /// prints whenever a new best abstraction is found
     #[clap(long)]
     pub verbose_best: bool,
 
@@ -71,18 +78,7 @@ pub struct CompressionStepConfig {
     #[clap(long, default_value = "0")]
     pub print_stats: usize,
 
-    /// for dreamcoder comparison only: this makes stitch drop its final searchh
-    /// result and return one less invention than you asked for while still
-    /// doing the work of finding that last invention. This simulations how dreamcoder
-    /// finds and rejects its final candidate
-    #[clap(long)]
-    pub dreamcoder_drop_last: bool,
-
-    /// disable caching (though caching isn't used for much currently)
-    #[clap(long)]
-    pub no_cache: bool,
-
-    /// print out programs rewritten under invention
+    /// print out programs rewritten under abstraction
     #[clap(long,short='r')]
     pub show_rewritten: bool,
 
@@ -106,7 +102,7 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_opt_force_multiuse: bool,
 
-    /// disable the useless abstraction pruning optimization
+    /// disable the useless abstraction pruning optimization 
     #[clap(long)]
     pub no_opt_useless_abstract: bool,
 
@@ -114,21 +110,18 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_opt_arity_zero: bool,
 
-    /// Disable stat logging - note that stat logging in multithreading requires taking a mutex
-    /// so it could be a source of slowdown in the multithreaded case, hence this flag to disable it.
-    /// From some initial tests it seems to cause no slowdown anyways though.
-    #[clap(long)]
-    pub no_stats: bool,
-
-    /// disables other_utility so the only utility is based on compressivity
+    /// makes it so utility is based purely on corpus size without adding
+    /// in the abstraction size
     #[clap(long)]
     pub no_other_util: bool,
 
-    /// whenever you finish an invention do a full rewrite to check that rewriting doesnt raise a mismatch exception
+    /// whenever you finish an invention do a full rewrite to check
+    /// that rewriting doesnt raise a cost mismatch exception
     #[clap(long)]
     pub rewrite_check: bool,
 
-    /// calculate utility exhaustively by performing a full rewrite; mainly used when cost mismatches are happening and we need something slow but accurate
+    /// calculate utility exhaustively by performing a full rewrite;
+    /// mainly used when cost mismatches are happening and we need something slow but accurate
     #[clap(long)]
     pub utility_by_rewrite: bool,
 
@@ -1101,10 +1094,9 @@ impl FinishedPattern {
 fn get_zippers(
     treenodes: &[Id],
     cost_of_node_once: &[i32],
-    no_cache: bool,
     egraph: &mut crate::EGraph,
 ) -> (AHashMap<Zip, ZId>, Vec<Zip>, Vec<AHashMap<Id,Arg>>, AHashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>) {
-    let cache: &mut Option<RecVarModCache> = &mut if no_cache { None } else { Some(AHashMap::new()) };
+    let cache: &mut Option<RecVarModCache> = &mut Some(AHashMap::new());
 
     let mut zid_of_zip: AHashMap<Zip, ZId> = Default::default();
     let mut zip_of_zid: Vec<Zip> = Default::default();
@@ -1541,11 +1533,6 @@ pub fn compression(
         }
     }
 
-    if cfg.dreamcoder_drop_last {
-        println!("{}", "[--dreamcoder-drop-last] dropping final invention".yellow().bold());
-        step_results.pop();
-    }
-
     println!("{}","\n=======Compression Summary=======".blue().bold());
     println!("Found {} inventions", step_results.len());
     println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(train_programs_expr,&rewritten), train_programs_expr.cost(), rewritten.cost());
@@ -1659,7 +1646,7 @@ pub fn compression_step(
         zip_of_zid,
         arg_of_zid_node,
         zids_of_node,
-        extensions_of_zid) = get_zippers(&treenodes, &cost_of_node_once, cfg.no_cache, &mut egraph);
+        extensions_of_zid) = get_zippers(&treenodes, &cost_of_node_once, &mut egraph);
     
     println!("get_zippers(): {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
