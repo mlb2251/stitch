@@ -55,10 +55,6 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub track: Option<String>,
 
-    /// refined version of pattern or invention to track
-    #[clap(long)]
-    pub track_refined: Option<String>,
-
     /// pattern or invention to track
     #[clap(long)]
     pub follow_track: bool,
