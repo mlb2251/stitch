@@ -93,7 +93,7 @@ impl Domain for SimpleVal {
     fn val_of_prim(p: Symbol) -> Option<Val> {
         PRIMS.get(&p).cloned().or_else(||
             // starts with digit -> Int
-            if p.as_str().chars().next().unwrap().is_digit(10) {
+            if p.as_str().chars().next().unwrap().is_ascii_digit() {
                 let i: i32 = p.as_str().parse().ok()?;
                 Some(Int(i).into())
             }

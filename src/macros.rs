@@ -7,11 +7,11 @@ macro_rules! define_semantics {
         $($string:literal = ($fname:ident,$arity:literal) ),*
     ) => { 
         lazy_static::lazy_static! {
-        static ref PRIMS: HashMap<Symbol, crate::Val<$domain_val>> = vec![
+        static ref PRIMS: HashMap<Symbol, $crate::Val<$domain_val>> = vec![
             $(($string.into(), PrimFun(CurriedFn::new($string.into(), $arity)))),*
             ].into_iter().collect();
         
-        static ref FUNCS: HashMap<Symbol, crate::DSLFn<$domain_val>> = vec![
+        static ref FUNCS: HashMap<Symbol, $crate::DSLFn<$domain_val>> = vec![
             $(($string.into(), $fname as crate::DSLFn<$domain_val>)),*
         ].into_iter().collect();
         }
