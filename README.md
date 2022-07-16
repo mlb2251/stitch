@@ -45,8 +45,12 @@ Brief guide to reading this:
 ## All command-line arguments
 From `cargo run --release --bin=compress -- --help`
 ```
+ARGS:
+    <FILE>    json file to read compression input programs from
+
+OPTIONS:
     -a, --max-arity <MAX_ARITY>
-            max arity of inventions to find (will find all from 0 to this number inclusive)
+            max arity of abstractions to find (will find all from 0 to this number inclusive)
             [default: 2]
 
         --args-from-json
@@ -61,11 +65,6 @@ From `cargo run --release --bin=compress -- --help`
         --dreamcoder-comparison
             anything related to running a dreamcoder comparison
 
-        --dreamcoder-drop-last
-            for dreamcoder comparison only: this makes stitch drop its final searchh result and
-            return one less invention than you asked for while still doing the work of finding that
-            last invention. This simulations how dreamcoder finds and rejects its final candidate
-
         --dynamic-batch
             threads will autoadjust how large their batches are based on the worklist size
 
@@ -76,31 +75,24 @@ From `cargo run --release --bin=compress -- --help`
             values: dreamcoder, programs-list, split-programs-list]
 
         --follow-track
-            pattern or invention to track
+            for debugging: prunes all branches except the one that leads to the `--track`
+            abstraction
 
     -h, --help
             Print help information
 
         --hole-choice <HOLE_CHOICE>
-            pattern or invention to track [default: depth-first] [possible values: random, breadth-
-            first, depth-first, max-largest-subset, high-entropy, low-entropy, max-cost, min-cost,
-            many-groups, few-groups, few-apps]
+            Method for choosing hole to expand at each step, doesn't have a huge effect [default:
+            depth-first] [possible values: random, breadth-first, depth-first, max-largest-subset,
+            high-entropy, low-entropy, max-cost, min-cost, many-groups, few-groups, few-apps]
 
     -i, --iterations <ITERATIONS>
             Number of iterations to run compression for (number of inventions to find) [default: 3]
 
-        --max-refinement-arity <MAX_REFINEMENT_ARITY>
-            max number of refined out args that can be passed into a #i [default: 1]
-
-        --max-refinement-size <MAX_REFINEMENT_SIZE>
-            max refinement size
-
     -n, --inv-candidates <INV_CANDIDATES>
-            Number of invention candidates compression_step should return. Raising this may weaken
-            the efficacy of upper bound pruning [default: 1]
-
-        --no-cache
-            disable caching (though caching isn't used for much currently)
+            Number of invention candidates compression_step should return in a *single* step. Note
+            that these will be the top n optimal candidates modulo subsumption pruning (and the top-
+            1  is guaranteed to be globally optimal) [default: 1]
 
         --no-mismatch-check
             disables the safety check for the utility being correct; you only want to do this if you
@@ -131,15 +123,16 @@ From `cargo run --release --bin=compress -- --help`
             disable the useless abstraction pruning optimization
 
         --no-other-util
-            disables other_utility so the only utility is based on compressivity
+            makes it so utility is based purely on corpus size without adding in the abstraction
+            size
 
-        --no-stats                                                                                                                                                   [0/462]
+        --no-stats
             Disable stat logging - note that stat logging in multithreading requires taking a mutex
-            so it could be a source of slowdown in the multithreaded case, hence this flag to
-            disable it. From some initial tests it seems to cause no slowdown anyways though
+            so it can be a source of slowdown in the massively multithreaded case, hence this flag
+            to disable it
 
         --no-top-lambda
-            inventions cant start with a Lambda
+            makes it so inventions cant start with a lambda at the top
 
     -o, --out <OUT>
             json output file [default: out/out.json]
@@ -148,14 +141,11 @@ From `cargo run --release --bin=compress -- --help`
             print stats this often (0 means never) [default: 0]
 
     -r, --show-rewritten
-            print out programs rewritten under invention
-
-        --refine
-            disables refinement
+            print out programs rewritten under abstraction
 
         --rewrite-check
             whenever you finish an invention do a full rewrite to check that rewriting doesnt raise
-            a mismatch exception
+            a cost mismatch exception
 
         --save-rewritten <SAVE_REWRITTEN>
             saves the rewritten frontiers in an input-readable format
@@ -164,13 +154,10 @@ From `cargo run --release --bin=compress -- --help`
             shuffle order of set of inventions
 
     -t, --threads <THREADS>
-            num threads (no parallelism if set to 1) [default: 1]
+            number of threads (no parallelism if set to 1) [default: 1]
 
         --track <TRACK>
-            pattern or invention to track
-
-        --track-refined <TRACK_REFINED>
-            refined version of pattern or invention to track
+            for debugging: pattern or abstraction to track
 
         --truncate <TRUNCATE>
             truncate set of inventions to include only this many (happens after shuffle if shuffle
@@ -181,10 +168,11 @@ From `cargo run --release --bin=compress -- --help`
             mismatches are happening and we need something slow but accurate
 
         --verbose-best
-            whenever a new best thing is found, print it
+            prints whenever a new best abstraction is found
 
         --verbose-worklist
-            print out each step of what gets popped off the worklist
+            prints every worklist item as it is processed (will slow things down a ton due to
+            rendering out expressins)
 ```
 ## Disabling optimizations
 
