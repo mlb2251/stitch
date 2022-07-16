@@ -12,7 +12,7 @@ macro_rules! define_semantics {
             ].into_iter().collect();
         
         static ref FUNCS: HashMap<Symbol, $crate::DSLFn<$domain_val>> = vec![
-            $(($string.into(), $fname as crate::DSLFn<$domain_val>)),*
+            $(($string.into(), $fname as $crate::DSLFn<$domain_val>)),*
         ].into_iter().collect();
         }
     }
