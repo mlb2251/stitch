@@ -1,6 +1,6 @@
 use crate::*;
 use std::collections::HashMap;
-use std::fmt::{self, Formatter, Display, Debug};
+use std::fmt::{self, Formatter, Display, Debug, Write};
 use std::hash::Hash;
 use std::cell::RefCell;
 use serde::{Serialize, Deserialize};
@@ -197,11 +197,11 @@ impl<D: Domain> Executable<D> {
         let mut s = format!("Evals for {}:",self);
         for id in 1..self.expr.nodes.len() {
             let id = Id::from(id);
-            s.push_str(&format!(
+            write!(s,
                 "\n\t{}:\n\t\t{}",
                 self.expr.to_string_uncurried(Some(id)),
                 self.evals_of_node(id).iter().map(|(env,res)| format!("{:?} -> {:?}",env,res)).collect::<Vec<_>>().join("\n\t\t")
-            ))
+            ).unwrap();
         }
         s
     }
