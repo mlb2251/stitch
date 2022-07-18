@@ -2,6 +2,8 @@
 
 A pre-print of Stitch is available [here](https://mlb2251.github.io/stitch_jul11.pdf).
 
+Tutorial coming soon!
+
 # Stitch
 
 ## Quickstart
