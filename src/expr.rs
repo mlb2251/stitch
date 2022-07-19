@@ -315,9 +315,13 @@ impl Expr {
     pub fn depth(&self) -> i32 {
         ProgramDepth{}.cost_rec(self.into())
     }
-    /// returns expr depth as per `ProgramCost`
+    /// returns expr cost as per `ProgramCost`
     pub fn cost(&self) -> i32 {
         ProgramCost{}.cost_rec(self.into())
+    }
+    /// returns expr length as per `ProgramLength`
+    pub fn length(&self) -> i32 {
+        ProgramLength{}.cost_rec(self.into())
     }
 
     pub fn executable<D: Domain>(&self) -> Executable<D> {
