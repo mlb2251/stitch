@@ -6,7 +6,7 @@ use std::collections::HashMap;
 #[derive(Clone,Debug, PartialEq, Eq, Hash)]
 pub enum ListVal {
     Int(i32),
-    // Nan,  // TODO to model NAN or not...
+    // Nan,  // TODO to model NAN or not...(josh rule dsl does it for things outside of 0-99)
     Bool(bool),
     List(Vec<Val>),
 }
@@ -151,6 +151,10 @@ impl Domain for ListVal {
     fn fn_of_prim(p: Symbol) -> Option<DSLFn> {
         FUNCS.get(&p).cloned()
     }
+
+    fn get_fns() -> HashMap<egg::Symbol, DSLFn> {
+        FUNCS.clone()
+    }
 }
 
 
@@ -194,26 +198,19 @@ fn eq(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
         (Dom(Int(i)),  Dom(Int(j)))  => { ok(i==j) },
         (Dom(Bool(a)), Dom(Bool(b))) => { ok(a==b) },
         (Dom(List(l)), Dom(List(k))) => {
-            let l_len = l.len();
-            if l_len != k.len() {
+            if l.len() != k.len() {
                 ok(false)
             } else {
-                let mut all_elems_equal = true;
-                for i in 0..l_len {
-                    let elems_equal = eq(vec![LazyVal::new_strict(l[i].clone()), LazyVal::new_strict(k[i].clone())], handle);
-                    match elems_equal {
-                        VResult::Err(s) => { return Err(s) }
-                        VResult::Ok(Dom(Bool(true))) => { continue; },
-                        _       => {
-                            all_elems_equal = false;
-                            break;
+                for (a,b) in l.iter().zip(k.iter()) {
+                    match eq(vec![LazyVal::new_strict(a.clone()), LazyVal::new_strict(b.clone())], handle)? {
+                        Dom(Bool(b)) => if !b { return ok(false) },
+                        _ => unreachable!() // eq should never return a non-bool
                         }
                     }
-                }
-                ok(all_elems_equal)
+                ok(true)
             }
         }
-        _                              => { ok(false) }
+        _ => { ok(false) } // todo: or type error?
     }
 }
 
@@ -266,41 +263,41 @@ mod tests {
     fn eval_test() {
 
         let arg = ListVal::val_of_prim("[]".into()).unwrap();
-        assert_execution::<domains::prim_lists::ListVal, Vec<Val>>("(if (is_empty $0) $0 (tail $0))", &[arg], vec![]);
+        assert_execution::<ListVal, Vec<Val>>("(if (is_empty $0) $0 (tail $0))", &[arg], vec![]);
 
         // test cons
         let arg = ListVal::val_of_prim("[1,2,3]".into()).unwrap();
         assert_execution("(cons 0 $0)", &[arg], vec![0,1,2,3]);
 
         // test +
-        assert_execution::<domains::prim_lists::ListVal, i32>("(+ 1 2)", &[], 3);
+        assert_execution::<ListVal, i32>("(+ 1 2)", &[], 3);
 
         // test -
-        assert_execution::<domains::prim_lists::ListVal, i32>("(- 22 1)", &[], 21);
+        assert_execution::<ListVal, i32>("(- 22 1)", &[], 21);
 
         // test >
-        assert_execution::<domains::prim_lists::ListVal, bool>("(> 22 1)", &[], true);
-        assert_execution::<domains::prim_lists::ListVal, bool>("(> 2 11)", &[], false);
+        assert_execution::<ListVal, bool>("(> 22 1)", &[], true);
+        assert_execution::<ListVal, bool>("(> 2 11)", &[], false);
 
         // test if
-        assert_execution::<domains::prim_lists::ListVal, i32>("(if true 5 50)", &[], 5);
-        assert_execution::<domains::prim_lists::ListVal, i32>("(if false 5 50)", &[], 50);
+        assert_execution::<ListVal, i32>("(if true 5 50)", &[], 5);
+        assert_execution::<ListVal, i32>("(if false 5 50)", &[], 50);
 
         // test ==
-        assert_execution::<domains::prim_lists::ListVal, bool>("(== 5 5)", &[], true);
-        assert_execution::<domains::prim_lists::ListVal, bool>("(== 5 50)", &[], false);
+        assert_execution::<ListVal, bool>("(== 5 5)", &[], true);
+        assert_execution::<ListVal, bool>("(== 5 50)", &[], false);
         let arg1 = ListVal::val_of_prim("[[],[3],[4,5]]".into()).unwrap();
         let arg2 = ListVal::val_of_prim("[[],[3],[4,5]]".into()).unwrap();
-        assert_execution::<domains::prim_lists::ListVal, bool>("(== $0 $1)", &[arg1, arg2], true);
+        assert_execution::<ListVal, bool>("(== $0 $1)", &[arg1, arg2], true);
         let arg1 = ListVal::val_of_prim("[[],[3],[4,5]]".into()).unwrap();
         let arg2 = ListVal::val_of_prim("[[3],[4,5]]".into()).unwrap();
-        assert_execution::<domains::prim_lists::ListVal, bool>("(== $0 $1)", &[arg1, arg2], false);
+        assert_execution::<ListVal, bool>("(== $0 $1)", &[arg1, arg2], false);
         let arg1 = ListVal::val_of_prim("[[]]".into()).unwrap();
         let arg2 = ListVal::val_of_prim("[]".into()).unwrap();
-        assert_execution::<domains::prim_lists::ListVal, bool>("(== $0 $1)", &[arg1, arg2], false);
+        assert_execution::<ListVal, bool>("(== $0 $1)", &[arg1, arg2], false);
         let arg1 = ListVal::val_of_prim("[]".into()).unwrap();
         let arg2 = ListVal::val_of_prim("[]".into()).unwrap();
-        assert_execution::<domains::prim_lists::ListVal, bool>("(== $0 $1)", &[arg1, arg2], true);
+        assert_execution::<ListVal, bool>("(== $0 $1)", &[arg1, arg2], true);
 
         // test is_empty
         let arg = ListVal::val_of_prim("[[],[3],[4,5]]".into()).unwrap();
@@ -316,7 +313,7 @@ mod tests {
         let arg = ListVal::val_of_prim("[[1,2],[3],[4,5]]".into()).unwrap();
         assert_execution("(tail $0)", &[arg], vec![vec![3], vec![4, 5]]);
         let arg = ListVal::val_of_prim("[[1,2]]".into()).unwrap();
-        assert_execution::<domains::prim_lists::ListVal, Vec<Val>>("(tail $0)", &[arg], vec![]);
+        assert_execution::<ListVal, Vec<Val>>("(tail $0)", &[arg], vec![]);
 
         // test fix
         let arg = ListVal::val_of_prim("[]".into()).unwrap();
@@ -326,7 +323,7 @@ mod tests {
         let arg = ListVal::val_of_prim("[1,2,3,4,5]".into()).unwrap();
         assert_execution("(fix (lam (lam (if (is_empty $0) $0 (cons (+ 1 (head $0)) ($1 (tail $0)))))) $0)", &[arg], vec![2, 3, 4, 5, 6]);
         let arg = ListVal::val_of_prim("[1,2,3,4,5]".into()).unwrap();
-        assert_error::<domains::prim_lists::ListVal, Val>(
+        assert_error::<ListVal, Val>(
             "(fix (lam (lam (if (is_empty $0) $0 (cons (+ 1 (head $0)) ($1 $0))))) $0)",
             &[arg],
             format!("Exceeded max number of fix invocations. Max was {}", MAX_FIX_INVOCATIONS));

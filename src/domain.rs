@@ -5,8 +5,13 @@ use std::hash::Hash;
 use std::cell::RefCell;
 use serde::{Serialize, Deserialize};
 
+/// env[i] is the value at $i
 type Env<D> = Vec<LazyVal<D>>;
 
+/// a value can either be some domain specific value Dom(D) like an Int,
+/// or it can be a primitive function or partially applied primitive function like + or (+ 2)
+/// or it can be a lambda function with some captured env like (lam (* $1 $0)) where $1 may have been captured from
+/// the surrounding code and this whole object may now be passed around
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Val<D: Domain> {
     Dom(D),
@@ -186,6 +191,11 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     fn fn_of_prim(_p: egg::Symbol) -> Option<DSLFn<Self>> {
         unimplemented!()
     }
+
+    /// get a hashmap of all the symbol-fn mappings
+    fn get_fns() -> HashMap<egg::Symbol, DSLFn<Self>>;
+
+
     // fn type_of_dom_val(_v: &Self) -> Type<Self> {
     //     unimplemented!()
     // }

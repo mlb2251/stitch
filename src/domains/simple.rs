@@ -113,6 +113,10 @@ impl Domain for SimpleVal {
     fn fn_of_prim(p: Symbol) -> Option<DSLFn> {
         FUNCS.get(&p).cloned()
     }
+
+    fn get_fns() -> HashMap<egg::Symbol, DSLFn> {
+        FUNCS.clone()
+    }
 }
 
 
