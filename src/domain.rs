@@ -63,6 +63,39 @@ pub type VResult<D> = Result<Val<D>,VError>;
 pub type VError = String;
 pub type DSLFn<D> = fn(Env<D>, &Executable<D>) -> VResult<D>;
 
+
+#[derive(Clone)]
+pub struct DSLEntry<D: Domain> {
+    pub name: Symbol,
+    pub arity: usize,
+    pub arg_types: Vec<D::Type>,
+    pub dsl_fn: DSLFn<D>,
+}
+
+#[derive(Clone)]
+pub struct DSL<D:Domain> {
+    pub entries: HashMap<Symbol,DSLEntry<D>>,
+}
+
+impl<D: Domain> DSLEntry<D> {
+    pub fn new(name: Symbol, arity: usize, arg_types: Vec<D::Type>, dsl_fn: DSLFn<D>) -> Self {
+        DSLEntry {
+            name,
+            arity,
+            arg_types,
+            dsl_fn
+        }
+    }
+}
+impl<D: Domain> DSL<D> {
+    pub fn new( entries: Vec<DSLEntry<D>> ) -> Self {
+        DSL {
+            entries: entries.into_iter().map(|entry| (entry.name, entry)).collect()
+        }
+    }
+}
+
+
 pub enum TrustLevel {
     MayLoopMayPanic,
     WontLoopMayPanic,
@@ -172,14 +205,13 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     /// a use for it. Ofc be careful not to break function purity with this but otherwise
     /// be creative :)
     type Data: Debug + Default;
+    type Type: Debug + Clone + PartialEq + Eq + Hash;
 
     const TRUST_LEVEL: TrustLevel;
 
     /// given a primitive's symbol return a runtime Val object. For function primitives
     /// this should return a PrimFun(CurriedFn) object.
-    fn val_of_prim(_p: egg::Symbol) -> Option<Val<Self>> {
-        unimplemented!()
-    }
+    fn val_of_prim(_p: egg::Symbol) -> Option<Val<Self>>;
     /// given a function primitive's symbol return the function pointer
     /// you can use to call the function.
     /// Breakdown of the function type: it takes a slice of values as input (the args)
@@ -188,12 +220,11 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     /// when applys happen and log them in our Expr.evals, and also it's necessary for
     /// executing LamClosures in order to look up their body Id (and we wouldn't want
     /// LamClosures to carry around full Exprs because that would break the Expr.evals tracking)
-    fn fn_of_prim(_p: egg::Symbol) -> Option<DSLFn<Self>> {
-        unimplemented!()
-    }
+    fn fn_of_prim(_p: egg::Symbol) -> Option<DSLFn<Self>>;
 
-    /// get a hashmap of all the symbol-fn mappings
-    fn get_fns() -> HashMap<egg::Symbol, DSLFn<Self>>;
+    fn get_dsl() -> DSL<Self>;
+
+    fn type_of_dom_val(&self) -> Self::Type;
 
 
     // fn type_of_dom_val(_v: &Self) -> Type<Self> {

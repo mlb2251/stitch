@@ -22,6 +22,7 @@ pub fn bottom_up<D: Domain>(
 
     //todo assume unigram weights initially
 
+    let handle = unimplemented!();
     // let mut weights_of_fname_arg: HashMap<(Symbol,usize),Vec<usize>> = Default::default();
 
     while cost < max_cost {

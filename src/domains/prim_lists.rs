@@ -108,6 +108,7 @@ fn parse_vec(vec: &[serde_json::value::Value]) -> Vec<Val> {
 impl Domain for ListVal {
 
     type Data = u32;  // Use Data as fix-point invocation counter
+    type Type = ();
 
     const TRUST_LEVEL: TrustLevel = TrustLevel::WontLoopMayPanic;
 
@@ -149,11 +150,15 @@ impl Domain for ListVal {
     // fn_of_prim takes a symbol and returns the corresponding DSL function. Again this is quite easy
     // with the global hashmap FUNCS created by the define_semantics macro.
     fn fn_of_prim(p: Symbol) -> Option<DSLFn> {
-        FUNCS.get(&p).cloned()
+        FUNCS.entries.get(&p).map(|f| f.dsl_fn.clone())
     }
 
-    fn get_fns() -> HashMap<egg::Symbol, DSLFn> {
+    fn get_dsl() -> DSL<Self> {
         FUNCS.clone()
+    }
+
+    fn type_of_dom_val(&self) -> Self::Type {
+        ()
     }
 }
 

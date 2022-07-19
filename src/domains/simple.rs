@@ -76,6 +76,7 @@ impl<T: Into<Val>> From<Vec<T>> for Val {
 impl Domain for SimpleVal {
     // we dont use Data here
     type Data = ();
+    type Type = ();
 
     // we guarantee that our DSL won't loop or panic - that is, treat a panic in a DSL function
     // as a panic in the whole program. We may often prefer to use WontLoopMayPanic to catch
@@ -111,12 +112,17 @@ impl Domain for SimpleVal {
     // fn_of_prim takes a symbol and returns the corresponding DSL function. Again this is quite easy
     // with the global hashmap FUNCS created by the define_semantics macro.
     fn fn_of_prim(p: Symbol) -> Option<DSLFn> {
-        FUNCS.get(&p).cloned()
+        FUNCS.entries.get(&p).map(|f| f.dsl_fn.clone())
     }
 
-    fn get_fns() -> HashMap<egg::Symbol, DSLFn> {
+    fn get_dsl() -> DSL<Self> {
         FUNCS.clone()
     }
+
+    fn type_of_dom_val(&self) -> Self::Type {
+        ()
+    }
+
 }
 
 

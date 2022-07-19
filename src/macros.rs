@@ -11,9 +11,14 @@ macro_rules! define_semantics {
             $(($string.into(), PrimFun(CurriedFn::new($string.into(), $arity)))),*
             ].into_iter().collect();
         
-        static ref FUNCS: HashMap<Symbol, $crate::DSLFn<$domain_val>> = vec![
-            $(($string.into(), $fname as $crate::DSLFn<$domain_val>)),*
-        ].into_iter().collect();
+        static ref FUNCS: $crate::DSL<$domain_val> = DSL::new(vec![
+            $($crate::DSLEntry::new(
+                $string.into(), // name
+                $arity, // arity
+                vec![], // arg_types //todo
+                $fname as $crate::DSLFn<$domain_val> // dsl_fn
+            )),*
+        ].into_iter().collect());
         }
     }
 }
