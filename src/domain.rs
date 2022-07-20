@@ -20,6 +20,14 @@ pub enum Val<D: Domain> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Type<D: Domain> {
+    Dom(D::Type),
+    Arrow,
+    Top
+}
+
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LazyValSource<D: Domain> {
     Lazy(Id, Env<D>),
     Strict(Val<D>),
