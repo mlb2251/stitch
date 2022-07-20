@@ -30,10 +30,10 @@ use domain::Val::*;
 // associate the strings on the left with the rust function and arity on the right.
 define_semantics! {
     SimpleVal;
-    "+" = (add, 2),
-    "*" = (mul, 2),
-    "map" = (map, 2),
-    "sum" = (sum, 1)
+    "+" = (add, 2, (), ()),
+    "*" = (mul, 2, (), ()),
+    "map" = (map, 2, (), ()),
+    "sum" = (sum, 1, ())
     //const "0" = Dom(Int(0)) //todo add support for constants
 }
 

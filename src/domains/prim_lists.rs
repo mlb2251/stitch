@@ -29,16 +29,16 @@ use domain::Val::*;
 // associate the strings on the left with the rust function and arity on the right.
 define_semantics! {
     ListVal;
-    "cons" = (cons, 2),
-    "+" = (add, 2),
-    "-" = (sub, 2),
-    ">" = (gt, 2),
-    "if" = (branch, 3),
-    "==" = (eq, 2),
-    "is_empty" = (is_empty, 1),
-    "head" = (head, 1),
-    "tail" = (tail, 1),
-    "fix" = (fix, 2)
+    "cons" = (cons, 2, (), ()),
+    "+" = (add, 2, (), ()),
+    "-" = (sub, 2,  (), ()),
+    ">" = (gt, 2, (), ()),
+    "if" = (branch, 3, (), (), ()),
+    "==" = (eq, 2, (), ()),
+    "is_empty" = (is_empty, 1, ()),
+    "head" = (head, 1, ()),
+    "tail" = (tail, 1, ()),
+    "fix" = (fix, 2, (), ())
 }
 
 

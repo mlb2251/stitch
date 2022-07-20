@@ -4,7 +4,7 @@
 #[macro_export]
 macro_rules! define_semantics {
     (   $domain_val:ty;
-        $($string:literal = ($fname:ident,$arity:literal) ),*
+        $($string:literal = ($fname:ident,$arity:literal, $($arg:expr),* ) ),*
     ) => { 
         lazy_static::lazy_static! {
         static ref PRIMS: HashMap<Symbol, $crate::Val<$domain_val>> = vec![
@@ -15,7 +15,7 @@ macro_rules! define_semantics {
             $($crate::DSLEntry::new(
                 $string.into(), // name
                 $arity, // arity
-                vec![], // arg_types //todo
+                vec![$($arg),*], // arg_types //todo
                 $fname as $crate::DSLFn<$domain_val> // dsl_fn
             )),*
         ].into_iter().collect());

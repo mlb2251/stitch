@@ -62,6 +62,7 @@ pub fn bottom_up<D: Domain>(
         match &found_expr.val {
             Val::Dom(d)=> {
                 vals_of_type.entry(D::type_of_dom_val(d)).or_default().push(found.clone());
+                println!("{:?} :: {:?}", d, D::type_of_dom_val(d));
             }
             _ => {
                 lambda_vals.push(found.clone());
@@ -76,16 +77,18 @@ pub fn bottom_up<D: Domain>(
     lambda_vals.sort_by(|a,b| a.cost.cmp(&b.cost));
 
     while curr_cost < max_cost {
+        println!("new curr cost: {}", curr_cost);
         let mut new_vals: Vec<Found<D>> = vec![];
 
         'next_fn:
         for (i_fn, (dsl_entry, fn_cost)) in fns.iter().enumerate() {
-                            
+            println!("trying fn: {}", dsl_entry.name);
+
             let mut vals: Vec<&[Found<D>]> = vec![];
             for ty in dsl_entry.arg_types.iter(){
                 match vals_of_type.get(ty) {
                     Some(v) => {
-                       assert!(!vals.is_empty());
+                       assert!(!v.is_empty());
                        vals.push(&v[..]);
                     }
                     None => {
@@ -97,6 +100,7 @@ pub fn bottom_up<D: Domain>(
 
             for (found_args,cost) in ArgChoiceIterator::new(&vals,dsl_entry.arity,*fn_cost,curr_cost) {
                 let args: Vec<LazyVal<D>> = found_args.iter().map(|&f| LazyVal::new_strict(f.val.clone())).collect();
+                println!("trying ({} {})", dsl_entry.name, found_args.iter().map(|arg| format!("{:?}",arg.val)).collect::<Vec<_>>().join(" "));
                 if let Ok(val) = (dsl_entry.dsl_fn) (args, &mut handle) {
                     let mut do_add = false;
                     match seen.get(&val) {
@@ -128,8 +132,11 @@ pub fn bottom_up<D: Domain>(
             }
         }
 
+        // deposit new vals into vals_of_type
+
         curr_cost += cost_delta;
     }
+    println!("reached max cost");
 }
 
 
