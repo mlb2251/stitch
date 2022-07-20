@@ -21,7 +21,7 @@ pub enum Val<D: Domain> {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Type<D: Domain> {
-    Dom(D::Type),
+    TDom(D::Type),
     Arrow,
     Top
 }
@@ -76,7 +76,7 @@ pub type DSLFn<D> = fn(Env<D>, &Executable<D>) -> VResult<D>;
 pub struct DSLEntry<D: Domain> {
     pub name: Symbol,
     pub arity: usize,
-    pub arg_types: Vec<D::Type>,
+    pub arg_types: Vec<Type<D>>,
     pub dsl_fn: DSLFn<D>,
 }
 
@@ -86,7 +86,7 @@ pub struct DSL<D:Domain> {
 }
 
 impl<D: Domain> DSLEntry<D> {
-    pub fn new(name: Symbol, arity: usize, arg_types: Vec<D::Type>, dsl_fn: DSLFn<D>) -> Self {
+    pub fn new(name: Symbol, arity: usize, arg_types: Vec<Type<D>>, dsl_fn: DSLFn<D>) -> Self {
         DSLEntry {
             name,
             arity,

@@ -24,16 +24,17 @@ type DSLFn = domain::DSLFn<SimpleVal>;
 // to more concisely refer to the variants
 use SimpleVal::*;
 use domain::Val::*;
+use domain::Type::*;
 
 // this macro generates two global lazy_static constants: PRIM and FUNCS
 // which get used by `val_of_prim` and `fn_of_prim` below. In short they simply
 // associate the strings on the left with the rust function and arity on the right.
 define_semantics! {
     SimpleVal;
-    "+" = (add, 2, (), ()),
-    "*" = (mul, 2, (), ()),
-    "map" = (map, 2, (), ()),
-    "sum" = (sum, 1, ())
+    "+" = (add, 2, Top, Top),
+    "*" = (mul, 2, Top, Top),
+    "map" = (map, 2, Top, Top),
+    "sum" = (sum, 1, Top)
     //const "0" = Dom(Int(0)) //todo add support for constants
 }
 

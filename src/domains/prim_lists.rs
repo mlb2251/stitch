@@ -11,6 +11,13 @@ pub enum ListVal {
     List(Vec<Val>),
 }
 
+#[derive(Clone,Debug, PartialEq, Eq, Hash)]
+pub enum ListType {
+    TInt,
+    TBool,
+    TList,
+}
+
 // In this domain, we limit how many times "fix" can be invoked.
 // This is a crude way of finding infinitely looping programs.
 const MAX_FIX_INVOCATIONS: u32 = 100;
@@ -22,23 +29,25 @@ type VResult = domain::VResult<ListVal>;
 type DSLFn = domain::DSLFn<ListVal>;
 
 use ListVal::*;
+use ListType::*;
 use domain::Val::*;
+use domain::Type::*;
 
 // this macro generates two global lazy_static constants: PRIM and FUNCS
 // which get used by `val_of_prim` and `fn_of_prim` below. In short they simply
 // associate the strings on the left with the rust function and arity on the right.
 define_semantics! {
     ListVal;
-    "cons" = (cons, 2, (), ()),
-    "+" = (add, 2, (), ()),
-    "-" = (sub, 2,  (), ()),
-    ">" = (gt, 2, (), ()),
-    "if" = (branch, 3, (), (), ()),
-    "==" = (eq, 2, (), ()),
-    "is_empty" = (is_empty, 1, ()),
-    "head" = (head, 1, ()),
-    "tail" = (tail, 1, ()),
-    "fix" = (fix, 2, (), ())
+    "cons" = (cons, 2, Top, TDom(TList)),
+    "+" = (add, 2, TDom(TInt), TDom(TInt)),
+    "-" = (sub, 2,  TDom(TInt), TDom(TInt)),
+    ">" = (gt, 2, TDom(TInt), TDom(TInt)),
+    "if" = (branch, 3, TDom(TBool), Top, Top),
+    "==" = (eq, 2, Top, Top),
+    "is_empty" = (is_empty, 1, TDom(TList)),
+    "head" = (head, 1, TDom(TList)),
+    "tail" = (tail, 1, TDom(TList)),
+    "fix" = (fix, 2, Arrow, Top)
 }
 
 
@@ -109,7 +118,7 @@ fn parse_vec(vec: &[serde_json::value::Value]) -> Vec<Val> {
 impl Domain for ListVal {
 
     type Data = u32;  // Use Data as fix-point invocation counter
-    type Type = ();
+    type Type = ListType;
 
     const TRUST_LEVEL: TrustLevel = TrustLevel::WontLoopMayPanic;
 
@@ -159,7 +168,11 @@ impl Domain for ListVal {
     }
 
     fn type_of_dom_val(&self) -> Self::Type {
-        ()
+        match self {
+            Int(_) => TInt,
+            Bool(_) => TBool,
+            List(_) => TList,
+        }
     }
 
 }

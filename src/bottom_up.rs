@@ -2,6 +2,7 @@
 use crate::*;
 use ahash::AHashMap;
 use std::time::Instant;
+use serde_json::json;
 
 
 #[derive(Clone)]
@@ -54,8 +55,9 @@ pub fn bottom_up<D: Domain>(
     let mut num_yes_seen_and_was_better = 0;
 
     let mut curr_cost = cost_delta;
-    let mut vals_of_type: AHashMap<D::Type,Vec<Found<D>>> = Default::default();
+    let mut vals_of_type: AHashMap<Type<D>,Vec<Found<D>>> = Default::default();
     let mut lambda_vals: Vec<Found<D>> = Default::default();
+    let mut top_vals: Vec<Found<D>> = Default::default();
 
     // add each dsl fn so the ith dsl fn is expr.nodes[i] // todo programs() is a gross way to do this
     let mut handle: Executable<D> = {
@@ -70,13 +72,14 @@ pub fn bottom_up<D: Domain>(
         let found = Found::new(found_expr.val.clone(), id, found_expr.cost);
         match &found_expr.val {
             Val::Dom(d)=> {
-                vals_of_type.entry(D::type_of_dom_val(d)).or_default().push(found.clone());
+                vals_of_type.entry(Type::TDom(D::type_of_dom_val(d))).or_default().push(found.clone());
                 println!("{:?} :: {:?}", d, D::type_of_dom_val(d));
             }
             _ => {
                 lambda_vals.push(found.clone());
             }
         }
+        top_vals.push(found.clone());
     }
 
     let mut seen: AHashMap<Val<D>,usize> = AHashMap::new();
@@ -89,6 +92,7 @@ pub fn bottom_up<D: Domain>(
             // vals.dedup_by(|a,b| a.val == b.val);
         });
         lambda_vals.sort_by(|a,b| a.cost.cmp(&b.cost));
+        top_vals.sort_by(|a,b| a.cost.cmp(&b.cost));
         // lambda_vals.dedup_by(|a,b| a.val == b.val);
 
         println!("new curr cost: {}", curr_cost);
@@ -106,8 +110,12 @@ pub fn bottom_up<D: Domain>(
                        vals.push(&v[..]);
                     }
                     None => {
-                        // no vals of this type
-                        continue 'next_fn;
+                        if *ty == Type::Top {
+                            vals.push(&top_vals[..]);
+                        } else {
+                            // no vals of this type
+                            continue 'next_fn;
+                        }
                     }
                 }
             };
@@ -166,7 +174,8 @@ pub fn bottom_up<D: Domain>(
                     seen.insert(found.val.clone(),found.cost);
                     match &found.val {
                         Val::Dom(d)=> {
-                            vals_of_type.entry(D::type_of_dom_val(d)).or_default().push(found.clone());                            
+                            vals_of_type.entry(Type::TDom(D::type_of_dom_val(d))).or_default().push(found.clone());
+                            top_vals.push(found.clone());
                             // println!("new val: {} :: {:?} -> {:?}", handle.expr.to_string_uncurried(Some(found.id)), D::type_of_dom_val(d), d);
                         }
                         _ => {
@@ -180,11 +189,13 @@ pub fn bottom_up<D: Domain>(
                         *seen.get_mut(&found.val).unwrap() = found.cost;
                         match &found.val {
                             Val::Dom(d)=> {
-                                // remove old value - this is prob v slow as implemented
-                                vals_of_type.get_mut(&D::type_of_dom_val(d)).unwrap().retain(|f| f.val != found.val);
+                                // remove old value - this is prob v slow as implemented, could do faster with a binary search by cost or something
+                                vals_of_type.get_mut(&Type::TDom(D::type_of_dom_val(d))).unwrap().retain(|f| f.val != found.val);
+                                top_vals.retain(|f| f.val != found.val);
 
                                 // add new value
-                                vals_of_type.entry(D::type_of_dom_val(d)).or_default().push(found.clone());                            
+                                vals_of_type.entry(Type::TDom(D::type_of_dom_val(d))).or_default().push(found.clone());
+                                top_vals.push(found.clone());
                                 // println!("new val: {} :: {:?} -> {:?}", handle.expr.to_string_uncurried(Some(found.id)), D::type_of_dom_val(d), d);
                             }
                             _ => {
@@ -214,6 +225,32 @@ pub fn bottom_up<D: Domain>(
     println!("num not seen: {}",num_not_seen);
     println!("num yes seen: {}",num_yes_seen);
     println!("num yes seen and was better: {}",num_yes_seen_and_was_better);
+
+    // write a json out with everything that was found
+    let out = json!({
+        "stats": {
+            "num_eval_ok": num_eval_ok,
+            "num_eval_err": num_eval_err,
+            "num_eval_total": num_eval_ok+num_eval_err,
+            "percent_eval_ok": num_eval_ok as f64 / (num_eval_ok + num_eval_err) as f64 * 100.0,
+            "num_eval_per_ms": (num_eval_ok+num_eval_err) as f64 / tstart.elapsed().as_millis() as f64,
+            "num_not_seen": num_not_seen,
+            "num_yes_seen": num_yes_seen,
+            "num_yes_seen_and_was_better": num_yes_seen_and_was_better,
+        },
+    });
+
+
+    // let out_path = args.out;
+    // if let Some(out_path_dir) = out_path.parent() {
+    //     if !out_path_dir.exists() {
+    //         std::fs::create_dir_all(out_path_dir).unwrap();
+    //     }
+    // }
+    // std::fs::write(out_path, serde_json::to_string_pretty(&out).unwrap()).unwrap();
+    // println!("Wrote to {:?}", out_path);
+
+
 
 }
 
