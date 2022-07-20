@@ -1,6 +1,7 @@
 
 use crate::*;
 use ahash::AHashMap;
+use std::time::Instant;
 
 
 #[derive(Clone)]
@@ -44,7 +45,15 @@ pub fn bottom_up<D: Domain>(
     max_cost:  usize,
     cost_delta: usize,
 ) {
-    let mut curr_cost = 0;
+
+    let tstart = Instant::now();
+    let mut num_eval_err = 0;
+    let mut num_eval_ok = 0;
+    let mut num_not_seen = 0;
+    let mut num_yes_seen = 0;
+    let mut num_yes_seen_and_was_better = 0;
+
+    let mut curr_cost = cost_delta;
     let mut vals_of_type: AHashMap<D::Type,Vec<Found<D>>> = Default::default();
     let mut lambda_vals: Vec<Found<D>> = Default::default();
 
@@ -72,17 +81,22 @@ pub fn bottom_up<D: Domain>(
 
     let mut seen: AHashMap<Val<D>,usize> = AHashMap::new();
 
-    // sort by the cost
-    vals_of_type.values_mut().for_each(|vals| vals.sort_by(|a,b| a.cost.cmp(&b.cost)));
-    lambda_vals.sort_by(|a,b| a.cost.cmp(&b.cost));
 
     while curr_cost < max_cost {
+        // sort by the cost
+        vals_of_type.values_mut().for_each(|vals| {
+            vals.sort_by(|a,b| a.cost.cmp(&b.cost));
+            // vals.dedup_by(|a,b| a.val == b.val);
+        });
+        lambda_vals.sort_by(|a,b| a.cost.cmp(&b.cost));
+        // lambda_vals.dedup_by(|a,b| a.val == b.val);
+
         println!("new curr cost: {}", curr_cost);
         let mut new_vals: Vec<Found<D>> = vec![];
 
         'next_fn:
         for (i_fn, (dsl_entry, fn_cost)) in fns.iter().enumerate() {
-            println!("trying fn: {}", dsl_entry.name);
+            // println!("trying fn: {}", dsl_entry.name);
 
             let mut vals: Vec<&[Found<D>]> = vec![];
             for ty in dsl_entry.arg_types.iter(){
@@ -98,45 +112,109 @@ pub fn bottom_up<D: Domain>(
                 }
             };
 
-            for (found_args,cost) in ArgChoiceIterator::new(&vals,dsl_entry.arity,*fn_cost,curr_cost) {
+            for (found_args,cost) in ArgChoiceIterator::new(&vals,dsl_entry.arity,*fn_cost,curr_cost, curr_cost - cost_delta) {
                 let args: Vec<LazyVal<D>> = found_args.iter().map(|&f| LazyVal::new_strict(f.val.clone())).collect();
-                println!("trying ({} {})", dsl_entry.name, found_args.iter().map(|arg| format!("{:?}",arg.val)).collect::<Vec<_>>().join(" "));
+                // println!("trying ({} {})", dsl_entry.name, found_args.iter().map(|arg| format!("{:?}",arg.val)).collect::<Vec<_>>().join(" "));
                 if let Ok(val) = (dsl_entry.dsl_fn) (args, &mut handle) {
-                    let mut do_add = false;
+                    num_eval_ok += 1;
                     match seen.get(&val) {
                         None => {
+                            num_not_seen += 1;
                             // val has not been seen before!
-                            do_add = true;
+                            // seen.insert(val.clone(),cost);
+
+                            let mut id = Id::from(i_fn); // assumes we constructed the ith fn primitive to be the ith element in handle.expr.nodes
+                            for arg in found_args.iter() {
+                                handle.expr.nodes.push(Lambda::App([id,arg.id]));
+                                id = Id::from(handle.expr.nodes.len()-1);
+                            }
+                            new_vals.push(Found::new(val, id, cost))
+    
                         }
                         Some(&old_cost) => {
+                            num_yes_seen += 1;
                             if old_cost > cost {
-                                do_add = true;
                                 // update the seen value and push to new_vals
                                 // Note this is safe even if we break the cost record more than once within a single iteration
                                 // because only the final one from new_vals will remain at the end when we update our val vectors
-                                *seen.get_mut(&val).unwrap() = cost;
+                                // *seen.get_mut(&val).unwrap() = cost;
+
+                                let mut id = Id::from(i_fn); // assumes we constructed the ith fn primitive to be the ith element in handle.expr.nodes
+                                for arg in found_args.iter() {
+                                    handle.expr.nodes.push(Lambda::App([id,arg.id]));
+                                    id = Id::from(handle.expr.nodes.len()-1);
+                                }
+                                new_vals.push(Found::new(val, id, cost))
+        
+                            } else {
+                                num_yes_seen_and_was_better += 1;
                             }
                         }
                     }
-                    if do_add {
-                        let mut id = Id::from(i_fn); // assumes we constructed the ith fn primitive to be the ith element in handle.expr.nodes
-                        for arg in found_args.iter() {
-                            handle.expr.nodes.push(Lambda::App([id,arg.id]));
-                            id = Id::from(handle.expr.nodes.len()-1);
-                        }                            
-                        new_vals.push(Found::new(val, id, cost))
-                    }
+
                 } else {
                     // Err from execution, discard
+                    num_eval_err += 1;
                 }
             }
         }
 
         // deposit new vals into vals_of_type
+        for found in new_vals.into_iter() {
+            match seen.get(&found.val) {
+                None => {
+                    seen.insert(found.val.clone(),found.cost);
+                    match &found.val {
+                        Val::Dom(d)=> {
+                            vals_of_type.entry(D::type_of_dom_val(d)).or_default().push(found.clone());                            
+                            // println!("new val: {} :: {:?} -> {:?}", handle.expr.to_string_uncurried(Some(found.id)), D::type_of_dom_val(d), d);
+                        }
+                        _ => {
+                            // discard i guess
+                            println!("discarding {:?}", found.val);
+                        }
+                    }        
+                }
+                Some(&old_cost) => {
+                    if old_cost > found.cost {
+                        *seen.get_mut(&found.val).unwrap() = found.cost;
+                        match &found.val {
+                            Val::Dom(d)=> {
+                                // remove old value - this is prob v slow as implemented
+                                vals_of_type.get_mut(&D::type_of_dom_val(d)).unwrap().retain(|f| f.val != found.val);
+
+                                // add new value
+                                vals_of_type.entry(D::type_of_dom_val(d)).or_default().push(found.clone());                            
+                                // println!("new val: {} :: {:?} -> {:?}", handle.expr.to_string_uncurried(Some(found.id)), D::type_of_dom_val(d), d);
+                            }
+                            _ => {
+                                // discard i guess
+                                println!("discarding {:?}", found.val);
+                            }
+                        }     
+                    }
+                }
+            }
+        }
+
 
         curr_cost += cost_delta;
     }
+
+    //todo add a sanity check that the length of seen equals the lengths of all val arrays. i bet theres an error and that wont be true lol
     println!("reached max cost");
+    println!("Time: {}ms",tstart.elapsed().as_millis());
+    println!("num found: {}",seen.len());
+    println!("num found per ms: {:.2}", seen.len() as f64 / tstart.elapsed().as_millis() as f64);
+    println!("num eval ok: {}",num_eval_ok);
+    println!("num eval err: {}",num_eval_err);
+    println!("num eval total: {}",num_eval_ok+num_eval_err);
+    println!("% eval ok: {:.2}%", num_eval_ok as f64 / (num_eval_ok + num_eval_err) as f64 * 100.0);
+    println!("num eval per ms: {:.2}",(num_eval_ok+num_eval_err) as f64 / tstart.elapsed().as_millis() as f64);
+    println!("num not seen: {}",num_not_seen);
+    println!("num yes seen: {}",num_yes_seen);
+    println!("num yes seen and was better: {}",num_yes_seen_and_was_better);
+
 }
 
 
@@ -146,17 +224,20 @@ struct ArgChoiceIterator<'a, D: Domain> {
     arity: usize,
     fn_cost: usize,
     max_cost: usize,
+    prev_max_cost: usize,
     prev_idx_to_inc: usize,
 }
 
 impl <'a, D: Domain> ArgChoiceIterator<'a,D> {
-    fn new(vals: &'a [ &'a [Found<D>] ], arity: usize, fn_cost: usize, max_cost:  usize) -> Self {
+    fn new(vals: &'a [ &'a [Found<D>] ], arity: usize, fn_cost: usize, max_cost:  usize, prev_max_cost: usize) -> Self {
+        assert!( max_cost > prev_max_cost);
         ArgChoiceIterator {
             vals,
             idxs: vec![0;arity],
             arity,
             fn_cost,
             max_cost,
+            prev_max_cost,
             prev_idx_to_inc: 0,
         }
     }
@@ -192,6 +273,14 @@ impl<'a, D: Domain> Iterator for ArgChoiceIterator<'a, D> {
                 // skip ahead off the end bc we know theyll all be too expensive.
                 self.idxs[self.prev_idx_to_inc] = self.vals[self.prev_idx_to_inc].len();
                 debug_assert!(self.idxs[..self.prev_idx_to_inc].iter().all(|i| *i == 0));
+                self.rollover();
+                continue;
+            }
+
+            // check if cost is somethign we could have caught on a previous iteration
+            if cost <= self.prev_max_cost {
+                self.idxs[0] += 1;
+                self.prev_idx_to_inc = 0;
                 self.rollover();
                 continue;
             }
