@@ -66,15 +66,7 @@ impl<T: FromVal<ListVal>> FromVal<ListVal> for Vec<T>
 {
     fn from_val(v: Val) -> Result<Self, VError> {
         match v {
-            Dom(List(v)) => {
-                let mut res = vec![];
-                for item in v {
-                    let x = T::from_val(item)?;
-                    res.push(x);
-                }
-                Ok(res)
-            }
-            
+            Dom(List(v)) => v.into_iter().map(|v| T::from_val(v)).collect(),
             _ => Err("from_val_to_vec: not a list".into())
         }
     }
