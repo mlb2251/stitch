@@ -46,27 +46,36 @@ define_semantics! {
 // has been type checked so it's okay to panic if the type is wrong. Each val variant
 // must map to exactly one unwrapped type (though it doesnt need to be one to one in the
 // other direction)
-impl From<Val> for i32 {
-    fn from(v: Val) -> Self {
+impl FromVal<ListVal> for i32 {
+    fn from_val(v: Val) -> Result<Self, VError> {
         match v {
-            Dom(Int(i)) => i,
-            _ => panic!("from_val_to_list: not an int")
+            Dom(Int(i)) => Ok(i),
+            _ => Err("from_val_to_list: not an int".into())
         }
     }
 }
-impl From<Val> for bool {
-    fn from(v: Val) -> Self {
+impl FromVal<ListVal> for bool {
+    fn from_val(v: Val) -> Result<Self, VError> {
         match v {
-            Dom(Bool(b)) => b,
-            _ => panic!("from_val_to_bool: not a bool")
+            Dom(Bool(b)) => Ok(b),
+            _ => Err("from_val_to_bool: not a bool".into())
         }
     }
 }
-impl<T: From<Val>> From<Val> for Vec<T> {
-    fn from(v: Val) -> Self {
+impl<T: FromVal<ListVal>> FromVal<ListVal> for Vec<T>
+{
+    fn from_val(v: Val) -> Result<Self, VError> {
         match v {
-            Dom(List(v)) => v.into_iter().map(|v| v.into()).collect(),
-            _ => panic!("from_val_to_vec: not a list")
+            Dom(List(v)) => {
+                let mut res = vec![];
+                for item in v {
+                    let x = T::from_val(item)?;
+                    res.push(x);
+                }
+                Ok(res)
+            }
+            
+            _ => Err("from_val_to_vec: not a list".into())
         }
     }
 }
@@ -160,6 +169,7 @@ impl Domain for ListVal {
     fn type_of_dom_val(&self) -> Self::Type {
         ()
     }
+
 }
 
 
@@ -254,7 +264,7 @@ fn fix(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     if let VResult::Ok(ffixf) = handle.apply(&fn_val, fixf) {
         handle.apply(&ffixf, x)
     } else {
-        Err(String::from("Could not apply fixf to f"))
+        Err("Could not apply fixf to f".into())
     }
 }
 

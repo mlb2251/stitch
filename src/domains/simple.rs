@@ -42,19 +42,19 @@ define_semantics! {
 // has been type checked so it's okay to panic if the type is wrong. Each val variant
 // must map to exactly one unwrapped type (though it doesnt need to be one to one in the
 // other direction)
-impl From<Val> for i32 {
-    fn from(v: Val) -> Self {
+impl FromVal<SimpleVal> for i32 {
+    fn from_val(v: Val) -> Result<Self, VError> {
         match v {
-            Dom(Int(i)) => i,
-            _ => panic!("from_val_to_i32: not an int")
+            Dom(Int(i)) => Ok(i),
+            _ => Err("from_val_to_i32: not an int".into())
         }
     }
 }
-impl<T: From<Val>> From<Val> for Vec<T> {
-    fn from(v: Val) -> Self {
+impl<T: FromVal<SimpleVal>> FromVal<SimpleVal> for Vec<T> {
+    fn from_val(v: Val) -> Result<Self, VError> {
         match v {
-            Dom(List(v)) => v.into_iter().map(|v| v.into()).collect(),
-            _ => panic!("from_val_to_vec: not a list")
+            Dom(List(v)) => v.into_iter().map(|v| T::from_val(v)).collect(),
+            _ => Err("from_val_to_vec: not a list".into())
         }
     }
 }

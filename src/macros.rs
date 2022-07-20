@@ -1,5 +1,4 @@
 
-
 /// this macros defines two lazy static variables PRIMS and FUNCS 
 #[macro_export]
 macro_rules! define_semantics {
@@ -23,6 +22,7 @@ macro_rules! define_semantics {
     }
 }
 
+
 /// this macro is used at the start of a DSL function to load arguments out of their args vec
 #[macro_export]
 macro_rules! load_args {
@@ -30,7 +30,8 @@ macro_rules! load_args {
         $args:expr,
         $($name:ident : $type:ty ),*
     ) => { 
-        $(let $name:$type = $args.remove(0).eval($handle)?.into();)*
+        use crate::domain::FromVal;
+        $(let $name:$type = <$type>::from_val($args.remove(0).eval($handle)?)?;)*
     }
 }
 

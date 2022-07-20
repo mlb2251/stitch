@@ -198,7 +198,15 @@ impl<D: Domain> From<D> for Val<D> {
     }
 }
 
+pub trait FromVal<D: Domain>: Sized {
+    fn from_val(val: Val<D>) -> Result<Self,VError>;
+}
 
+impl<D: Domain> FromVal<D> for Val<D> {
+    fn from_val(val: Val<D>) -> Result<Self,VError> {
+        Ok(val)
+    }
+}
 
 /// The key trait that defines a domain
 pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
@@ -233,7 +241,6 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     fn get_dsl() -> DSL<Self>;
 
     fn type_of_dom_val(&self) -> Self::Type;
-
 
     // fn type_of_dom_val(_v: &Self) -> Type<Self> {
     //     unimplemented!()
@@ -277,7 +284,7 @@ impl<D: Domain> Executable<D> {
                 new_env.extend(env.iter().cloned());
                 self.eval_child(*f, &mut new_env)
             }
-            _ => panic!("Expected function or closure"),
+            _ => Err("Expected function or closure".into()),
         }
     }
 
