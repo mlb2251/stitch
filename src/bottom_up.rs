@@ -1,8 +1,8 @@
 
 use crate::*;
 use ahash::AHashMap;
-use std::time::Instant;
-use serde_json::json;
+use std::{time::Instant};
+// use serde_json::json;
 
 
 #[derive(Clone)]
@@ -39,22 +39,27 @@ impl <D: Domain> FoundExpr<D> {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+struct Stats {
+    num_eval_ok: usize,
+    num_eval_err: usize,
+    num_not_seen: usize,
+    num_yes_seen: usize,
+    num_yes_seen_and_was_better: usize,
+}
+
 pub fn bottom_up<D: Domain>(
     // handle: &mut Executable<D>,
     initial: &[FoundExpr<D>],
     fns: &[(DSLEntry<D>,usize)],
     max_cost:  usize,
-    cost_delta: usize,
+    cost_step: usize,
 ) {
 
     let tstart = Instant::now();
-    let mut num_eval_err = 0;
-    let mut num_eval_ok = 0;
-    let mut num_not_seen = 0;
-    let mut num_yes_seen = 0;
-    let mut num_yes_seen_and_was_better = 0;
+    let mut stats: Stats = Default::default();
 
-    let mut curr_cost = cost_delta;
+    let mut curr_cost = cost_step;
     let mut vals_of_type: AHashMap<Type<D>,Vec<Found<D>>> = Default::default();
     let mut lambda_vals: Vec<Found<D>> = Default::default();
     let mut top_vals: Vec<Found<D>> = Default::default();
@@ -120,14 +125,14 @@ pub fn bottom_up<D: Domain>(
                 }
             };
 
-            for (found_args,cost) in ArgChoiceIterator::new(&vals,dsl_entry.arity,*fn_cost,curr_cost, curr_cost - cost_delta) {
+            for (found_args,cost) in ArgChoiceIterator::new(&vals,dsl_entry.arity,*fn_cost,curr_cost, curr_cost - cost_step) {
                 let args: Vec<LazyVal<D>> = found_args.iter().map(|&f| LazyVal::new_strict(f.val.clone())).collect();
                 // println!("trying ({} {})", dsl_entry.name, found_args.iter().map(|arg| format!("{:?}",arg.val)).collect::<Vec<_>>().join(" "));
                 if let Ok(val) = (dsl_entry.dsl_fn) (args, &mut handle) {
-                    num_eval_ok += 1;
+                    stats.num_eval_ok += 1;
                     match seen.get(&val) {
                         None => {
-                            num_not_seen += 1;
+                            stats.num_not_seen += 1;
                             // val has not been seen before!
                             // seen.insert(val.clone(),cost);
 
@@ -140,7 +145,7 @@ pub fn bottom_up<D: Domain>(
     
                         }
                         Some(&old_cost) => {
-                            num_yes_seen += 1;
+                            stats.num_yes_seen += 1;
                             if old_cost > cost {
                                 // update the seen value and push to new_vals
                                 // Note this is safe even if we break the cost record more than once within a single iteration
@@ -155,14 +160,14 @@ pub fn bottom_up<D: Domain>(
                                 new_vals.push(Found::new(val, id, cost))
         
                             } else {
-                                num_yes_seen_and_was_better += 1;
+                                stats.num_yes_seen_and_was_better += 1;
                             }
                         }
                     }
 
                 } else {
                     // Err from execution, discard
-                    num_eval_err += 1;
+                    stats.num_eval_err += 1;
                 }
             }
         }
@@ -209,36 +214,32 @@ pub fn bottom_up<D: Domain>(
         }
 
 
-        curr_cost += cost_delta;
+        curr_cost += cost_step;
     }
 
     //todo add a sanity check that the length of seen equals the lengths of all val arrays. i bet theres an error and that wont be true lol
     println!("reached max cost");
     println!("Time: {}ms",tstart.elapsed().as_millis());
+    println!("{:?}",stats);
     println!("num found: {}",seen.len());
     println!("num found per ms: {:.2}", seen.len() as f64 / tstart.elapsed().as_millis() as f64);
-    println!("num eval ok: {}",num_eval_ok);
-    println!("num eval err: {}",num_eval_err);
-    println!("num eval total: {}",num_eval_ok+num_eval_err);
-    println!("% eval ok: {:.2}%", num_eval_ok as f64 / (num_eval_ok + num_eval_err) as f64 * 100.0);
-    println!("num eval per ms: {:.2}",(num_eval_ok+num_eval_err) as f64 / tstart.elapsed().as_millis() as f64);
-    println!("num not seen: {}",num_not_seen);
-    println!("num yes seen: {}",num_yes_seen);
-    println!("num yes seen and was better: {}",num_yes_seen_and_was_better);
+    println!("num eval total: {}",stats.num_eval_ok+stats.num_eval_err);
+    println!("% eval ok: {:.2}%", stats.num_eval_ok as f64 / (stats.num_eval_ok + stats.num_eval_err) as f64 * 100.0);
+    println!("num eval per ms: {:.2}",(stats.num_eval_ok+stats.num_eval_err) as f64 / tstart.elapsed().as_millis() as f64);
 
     // write a json out with everything that was found
-    let out = json!({
-        "stats": {
-            "num_eval_ok": num_eval_ok,
-            "num_eval_err": num_eval_err,
-            "num_eval_total": num_eval_ok+num_eval_err,
-            "percent_eval_ok": num_eval_ok as f64 / (num_eval_ok + num_eval_err) as f64 * 100.0,
-            "num_eval_per_ms": (num_eval_ok+num_eval_err) as f64 / tstart.elapsed().as_millis() as f64,
-            "num_not_seen": num_not_seen,
-            "num_yes_seen": num_yes_seen,
-            "num_yes_seen_and_was_better": num_yes_seen_and_was_better,
-        },
-    });
+    // let out = json!({
+    //     "stats": {
+    //         "num_eval_ok": num_eval_ok,
+    //         "num_eval_err": num_eval_err,
+    //         "num_eval_total": num_eval_ok+num_eval_err,
+    //         "percent_eval_ok": num_eval_ok as f64 / (num_eval_ok + num_eval_err) as f64 * 100.0,
+    //         "num_eval_per_ms": (num_eval_ok+num_eval_err) as f64 / tstart.elapsed().as_millis() as f64,
+    //         "num_not_seen": num_not_seen,
+    //         "num_yes_seen": num_yes_seen,
+    //         "num_yes_seen_and_was_better": num_yes_seen_and_was_better,
+    //     },
+    // });
 
 
     // let out_path = args.out;
