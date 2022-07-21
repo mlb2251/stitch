@@ -1,7 +1,8 @@
 use stitch::*;
 use stitch::domains::prim_lists::*;
+use stitch::domains::simple::*;
 use std::iter::once;
-use clap::Parser;
+use clap::{Parser,ArgEnum};
 use serde::Serialize;
 use std::path::PathBuf;
 
@@ -15,23 +16,47 @@ pub struct Args {
     #[clap(short, long, parse(from_os_str), default_value = "out/out.json")]
     pub out: PathBuf,
 
-    // How big of a step to increase cost by for each round of bottom up
-    #[clap(short, long, default_value = "1")]
-    pub cost_step: usize,
+    /// Domain to enumerate from
+    #[clap(short, long, arg_enum, default_value = "list")]
+    pub domain: DomainChoice,
 
-    // Max cost to enumerate to
-    #[clap(short, long, default_value = "10")]
-    pub max_cost: usize,
+    #[clap(flatten)]
+    pub cfg: BottomUpConfig,
+}
 
-    // shuffle order of set of inventions 
-    // #[clap(long)]
-    // pub shuffle: bool,
+#[derive(Debug, Clone, ArgEnum, Serialize)]
+pub enum DomainChoice {
+    List,
+    Simple
 }
 
 fn main() {
 
-    let mut args = Args::parse();
+    let args = Args::parse();
 
+    match &args.domain {
+        DomainChoice::List => prim_list_bottom_up(&args),
+        DomainChoice::Simple => simple_bottom_up(&args)
+    }
+
+}
+
+fn simple_bottom_up(args: &Args) {
+    let initial_strs: Vec<String> = (0..3).map(|i| i.to_string())
+    .chain(once(String::from("[1,2,3]"))).collect();
+
+    let initial: Vec<FoundExpr<SimpleVal>> = initial_strs.iter().map(|s| {
+        let expr = Expr::prim(s.into());
+        FoundExpr::new(SimpleVal::val_of_prim(s.into()).unwrap(), expr, 1)
+    }).collect();
+
+    let fns: Vec<(DSLEntry<SimpleVal>,usize)> = SimpleVal::get_dsl().entries.values()
+        .map(|entry| (entry.clone(),1)).collect();
+
+    bottom_up(&initial, &fns, &args.cfg)
+}
+
+fn prim_list_bottom_up(args: &Args) {
     let initial_strs: Vec<String> = (0..10).map(|i| i.to_string())
         .chain(once(String::from("[]"))).collect();
 
@@ -43,6 +68,5 @@ fn main() {
     let fns: Vec<(DSLEntry<ListVal>,usize)> = ListVal::get_dsl().entries.values()
         .map(|entry| (entry.clone(),1)).collect();
 
-    bottom_up(&initial, &fns, args.max_cost, args.cost_step)
-
+    bottom_up(&initial, &fns, &args.cfg)
 }

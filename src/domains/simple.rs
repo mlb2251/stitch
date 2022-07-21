@@ -14,6 +14,12 @@ pub enum SimpleVal {
     List(Vec<Val>),
 }
 
+#[derive(Clone,Debug, PartialEq, Eq, Hash)]
+pub enum SimpleType {
+    TInt,
+    TList
+}
+
 // aliases of various typed specialized to our SimpleVal
 type Val = domain::Val<SimpleVal>;
 type LazyVal = domain::LazyVal<SimpleVal>;
@@ -23,6 +29,7 @@ type DSLFn = domain::DSLFn<SimpleVal>;
 
 // to more concisely refer to the variants
 use SimpleVal::*;
+use SimpleType::*;
 use domain::Val::*;
 use domain::Type::*;
 
@@ -31,10 +38,10 @@ use domain::Type::*;
 // associate the strings on the left with the rust function and arity on the right.
 define_semantics! {
     SimpleVal;
-    "+" = (add, 2, Top, Top),
-    "*" = (mul, 2, Top, Top),
-    "map" = (map, 2, Top, Top),
-    "sum" = (sum, 1, Top)
+    "+" = (add, 2, TDom(TInt), TDom(TInt)),
+    "*" = (mul, 2, TDom(TInt), TDom(TInt)),
+    "map" = (map, 2, Arrow, TDom(TList)),
+    "sum" = (sum, 1, TDom(TList))
     //const "0" = Dom(Int(0)) //todo add support for constants
 }
 
@@ -77,7 +84,7 @@ impl<T: Into<Val>> From<Vec<T>> for Val {
 impl Domain for SimpleVal {
     // we dont use Data here
     type Data = ();
-    type Type = ();
+    type Type = SimpleType;
 
     // we guarantee that our DSL won't loop or panic - that is, treat a panic in a DSL function
     // as a panic in the whole program. We may often prefer to use WontLoopMayPanic to catch
@@ -121,7 +128,10 @@ impl Domain for SimpleVal {
     }
 
     fn type_of_dom_val(&self) -> Self::Type {
-        ()
+        match self {
+            Int(_) => TInt,
+            List(_) => TList
+        }
     }
 
 }

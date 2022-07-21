@@ -2,8 +2,27 @@
 use crate::*;
 use ahash::AHashMap;
 use std::{time::Instant};
+use clap::{Parser};
+use serde::Serialize;
 // use serde_json::json;
 
+
+/// Bottom-up synthesis
+#[derive(Parser, Debug, Serialize)]
+#[clap(name = "Bottom-up synthesis")]
+pub struct BottomUpConfig {
+    /// How big of a step to increase cost by for each round of bottom up
+    #[clap(short, long, default_value = "1")]
+    pub cost_step: usize,
+
+    /// Max cost to enumerate to
+    #[clap(short = 'c', long, default_value = "10")]
+    pub max_cost: usize,
+
+    /// print all exprs found at end
+    #[clap(long)]
+    pub print_found: bool,
+}
 
 #[derive(Clone)]
 pub struct Found<D: Domain> {
@@ -52,14 +71,13 @@ pub fn bottom_up<D: Domain>(
     // handle: &mut Executable<D>,
     initial: &[FoundExpr<D>],
     fns: &[(DSLEntry<D>,usize)],
-    max_cost:  usize,
-    cost_step: usize,
+    cfg: &BottomUpConfig,
 ) {
 
     let tstart = Instant::now();
     let mut stats: Stats = Default::default();
 
-    let mut curr_cost = cost_step;
+    let mut curr_cost = cfg.cost_step;
     let mut vals_of_type: AHashMap<Type<D>,Vec<Found<D>>> = Default::default();
     let mut lambda_vals: Vec<Found<D>> = Default::default();
     let mut top_vals: Vec<Found<D>> = Default::default();
@@ -71,6 +89,8 @@ pub fn bottom_up<D: Domain>(
         Expr::programs(vec![dsl_fns_expr,init_vals_expr]).into()
     };
 
+    let mut seen: AHashMap<Val<D>,usize> = AHashMap::new();
+
     let init_val_ids: Vec<Id> = handle.expr.get(handle.expr.get_root().children()[1]).children().iter().cloned().collect();
     for (i,found_expr) in initial.iter().enumerate() {
         let id = init_val_ids[i]; // ith child of programs node
@@ -78,19 +98,19 @@ pub fn bottom_up<D: Domain>(
         match &found_expr.val {
             Val::Dom(d)=> {
                 vals_of_type.entry(Type::TDom(D::type_of_dom_val(d))).or_default().push(found.clone());
-                println!("{:?} :: {:?}", d, D::type_of_dom_val(d));
+                // println!("{:?} :: {:?}", d, D::type_of_dom_val(d));
             }
             _ => {
                 lambda_vals.push(found.clone());
             }
         }
         top_vals.push(found.clone());
+        seen.insert(found.val.clone(), found.cost);
     }
 
-    let mut seen: AHashMap<Val<D>,usize> = AHashMap::new();
 
 
-    while curr_cost < max_cost {
+    while curr_cost < cfg.max_cost {
         // sort by the cost
         vals_of_type.values_mut().for_each(|vals| {
             vals.sort_by(|a,b| a.cost.cmp(&b.cost));
@@ -125,9 +145,9 @@ pub fn bottom_up<D: Domain>(
                 }
             };
 
-            for (found_args,cost) in ArgChoiceIterator::new(&vals,dsl_entry.arity,*fn_cost,curr_cost, curr_cost - cost_step) {
+            for (found_args,cost) in ArgChoiceIterator::new(&vals,dsl_entry.arity,*fn_cost,curr_cost, curr_cost - cfg.cost_step) {
                 let args: Vec<LazyVal<D>> = found_args.iter().map(|&f| LazyVal::new_strict(f.val.clone())).collect();
-                // println!("trying ({} {})", dsl_entry.name, found_args.iter().map(|arg| format!("{:?}",arg.val)).collect::<Vec<_>>().join(" "));
+                // println!("trying ({} {})", dsl_entry.name, found_cfg.iter().map(|arg| format!("{:?}",arg.val)).collect::<Vec<_>>().join(" "));
                 if let Ok(val) = (dsl_entry.dsl_fn) (args, &mut handle) {
                     stats.num_eval_ok += 1;
                     match seen.get(&val) {
@@ -181,8 +201,9 @@ pub fn bottom_up<D: Domain>(
                         Val::Dom(d)=> {
                             vals_of_type.entry(Type::TDom(D::type_of_dom_val(d))).or_default().push(found.clone());
                             top_vals.push(found.clone());
-                            // println!("new val: {} :: {:?} -> {:?}", handle.expr.to_string_uncurried(Some(found.id)), D::type_of_dom_val(d), d);
-                        }
+                            if cfg.print_found{
+                                println!("(cost {}) {} :: {:?} -> {:?}", found.cost, handle.expr.to_string_uncurried(Some(found.id)), D::type_of_dom_val(d), d);
+                            }                        }
                         _ => {
                             // discard i guess
                             println!("discarding {:?}", found.val);
@@ -201,7 +222,9 @@ pub fn bottom_up<D: Domain>(
                                 // add new value
                                 vals_of_type.entry(Type::TDom(D::type_of_dom_val(d))).or_default().push(found.clone());
                                 top_vals.push(found.clone());
-                                // println!("new val: {} :: {:?} -> {:?}", handle.expr.to_string_uncurried(Some(found.id)), D::type_of_dom_val(d), d);
+                                if cfg.print_found{
+                                    println!("(cost {}) {} :: {:?} -> {:?}", found.cost, handle.expr.to_string_uncurried(Some(found.id)), D::type_of_dom_val(d), d);
+                                }
                             }
                             _ => {
                                 // discard i guess
@@ -214,7 +237,7 @@ pub fn bottom_up<D: Domain>(
         }
 
 
-        curr_cost += cost_step;
+        curr_cost += cfg.cost_step;
     }
 
     //todo add a sanity check that the length of seen equals the lengths of all val arrays. i bet theres an error and that wont be true lol
@@ -226,6 +249,7 @@ pub fn bottom_up<D: Domain>(
     println!("num eval total: {}",stats.num_eval_ok+stats.num_eval_err);
     println!("% eval ok: {:.2}%", stats.num_eval_ok as f64 / (stats.num_eval_ok + stats.num_eval_err) as f64 * 100.0);
     println!("num eval per ms: {:.2}",(stats.num_eval_ok+stats.num_eval_err) as f64 / tstart.elapsed().as_millis() as f64);
+    println!("num found by type:\n\t{}", vals_of_type.iter().map(|(ty,vals)| format!("{:?}: {}", ty, vals.len())).collect::<Vec<_>>().join("\n\t"));
 
     // write a json out with everything that was found
     // let out = json!({
@@ -242,7 +266,7 @@ pub fn bottom_up<D: Domain>(
     // });
 
 
-    // let out_path = args.out;
+    // let out_path = cfg.out;
     // if let Some(out_path_dir) = out_path.parent() {
     //     if !out_path_dir.exists() {
     //         std::fs::create_dir_all(out_path_dir).unwrap();
