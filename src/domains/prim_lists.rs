@@ -11,13 +11,6 @@ pub enum ListVal {
     List(Vec<Val>),
 }
 
-#[derive(Clone,Debug, PartialEq, Eq, Hash)]
-pub enum ListType {
-    TInt,
-    TBool,
-    TList,
-}
-
 // In this domain, we limit how many times "fix" can be invoked.
 // This is a crude way of finding infinitely looping programs.
 const MAX_FIX_INVOCATIONS: u32 = 100;
@@ -29,26 +22,28 @@ type VResult = domain::VResult<ListVal>;
 type DSLFn = domain::DSLFn<ListVal>;
 
 use ListVal::*;
-use ListType::*;
 use domain::Val::*;
-use domain::Type::*;
+// use domain::Type::*;
 
 // this macro generates two global lazy_static constants: PRIM and FUNCS
 // which get used by `val_of_prim` and `fn_of_prim` below. In short they simply
 // associate the strings on the left with the rust function and arity on the right.
 define_semantics! {
     ListVal;
-    "cons" = (cons, 2, Top, TDom(TList)),
-    "+" = (add, 2, TDom(TInt), TDom(TInt)),
-    "-" = (sub, 2,  TDom(TInt), TDom(TInt)),
-    ">" = (gt, 2, TDom(TInt), TDom(TInt)),
-    "if" = (branch, 3, TDom(TBool), Top, Top),
-    "==" = (eq, 2, Top, Top),
-    "is_empty" = (is_empty, 1, TDom(TList)),
-    "head" = (head, 1, TDom(TList)),
-    "tail" = (tail, 1, TDom(TList)),
-    "fix" = (fix, 2, Arrow, Top)
+    "cons" = (cons, "t0 -> list t0 -> list t0"),
+    "+" = (add, "int -> int -> int"),
+    "-" = (sub,  "int -> int -> int"),
+    ">" = (gt, "int -> int -> bool"),
+    "if" = (branch, "bool -> t0 -> t0 -> t0"),
+    "==" = (eq, "t0 -> t0 -> bool"),
+    "is_empty" = (is_empty, "list t0 -> bool"),
+    "head" = (head, "list t0 -> t0"),
+    "tail" = (tail, "list t0 -> list t0"),
+    // fix f x = f(fix f)(x)
+    // todo i think this signature is right but not certain
+    "fix" = (fix, "((t0 -> t1) -> t0 -> t1) -> t0 -> t1")
 }
+
 
 
 // From<Val> impls are needed for unwrapping values. We can assume the program
@@ -118,7 +113,6 @@ fn parse_vec(vec: &[serde_json::value::Value]) -> Vec<Val> {
 impl Domain for ListVal {
 
     type Data = u32;  // Use Data as fix-point invocation counter
-    type Type = ListType;
 
     const TRUST_LEVEL: TrustLevel = TrustLevel::WontLoopMayPanic;
 
@@ -159,19 +153,25 @@ impl Domain for ListVal {
 
     // fn_of_prim takes a symbol and returns the corresponding DSL function. Again this is quite easy
     // with the global hashmap FUNCS created by the define_semantics macro.
-    fn fn_of_prim(p: Symbol) -> Option<DSLFn> {
-        FUNCS.entries.get(&p).map(|f| f.dsl_fn.clone())
+    fn dsl_entry(p: Symbol) -> Option<&'static DSLEntry<Self>> {
+        FUNCS.entries.get(&p)
     }
 
-    fn get_dsl() -> DSL<Self> {
-        FUNCS.clone()
+    fn dsl_entries() -> std::collections::hash_map::Values<'static, Symbol, DSLEntry<Self>> {
+        FUNCS.entries.values()
     }
 
-    fn type_of_dom_val(&self) -> Self::Type {
+    fn type_of_dom_val(&self) -> Type {
         match self {
-            Int(_) => TInt,
-            Bool(_) => TBool,
-            List(_) => TList,
+            Int(_) => Type::base("int".into()),
+            Bool(_) =>  Type::base("bool".into()),
+            List(xs) => {
+                if xs.is_empty() {
+                    return Type::Term("list".into(),vec![Type::Var(0)]) // (list t0)
+                }
+                // todo here we just use the type of the first entry as the type
+                Self::type_of_dom_val(&xs.first().unwrap().clone().dom().unwrap())
+            },
         }
     }
 
@@ -257,6 +257,9 @@ fn tail(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     }
 }
 
+
+/// fix f x = f(fix f)(x)
+/// type i think: ((t0 -> t1) -> t0 -> t1) -> t0 -> t1 
 fn fix(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     *handle.data.borrow_mut() += 1;
     if *handle.data.borrow() > MAX_FIX_INVOCATIONS {

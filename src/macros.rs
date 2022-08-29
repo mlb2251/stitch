@@ -3,19 +3,18 @@
 #[macro_export]
 macro_rules! define_semantics {
     (   $domain_val:ty;
-        $($string:literal = ($fname:ident,$arity:literal, $($arg:expr),* ) ),*
+        $($string:literal = ($fname:ident, $ty:literal) ),*
     ) => { 
         lazy_static::lazy_static! {
         static ref PRIMS: HashMap<Symbol, $crate::Val<$domain_val>> = vec![
-            $(($string.into(), PrimFun(CurriedFn::new($string.into(), $arity)))),*
+            $(($string.into(), PrimFun(CurriedFn::new($string.into(), $ty.parse::<Type>().unwrap().arity())))),*
             ].into_iter().collect();
         
         static ref FUNCS: $crate::DSL<$domain_val> = DSL::new(vec![
             $($crate::DSLEntry::new(
                 $string.into(), // name
-                $arity, // arity
-                vec![$($arg),*], // arg_types //todo
-                $fname as $crate::DSLFn<$domain_val> // dsl_fn
+                $ty.parse().unwrap(), // type
+                $fname as $crate::DSLFn<$domain_val> // dsl_fn ptr
             )),*
         ].into_iter().collect());
         }

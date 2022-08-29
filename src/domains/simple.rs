@@ -31,17 +31,17 @@ type DSLFn = domain::DSLFn<SimpleVal>;
 use SimpleVal::*;
 use SimpleType::*;
 use domain::Val::*;
-use domain::Type::*;
+// use domain::Type::*;
 
 // this macro generates two global lazy_static constants: PRIM and FUNCS
 // which get used by `val_of_prim` and `fn_of_prim` below. In short they simply
 // associate the strings on the left with the rust function and arity on the right.
 define_semantics! {
     SimpleVal;
-    "+" = (add, 2, TDom(TInt), TDom(TInt)),
-    "*" = (mul, 2, TDom(TInt), TDom(TInt)),
-    "map" = (map, 2, Arrow, TDom(TList)),
-    "sum" = (sum, 1, TDom(TList))
+    "+" = (add, "int -> int -> int"),
+    "*" = (mul, "int -> int -> int"),
+    "map" = (map, "(t0 -> t1) -> (list t0) -> (list t1)"),
+    "sum" = (sum, "list int -> int")
     //const "0" = Dom(Int(0)) //todo add support for constants
 }
 
@@ -84,7 +84,7 @@ impl<T: Into<Val>> From<Vec<T>> for Val {
 impl Domain for SimpleVal {
     // we dont use Data here
     type Data = ();
-    type Type = SimpleType;
+    // type Type = SimpleType;
 
     // we guarantee that our DSL won't loop or panic - that is, treat a panic in a DSL function
     // as a panic in the whole program. We may often prefer to use WontLoopMayPanic to catch
@@ -117,22 +117,32 @@ impl Domain for SimpleVal {
         )
     }
 
-    // fn_of_prim takes a symbol and returns the corresponding DSL function. Again this is quite easy
+    // dsl_entry takes a symbol corresponding to a DSL fn and returns the corresponding DSL entry. Again this is quite easy
     // with the global hashmap FUNCS created by the define_semantics macro.
-    fn fn_of_prim(p: Symbol) -> Option<DSLFn> {
-        FUNCS.entries.get(&p).map(|f| f.dsl_fn.clone())
+    fn dsl_entry(p: Symbol) -> Option<&'static DSLEntry<Self>> {
+        FUNCS.entries.get(&p)
     }
 
-    fn get_dsl() -> DSL<Self> {
-        FUNCS.clone()
+    fn dsl_entries() -> std::collections::hash_map::Values<'static, Symbol, DSLEntry<Self>> {
+        FUNCS.entries.values()
     }
 
-    fn type_of_dom_val(&self) -> Self::Type {
+    fn type_of_dom_val(&self) -> Type {
         match self {
-            Int(_) => TInt,
-            List(_) => TList
+            Int(_) => Type::base("int".into()),
+            List(xs) => {
+                let elem_tp = if xs.is_empty() {
+                    Type::Var(0) // (list t0)
+                } else {
+                    // todo here we just use the type of the first entry as the type
+                    Self::type_of_dom_val(&xs.first().unwrap().clone().dom().unwrap())
+                    // assert!(xs.iter().all(|v| Self::type_of_dom_val(v.clone().dom().unwrap())))
+                };
+                Type::Term("list".into(),vec![elem_tp])
+            },
         }
     }
+
 
 }
 

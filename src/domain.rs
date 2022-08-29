@@ -19,12 +19,12 @@ pub enum Val<D: Domain> {
     LamClosure(Id, Env<D>) // body, captured env
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Type<D: Domain> {
-    TDom(D::Type),
-    Arrow,
-    Top
-}
+// #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+// pub enum Type<D: Domain> {
+//     TDom(D::Type),
+//     Arrow,
+//     Top
+// }
 
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -75,8 +75,8 @@ pub type DSLFn<D> = fn(Env<D>, &Executable<D>) -> VResult<D>;
 #[derive(Clone)]
 pub struct DSLEntry<D: Domain> {
     pub name: Symbol,
+    pub tp: Type,
     pub arity: usize,
-    pub arg_types: Vec<Type<D>>,
     pub dsl_fn: DSLFn<D>,
 }
 
@@ -86,11 +86,12 @@ pub struct DSL<D:Domain> {
 }
 
 impl<D: Domain> DSLEntry<D> {
-    pub fn new(name: Symbol, arity: usize, arg_types: Vec<Type<D>>, dsl_fn: DSLFn<D>) -> Self {
+    pub fn new(name: Symbol, tp: Type, dsl_fn: DSLFn<D>) -> Self {
+        let arity = tp.arity();
         DSLEntry {
             name,
+            tp,
             arity,
-            arg_types,
             dsl_fn
         }
     }
@@ -177,7 +178,7 @@ impl<D: Domain> CurriedFn<D> {
         let mut new_dslfn = self.clone();
         new_dslfn.partial_args.push(arg);
         if new_dslfn.partial_args.len() == new_dslfn.arity {
-            D::fn_of_prim(new_dslfn.name).unwrap() (new_dslfn.partial_args, handle)
+            (D::dsl_entry(new_dslfn.name).unwrap().dsl_fn) (new_dslfn.partial_args, handle)
         } else {
             Ok(Val::PrimFun(new_dslfn))
         }
@@ -209,7 +210,7 @@ impl<D: Domain> FromVal<D> for Val<D> {
 }
 
 /// The key trait that defines a domain
-pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
+pub trait Domain: Clone + Debug + PartialEq + Eq + Hash + 'static {
     /// Domain::Data is attached to the Executable so all DSL functions will have a
     /// mut ref to it (through the handle argument). Feel free to make it the empty
     /// tuple if you dont need it.
@@ -221,13 +222,14 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     /// a use for it. Ofc be careful not to break function purity with this but otherwise
     /// be creative :)
     type Data: Debug + Default;
-    type Type: Debug + Clone + PartialEq + Eq + Hash;
+    // type Type: Debug + Clone + PartialEq + Eq + Hash;
 
     const TRUST_LEVEL: TrustLevel;
 
     /// given a primitive's symbol return a runtime Val object. For function primitives
     /// this should return a PrimFun(CurriedFn) object.
     fn val_of_prim(_p: egg::Symbol) -> Option<Val<Self>>;
+
     /// given a function primitive's symbol return the function pointer
     /// you can use to call the function.
     /// Breakdown of the function type: it takes a slice of values as input (the args)
@@ -236,11 +238,19 @@ pub trait Domain: Clone + Debug + PartialEq + Eq + Hash {
     /// when applys happen and log them in our Expr.evals, and also it's necessary for
     /// executing LamClosures in order to look up their body Id (and we wouldn't want
     /// LamClosures to carry around full Exprs because that would break the Expr.evals tracking)
-    fn fn_of_prim(_p: egg::Symbol) -> Option<DSLFn<Self>>;
+    fn dsl_entry(p: Symbol) -> Option<&'static DSLEntry<Self>>;
 
-    fn get_dsl() -> DSL<Self>;
+    fn dsl_entries() -> std::collections::hash_map::Values<'static, Symbol, DSLEntry<Self>>;
 
-    fn type_of_dom_val(&self) -> Self::Type;
+    fn type_of_dom_val(&self) -> Type;
+
+    fn type_of_prim(p: Symbol) -> Type {
+        Self::dsl_entry(p).map(|entry| entry.tp.clone()).unwrap_or_else(|| {
+            Self::type_of_dom_val(&Self::val_of_prim(p).unwrap().dom().unwrap())
+        })
+    }
+
+    // fn type_of_dom_val(&self) -> Type;
 
     // fn type_of_dom_val(_v: &Self) -> Type<Self> {
     //     unimplemented!()

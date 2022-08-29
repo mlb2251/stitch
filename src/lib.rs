@@ -12,6 +12,8 @@ mod extraction;
 mod egraphs;
 mod formats;
 mod bottom_up;
+mod types;
+mod parse_types;
 
 pub use {
     egg::*,
@@ -24,6 +26,7 @@ pub use {
     egraphs::{*,EGraph},
     formats::*,
     bottom_up::*,
+    types::*,
 };
 
 pub use colorful::{Color,Colorful,RGB};

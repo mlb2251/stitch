@@ -50,7 +50,7 @@ fn simple_bottom_up(args: &Args) {
         FoundExpr::new(SimpleVal::val_of_prim(s.into()).unwrap(), expr, 1)
     }).collect();
 
-    let fns: Vec<(DSLEntry<SimpleVal>,usize)> = SimpleVal::get_dsl().entries.values()
+    let fns: Vec<(DSLEntry<SimpleVal>,usize)> = SimpleVal::dsl_entries()
         .map(|entry| (entry.clone(),1)).collect();
 
     bottom_up(&initial, &fns, &args.cfg)
@@ -65,8 +65,12 @@ fn prim_list_bottom_up(args: &Args) {
         FoundExpr::new(ListVal::val_of_prim(s.into()).unwrap(), expr, 1)
     }).collect();    
 
-    let fns: Vec<(DSLEntry<ListVal>,usize)> = ListVal::get_dsl().entries.values()
+    let fns: Vec<(DSLEntry<ListVal>,usize)> = ListVal::dsl_entries()
         .map(|entry| (entry.clone(),1)).collect();
 
     bottom_up(&initial, &fns, &args.cfg)
 }
+
+// fn main () {
+
+// }
