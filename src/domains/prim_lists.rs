@@ -166,11 +166,14 @@ impl Domain for ListVal {
             Int(_) => Type::base("int".into()),
             Bool(_) =>  Type::base("bool".into()),
             List(xs) => {
-                if xs.is_empty() {
-                    return Type::Term("list".into(),vec![Type::Var(0)]) // (list t0)
-                }
-                // todo here we just use the type of the first entry as the type
-                Self::type_of_dom_val(&xs.first().unwrap().clone().dom().unwrap())
+                let elem_tp = if xs.is_empty() {
+                    Type::Var(0) // (list t0)
+                } else {
+                    // todo here we just use the type of the first entry as the type
+                    Self::type_of_dom_val(&xs.first().unwrap().clone().dom().unwrap())
+                    // assert!(xs.iter().all(|v| Self::type_of_dom_val(v.clone().dom().unwrap())))
+                };
+                Type::Term("list".into(),vec![elem_tp])
             },
         }
     }
@@ -214,11 +217,7 @@ fn branch(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
 
 fn eq(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     load_args!(handle, args, x:Val, y:Val); 
-    if x == y { // since Vals have Eq implemented already in the way that we want
-        ok(true)
-    } else {
-        ok(false)
-    }
+    ok(x == y) // since Vals have Eq implemented already in the way that we want
 }
 
 fn is_empty(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
