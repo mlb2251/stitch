@@ -227,7 +227,7 @@ Details:
 ## Flamegraph
 
 install if you havent: `cargo install flamegraph`
-`cargo build --release && sudo cargo flamegraph --root --output=out/flamegraph.svg --bin=compress -- data/cogsci/nuts-bolts.json`
+`cargo flamegraph --root --open --deterministic --output=out/flamegraph.svg --bin=compress -- data/cogsci/nuts-bolts.json`
 
 ## Acknowledgement
 
