@@ -214,23 +214,10 @@ fn branch(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
 
 fn eq(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     load_args!(handle, args, x:Val, y:Val); 
-    match (x, y) {
-        (Dom(Int(i)),  Dom(Int(j)))  => { ok(i==j) },
-        (Dom(Bool(a)), Dom(Bool(b))) => { ok(a==b) },
-        (Dom(List(l)), Dom(List(k))) => {
-            if l.len() != k.len() {
-                ok(false)
-            } else {
-                for (a,b) in l.iter().zip(k.iter()) {
-                    match eq(vec![LazyVal::new_strict(a.clone()), LazyVal::new_strict(b.clone())], handle)? {
-                        Dom(Bool(b)) => if !b { return ok(false) },
-                        _ => unreachable!() // eq should never return a non-bool
-                        }
-                    }
-                ok(true)
-            }
-        }
-        _ => { ok(false) } // todo: or type error?
+    if x == y { // since Vals have Eq implemented already in the way that we want
+        ok(true)
+    } else {
+        ok(false)
     }
 }
 

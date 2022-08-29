@@ -1,6 +1,6 @@
 
 use crate::*;
-use ahash::{AHashMap,AHashSet};
+use ahash::{AHashMap};
 use std::{time::Instant};
 use clap::{Parser};
 use serde::Serialize;
@@ -92,7 +92,7 @@ pub fn bottom_up<D: Domain>(
     let mut seen_types: Vec<Type> = vec![];
 
     // ids for the exprs passed in as `initial`
-    let init_val_ids: Vec<Id> = handle.expr.get(handle.expr.get_root().children()[1]).children().iter().cloned().collect();
+    let init_val_ids: Vec<Id> = handle.expr.get(handle.expr.get_root().children()[1]).children().to_vec();
 
     println!("Productions:");
     for (f,cost) in fns.iter() {

@@ -25,7 +25,7 @@ fn parse_aux(mut s: &str) -> Result<(Type, &str), String> {
             return Ok(res.pop().unwrap()) 
         }
         let head = res.remove(0);
-        return match head {
+        match head {
             Type::Var(_) => Err("Type parse() error: type variable is applied to args".into()),
             Type::Term(name, args) => {
                 if !args.is_empty() {
@@ -40,7 +40,7 @@ fn parse_aux(mut s: &str) -> Result<(Type, &str), String> {
     loop {
         s = s.trim();
 
-        if s.is_empty() || s.chars().next().unwrap() == ')' {
+        if s.is_empty() || s.starts_with(')') {
             // s is empty or hit closeparen: return
             if !s.is_empty() {
                 s = &s[1..];
@@ -48,7 +48,7 @@ fn parse_aux(mut s: &str) -> Result<(Type, &str), String> {
             return finish(res).map(|res| (res, s))
         }
 
-        if s.chars().next().unwrap() == '(' {
+        if s.starts_with('(') {
             // hit an openparen: recurse
             let (ty, s_new) = parse_aux(&s[1..])?;
             s = s_new;
@@ -63,7 +63,7 @@ fn parse_aux(mut s: &str) -> Result<(Type, &str), String> {
         s = s_new;
 
         // check if it's a var like t0 t23 etc
-        if item.chars().next().unwrap() == 't' {
+        if item.starts_with('t') {
             if let Ok(i) = item[1..].parse::<usize>() {
                 res.push(Type::Var(i));
                 continue

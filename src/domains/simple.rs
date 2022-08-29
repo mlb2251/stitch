@@ -29,7 +29,7 @@ type DSLFn = domain::DSLFn<SimpleVal>;
 
 // to more concisely refer to the variants
 use SimpleVal::*;
-use SimpleType::*;
+
 use domain::Val::*;
 // use domain::Type::*;
 

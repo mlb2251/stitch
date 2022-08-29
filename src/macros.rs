@@ -29,7 +29,7 @@ macro_rules! load_args {
         $args:expr,
         $($name:ident : $type:ty ),*
     ) => { 
-        use crate::domain::FromVal;
+        use $crate::domain::FromVal;
         $(let $name:$type = <$type>::from_val($args.remove(0).eval($handle)?)?;)*
     }
 }

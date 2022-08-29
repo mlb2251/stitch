@@ -1,8 +1,8 @@
-use std::{collections::VecDeque, default};
+use std::{collections::VecDeque};
 
 use crate::*;
 use egg::Symbol;
-use nix::libc::write;
+
 
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,7 +45,7 @@ impl Type {
                     return None
                 }
                 assert_eq!(args.len(),2);
-                return Some((&args[0], &args[1]))
+                Some((&args[0], &args[1]))
             },
             _ => None
         }
@@ -59,12 +59,12 @@ impl Type {
 
     /// iterates over all nodes in the term of this type
     pub fn iter_arrows(&self) -> ArrowIter {
-        return ArrowIter { curr: self }
+        ArrowIter { curr: self }
     }
 
     /// iterates over uncurried argument types of this arrow type
     pub fn iter_args(&self) -> impl Iterator<Item=&Type> {
-        self.iter_arrows().map(|(left,right)| left)
+        self.iter_arrows().map(|(left,_right)| left)
     }
 
     /// arity of this arrow type (zero if not an arrow type)
@@ -75,7 +75,7 @@ impl Type {
     /// return type of this arrow types *after* uncurrying. For a non arrow type
     /// this just returns the type itself.
     pub fn return_type(&self) -> &Type {
-        self.iter_arrows().last().map(|(left,right)| right).unwrap_or(self)
+        self.iter_arrows().last().map(|(_left,right)| right).unwrap_or(self)
     }
 
     /// true if there are no type vars in this type
@@ -245,7 +245,7 @@ impl Context {
                 if x != y || xs.len() != ys.len() {
                     return Err(UnifyErr::Production)
                 }
-                xs.iter().zip(ys.iter()).map(|(x,y)| self.unify(x,y)).collect::<UnifyResult>()
+                xs.iter().zip(ys.iter()).try_for_each(|(x,y)| self.unify(x,y))
             }
         }
     }
@@ -253,9 +253,9 @@ impl Context {
     #[inline(always)]
     fn get(&self, var: usize) -> Option<&Type> { // todo written in a silly way, rewrite
         if var < self.subst.len() { 
-            return self.subst[var].as_ref();
+            self.subst[var].as_ref()
         } else {
-            return None
+            None
         }
     }
 
@@ -316,7 +316,7 @@ impl Expr {
                 }
                 Ok(env[*i as usize].apply(ctx))
             },
-            Lambda::IVar(i) => {
+            Lambda::IVar(_i) => {
                 // interesting, I guess we can have this and it'd probably be easy to do
                 unimplemented!();
             }
