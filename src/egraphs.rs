@@ -1,7 +1,7 @@
 // use itertools::Itertools;
 
 use crate::*;
-use ahash::{AHashSet};
+use rustc_hash::{FxHashSet};
 
 
 pub type EGraph = egg::EGraph<Lambda, LambdaAnalysis>;
@@ -12,8 +12,8 @@ pub struct LambdaAnalysis;
 /// The analysis data associated with each Lambda node
 #[derive(Debug)]
 pub struct Data {
-    pub free_vars: AHashSet<i32>, // $i vars. For example (lam $2) has free_vars = {1}.
-    pub free_ivars: AHashSet<i32>, // #i ivars
+    pub free_vars: FxHashSet<i32>, // $i vars. For example (lam $2) has free_vars = {1}.
+    pub free_ivars: FxHashSet<i32>, // #i ivars
     pub inventionless_cost: i32,
 }
 
@@ -28,8 +28,8 @@ impl Analysis<Lambda> for LambdaAnalysis {
         // false // didnt modify anything
     }
     fn make(egraph: &EGraph, enode: &Lambda) -> Data {
-        let mut free_vars: AHashSet<i32> = AHashSet::new();
-        let mut free_ivars: AHashSet<i32> = AHashSet::new();
+        let mut free_vars: FxHashSet<i32> = FxHashSet::default();
+        let mut free_ivars: FxHashSet<i32> = FxHashSet::default();
         match enode {
             Lambda::Var(i) => {
                 free_vars.insert(*i);
@@ -169,10 +169,10 @@ fn topological_ordering_rec(root: Id, egraph: &EGraph, vec: &mut Vec<Id>) {
 }
 
 //#[inline(never)]
-pub fn associate_tasks(programs_root: Id, egraph: &EGraph, treenodes: &[Id], task_of_root_idx: &[usize]) -> Vec<AHashSet<usize>> {
+pub fn associate_tasks(programs_root: Id, egraph: &EGraph, treenodes: &[Id], task_of_root_idx: &[usize]) -> Vec<FxHashSet<usize>> {
 
     // this is the map from egraph node ids to tasks (represented with unique usizes) that we will be building
-    let mut tasks_of_node = vec![AHashSet::new(); treenodes.len()];
+    let mut tasks_of_node = vec![FxHashSet::default(); treenodes.len()];
 
     let program_roots = egraph[programs_root].nodes[0].children();
     assert_eq!(program_roots.len(), task_of_root_idx.len());
@@ -189,7 +189,7 @@ pub fn associate_tasks(programs_root: Id, egraph: &EGraph, treenodes: &[Id], tas
     tasks_of_node
 }
 
-fn associate_task_rec(node: Id, egraph: &EGraph, task_id: usize, tasks_of_node: &mut Vec<AHashSet<usize>>) {
+fn associate_task_rec(node: Id, egraph: &EGraph, task_id: usize, tasks_of_node: &mut Vec<FxHashSet<usize>>) {
     // tasks_of_node.entry(node).or_default().insert(task_id);
     tasks_of_node[usize::from(node)].insert(task_id);
     for child in egraph[node].nodes[0].children() {
@@ -200,7 +200,7 @@ fn associate_task_rec(node: Id, egraph: &EGraph, task_id: usize, tasks_of_node: 
 /// Does debruijn index shifting of a subtree, incrementing all Vars by the given amount
 #[inline] // useful to inline since callsite can usually tell which Shift type is happening allowing further optimization
 pub fn shift(e: Id, incr_by: i32, egraph: &mut crate::EGraph, cache: &mut Option<RecVarModCache>) -> Option<Id> {
-    let empty = &mut RecVarModCache::new();
+    let empty = &mut RecVarModCache::default();
     let seen: &mut RecVarModCache = cache.as_mut().unwrap_or(empty);
 
     recursive_var_mod(
@@ -225,7 +225,7 @@ pub fn insert_arg_ivars(e: Id, set_to: i32, egraph: &mut crate::EGraph) -> Optio
             }
         },
         false, // operate on Vars not IVars
-        e,egraph,&mut RecVarModCache::new()
+        e,egraph,&mut RecVarModCache::default()
     )
 }
 
