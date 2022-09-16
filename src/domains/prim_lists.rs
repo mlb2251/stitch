@@ -121,45 +121,35 @@ impl Domain for ListVal {
     // however you're also free to do any sort of generic parsing you want, allowing for domains with
     // infinite sets of values or dynamically generated values. For example here we support all integers
     // and all integer lists.
-    fn val_of_prim(p: Symbol) -> Option<Val> {
-        PRIMS.get(&p).cloned().or_else(||
-            // starts with digit -> Int
-            if p.as_str().chars().next().unwrap().is_ascii_digit() {
-                let i: i32 = p.as_str().parse().ok()?;
-                Some(Int(i).into())
-            }
-            // starts with "f" or "t" -> must be a bool (if not found in PRIMS)
-            else if p.as_str().starts_with('f') || p.as_str().starts_with('t') {
-                let s: String = p.as_str().parse().ok()?;
-                if s == "false" {
-                    Some(Dom(Bool(false)))
-                } else if s == "true" {
-                    Some(Dom(Bool(true)))
-                } else {
-                    None
-                }
-            }
-            // starts with `[` -> List
-            // Note lists may contain ints, bools, or other lists in this domain
-            else if p.as_str().starts_with('[') {
-                let elems: Vec<serde_json::value::Value> = serde_json::from_str(p.as_str()).ok()?;
-                let valvec: Vec<Val> = parse_vec(&elems);
-                Some(List(valvec).into())
+    fn val_of_prim_fallback(p: Symbol) -> Option<Val> {
+        // starts with digit -> Int
+        if p.as_str().chars().next().unwrap().is_ascii_digit() {
+            let i: i32 = p.as_str().parse().ok()?;
+            Some(Int(i).into())
+        }
+        // starts with "f" or "t" -> must be a bool (if not found in PRIMS)
+        else if p.as_str().starts_with('f') || p.as_str().starts_with('t') {
+            let s: String = p.as_str().parse().ok()?;
+            if s == "false" {
+                Some(Dom(Bool(false)))
+            } else if s == "true" {
+                Some(Dom(Bool(true)))
             } else {
                 None
             }
-        )
+        }
+        // starts with `[` -> List
+        // Note lists may contain ints, bools, or other lists in this domain
+        else if p.as_str().starts_with('[') {
+            let elems: Vec<serde_json::value::Value> = serde_json::from_str(p.as_str()).ok()?;
+            let valvec: Vec<Val> = parse_vec(&elems);
+            Some(List(valvec).into())
+        } else {
+            None
+        }
     }
 
-    // fn_of_prim takes a symbol and returns the corresponding DSL function. Again this is quite easy
-    // with the global hashmap FUNCS created by the define_semantics macro.
-    fn dsl_entry(p: Symbol) -> Option<&'static DSLEntry<Self>> {
-        FUNCS.entries.get(&p)
-    }
-
-    fn dsl_entries() -> std::collections::hash_map::Values<'static, Symbol, DSLEntry<Self>> {
-        FUNCS.entries.values()
-    }
+    dsl_entries_lookup_gen!();
 
     fn type_of_dom_val(&self) -> Type {
         match self {

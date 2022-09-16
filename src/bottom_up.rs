@@ -75,6 +75,8 @@ pub fn bottom_up<D: Domain>(
     cfg: &BottomUpConfig,
 ) {
 
+    let fns: Vec<(DSLEntry<D>,usize)>  = fns.iter().filter(|(entry, _)| entry.arity > 0).cloned().collect();
+
     let tstart = Instant::now();
     let mut stats: Stats = Default::default();
 
@@ -132,7 +134,7 @@ pub fn bottom_up<D: Domain>(
             for (found_args, tp, cost) in ArgChoiceIterator::new(&vals_of_type, &seen_types, &dsl_entry.tp, *fn_cost, curr_cost, curr_cost - cfg.cost_step) {
                 let args: Vec<LazyVal<D>> = found_args.iter().map(|&f| LazyVal::new_strict(f.val.clone())).collect();
                 // println!("trying ({} {})", dsl_entry.name, found_cfg.iter().map(|arg| format!("{:?}",arg.val)).collect::<Vec<_>>().join(" "));
-                if let Ok(val) = (dsl_entry.dsl_fn) (args, &mut handle) {
+                if let Ok(val) = (D::lookup_fn_ptr(dsl_entry.name)) (args, &mut handle) {
                     stats.num_eval_ok += 1;
                     match seen.get(&val) {
                         None => {
