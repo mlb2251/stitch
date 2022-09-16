@@ -12,6 +12,7 @@ mod extraction;
 mod egraphs;
 mod formats;
 mod bottom_up;
+mod top_down;
 mod types;
 mod parse_types;
 
@@ -26,6 +27,7 @@ pub use {
     egraphs::{*,EGraph},
     formats::*,
     bottom_up::*,
+    top_down::*,
     types::*,
 };
 

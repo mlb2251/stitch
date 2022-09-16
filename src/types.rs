@@ -100,11 +100,13 @@ impl Type {
         }
         match self {
             Type::Var(i) => {
+                // look up the type var in the ctx to see if its bound
                 if let Some(tp) = ctx.get(*i).cloned() {
-                    // todo its somewhat unclear if this .apply() and .set() are necessary, dreamcoder seems to do them in ocaml
-                    // so ive done them here
+                    // in case it's bound to something that ALSO has variables, we want to track those down too
                     let tp_applied = tp.apply(ctx);
                     if tp != tp_applied {
+                        // and to save our work for the future, lets amortize it (union-find style) by saving what we
+                        // found things were bound to. Since bindings will never change this is okay.
                         ctx.set(*i, tp_applied.clone())
                     }
                     tp_applied
@@ -116,8 +118,28 @@ impl Type {
         }
     }
 
+    /// same as apply() but doesnt do the unionfind style caching of results, so there's no need to mutate the ctx
+    pub fn apply_immut(&self, ctx: &Context) -> Type {
+        if self.is_concrete() {
+            return self.clone();
+        }
+        match self {
+            Type::Var(i) => {
+                // look up the type var in the ctx to see if its bound
+                if let Some(tp) = ctx.get(*i).cloned() {
+                    // in case it's bound to something that ALSO has variables, we want to track those down too
+                    tp.apply_immut(ctx)
+                } else {
+                    self.clone() // t0 is not bound by ctx so we leave it unbound
+                }
+            },
+            Type::Term(name, args) => Type::Term(*name, args.iter().map(|ty| ty.apply_immut(ctx)).collect())
+        }
+    }
+
+
     /// shifts all variables in a type such that they are fresh variables in the context, returning a new type
-    fn instantiate(&self, ctx: &mut Context) -> Type {
+    pub fn instantiate(&self, ctx: &mut Context) -> Type {
         if self.is_concrete() {
             return self.clone()
         }
@@ -215,6 +237,26 @@ impl Context {
     fn fresh_type_var(&mut self) -> Type {
         self.subst.push(None);
         Type::Var(self.subst.len() - 1)
+    }
+
+    /// a very quick non-allocating check that returns false if it's
+    /// obvious that these types won't unify. First this checks if t1 and t2 have the same constructors
+    /// and if theres an obvious mismatch there it gives up. Then it goes and looks up the types in the ctx
+    /// in case they were typevars, and then again checks if they have th same constructor. It uses apply_immut() to
+    /// avoid mutating the context for this lookup.
+    pub fn might_unify(&self, t1: &Type, t2: &Type) -> bool {
+        self.might_unify_(t1,t2) && self.might_unify_(&t1.apply_immut(self), &t2.apply_immut(self))
+    }
+
+    pub fn might_unify_(&self, t1: &Type, t2: &Type) -> bool {
+        match (t1,t2) {
+            (Type::Var(_), Type::Var(_)) => true,
+            (Type::Var(_), Type::Term(_, _)) => true,
+            (Type::Term(_, _), Type::Var(_)) => true,
+            (Type::Term(x, xs), Type::Term(y, ys)) => {
+                x == y && xs.len() == ys.len() && xs.iter().zip(ys.iter()).all(|(x,y)| self.might_unify(x,y))
+            },
+        }
     }
 
     pub fn unify(&mut self, t1: &Type,  t2: &Type) -> UnifyResult {
@@ -321,7 +363,6 @@ impl Expr {
                 unimplemented!();
             }
             Lambda::Prim(p) => {
-                // todo we need to do a D::type_of(p) lookup here
                 Ok(D::type_of_prim(*p).instantiate(ctx))
             },
             Lambda::Programs(_) => panic!("trying to infer() type of Programs() node"),
