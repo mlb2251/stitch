@@ -56,6 +56,13 @@ pub struct Expr {
     pub nodes: Vec<Lambda>, // just like in a RecExpr but public
 }
 
+// impl PartialEq for Expr {
+//     fn eq(&self, other: &Self) -> bool {
+//         self.nodes == other.nodes
+//     }
+// }
+// impl Eq for Expr {}
+
 /// printing a single node prints the operator - this is needed for `egg`.
 /// If you want to print the whole expression, use `Expr` not `Lambda`.
 impl Display for Lambda {

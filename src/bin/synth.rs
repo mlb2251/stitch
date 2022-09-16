@@ -56,6 +56,7 @@ fn simple_bottom_up(args: &Args) {
     bottom_up(&initial, &fns, &args.cfg)
 }
 
+
 fn prim_list_bottom_up(args: &Args) {
     let initial_strs: Vec<String> = (0..10).map(|i| i.to_string())
         .chain(once(String::from("[]"))).collect();
@@ -70,6 +71,26 @@ fn prim_list_bottom_up(args: &Args) {
 
     bottom_up(&initial, &fns, &args.cfg)
 }
+
+
+
+fn simple_top_down(args: &Args) {
+    let initial_strs: Vec<String> = (0..3).map(|i| i.to_string())
+    .chain(once(String::from("[1,2,3]"))).collect();
+
+    let initial: Vec<FoundExpr<SimpleVal>> = initial_strs.iter().map(|s| {
+        let expr = Expr::prim(s.into());
+        FoundExpr::new(SimpleVal::val_of_prim(s.into()).unwrap(), expr, 1)
+    }).collect();
+
+    let fns: Vec<(DSLEntry<SimpleVal>,usize)> = SimpleVal::dsl_entries()
+        .map(|entry| (entry.clone(),1)).collect();
+
+    bottom_up(&initial, &fns, &args.cfg)
+}
+
+
+
 
 // fn main () {
 
