@@ -41,7 +41,11 @@ define_semantics! {
     "+" = (add, "int -> int -> int"),
     "*" = (mul, "int -> int -> int"),
     "map" = (map, "(t0 -> t1) -> (list t0) -> (list t1)"),
-    "sum" = (sum, "list int -> int")
+    "sum" = (sum, "list int -> int"),
+    "0" = "int",
+    "1" = "int",
+    "2" = "int",
+    "[]" = "(list t0)",
     //const "0" = Dom(Int(0)) //todo add support for constants
 }
 

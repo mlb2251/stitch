@@ -41,7 +41,7 @@ define_semantics! {
     "tail" = (tail, "list t0 -> list t0"),
     // fix f x = f(fix f)(x)
     // todo i think this signature is right but not certain
-    "fix" = (fix, "((t0 -> t1) -> t0 -> t1) -> t0 -> t1")
+    "fix" = (fix, "((t0 -> t1) -> t0 -> t1) -> t0 -> t1"),
 }
 
 

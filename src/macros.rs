@@ -2,29 +2,23 @@
 /// this macros defines two lazy static variables PRIMS and FUNCS 
 #[macro_export]
 macro_rules! define_semantics {
-    (   $domain_val:ty;
+    (   $domain:ty;
         $($rest:tt)*
         // $($string:literal = ($fname:ident, $ty:literal) ),*
     ) => {
         lazy_static::lazy_static! {
 
-        static ref DSL_ENTRIES: $crate::DSL<$domain_val> = DSL::new(vec![
-            dsl_entries!($domain_val; $($rest)*)
-            // $($crate::DSLEntry::new(
-            //     $string.into(), // name
-            //     PrimFun(CurriedFn::new($string.into(), $ty.parse::<Type>().unwrap().arity())), // val
-            //     $ty.parse().unwrap() // type
-            // )),*
-        ].into_iter().collect());
+        static ref DSL_ENTRIES: $crate::DSL<$domain> = {
+            let mut entries = vec![];
+            dsl_entries!{$domain; entries; $($rest)*};
+            DSL::new(entries)
+        };
 
-
-        static ref LOOKUP_FN_PTR: HashMap<Symbol,$crate::DSLFn<$domain_val>> = vec![
-            // $((
-            //     $string.into(), // name
-            //     $fname as $crate::DSLFn<$domain_val> // dsl_fn ptr
-            // )),*
-            fn_ptr_lookup!($domain_val; $($rest)*)
-        ].into_iter().collect();
+        static ref LOOKUP_FN_PTR: HashMap<Symbol,$crate::DSLFn<$domain>> = {
+            let mut entries = HashMap::new();
+            fn_ptr_entries!{$domain; entries; $($rest)*};
+            entries
+        };
 
         }
     }
@@ -32,70 +26,70 @@ macro_rules! define_semantics {
 
 #[macro_export]
 macro_rules! dsl_entries {
-    // case like: "head" = (head, "list t0 -> t0"),
-    ( $domain_val:ty; ) => {
+    ( $domain:ty; $entries:ident; ) => {
         // base case, do nothing
     };
 
-    (   $domain_val:ty;
+    // case like: "head" = (head, "list t0 -> t0"),
+    (   $domain:ty; $entries:ident;
         $string:literal = ($fname:ident, $ty:literal),
         $($rest:tt)*
-    ) => {
+    ) => { 
         // add entry
-        $crate::DSLEntry::new(
+        $entries.push($crate::DSLEntry::new(
             $string.into(), // name
-            PrimFun(CurriedFn::new($string.into(), $ty.parse::<Type>().unwrap().arity())), // val
+            PrimFun(CurriedFn::<$domain>::new($string.into(), $ty.parse::<Type>().unwrap().arity())), // val
             $ty.parse().unwrap() // type
-        ), // <-- add comma
+        ));
         // recurse
-        dsl_entries!{$domain_val; $($rest)*};
+        dsl_entries!{$domain; $entries; $($rest)*};
     };
 
     // case like: "[1,2,3]" = "list int"),
-    (   $domain_val:ty;
+    (   $domain:ty; $entries:ident;
         $string:literal = $ty:literal,
         $($rest:tt)*
     ) => {
         // add entry
         $crate::DSLEntry::new(
             $string.into(), // name
-            <$domain_val>::val_of_prim_fallback($string.into()), // val
+            <$domain>::val_of_prim_fallback($string.into()).unwrap(), // val
             $ty.parse().unwrap() // type
-        ), // <-- add comma
+        );
         // recurse
-        dsl_entries!($domain_val; $($rest)*);
+        dsl_entries!($domain; $entries; $($rest)*);
     }
 }
 
 #[macro_export]
-macro_rules! fn_ptr_lookup {
+macro_rules! fn_ptr_entries {
 
-    ( $domain_val:ty; ) => {
+    ( $domain:ty; $entries:ident; ) => {
         // base case, do nothing
     };
 
     // case like: "head" = (head, "list t0 -> t0"),
-    (   $domain_val:ty;
+    (   $domain:ty; $entries:ident;
         $string:literal = ($fname:ident, $ty:literal),
         $($rest:tt)*
     ) => {
         // add entry
-        (
+        $entries.insert(
             $string.into(), // name
-            $fname as $crate::DSLFn<$domain_val> // dsl_fn ptr
-        ), // <-- add comma
+            $fname as $crate::DSLFn<$domain> // dsl_fn ptr
+        );
         // recurse
-        fn_ptr_lookup!($domain_val; $($rest)*);
+        fn_ptr_entries!($domain; $entries; $($rest)*);
     };
 
     // case like: "[1,2,3]" = "list int"),
-    (   $domain_val:ty;
+    (   $domain:ty; $entries:ident;
         $string:literal = $ty:literal,
         $($rest:tt)*
     ) => {
-        // no entry since this is not a
+        // no entry since this is not a function
         // recurse
-        fn_ptr_lookup!($domain_val; $($rest)*);
+        fn_ptr_entries!($domain; $entries; $($rest)*);
     }
 }
 
