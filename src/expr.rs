@@ -31,6 +31,9 @@ pub enum Lambda {
     Programs(Vec<Id>), // root node at the very top of the tree
 }
 
+pub const SENTINEL: usize = u32::MAX as usize;
+
+
 /// An untyped lambda calculus expression, much like `egg::RecExpr` but with a public `nodes` field
 /// and many attached functions. See `Lambda` for details on the individual nodes.
 /// 
@@ -179,6 +182,10 @@ impl Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // write!(f, "{}", self.to_string_uncurried(None))
         fn fmt_local(e: &Expr, child: Id, left_of_app: bool, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            if usize::from(child) == SENTINEL {
+                return write!(f,"??");
+            }
+
             match &e.nodes[usize::from(child)] {
                 Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => write!(f,"{}", &e.nodes[usize::from(child)]),
                 Lambda::App([fun,x]) => {

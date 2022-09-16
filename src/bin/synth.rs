@@ -5,6 +5,7 @@ use std::iter::once;
 use clap::{Parser,ArgEnum};
 use serde::Serialize;
 use std::path::PathBuf;
+use ordered_float::NotNan;
 
 
 
@@ -15,6 +16,10 @@ pub struct Args {
     /// json output file
     #[clap(short, long, parse(from_os_str), default_value = "out/out.json")]
     pub out: PathBuf,
+
+    /// synthesizer to use
+    #[clap(short, long, arg_enum, default_value = "top-down")]
+    pub synth: SynthChoice,
 
     /// Domain to enumerate from
     #[clap(short, long, arg_enum, default_value = "list")]
@@ -30,13 +35,29 @@ pub enum DomainChoice {
     Simple
 }
 
+#[derive(Debug, Clone, ArgEnum, Serialize)]
+pub enum SynthChoice {
+    TopDown,
+    BottomUp,
+}
+
 fn main() {
 
     let args = Args::parse();
 
-    match &args.domain {
-        DomainChoice::List => prim_list_bottom_up(&args),
-        DomainChoice::Simple => simple_bottom_up(&args)
+    match &args.synth {
+        SynthChoice::TopDown => {
+            match &args.domain {
+                DomainChoice::Simple => uniform_top_down::<SimpleVal>(&args),
+                DomainChoice::List => uniform_top_down::<ListVal>(&args),
+            }
+        },
+        SynthChoice::BottomUp => {
+            match &args.domain {
+                DomainChoice::List => prim_list_bottom_up(&args),
+                DomainChoice::Simple => simple_bottom_up(&args)
+            }
+        }
     }
 
 }
@@ -74,19 +95,12 @@ fn prim_list_bottom_up(args: &Args) {
 
 
 
-fn simple_top_down(args: &Args) {
-    let initial_strs: Vec<String> = (0..3).map(|i| i.to_string())
-    .chain(once(String::from("[1,2,3]"))).collect();
+fn uniform_top_down<D: Domain>(args: &Args) {
 
-    let initial: Vec<FoundExpr<SimpleVal>> = initial_strs.iter().map(|s| {
-        let expr = Expr::prim(s.into());
-        FoundExpr::new(SimpleVal::val_of_prim(s.into()).unwrap(), expr, 1)
-    }).collect();
-
-    let fns: Vec<(DSLEntry<SimpleVal>,usize)> = SimpleVal::dsl_entries()
-        .map(|entry| (entry.clone(),1)).collect();
-
-    bottom_up(&initial, &fns, &args.cfg)
+    top_down::<D,_>(
+        UniformModel::new(NotNan::new(-1.).unwrap(),NotNan::new(-1.).unwrap()),
+        "int".parse().unwrap()
+    );
 }
 
 

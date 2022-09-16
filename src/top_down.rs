@@ -65,7 +65,7 @@ impl PartialExpr {
         PartialExpr { expr, ctx, holes, prev_prod: None }
     }
     pub fn single_hole(tp: Type, env: VecDeque<Type>) -> PartialExpr {
-        PartialExpr::new(vec![], Context::empty(), vec![Hole::new(tp,env,0)])
+        PartialExpr::new(vec![], Context::empty(), vec![Hole::new(tp,env,SENTINEL)])
     }
 }
 
@@ -139,6 +139,12 @@ pub struct UniformModel {
     prim_ll: NotNan<f32>,
 }
 
+impl UniformModel {
+    pub fn new(var_ll: NotNan<f32>, prim_ll: NotNan<f32>) -> UniformModel {
+        UniformModel { var_ll, prim_ll }
+    }
+}
+
 impl ProbabilisticModel for UniformModel {
     fn expansion_unnormalized_ll(&self, prod: &Lambda) -> NotNan<f32> {
         match prod {
@@ -149,7 +155,6 @@ impl ProbabilisticModel for UniformModel {
     }
 }
 
-const SENTINEL: usize = usize::MAX;
 
 #[inline]
 fn fill_sentinel(node: &mut Lambda, id: usize) {
@@ -184,7 +189,9 @@ pub fn expansions<D: Domain>(expr: &PartialExpr, hole_idx: usize) -> impl Iterat
             let mut new_expr: PartialExpr = expr.clone();
             new_expr.holes.remove(hole_idx);
             let prod_tp: Type = prod_tp.instantiate(&mut new_expr.ctx);
-            // full unififcation check
+            println!("prod: {:?}", prod);
+            // println!("hole parent:", )
+            // full unification check
             if new_expr.ctx.unify(&hole_tp, prod_tp.return_type()).is_ok() {
                 // push on the new primitive or var
                 new_expr.prev_prod = Some(prod.clone());
@@ -210,6 +217,9 @@ pub fn expansions<D: Domain>(expr: &PartialExpr, hole_idx: usize) -> impl Iterat
                     // the hole type is the return type of the arg (bc all lambdas were autofilled)
                     let new_hole_tp = arg_tp.return_type().clone();
                     new_expr.holes.push(Hole::new(new_hole_tp, new_hole_env, new_expr.expr.len() - 1))
+                }
+                if hole.parent != SENTINEL {
+                    fill_sentinel(&mut new_expr.expr[hole.parent], expr_so_far_idx);
                 }
                 return Some(new_expr)
             }
@@ -241,11 +251,12 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
     model: M,
     tp: Type,
     // env: VecDeque<Type>,
-    cfg: &TopDownConfig,
+    // cfg: &TopDownConfig,
 ) {
 
     let mut stats = Stats::default();
 
+    // todo temporarily we dont support environments
     let exec_env = vec![];
     let env: VecDeque<Type> = Default::default();
 
@@ -256,23 +267,34 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
 
     loop {
 
+        worklist.extend(worklist_buf.drain(..));
+
         let item = match worklist.pop() {
             Some(item) => item,
             None => break,
         };
 
+        println!("expanding: {} (ll={}; P={})", Expr::new(item.expr.expr.clone()), item.ll, item.ll.exp2());
+
         let mut unnormalized_ll_total = NotNan::new(f32::NEG_INFINITY).unwrap(); // start as ll=-inf -> P=0
 
         for expanded in expansions::<D>(&item.expr, item.expr.holes.len() - 1) {
+            // println!("new expansion: {:?}", expanded.expr);
+            println!("-> {}", Expr::new(expanded.expr.clone()));
+
             stats.num_expansions += 1;
             let unnormalized_ll = model.expansion_unnormalized_ll(expanded.prev_prod.as_ref().unwrap());
             unnormalized_ll_total = logsumexp(unnormalized_ll_total, unnormalized_ll);
             if expanded.holes.is_empty() {
                 // new completed program
                 // todo run the program, see if it works, discard if not or keep if yes
-                if let Ok(res) = Executable::<D>::from(Expr::new(expanded.expr)).eval(&mut exec_env.clone()) {
+                let expr = Expr::new(expanded.expr);
+                let exec = Executable::<D>::from(expr);
+                if let Ok(res) = exec.eval(&mut exec_env.clone()) {
+                    println!("{}", exec.expr);
                     stats.num_eval_ok += 1;
                 } else {
+                    println!("{}", exec.expr);
                     stats.num_eval_err += 1;
                 }
                 todo!()
@@ -285,10 +307,14 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
         worklist_buf.extend(expansions_buf.drain(..).map(|(unnormalized_ll,expanded)| {
             // normalize the ll
             let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
+            println!("{} + ({} - {}) -> {}", item.ll, unnormalized_ll, unnormalized_ll_total, ll);
             // extend prods and holes
             WorklistItem::new(ll, expanded)
         }));
 
+        if stats.num_expansions == 20 {
+            break
+        }
     }
 
 }
