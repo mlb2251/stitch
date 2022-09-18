@@ -178,21 +178,25 @@ pub fn expansions<D: Domain>(expr: &PartialExpr, hole_idx: usize) -> impl Iterat
     let hole: &Hole  = &expr.holes[hole_idx];
     // let env = hole.env.clone();
     let hole_tp = hole.tp.apply_immut(&expr.ctx); 
+    // println!("hole type: {}", hole_tp);
     assert!(!hole.tp.is_arrow());
     // loop over all dsl entries and all variables in the env
     D::dsl_entries().map(|entry| (Lambda::Prim(entry.name), &entry.tp))
         .chain(hole.env.iter().enumerate().map(|(i,tp)| (Lambda::Var(i as i32),tp)))
         .filter_map(move |(prod, prod_tp)|
     {
+        // println!("considering: {} :: {}", prod, prod_tp);
         // lightweight check for unification potential before doing the full clone
         if expr.ctx.might_unify(&hole_tp, prod_tp.return_type()) {
+            // println!("passed might_unify");
             let mut new_expr: PartialExpr = expr.clone();
             new_expr.holes.remove(hole_idx);
             let prod_tp: Type = prod_tp.instantiate(&mut new_expr.ctx);
-            println!("prod: {:?}", prod);
+            // println!("prod: {:?}", prod);
             // println!("hole parent:", )
             // full unification check
             if new_expr.ctx.unify(&hole_tp, prod_tp.return_type()).is_ok() {
+                // println!("passed unify");
                 // push on the new primitive or var
                 new_expr.prev_prod = Some(prod.clone());
                 new_expr.expr.push(prod);
@@ -254,6 +258,10 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
     // cfg: &TopDownConfig,
 ) {
 
+    for entry in D::dsl_entries() {
+        println!("{} :: {}", entry.name, entry.tp);
+    }
+
     let mut stats = Stats::default();
 
     // todo temporarily we dont support environments
@@ -297,7 +305,6 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
                     println!("{}", exec.expr);
                     stats.num_eval_err += 1;
                 }
-                todo!()
             } else {
                 // new partial program
                 expansions_buf.push((unnormalized_ll, expanded));

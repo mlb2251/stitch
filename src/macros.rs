@@ -51,11 +51,11 @@ macro_rules! dsl_entries {
         $($rest:tt)*
     ) => {
         // add entry
-        $crate::DSLEntry::new(
+        $entries.push($crate::DSLEntry::new(
             $string.into(), // name
             <$domain>::val_of_prim_fallback($string.into()).unwrap(), // val
             $ty.parse().unwrap() // type
-        );
+        ));
         // recurse
         dsl_entries!($domain; $entries; $($rest)*);
     }
