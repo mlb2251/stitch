@@ -1,7 +1,7 @@
 use crate::*;
 use clap::Parser;
 use serde::Serialize;
-use std::{collections::{VecDeque, BinaryHeap}, default};
+use std::{collections::{VecDeque, BinaryHeap}, default, fmt::Display};
 use ordered_float::NotNan;
 
 // pub type PartialLambda = Option<Lambda>;
@@ -55,17 +55,25 @@ impl Eq for WorklistItem {}
 #[derive(Debug,Clone, PartialEq, Eq)]
 pub struct PartialExpr {
     expr: Vec<Lambda>, // expr
+    root: Option<usize>, // root of the expression in `expr` or None if its a single hole
     ctx: Context, // typing context so far
     holes: Vec<Hole>, // holes so far
     prev_prod: Option<Lambda>, // previous production rule used, this is a Var | Prim or it's None if this is empty / the root
 }
 
 impl PartialExpr {
-    fn new(expr: Vec<Lambda>, ctx: Context, holes: Vec<Hole>) -> PartialExpr {
-        PartialExpr { expr, ctx, holes, prev_prod: None }
+    fn new(expr: Vec<Lambda>, root: Option<usize>, ctx: Context, holes: Vec<Hole>) -> PartialExpr {
+        PartialExpr { expr, root, ctx, holes, prev_prod: None }
     }
     pub fn single_hole(tp: Type, env: VecDeque<Type>) -> PartialExpr {
-        PartialExpr::new(vec![], Context::empty(), vec![Hole::new(tp,env,SENTINEL)])
+        PartialExpr::new(vec![], None, Context::empty(), vec![Hole::new(tp,env,SENTINEL)])
+    }
+}
+
+impl Display for PartialExpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // this expensive expr clone is silly to do lol
+        write!(f, "{}", Expr::new(self.expr.clone()).to_string_uncurried(self.root.map(|x| Id::from(x))))
     }
 }
 
@@ -224,6 +232,10 @@ pub fn expansions<D: Domain>(expr: &PartialExpr, hole_idx: usize) -> impl Iterat
                 }
                 if hole.parent != SENTINEL {
                     fill_sentinel(&mut new_expr.expr[hole.parent], expr_so_far_idx);
+                } else {
+                    // filling the single_hole so we can set our root
+                    assert!(new_expr.root.is_none());
+                    new_expr.root = Some(expr_so_far_idx);
                 }
                 return Some(new_expr)
             }
@@ -282,13 +294,12 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
             None => break,
         };
 
-        println!("expanding: {} (ll={}; P={})", Expr::new(item.expr.expr.clone()), item.ll, item.ll.exp2());
+        println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp2());
 
         let mut unnormalized_ll_total = NotNan::new(f32::NEG_INFINITY).unwrap(); // start as ll=-inf -> P=0
 
         for expanded in expansions::<D>(&item.expr, item.expr.holes.len() - 1) {
             // println!("new expansion: {:?}", expanded.expr);
-            println!("-> {}", Expr::new(expanded.expr.clone()));
 
             stats.num_expansions += 1;
             let unnormalized_ll = model.expansion_unnormalized_ll(expanded.prev_prod.as_ref().unwrap());
@@ -296,13 +307,13 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
             if expanded.holes.is_empty() {
                 // new completed program
                 // todo run the program, see if it works, discard if not or keep if yes
-                let expr = Expr::new(expanded.expr);
+                let expr = Expr::new(expanded.expr.clone());
                 let exec = Executable::<D>::from(expr);
                 if let Ok(res) = exec.eval(&mut exec_env.clone()) {
-                    println!("{}", exec.expr);
+                    println!("{} {} {:?}", expanded, "=>".green(), res);
                     stats.num_eval_ok += 1;
                 } else {
-                    println!("{}", exec.expr);
+                    println!("{} {} err", "=>".red(), expanded);
                     stats.num_eval_err += 1;
                 }
             } else {
@@ -314,12 +325,13 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
         worklist_buf.extend(expansions_buf.drain(..).map(|(unnormalized_ll,expanded)| {
             // normalize the ll
             let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
-            println!("{} + ({} - {}) -> {}", item.ll, unnormalized_ll, unnormalized_ll_total, ll);
+            // println!("{} + ({} - {}) -> {}", item.ll, unnormalized_ll, unnormalized_ll_total, ll);
             // extend prods and holes
+            println!("{} ll={}", expanded, ll);
             WorklistItem::new(ll, expanded)
         }));
 
-        if stats.num_expansions == 20 {
+        if stats.num_expansions == 40 {
             break
         }
     }

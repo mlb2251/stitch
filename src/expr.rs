@@ -386,11 +386,15 @@ impl Expr {
     /// Uncurried: (foo x y)
     /// Curried: (app (app foo x) y)
     pub fn to_string_uncurried(&self, child:Option<Id>) -> String {
+        
         uncurry_sexp(&self.to_sexp(child.unwrap_or_else(|| self.root()))).to_string()
     }
 
     /// convert to an s expression. Useful for printing / parsing purposes
     pub fn to_sexp(&self, child: Id) -> Sexp {
+        if usize::from(child) == SENTINEL {
+            return Sexp::Atom(sexp::Atom::S("??".to_string()));
+        }
         let node = &self.nodes[usize::from(child)];
         match node {
             Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => sexp::parse(&node.to_string()).unwrap(),
