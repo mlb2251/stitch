@@ -42,6 +42,9 @@ define_semantics! {
     // fix f x = f(fix f)(x)
     // todo i think this signature is right but not certain
     "fix" = (fix, "((t0 -> t1) -> t0 -> t1) -> t0 -> t1"),
+    "0" = "int",
+    "1" = "int",
+    "[]" = "list t0",
 }
 
 

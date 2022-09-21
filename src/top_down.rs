@@ -62,7 +62,7 @@ pub struct PartialExpr {
 }
 
 impl PartialExpr {
-    fn new(expr: Vec<Lambda>, root: Option<usize>, ctx: Context, holes: Vec<Hole>) -> PartialExpr {
+    pub fn new(expr: Vec<Lambda>, root: Option<usize>, ctx: Context, holes: Vec<Hole>) -> PartialExpr {
         PartialExpr { expr, root, ctx, holes, prev_prod: None }
     }
     pub fn single_hole(tp: Type, env: VecDeque<Type>) -> PartialExpr {
@@ -309,7 +309,8 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
                 // todo run the program, see if it works, discard if not or keep if yes
                 let expr = Expr::new(expanded.expr.clone());
                 let exec = Executable::<D>::from(expr);
-                if let Ok(res) = exec.eval(&mut exec_env.clone()) {
+                // todo this is prettty gross
+                if let Ok(res) = exec.eval_child(Id::from(expanded.root.unwrap()), &mut exec_env.clone()) {
                     println!("{} {} {:?}", expanded, "=>".green(), res);
                     stats.num_eval_ok += 1;
                 } else {
@@ -331,7 +332,7 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
             WorklistItem::new(ll, expanded)
         }));
 
-        if stats.num_expansions == 40 {
+        if stats.num_expansions >= 40 {
             break
         }
     }

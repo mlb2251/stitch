@@ -193,6 +193,9 @@ mod tests {
 
         assert_execution::<domains::simple::SimpleVal, i32>("(+ 1 2)", &[], 3);
 
+        assert_execution::<domains::simple::SimpleVal, i32>("(sum (map (lam $0) []))", &[], 0);
+        
+
         let arg = SimpleVal::val_of_prim("[1,2,3]".into()).unwrap();
         assert_execution("(map (lam (+ 1 $0)) $0)", &[arg], vec![2,3,4]);
 
