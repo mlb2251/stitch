@@ -1,11 +1,14 @@
 use stitch::*;
 use stitch::domains::prim_lists::*;
 use stitch::domains::simple::*;
+use std::fs::File;
 use std::iter::once;
+use std::path::Path;
 use clap::{Parser,ArgEnum};
 use serde::Serialize;
 use std::path::PathBuf;
 use ordered_float::NotNan;
+use serde_json::de::from_reader;
 
 
 
@@ -13,6 +16,10 @@ use ordered_float::NotNan;
 #[derive(Parser, Debug, Serialize)]
 #[clap(name = "Synthesizer")]
 pub struct Args {
+    /// json input file
+    #[clap(short, long, parse(from_os_str))]
+    pub file: Option<PathBuf>,
+
     /// json output file
     #[clap(short, long, parse(from_os_str), default_value = "out/out.json")]
     pub out: PathBuf,
@@ -41,23 +48,55 @@ pub enum SynthChoice {
     BottomUp,
 }
 
+
+fn parse_tasks<D: Domain>(path: &AsRef<Path>) -> Vec<Task<D>> {
+    let json: serde_json::Value = from_reader(File::open(path).expect("file not found")).expect("json deserializing error");
+    let tasks: Vec<Task<D>> = json.as_array().unwrap().iter().map(|task| {
+        Task::new(
+            task["name"].as_str().unwrap().to_string(),
+            task["tp"].as_str().unwrap().parse().unwrap(),
+            task["ios"].as_array().unwrap().iter().map(|io| {
+                let inputs: Vec<String> = io.as_array().unwrap()[0].as_array().unwrap().iter().map(|i| i.as_str().unwrap().to_string()).collect();
+                let output: String = io.as_array().unwrap()[1].as_str().unwrap().to_string();
+                IO::new(
+                    // remove all spaces since prims cant have spaces within them
+                    inputs.iter().map(|i| D::val_of_prim(i.replace(" ", "").into()).expect(&format!("failed to parse {i} as a Val"))).collect(),
+                    D::val_of_prim(output.replace(" ", "").into()).unwrap()
+                )
+            }).collect(),
+        )
+    }).collect();
+    tasks
+}
+
+
 fn main() {
 
     let args = Args::parse();
 
-    match &args.synth {
-        SynthChoice::TopDown => {
-            match &args.domain {
-                DomainChoice::Simple => uniform_top_down::<SimpleVal>(&args),
-                DomainChoice::List => uniform_top_down::<ListVal>(&args),
+    match &args.domain {
+        DomainChoice::Simple => {
+            let tasks: Vec<Task<SimpleVal>> = args.file.as_ref().map(|path| parse_tasks(path)).unwrap_or(vec![]);
+            match &args.synth {
+                SynthChoice::TopDown => {
+                    uniform_top_down::<SimpleVal>(&tasks, &args)
+                },
+                SynthChoice::BottomUp => {
+                    simple_bottom_up(&args)
+                }
             }
         },
-        SynthChoice::BottomUp => {
-            match &args.domain {
-                DomainChoice::List => prim_list_bottom_up(&args),
-                DomainChoice::Simple => simple_bottom_up(&args)
+        DomainChoice::List => {
+            let tasks: Vec<Task<ListVal>> = args.file.as_ref().map(|path| parse_tasks(path)).unwrap_or(vec![]);
+            match &args.synth {
+                SynthChoice::TopDown => {
+                    uniform_top_down::<ListVal>(&tasks, &args)
+                },
+                SynthChoice::BottomUp => {
+                    simple_bottom_up(&args)
+                }
             }
-        }
+        },
     }
 
 }
@@ -95,11 +134,11 @@ fn prim_list_bottom_up(args: &Args) {
 
 
 
-fn uniform_top_down<D: Domain>(args: &Args) {
+fn uniform_top_down<D: Domain>(tasks: &[Task<D>], args: &Args) {
 
     top_down::<D,_>(
         UniformModel::new(NotNan::new(-1.).unwrap(),NotNan::new(-1.).unwrap()),
-        "int".parse().unwrap()
+        tasks
     );
 }
 

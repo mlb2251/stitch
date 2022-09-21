@@ -40,7 +40,7 @@ define_semantics! {
     "head" = (head, "list t0 -> t0"),
     "tail" = (tail, "list t0 -> list t0"),
     // fix f x = f(fix f)(x)
-    // todo i think this signature is right but not certain
+    // note in historical origami logs dreamcoder actually uses the signature: t0 -> ((t0 -> t1) -> t0 -> t1) -> t1    fix1
     "fix" = (fix, "((t0 -> t1) -> t0 -> t1) -> t0 -> t1"),
     "0" = "int",
     "1" = "int",
@@ -125,8 +125,8 @@ impl Domain for ListVal {
     // infinite sets of values or dynamically generated values. For example here we support all integers
     // and all integer lists.
     fn val_of_prim_fallback(p: Symbol) -> Option<Val> {
-        // starts with digit -> Int
-        if p.as_str().chars().next().unwrap().is_ascii_digit() {
+        // starts with digit or negative sign -> Int
+        if p.as_str().chars().next().unwrap().is_ascii_digit() || p.as_str().starts_with('-') {
             let i: i32 = p.as_str().parse().ok()?;
             Some(Int(i).into())
         }

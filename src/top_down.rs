@@ -1,8 +1,10 @@
 use crate::*;
 use clap::Parser;
+use itertools::Itertools;
 use serde::Serialize;
 use std::{collections::{VecDeque, BinaryHeap}, default, fmt::Display};
 use ordered_float::NotNan;
+use std::collections::HashMap;
 
 // pub type PartialLambda = Option<Lambda>;
 // pub type PartialExpr = Vec<PartialLambda>;
@@ -19,6 +21,39 @@ pub struct TopDownConfig {
     #[clap(long)]
     pub print_found: bool,
 }
+
+
+
+#[derive(Clone)]
+pub struct Task<D: Domain> {
+    name: String,
+    tp: Type,
+    ios: Vec<IO<D>>
+}
+
+impl<D:Domain> Task<D> {
+    pub fn new(name: String, tp: Type, ios: Vec<IO<D>>) -> Task<D> {
+        Task {name, tp, ios}
+    }
+}
+
+#[derive(Clone)]
+pub struct IO<D: Domain> {
+    inputs: Vec<Val<D>>,
+    output: Val<D>
+}
+
+impl<D:Domain> IO<D> {
+    pub fn new(inputs: Vec<Val<D>>, output: Val<D>) -> IO<D> {
+        IO { inputs, output }
+    }
+}
+
+
+
+
+
+
 
 
 #[derive(Clone, Debug, Default)]
@@ -265,76 +300,125 @@ pub fn expansions<D: Domain>(expr: &PartialExpr, hole_idx: usize) -> impl Iterat
 
 pub fn top_down<D: Domain, M: ProbabilisticModel>(
     model: M,
-    tp: Type,
-    // env: VecDeque<Type>,
+    all_tasks: &[Task<D>],
     // cfg: &TopDownConfig,
 ) {
 
+    println!("DSL:");
     for entry in D::dsl_entries() {
-        println!("{} :: {}", entry.name, entry.tp);
+        println!("\t{} :: {}", entry.name, entry.tp);
     }
 
-    let mut stats = Stats::default();
+    let task_tps: HashMap<Type,Vec<Task<D>>> = all_tasks.iter().map(|task| (task.tp.clone(), task.clone())).into_group_map();
+    
 
-    // todo temporarily we dont support environments
-    let exec_env = vec![];
-    let env: VecDeque<Type> = Default::default();
+    // assert!(tasks.iter().all(|task| task.tp == tp));
 
-    let mut worklist: BinaryHeap<WorklistItem> = Default::default();
-    let mut worklist_buf: Vec<WorklistItem> = vec![];
-    let mut expansions_buf: Vec<(NotNan<f32>, PartialExpr)> = vec![];
-    worklist.push(WorklistItem::new(NotNan::new(0.).unwrap(), PartialExpr::single_hole(tp, env)));
+    // for task in tasks {
+    //     assert_eq!(tp, task.tp.arity());
+    //     // let mut ctx = Context::empty();
+    //     // let tp_task = task.tp.instantiate(&mut ctx);
+    //     // let tp_overall = tp.instantiate(&mut ctx);
+    //     // ctx.unify(
+    //     //     &tp_task,
+    //     //     &tp_overall
+    //     // ).unwrap();
+    // }
 
-    loop {
+    for (tp, tasks) in task_tps.iter() {
+        println!("Searching for {tp} solutions:");
+        for task in tasks {
+            println!("\t{}", task.name)
+        }
 
-        worklist.extend(worklist_buf.drain(..));
+        let mut stats = Stats::default();
 
-        let item = match worklist.pop() {
-            Some(item) => item,
-            None => break,
-        };
+        // if we want to wrap this in some lambdas and return it, then the outermost lambda should be the first type in
+        // the list of arg types. This will be the *largest* de bruijn index within the body of the program, therefore
+        // we should reverse the 
+        let mut env: VecDeque<Type> = tp.iter_args().cloned().collect();
+        env.make_contiguous().reverse();
 
-        println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp2());
+        let mut worklist: BinaryHeap<WorklistItem> = Default::default();
+        let mut worklist_buf: Vec<WorklistItem> = vec![];
+        let mut expansions_buf: Vec<(NotNan<f32>, PartialExpr)> = vec![];
+        worklist.push(WorklistItem::new(NotNan::new(0.).unwrap(), PartialExpr::single_hole(tp.return_type().clone(), env)));
 
-        let mut unnormalized_ll_total = NotNan::new(f32::NEG_INFINITY).unwrap(); // start as ll=-inf -> P=0
+        loop {
 
-        for expanded in expansions::<D>(&item.expr, item.expr.holes.len() - 1) {
-            // println!("new expansion: {:?}", expanded.expr);
+            worklist.extend(worklist_buf.drain(..));
 
-            stats.num_expansions += 1;
-            let unnormalized_ll = model.expansion_unnormalized_ll(expanded.prev_prod.as_ref().unwrap());
-            unnormalized_ll_total = logsumexp(unnormalized_ll_total, unnormalized_ll);
-            if expanded.holes.is_empty() {
-                // new completed program
-                // todo run the program, see if it works, discard if not or keep if yes
-                let expr = Expr::new(expanded.expr.clone());
-                let exec = Executable::<D>::from(expr);
-                // todo this is prettty gross
-                if let Ok(res) = exec.eval_child(Id::from(expanded.root.unwrap()), &mut exec_env.clone()) {
-                    println!("{} {} {:?}", expanded, "=>".green(), res);
-                    stats.num_eval_ok += 1;
+            let item = match worklist.pop() {
+                Some(item) => item,
+                None => break,
+            };
+
+            // println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp2());
+
+            let mut unnormalized_ll_total = NotNan::new(f32::NEG_INFINITY).unwrap(); // start as ll=-inf -> P=0
+
+            for expanded in expansions::<D>(&item.expr, item.expr.holes.len() - 1) {
+                // println!("new expansion: {:?}", expanded.expr);
+
+                stats.num_expansions += 1;
+                let unnormalized_ll = model.expansion_unnormalized_ll(expanded.prev_prod.as_ref().unwrap());
+                unnormalized_ll_total = logsumexp(unnormalized_ll_total, unnormalized_ll);
+                if expanded.holes.is_empty() {
+                    // new completed program
+                    // todo run the program, see if it works, discard if not or keep if yes
+                    let expr = Expr::new(expanded.expr.clone());
+                    let exec = Executable::<D>::from(expr);
+
+                    for task in tasks {
+                        let mut solved = true;
+                        for io in task.ios.iter() {
+                            // probably excessively much cloning and such here lol
+                            let mut exec_env: Vec<LazyVal<D>> = io.inputs.iter().map(|v| LazyVal::new_strict(v.clone())).collect();
+                            exec_env.reverse(); // for proper arg order
+
+                            if let Ok(res) = exec.eval_child(Id::from(expanded.root.unwrap()), &mut exec_env.clone()) {
+                                stats.num_eval_ok += 1;
+
+                                if res == io.output {
+                                    // println!("{} {} {:?}", expanded, "=>".green(), res);
+                                } else {
+                                    // println!("{} {} {:?}", expanded, "=>".yellow(), res);
+                                    solved = false;
+                                    break
+                                }
+
+                            } else {
+                                // println!("{} {} err", "=>".red(), expanded);
+                                stats.num_eval_err += 1;
+                                solved = false;
+                                break
+                            }
+                        } 
+                        if solved {
+                            println!("{} {}: {}", "Solved".green(), task.name, expanded);
+                        }
+                    }
+                    
                 } else {
-                    println!("{} {} err", "=>".red(), expanded);
-                    stats.num_eval_err += 1;
+                    // new partial program
+                    expansions_buf.push((unnormalized_ll, expanded));
                 }
-            } else {
-                // new partial program
-                expansions_buf.push((unnormalized_ll, expanded));
             }
-        }
-        // normalize the log likelihoods, calculate total log likelihood
-        worklist_buf.extend(expansions_buf.drain(..).map(|(unnormalized_ll,expanded)| {
-            // normalize the ll
-            let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
-            // println!("{} + ({} - {}) -> {}", item.ll, unnormalized_ll, unnormalized_ll_total, ll);
-            // extend prods and holes
-            println!("{} ll={}", expanded, ll);
-            WorklistItem::new(ll, expanded)
-        }));
+            // normalize the log likelihoods, calculate total log likelihood
+            worklist_buf.extend(expansions_buf.drain(..).map(|(unnormalized_ll,expanded)| {
+                // normalize the ll
+                let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
+                // extend prods and holes
+                // println!("{} ll={}", expanded, ll);
+                WorklistItem::new(ll, expanded)
+            }));
 
-        if stats.num_expansions >= 40 {
-            break
+            // if stats.num_expansions >= 40 {
+            //     break
+            // }
         }
+
+
     }
 
 }
