@@ -61,6 +61,7 @@ struct Stats {
     num_eval_ok: usize,
     num_eval_err: usize,
     num_expansions: usize,
+    num_finished: usize,
 }
 
 
@@ -168,7 +169,7 @@ impl Hole {
 
 
 pub trait ProbabilisticModel {
-    fn expansion_unnormalized_ll(&self, prod: &Lambda) -> NotNan<f32>;
+    fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr, hole_idx: usize) -> NotNan<f32>;
 
     fn likelihood(e: &Expr) -> NotNan<f32> {
         // todo implement this recursively making use of expansion_unnormalized_ll
@@ -176,6 +177,101 @@ pub trait ProbabilisticModel {
     }
 
 }
+
+
+// pub struct MaskPrimitives<M: ProbabilisticModel>
+//  {
+//     model: M,
+//     masked: Vec<Symbol>,
+// }
+
+// impl<M: ProbabilisticModel> ProbabilisticModel for MaskPrimitives<M> {
+//     fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr, hole_idx: usize) -> NotNan<f32> {
+//         // mask out anything in self.masked to probability 0
+//         if let Lambda::Prim(p) = prod {
+//             if self.masked.contains(p) {
+//                 return NotNan::new(f32::NEG_INFINITY).unwrap();
+//             }
+//         }
+//         self.model.expansion_unnormalized_ll(prod, expr, hole_idx)
+//     }
+// }
+
+
+// pub struct OverrideModel<M, F>
+// where
+//     M: ProbabilisticModel,
+//     F: Fn(&Lambda, &PartialExpr, usize, NotNan<f32>) -> NotNan<f32>
+// {
+//     model: M,
+//     f: F,
+// }
+
+// impl<M,F> ProbabilisticModel for OverrideModel<M,F>
+// where
+//     M: ProbabilisticModel,
+//     F: Fn(&Lambda, &PartialExpr, usize, NotNan<f32>) -> NotNan<f32>
+// {
+
+//     fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr, hole_idx: usize) -> NotNan<f32> {
+//         (self.f) (prod, expr, hole_idx, self.model.expansion_unnormalized_ll(prod, expr, hole_idx))
+//     }
+// }
+
+
+/// This wraps a model to make it behave roughly like the DreamCoder enumerator, which when it detects a fixpoint operator
+/// it give it 0% probability for using it lower in the program. Specifically what original DC does is
+/// it forces the program to start with (lam (fix $0 ??)), then after the fact it may strip away that fix() operator if the function var
+/// was never used in the body of the lambda.
+/// For us fix_flip() is the DC style fixpoint operator, and we set fix() to P=0 as it's really just necessary internally to implement fix_flip().
+/// In our case, we dont force it to start with a fix_flip() but instead let that just be the usual distribution for the toplevel operator,
+/// but then if we ever try to expand into a fix_flip() and we're not at the top level then we set P=0 immediately.
+/// Furthermore since the first argument of fix is always $0 we modify probabilities to force that too.
+pub struct OrigamiModel<M: ProbabilisticModel> {
+    model: M,
+    fix_flip: Symbol,
+    fix: Symbol
+}
+
+impl<M: ProbabilisticModel> OrigamiModel<M> {
+    pub fn new(model: M, fix_flip: Symbol, fix: Symbol) -> Self {
+        OrigamiModel { model, fix_flip, fix }
+    }
+}
+
+impl<M: ProbabilisticModel> ProbabilisticModel for OrigamiModel<M> {
+    fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr, hole_idx: usize) -> NotNan<f32> {
+        // if this is not the very first expansion, and it's to a fix_flip() operator, then set the probability to 0
+        if !expr.expr.is_empty() {
+            if let Lambda::Prim(p) = prod {
+                if *p == self.fix_flip {
+                    return NotNan::new(f32::NEG_INFINITY).unwrap();
+                }
+            }
+        }
+        // if this is an expansion to the fix() operator, set it to 0
+        if let Lambda::Prim(p) = prod {
+            if *p == self.fix {
+                return NotNan::new(f32::NEG_INFINITY).unwrap();
+            }
+        }
+        // if we previously expanded with fix_flip(), then force next expansion (ie first argument) to be $0
+        if let Some(Lambda::Prim(p)) = expr.prev_prod {
+            if p == self.fix_flip {
+                assert!(hole_idx == expr.holes.len() - 1); // we assume a left to right hole filling order for this to make sense (things were pushed on in opposite order hence we take the last hole), though you could change it
+                if let Lambda::Var(0) = prod {
+                    // doesnt really matter what we set this to as long as its not -inf, itll get normalized to ll=0 and P=1 since all other productions will be -inf
+                    NotNan::new(-1.).unwrap();
+                } else {
+                    return NotNan::new(f32::NEG_INFINITY).unwrap();
+                }
+            }
+        }
+        // default
+        self.model.expansion_unnormalized_ll(prod, expr, hole_idx)
+    }
+}
+
 
 pub struct UniformModel {
     var_ll: NotNan<f32>,
@@ -189,7 +285,7 @@ impl UniformModel {
 }
 
 impl ProbabilisticModel for UniformModel {
-    fn expansion_unnormalized_ll(&self, prod: &Lambda) -> NotNan<f32> {
+    fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr, hole_idx: usize) -> NotNan<f32> {
         match prod {
             Lambda::Var(_) => self.var_ll,
             Lambda::Prim(_) => self.prim_ll,
@@ -309,6 +405,8 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
         println!("\t{} :: {}", entry.name, entry.tp);
     }
 
+    let mut ll_record = NotNan::new(0.).unwrap();
+
     let task_tps: HashMap<Type,Vec<Task<D>>> = all_tasks.iter().map(|task| (task.tp.clone(), task.clone())).into_group_map();
     
 
@@ -353,21 +451,33 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
                 None => break,
             };
 
-            // println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp2());
+            if item.ll.trunc() < *ll_record {
+                ll_record = NotNan::new(item.ll.trunc()).unwrap();
+                println!("enumerated all programs under this ll: {} ({} expansions; {} finished; worklist_size={})", item.ll, stats.num_expansions, stats.num_finished, worklist.len());
+            }
+
+            // println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
 
             let mut unnormalized_ll_total = NotNan::new(f32::NEG_INFINITY).unwrap(); // start as ll=-inf -> P=0
 
-            for expanded in expansions::<D>(&item.expr, item.expr.holes.len() - 1) {
+            let hole_idx = item.expr.holes.len() - 1;
+
+            for expanded in expansions::<D>(&item.expr, hole_idx) {
                 // println!("new expansion: {:?}", expanded.expr);
 
                 stats.num_expansions += 1;
-                let unnormalized_ll = model.expansion_unnormalized_ll(expanded.prev_prod.as_ref().unwrap());
+                let unnormalized_ll = model.expansion_unnormalized_ll(expanded.prev_prod.as_ref().unwrap(), &item.expr, hole_idx);
                 unnormalized_ll_total = logsumexp(unnormalized_ll_total, unnormalized_ll);
+                if unnormalized_ll_total == f32::NEG_INFINITY {
+                    continue; // we skip adding -infs to the worklist entirely
+                }
+
                 if expanded.holes.is_empty() {
                     // new completed program
                     // todo run the program, see if it works, discard if not or keep if yes
                     let expr = Expr::new(expanded.expr.clone());
                     let exec = Executable::<D>::from(expr);
+                    stats.num_finished += 1;
 
                     for task in tasks {
                         let mut solved = true;
@@ -429,7 +539,9 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
 /// same as ADDING probabilities in normal probability space
 #[inline(always)]
 fn logsumexp(x: NotNan<f32>, y: NotNan<f32>) -> NotNan<f32> {
+    if x.is_infinite() { return y }
+    if y.is_infinite() { return x }
     let big = std::cmp::max(x,y);
     let smol = std::cmp::min(x,y);
-    big + (1. + (smol - big).exp2()).log2()
+    big + (1. + (smol - big).exp()).ln()
 }

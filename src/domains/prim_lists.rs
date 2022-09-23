@@ -41,6 +41,7 @@ define_semantics! {
     "tail" = (tail, "list t0 -> list t0"),
     // fix f x = f(fix f)(x)
     // note in historical origami logs dreamcoder actually uses the signature: t0 -> ((t0 -> t1) -> t0 -> t1) -> t1    fix1
+    "fix_flip" = (fix_flip, "t0 -> ((t0 -> t1) -> t0 -> t1) -> t1"),
     "fix" = (fix, "((t0 -> t1) -> t0 -> t1) -> t0 -> t1"),
     "0" = "int",
     "1" = "int",
@@ -255,6 +256,14 @@ fn fix(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     }
 }
 
+/// fix x f = f(fix f)(x)
+/// type i think: t0 -> ((t0 -> t1) -> t0 -> t1) -> t1 
+/// This is to match dreamcoder.
+fn fix_flip(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+    args.reverse();
+    fix(args, handle)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -319,14 +328,14 @@ mod tests {
 
         // test fix
         let arg = ListVal::val_of_prim("[]".into()).unwrap();
-        assert_execution("(fix (lam (lam (if (is_empty $0) 0 (+ 1 ($1 (tail $0)))))) $0)", &[arg], 0);
+        assert_execution("(fix_flip $0 (lam (lam (if (is_empty $0) 0 (+ 1 ($1 (tail $0)))))))", &[arg], 0);
         let arg = ListVal::val_of_prim("[1,2,3,2,1]".into()).unwrap();
-        assert_execution("(fix (lam (lam (if (is_empty $0) 0 (+ 1 ($1 (tail $0)))))) $0)", &[arg], 5);
+        assert_execution("(fix_flip $0 (lam (lam (if (is_empty $0) 0 (+ 1 ($1 (tail $0)))))))", &[arg], 5);
         let arg = ListVal::val_of_prim("[1,2,3,4,5]".into()).unwrap();
-        assert_execution("(fix (lam (lam (if (is_empty $0) $0 (cons (+ 1 (head $0)) ($1 (tail $0)))))) $0)", &[arg], vec![2, 3, 4, 5, 6]);
+        assert_execution("(fix_flip $0 (lam (lam (if (is_empty $0) $0 (cons (+ 1 (head $0)) ($1 (tail $0)))))))", &[arg], vec![2, 3, 4, 5, 6]);
         let arg = ListVal::val_of_prim("[1,2,3,4,5]".into()).unwrap();
         assert_error::<ListVal, Val>(
-            "(fix (lam (lam (if (is_empty $0) $0 (cons (+ 1 (head $0)) ($1 $0))))) $0)",
+            "(fix_flip $0 (lam (lam (if (is_empty $0) $0 (cons (+ 1 (head $0)) ($1 $0))))))",
             &[arg],
             format!("Exceeded max number of fix invocations. Max was {}", MAX_FIX_INVOCATIONS));
     }

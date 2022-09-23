@@ -137,7 +137,11 @@ fn prim_list_bottom_up(args: &Args) {
 fn uniform_top_down<D: Domain>(tasks: &[Task<D>], args: &Args) {
 
     top_down::<D,_>(
-        UniformModel::new(NotNan::new(-1.).unwrap(),NotNan::new(-1.).unwrap()),
+        OrigamiModel::new(
+            UniformModel::new(NotNan::new(-1.).unwrap(),NotNan::new(-1.).unwrap()),
+            "fix_flip".into(),
+            "fix".into()
+        ),
         tasks
     );
 }
