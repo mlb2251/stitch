@@ -34,14 +34,14 @@ impl Type {
     pub fn is_arrow(&self) -> bool {
         match self {
             Type::Var(_) => false,
-            Type::Term(name, _) => *name == Type::ARROW.into(),
+            Type::Term(name, _) => name.as_str() == Type::ARROW,
         }
     }
 
     pub fn as_arrow(&self) -> Option<(&Type, &Type)> {
         match self {
             Type::Term(name,args) => {
-                if *name != Type::ARROW.into() {
+                if name.as_str() != Type::ARROW {
                     return None
                 }
                 assert_eq!(args.len(),2);
@@ -192,7 +192,7 @@ impl std::fmt::Display for Type {
                 Type::Term(name, args) => {
                     if args.is_empty() {
                         write!(f, "{}", name)
-                    } else if *name == Type::ARROW.into() {
+                    } else if name.as_str() == Type::ARROW {
                         assert_eq!(args.len(), 2);
                         // write!(f, "({} {} {})", &args[0], name, &args[1])
                         if arrow_parens {
