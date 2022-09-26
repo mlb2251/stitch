@@ -1059,7 +1059,7 @@ if __name__ == '__main__':
             plt.legend()
             plt.tight_layout()
 
-            # os.makedirs(bench_dir / 'plots', exist_ok=True)
+            os.makedirs('plots', exist_ok=True)
             plt.savefig(f'plots/{benches_dir.name}_{metric}.png',dpi=400)
             plt.savefig(f'plots/{benches_dir.name}_{metric}.pdf')
             print(f"wrote to plots/{benches_dir.name}_{metric}.png and pdf")
