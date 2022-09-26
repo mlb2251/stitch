@@ -905,10 +905,10 @@ if __name__ == '__main__':
                     assert stitch_processed['num_inventions'] == dreamcoder_processed['num_inventions']
                     num_inventions = stitch_processed['num_inventions']
 
-                    for inv in dreamcoder_processed['inventions']:
-                        if inv['arity'] > 3:
-                            a = inv['arity']
-                            print(f"dc found high arity ({domain}): {a}")
+                    # for inv in dreamcoder_processed['inventions']:
+                    #     if inv['arity'] > 3:
+                    #         a = inv['arity']
+                    #         print(f"dc found high arity ({domain}): {a}")
 
                     # we dont record metrics on runs that have no inventions
                     if num_inventions == 0:
