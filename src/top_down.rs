@@ -60,7 +60,7 @@ impl<D:Domain> IO<D> {
 struct Stats {
     num_eval_ok: usize,
     num_eval_err: usize,
-    num_expansions: usize,
+    num_processed: usize,
     num_finished: usize,
 }
 
@@ -453,7 +453,7 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
 
             if item.ll.trunc() < *ll_record {
                 ll_record = NotNan::new(item.ll.trunc()).unwrap();
-                println!("enumerated all programs under this ll: {} ({} expansions; {} finished; worklist_size={})", item.ll, stats.num_expansions, stats.num_finished, worklist.len());
+                println!("enumerated all programs under this ll: {} ({} wips processed; {} finished; worklist_size={})", item.ll, stats.num_processed, stats.num_finished, worklist.len());
             }
 
             // println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
@@ -461,11 +461,11 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
             let mut unnormalized_ll_total = NotNan::new(f32::NEG_INFINITY).unwrap(); // start as ll=-inf -> P=0
 
             let hole_idx = item.expr.holes.len() - 1;
+            stats.num_processed += 1;
 
             for expanded in expansions::<D>(&item.expr, hole_idx) {
                 // println!("new expansion: {:?}", expanded.expr);
 
-                stats.num_expansions += 1;
                 let unnormalized_ll = model.expansion_unnormalized_ll(expanded.prev_prod.as_ref().unwrap(), &item.expr, hole_idx);
                 unnormalized_ll_total = logsumexp(unnormalized_ll_total, unnormalized_ll);
                 if unnormalized_ll_total == f32::NEG_INFINITY {
