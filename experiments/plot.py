@@ -18,20 +18,16 @@ def get_stats(path):
         return ss
 
 def get_data(path, mode):
-    #print(path)
-    #input()
     with open(path, 'r') as infile:
-        print(path)
         if mode == 'claim-2':
             for line in infile:
                 if line.startswith('Cost Improvement: '):
-                    train_ratio = re.match(r'Cost Improvement: \(([^x]*)x.*', line).group(1)
+                    train_ratio = float(re.match(r'Cost Improvement: \(([^x]*)x.*', line).group(1))
                 if line.startswith('Test set compression with all inventions applied: '):
-                    test_ratio = re.match(r'Test set compression with all inventions applied: (.*)', line).group(1)
+                    test_ratio = float(re.match(r'Test set compression with all inventions applied: (.*)', line).group(1))
                 elif line.startswith('Time: '):
-                    s = float(re.match(r'Time: \(([^m]*)ms.*', line).group(1))/1000.
+                    s = float(re.match(r'Time: ([^m]*)ms.*', line).group(1))/1000.
                 elif 'Maximum resident set size (kbytes):' in line:
-                    assert mb is None
                     mb = float(re.match(r'.*Maximum resident set size \(kbytes\): (.*)', line).group(1))/1000.
             return (train_ratio, test_ratio, s, mb)
 
@@ -87,7 +83,7 @@ wl_to_human_readable = {
 }
 if mode == 'claim-2':
     for wl in workloads:
-        seeds = os.listdir('/'.join([path, wl, m, 'runs']))
+        seeds = list(range(1, 51))  #os.listdir('/'.join([path, wl]))
         train_ratios = []
         test_ratios = []
         runtimes = []
@@ -102,7 +98,7 @@ if mode == 'claim-2':
         test_r_stats = (np.mean(test_ratios), np.std(test_ratios))
         runtime_stats = (np.mean(runtimes), np.std(runtimes))
         mem_stats = (np.mean(mem_usages), np.std(mem_usages))
-        print(f'{wl_to_human_readable[wl]}: train_r_stats={train_r_stats}, test_r_stats={test_r_stats}, runtime_stats={runtime_stats}, mem_stats={mem_stats}')
+        print(f'{wl_to_human_readable[wl]}: \n\ttrain_r_stats={train_r_stats}\n\ttest_r_stats={test_r_stats}\n\truntime_stats={runtime_stats}\n\tmem_stats={mem_stats}')
 
 elif mode == 'ex2':
     color = plt.cm.get_cmap('viridis')(0.)
@@ -176,7 +172,7 @@ elif mode == 'ex3':
     plt.xticks(xticks, [f'{t}%' for t in xticks])
     yticks = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]#[50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
     plt.yticks(yticks, [f'{t}%' for t in yticks])
-    plt.grid(True, which='minor', ls=':')
+    plt.grid(True, which='minor', alpha=0.5)
     plt.xlabel('Search progress (log scale; %)')
     plt.ylabel('Reduction in size thus far vs optimal reduction (%)')
     #host.set_xlim((-1, 100))
