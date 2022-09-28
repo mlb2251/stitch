@@ -33,7 +33,7 @@ for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
     echo "[ablation.sh] Starting workload $WL"
     # In the lingo of the paper, "--no-opt-useless-abstract" is "no-arg-capture";
     # "--no-opt-force-multiuse" is "no-redundant-args".
-    for OPTIM in "" "--no-opt-upper-bound" "--no-opt-force-multiuse" "--no-opt-useless-abstract" ; do
+    for OPTIM in "" "--no-opt-upper-bound" "--no-opt-force-multiuse" "--no-opt-useless-abstract" "--no-opt" ; do
         echo "Running with OPTIM=$OPTIM"
         /usr/bin/time -v $STITCH_DIR/target/release/compress $WL_PATH $OPTIM $STITCH_FLAGS --out=$OUT_DIR/raw/${WL}${OPTIM}.json > $OUT_DIR/stdout/${WL}${OPTIM}.stdout 2>&1 || true #&
     done
