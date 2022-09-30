@@ -60,7 +60,7 @@ def get_data(path, mode):
             base_steps = int(re.search(r'.*worklist_steps: ([^,]*),.*', s).group(1))
 
         results = {}
-        opts = ("--no-opt-useless-abstract", "--no-opt-force-multiuse", "--no-opt-upper-bound")
+        opts = ("--no-opt-useless-abstract", "--no-opt-force-multiuse", "--no-opt-upper-bound", "--no-opt")
         for opt in opts:
             with open(path + opt + '.stdout', 'r') as f:
                 s = f.read()
