@@ -84,8 +84,6 @@ assert mode in ['claim-2', 'claim-3', 'ablation']
 
 
 plt.rcParams.update({'font.size': 22})
-#workloads = [wl for wl in os.listdir(path) if wl != 'readme.md']
-workloads = ['nuts-bolts', 'bridge', 'dials', 'city', 'furniture', 'castle', 'wheels', 'house']
 wl_to_human_readable = {
     'nuts-bolts': 'nuts & bolts',
     'bridge': 'bridges',
@@ -96,7 +94,11 @@ wl_to_human_readable = {
     'wheels': 'vehicles',
     'house': 'houses',
 }
+
 if mode == 'claim-2':
+    # Order workloads to mimic the table in the paper
+    workloads = ['nuts-bolts', 'dials', 'furniture', 'wheels', 'bridge', 'city', 'castle', 'house']
+    pt = PrettyTable(['Domain', 'Training set C.R.', 'Test set C.R.', 'Runtime (s)', 'Peak mem. usage (MB)'])
     for wl in workloads:
         seeds = list(range(1, 51))  #os.listdir('/'.join([path, wl]))
         train_ratios = []
@@ -113,9 +115,12 @@ if mode == 'claim-2':
         test_r_stats = (np.mean(test_ratios), np.std(test_ratios))
         runtime_stats = (np.mean(runtimes), np.std(runtimes))
         mem_stats = (np.mean(mem_usages), np.std(mem_usages))
-        print(f'{wl_to_human_readable[wl]}: \n\ttrain_r_stats={train_r_stats}\n\ttest_r_stats={test_r_stats}\n\truntime_stats={runtime_stats}\n\tmem_stats={mem_stats}')
+        stats = (train_r_stats, test_r_stats, runtime_stats, mem_stats)
+        pt.add_row([wl_to_human_readable[wl]] + ['{:.2f} +- {:.2f}'.format(s[0], s[1]) for s in stats])
+    print(pt)
 
 elif mode == 'claim-3':
+    workloads = ['nuts-bolts', 'bridge', 'dials', 'city', 'furniture', 'castle', 'wheels', 'house']
     fig = plt.figure(figsize=(10,10))
     markers = ['o', '8', 's', 'p', 'P', '*', 'h', 'D']
     for wl, marker in zip(workloads, markers):
@@ -143,7 +148,7 @@ elif mode == 'claim-3':
 
 elif mode == 'ablation':
 
-    # Reorder workloads to mimic the table in the paper
+    # Order workloads to mimic the table in the paper
     workloads = ['bridge', 'castle', 'city', 'dials', 'furniture', 'house', 'nuts-bolts', 'wheels']
     pt = PrettyTable(['Ablation'] + [wl_to_human_readable[wl] for wl in workloads])
     res_all = {}
