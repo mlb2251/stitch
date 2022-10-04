@@ -7,8 +7,6 @@ from pathlib import Path
 import shutil
 from copy import deepcopy
 
-from torch import absolute
-
 def load(file):
     with open(file,'rb') as f:
         return json.load(f)
