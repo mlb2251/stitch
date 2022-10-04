@@ -8,7 +8,12 @@ then
     exit 1
 fi
 
-OUT_DIR="ablation-results/$(TZ='America/New_York' date '+%Y-%m-%d_%H-%M-%S')"
+if [ -z $1 ]
+then
+    OUT_DIR="ablation-results/$(TZ='America/New_York' date '+%Y-%m-%d_%H-%M-%S')"
+else
+    OUT_DIR=$1
+fi
 
 # compile Stitch
 pushd $STITCH_DIR
