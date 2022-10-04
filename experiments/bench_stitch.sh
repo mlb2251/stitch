@@ -59,7 +59,7 @@ for BENCH_PATH in $BENCH_DIR/bench*.json; do
     /usr/bin/time -v $STITCH_DIR/target/release/compress $BENCH_PATH --max-arity=3 --threads=1 --iterations=$ITERATIONS --fmt=dreamcoder --dreamcoder-comparison --out=$OUT_DIR/raw/$BENCH.json 2>&1 | tee $OUT_DIR/stderr/$BENCH.stderr
 done
 
-python analyze.py process stitch $OUT_DIR
+python3 analyze.py process stitch $OUT_DIR
 
 echo "Done: $OUT_DIR"
 

@@ -53,7 +53,7 @@ done
 
 echo "Done: $OUT_DIR"
 
-python analyze.py process dreamcoder $OUT_DIR
+python3 analyze.py process dreamcoder $OUT_DIR
 
 echo "you can compare to stitch with: ./bench_stitch.sh $BENCH_DIR $OUT_DIR"
 
