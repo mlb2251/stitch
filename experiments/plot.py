@@ -128,7 +128,7 @@ elif mode == 'claim-3':
         infile = [f for f in os.listdir('/'.join([path, wl])) if f.endswith('.stderrandout')]
         assert len(infile) == 1
         infile = infile[0]
-        total_steps, steps, ratios = get_data('/'.join([path, wl, infile]), 'ex3')
+        total_steps, steps, ratios = get_data('/'.join([path, wl, infile]), 'claim-3')
 
         # make da plot yo
         steps = [100. * s / total_steps for s in steps]
