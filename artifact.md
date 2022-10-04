@@ -23,6 +23,7 @@ Ensure that `python3` points to python (tested on Python 3.8.10), and ensure tha
 ```
 git clone https://github.com/mlb2251/stitch.git
 cd stitch
+git checkout artifact-0
 export STITCH_DIR=$PWD
 git clone https://github.com/mlb2251/compression_benchmark.git
 ```
@@ -32,22 +33,68 @@ You may want to add `export STITCH_DIR=path/to/stitch` to your `.bashrc` as this
 
 # Evaluation instructions
 
-## Claim 1
-
-
-./bench_stitch_all_latest.sh compression_benchmark/benches
-
-
-
-
-
-
-
 ## Kick the Tires
+Expected time: 10 min.
 
-`make build`
+Build and test `stitch` with the commands below. Downloading packages and compilation will each take a handful of minutes and will be the bulk of the runtime, while the tests themselves will likely take less than a minute (Our test runtimes: 24s in VM; 7.4s outside of VM).
 
-`make test`
+```
+make build
+make test
+```
+
+
+
+## Claim 1
+Expected time: 
+
+
+From the root of the stitch repo, run:
+```
+git checkout artifact-main
+cd experiments
+make claim-1
+```
+
+View the relevant plots in `stitch/experiments/plots`:
+- Fig 1: `benches_compression_ratio_min.pdf`
+- Fig 2: `benches_mem_peak_kb.pdf`
+- Fig 3: `benches_time_per_inv_with_rewrite.pdf`
+
+## Claim 2
+From the root of the stitch repo, run:
+```
+git checkout artifact-experiments
+cd experiments
+make claim-2
+```
+
+
+## Claim 3
+
+```
+git checkout artifact-experiments
+cd experiments
+make claim-3
+```
+
+## Claim 4
+
+```
+git checkout artifact-ablation_experiments
+cd experiments
+make claim-4
+```
+
+
+## Claim 5
+
+```
+git checkout artifact-1
+cd experiments
+make claim-2
+```
+
 
 
 
