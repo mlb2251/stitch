@@ -86,6 +86,8 @@ assert mode in ['claim-2', 'claim-3', 'ablation']
 plt.rcParams.update({'font.size': 22})
 #workloads = [wl for wl in os.listdir(path) if wl != 'readme.md']
 workloads = ['nuts-bolts', 'bridge', 'dials', 'city', 'furniture', 'castle', 'wheels', 'house']
+workloads_alt_order = ['nuts-bolts', 'dials', 'furniture',  'wheels',  'bridge', 'city', 'castle', 'house']
+
 wl_to_human_readable = {
     'nuts-bolts': 'nuts & bolts',
     'bridge': 'bridges',
@@ -97,7 +99,7 @@ wl_to_human_readable = {
     'house': 'houses',
 }
 if mode == 'claim-2':
-    for wl in workloads:
+    for wl in workloads_alt_order:
         seeds = list(range(1, 51))  #os.listdir('/'.join([path, wl]))
         train_ratios = []
         test_ratios = []
