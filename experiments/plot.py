@@ -145,7 +145,7 @@ elif mode == 'claim-3':
     plt.xlabel('Search progress (log scale; %)')
     plt.ylabel('Reduction in size thus far vs optimal reduction (%)')
     fig.tight_layout()
-    plt.savefig(f"cs2-ex3.pdf")
+    plt.savefig(f"claim-3.pdf")
 
 elif mode == 'ablation':
 
