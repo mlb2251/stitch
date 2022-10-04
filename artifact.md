@@ -19,13 +19,12 @@ Ensure that `python3` points to python (tested on Python 3.8.10), and ensure tha
 
 `python3` will be used by analysis scripts.
 
-## Download stitch and benchmarks
+## Download stitch
 ```
 git clone https://github.com/mlb2251/stitch.git
 cd stitch
 git checkout artifact-0
 export STITCH_DIR=$PWD
-git clone https://github.com/mlb2251/compression_benchmark.git
 ```
 The benchmark repo should be cloned *inside* of the stitch directory, as the instructions above imply.
 
@@ -46,20 +45,24 @@ make test
 
 
 ## Claim 1
-Expected time: 
-
+Expected time: 10 min.
 
 From the root of the stitch repo, run:
 ```
 git checkout artifact-main
 cd experiments
+git clone https://github.com/mlb2251/compression_benchmark.git
 make claim-1
 ```
 
-View the relevant plots in `stitch/experiments/plots`:
+The `make claim-1` command will produce a huge amount of output and should end with `wrote to plots/benches_compression_ratio_min.png and pdf`
+
+View the relevant plots `stitch/experiments/plots` to verify that they align with those in the paper (be mindful to get the exact file name, as some additional similarly named plots are also generated):
 - Fig 1: `benches_compression_ratio_min.pdf`
 - Fig 2: `benches_mem_peak_kb.pdf`
 - Fig 3: `benches_time_per_inv_with_rewrite.pdf`
+
+We expect that on some machines Fig 3 (wall-clock time) may be slower when run in a VM, though in our tests this didn't seem to be an issue.
 
 ## Claim 2
 From the root of the stitch repo, run:
@@ -68,6 +71,8 @@ git checkout artifact-experiments
 cd experiments
 make claim-2
 ```
+
+
 
 
 ## Claim 3
