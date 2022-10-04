@@ -4,4 +4,11 @@ claim-1:
 	./process_all.sh compression_benchmark/benches
 	python3 analyze.py graph_all compression_benchmark/benches
 
-.PHONY: claim-1
+claim-1-viz:
+	python3 analyze.py graph_all compression_benchmark/benches
+
+clean:
+	cargo clean
+	rm -rf plots/*
+
+.PHONY: claim-1 claim-1-viz clean
