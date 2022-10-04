@@ -6,5 +6,6 @@ claim-3:
 	./claim-3.sh claim-3-out
 	python3 plot.py claim-3 claim-3-out
 	
+clean: rm -rf claim-3-out claim-2-out-*
 
-.PHONY: claim-2 claim-3
+.PHONY: claim-2 claim-3 clean
