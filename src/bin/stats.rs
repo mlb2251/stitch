@@ -31,7 +31,7 @@ fn get_stats(data: &[i32]) -> (f64, f64) {
 fn main() {
 
     let args = Args::parse();
-    let (programs, _, _) = args.fmt.load_programs_and_tasks(&args.file).unwrap();
+    let programs = args.fmt.load_programs_and_tasks(&args.file).unwrap().train_programs;
     let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
 
     let costs = programs.iter().map(|p| p.cost()).collect::<Vec<i32>>();
