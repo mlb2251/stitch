@@ -99,8 +99,9 @@ wl_to_human_readable = {
     'house': 'houses',
 }
 if mode == 'claim-2':
+    num_seeds = int(sys.argv[3])
     for wl in workloads_alt_order:
-        seeds = list(range(1, 51))  #os.listdir('/'.join([path, wl]))
+        seeds = list(range(1, num_seeds))  #os.listdir('/'.join([path, wl]))
         train_ratios = []
         test_ratios = []
         runtimes = []
