@@ -101,7 +101,7 @@ if mode == 'claim-2':
     pt = PrettyTable(['Domain', 'Training set C.R.', 'Test set C.R.', 'Runtime (s)', 'Peak mem. usage (MB)'])
     num_seeds = int(sys.argv[3]) + 1
     for wl in workloads:
-        seeds = list(range(1, 51))  #os.listdir('/'.join([path, wl]))
+        seeds = list(range(1, num_seeds+1))  #os.listdir('/'.join([path, wl]))
         train_ratios = []
         test_ratios = []
         runtimes = []
