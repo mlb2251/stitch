@@ -43,7 +43,7 @@ popd
 for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
     WL=$(basename -s .json $WL_PATH)
     mkdir -p $OUT_DIR/$WL
-    for SEED in {1..${SEEDS}} ; do
+    for SEED in `seq 1 $SEEDS` ; do
     echo "[claim-2.sh] Starting workload $WL, seed $SEED"
     python3 split_data.py $SEED $WL_PATH "$WL-$SEED-split.json"
     echo "[claim-2.sh] Split data; seed used was $SEED, train test % was 80%"
