@@ -64,8 +64,8 @@ def get_data(path, mode):
         for opt in opts:
             with open(path + opt + '.stdout', 'r') as f:
                 s = f.read()
-                time  = float(re.search(r'.*User time \(seconds\): ([^\n]*)\n', s).group(1))
-                if time > MAX_TIME:
+                time_match = re.search(r'.*User time \(seconds\): ([^\n]*)\n', s)
+                if time_match is None or float(time_match.group(1)) > MAX_TIME:
                     results[opt] = "TIME"
                 elif "bytes failed" in s:
                     results[opt] = "MEM"
