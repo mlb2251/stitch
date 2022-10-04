@@ -7,4 +7,4 @@ claim-3:
 	python3 plot.py claim-3 claim-3-out
 	
 
-.PHONY: claim-2
+.PHONY: claim-2 claim-3
