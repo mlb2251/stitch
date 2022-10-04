@@ -99,6 +99,7 @@ if mode == 'claim-2':
     # Order workloads to mimic the table in the paper
     workloads = ['nuts-bolts', 'dials', 'furniture', 'wheels', 'bridge', 'city', 'castle', 'house']
     pt = PrettyTable(['Domain', 'Training set C.R.', 'Test set C.R.', 'Runtime (s)', 'Peak mem. usage (MB)'])
+    num_seeds = int(sys.argv[3]) + 1
     for wl in workloads:
         seeds = list(range(1, 51))  #os.listdir('/'.join([path, wl]))
         train_ratios = []

@@ -8,7 +8,13 @@ then
     exit 1
 fi
 
-OUT_DIR="claim-3/$(TZ='America/New_York' date '+%Y-%m-%d_%H-%M-%S')"
+if [ -z $1 ]
+then
+    OUT_DIR="claim-2/$(TZ='America/New_York' date '+%Y-%m-%d_%H-%M-%S')"
+else
+    OUT_DIR=$1
+fi
+
 mkdir -p $OUT_DIR
 
 # Save some info about what state of the repo this experiment was run in
@@ -32,9 +38,8 @@ for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
     OUTF=$OUT_DIR/$WL/
     mkdir -p $OUTF
     echo "[claim-3.sh] Starting workload $WL"
-    /usr/bin/time -v $STITCH_DIR/target/release/compress $WL_PATH $STITCH_FLAGS --out=$OUTF/1.json > $OUTF/1.stderrandout 2>&1 &
+    /usr/bin/time -v $STITCH_DIR/target/release/compress $WL_PATH $STITCH_FLAGS --out=$OUTF/1.json > $OUTF/1.stderrandout 2>&1
 done
-wait  # move this up/down between loops to change how many jobs to run at once
 
 
 echo "Done: $OUT_DIR"
