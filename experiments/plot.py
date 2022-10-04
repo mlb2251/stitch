@@ -19,7 +19,18 @@ def get_stats(path):
         return ss
 
 def get_data(path, mode):
-    if mode == 'claim-2':
+    if mode == 'stats':
+        with open(path, 'r') as infile:
+            s = infile.read()
+            num_progs = re.search(r'Number of programs: ([^\n]+)', s).group(1)
+            res = [num_progs]
+            for measure in ("Lengths", "Depths"):
+                stat_match = re.search(rf'{measure}: mean=([^,]+), std=([^\n]+)', s)
+                res.append(f'{stat_match.group(1)} +- {stat_match.group(2)}')
+            return res
+
+
+    elif mode == 'claim-2':
         with open(path, 'r') as infile:
             for line in infile:
                 if line.startswith('Cost Improvement: '):
@@ -80,7 +91,7 @@ def get_data(path, mode):
 mode = sys.argv[1]
 path = sys.argv[2]
 
-assert mode in ['claim-2', 'claim-3', 'ablation']
+assert mode in ['stats', 'claim-2', 'claim-3', 'ablation']
 
 
 plt.rcParams.update({'font.size': 22})
@@ -95,7 +106,15 @@ wl_to_human_readable = {
     'house': 'houses',
 }
 
-if mode == 'claim-2':
+if mode == 'stats':
+    # Order workloads to mimic the table in the paper
+    workloads = ['nuts-bolts', 'dials', 'furniture', 'wheels', 'bridge', 'city', 'castle', 'house']
+    pt = PrettyTable(['Domain', '#Programs', 'Average program length', 'Average program depth'])
+    for wl in workloads:
+        pt.add_row([wl_to_human_readable[wl]] + get_data(path + '/' + wl + '.stderrandout', mode))
+    print(pt)
+
+elif mode == 'claim-2':
     # Order workloads to mimic the table in the paper
     workloads = ['nuts-bolts', 'dials', 'furniture', 'wheels', 'bridge', 'city', 'castle', 'house']
     pt = PrettyTable(['Domain', 'Training set C.R.', 'Test set C.R.', 'Runtime (s)', 'Peak mem. usage (MB)'])
