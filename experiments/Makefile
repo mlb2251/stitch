@@ -1,4 +1,5 @@
 claim-4:
+	export STITCH_DIR=..
 	./ablation.sh claim-4-out
 	python3 plot.py ablation claim-4-out
 
