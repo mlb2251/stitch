@@ -3,13 +3,20 @@ claim-2:
 	./claim-2.sh ${NUM_SEEDS} claim-2-out-${NUM_SEEDS}
 	python3 plot.py claim-2 claim-2-out-${NUM_SEEDS} ${NUM_SEEDS}
 
+claim-2-viz:
+	python3 plot.py claim-2 claim-2-out-${NUM_SEEDS} ${NUM_SEEDS}
+
 claim-3:
 	export STITCH_DIR=..
 	./claim-3.sh claim-3-out
 	python3 plot.py claim-3 claim-3-out
-	
+
+claim-3-viz:
+	python3 plot.py claim-3 claim-3-out
+
+
 clean:
 	cargo clean
 	rm -rf claim-3-out claim-2-out-*
 
-.PHONY: claim-2 claim-3 clean
+.PHONY: claim-2 claim-2-viz claim-3 claim-3-viz clean
