@@ -1,0 +1,60 @@
+[38;5;4;1m**********[0m
+[38;5;4;1m* Stitch *[0m
+[38;5;4;1m**********[0m
+Programs:
+	 num: 250
+	 max cost: 25350
+	 max depth: 171
+[38;5;4;1m
+=======Iteration 0=======[0m
+set up egraph: 14ms
+got roots and treenodes: 72ms
+num_paths_to_node(): 3ms
+associate_tasks(): 950ms
+cost_of_node structs: 3ms
+get_zippers(): 3170ms
+677 zips
+arg_of_zid_node size: 677
+Tracking setup: 0ms
+arity 0: 3ms
+got 2995 arity zero inventions
+built SharedData: 1ms
+TOTAL PREP: 4220ms
+running pattern search...
+TOTAL SEARCH: 11854ms
+TOTAL PREP + SEARCH: 16075ms
+Stats { worklist_steps: 60099, finished: 7, upper_bound_fired: 3696, free_vars_fired: 0, single_use_fired: 1457, single_task_fired: 13286, useless_abstract_fired: 46130, force_multiuse_fired: 72 }
+Cost before: 4245083
+0: utility: 1509241 | final_cost: 2734931 | 1.55x | uses: 1869 | body: [fn_0 arity=3: (#2 h (r 4) h #1 h (r 4) h (l #0))]
+post stuff: 135ms
+Chose Invention fn_0: utility: 1509241 | final_cost: 2734931 | 1.55x | uses: 1869 | body: [fn_0 arity=3: (#2 h (r 4) h #1 h (r 4) h (l #0))]
+[38;5;4;1m
+=======Compression Summary=======[0m
+Found 1 inventions
+Cost Improvement: (1.55x better) 4245083 -> 2734931
+[38;5;4mfn_0[0m (1.55x wrt orig): utility: 1509241 | final_cost: 2734931 | 1.55x | uses: 1869 | body: [fn_0 arity=3: (#2 h (r 4) h #1 h (r 4) h (l #0))]
+Time: 16247ms
+Wrote to "ablation-results/2022-10-04_10-51-46/raw/house.json"
+	Command being timed: "../target/release/compress ../data/cogsci/house.json --max-arity=3 --iterations=1 --out=ablation-results/2022-10-04_10-51-46/raw/house.json"
+	User time (seconds): 17.50
+	System time (seconds): 0.16
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:17.72
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 325332
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 82139
+	Voluntary context switches: 2
+	Involuntary context switches: 2117
+	Swaps: 0
+	File system inputs: 224
+	File system outputs: 2784
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

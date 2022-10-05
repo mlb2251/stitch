@@ -1,0 +1,60 @@
+[38;5;4;1m**********[0m
+[38;5;4;1m* Stitch *[0m
+[38;5;4;1m**********[0m
+Programs:
+	 num: 250
+	 max cost: 22320
+	 max depth: 45
+[38;5;4;1m
+=======Iteration 0=======[0m
+set up egraph: 3ms
+got roots and treenodes: 8ms
+num_paths_to_node(): 2ms
+associate_tasks(): 110ms
+cost_of_node structs: 0ms
+get_zippers(): 81ms
+4431 zips
+arg_of_zid_node size: 4431
+Tracking setup: 0ms
+arity 0: 0ms
+got 1177 arity zero inventions
+built SharedData: 0ms
+TOTAL PREP: 208ms
+running pattern search...
+TOTAL SEARCH: 1373ms
+TOTAL PREP + SEARCH: 1582ms
+Stats { worklist_steps: 52760, finished: 2, upper_bound_fired: 4476, free_vars_fired: 0, single_use_fired: 7975, single_task_fired: 685, useless_abstract_fired: 26948, force_multiuse_fired: 0 }
+Cost before: 4336185
+0: utility: 1354913 | final_cost: 2980361 | 1.45x | uses: 1678 | body: [fn_0 arity=3: (T (#2 (M 1 0 0 #1)) (M 1 0 #0 0))]
+post stuff: 49ms
+Chose Invention fn_0: utility: 1354913 | final_cost: 2980361 | 1.45x | uses: 1678 | body: [fn_0 arity=3: (T (#2 (M 1 0 0 #1)) (M 1 0 #0 0))]
+[38;5;4;1m
+=======Compression Summary=======[0m
+Found 1 inventions
+Cost Improvement: (1.45x better) 4336185 -> 2980361
+[38;5;4mfn_0[0m (1.45x wrt orig): utility: 1354913 | final_cost: 2980361 | 1.45x | uses: 1678 | body: [fn_0 arity=3: (T (#2 (M 1 0 0 #1)) (M 1 0 #0 0))]
+Time: 1645ms
+Wrote to "ablation-results/2022-10-04_10-51-46/raw/furniture--no-opt-force-multiuse.json"
+	Command being timed: "../target/release/compress ../data/cogsci/furniture.json --no-opt-force-multiuse --max-arity=3 --iterations=1 --out=ablation-results/2022-10-04_10-51-46/raw/furniture--no-opt-force-multiuse.json"
+	User time (seconds): 1.82
+	System time (seconds): 0.04
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.87
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 33296
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 8665
+	Voluntary context switches: 0
+	Involuntary context switches: 201
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 992
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

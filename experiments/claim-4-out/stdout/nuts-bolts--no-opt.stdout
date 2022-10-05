@@ -1,0 +1,48 @@
+[38;5;4;1m**********[0m
+[38;5;4;1m* Stitch *[0m
+[38;5;4;1m**********[0m
+Programs:
+	 num: 250
+	 max cost: 12523
+	 max depth: 18
+[38;5;4;1m
+=======Iteration 0=======[0m
+set up egraph: 1ms
+got roots and treenodes: 1ms
+num_paths_to_node(): 1ms
+associate_tasks(): 14ms
+cost_of_node structs: 0ms
+get_zippers(): 11ms
+659 zips
+arg_of_zid_node size: 659
+Tracking setup: 0ms
+arity 0: 0ms
+got 0 arity zero inventions
+built SharedData: 0ms
+TOTAL PREP: 30ms
+running pattern search...
+memory allocation of 384 bytes failed
+Command terminated by signal 6
+	Command being timed: "../target/release/compress ../data/cogsci/nuts-bolts.json --no-opt --max-arity=3 --iterations=1 --out=ablation-results/2022-10-04_10-51-46/raw/nuts-bolts--no-opt.json"
+	User time (seconds): 2434.10
+	System time (seconds): 74.11
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 41:50.53
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 41938424
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 32803826
+	Voluntary context switches: 3
+	Involuntary context switches: 255872
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 16
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

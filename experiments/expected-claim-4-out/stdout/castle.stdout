@@ -1,0 +1,60 @@
+[38;5;4;1m**********[0m
+[38;5;4;1m* Stitch *[0m
+[38;5;4;1m**********[0m
+Programs:
+	 num: 250
+	 max cost: 38076
+	 max depth: 253
+[38;5;4;1m
+=======Iteration 0=======[0m
+set up egraph: 19ms
+got roots and treenodes: 163ms
+num_paths_to_node(): 4ms
+associate_tasks(): 1444ms
+cost_of_node structs: 5ms
+get_zippers(): 5119ms
+1005 zips
+arg_of_zid_node size: 1005
+Tracking setup: 0ms
+arity 0: 6ms
+got 1298 arity zero inventions
+built SharedData: 1ms
+TOTAL PREP: 6764ms
+running pattern search...
+TOTAL SEARCH: 34766ms
+TOTAL PREP + SEARCH: 41530ms
+Stats { worklist_steps: 378415, finished: 9, upper_bound_fired: 35409, free_vars_fired: 0, single_use_fired: 32375, single_task_fired: 23207, useless_abstract_fired: 282025, force_multiuse_fired: 2447 }
+Cost before: 4774323
+0: utility: 838904 | final_cost: 3935013 | 1.21x | uses: 2770 | body: [fn_0 arity=3: (#2 (r #1) h (l #0) h)]
+post stuff: 208ms
+Chose Invention fn_0: utility: 838904 | final_cost: 3935013 | 1.21x | uses: 2770 | body: [fn_0 arity=3: (#2 (r #1) h (l #0) h)]
+[38;5;4;1m
+=======Compression Summary=======[0m
+Found 1 inventions
+Cost Improvement: (1.21x better) 4774323 -> 3935013
+[38;5;4mfn_0[0m (1.21x wrt orig): utility: 838904 | final_cost: 3935013 | 1.21x | uses: 2770 | body: [fn_0 arity=3: (#2 (r #1) h (l #0) h)]
+Time: 41795ms
+Wrote to "ablation-results/2022-10-04_10-51-46/raw/castle.json"
+	Command being timed: "../target/release/compress ../data/cogsci/castle.json --max-arity=3 --iterations=1 --out=ablation-results/2022-10-04_10-51-46/raw/castle.json"
+	User time (seconds): 43.82
+	System time (seconds): 0.29
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:44.15
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 435712
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 148907
+	Voluntary context switches: 2
+	Involuntary context switches: 4498
+	Swaps: 0
+	File system inputs: 256
+	File system outputs: 4328
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

@@ -1,0 +1,23 @@
+[38;5;4;1m**********[0m
+[38;5;4;1m* Stitch *[0m
+[38;5;4;1m**********[0m
+Programs:
+	 num: 250
+	 max cost: 32521
+	 max depth: 219
+[38;5;4;1m
+=======Iteration 0=======[0m
+set up egraph: 15ms
+got roots and treenodes: 98ms
+num_paths_to_node(): 3ms
+associate_tasks(): 1046ms
+cost_of_node structs: 3ms
+get_zippers(): 3012ms
+871 zips
+arg_of_zid_node size: 871
+Tracking setup: 0ms
+arity 0: 0ms
+got 0 arity zero inventions
+built SharedData: 1ms
+TOTAL PREP: 4182ms
+running pattern search...

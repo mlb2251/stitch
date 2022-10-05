@@ -1,0 +1,60 @@
+[38;5;4;1m**********[0m
+[38;5;4;1m* Stitch *[0m
+[38;5;4;1m**********[0m
+Programs:
+	 num: 250
+	 max cost: 12523
+	 max depth: 18
+[38;5;4;1m
+=======Iteration 0=======[0m
+set up egraph: 1ms
+got roots and treenodes: 1ms
+num_paths_to_node(): 1ms
+associate_tasks(): 13ms
+cost_of_node structs: 0ms
+get_zippers(): 13ms
+659 zips
+arg_of_zid_node size: 659
+Tracking setup: 0ms
+arity 0: 0ms
+got 204 arity zero inventions
+built SharedData: 0ms
+TOTAL PREP: 30ms
+running pattern search...
+TOTAL SEARCH: 3088ms
+TOTAL PREP + SEARCH: 3118ms
+Stats { worklist_steps: 323941, finished: 6, upper_bound_fired: 101073, free_vars_fired: 0, single_use_fired: 2137, single_task_fired: 226, useless_abstract_fired: 0, force_multiuse_fired: 517 }
+Cost before: 1919558
+0: utility: 837792 | final_cost: 1079238 | 1.78x | uses: 320 | body: [fn_0 arity=2: (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #1))))) #1 (M 1 (/ (* 2 pi) #1) 0 0)) (M #0 0 0 0))]
+post stuff: 15ms
+Chose Invention fn_0: utility: 837792 | final_cost: 1079238 | 1.78x | uses: 320 | body: [fn_0 arity=2: (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #1))))) #1 (M 1 (/ (* 2 pi) #1) 0 0)) (M #0 0 0 0))]
+[38;5;4;1m
+=======Compression Summary=======[0m
+Found 1 inventions
+Cost Improvement: (1.78x better) 1919558 -> 1079238
+[38;5;4mfn_0[0m (1.78x wrt orig): utility: 837792 | final_cost: 1079238 | 1.78x | uses: 320 | body: [fn_0 arity=2: (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #1))))) #1 (M 1 (/ (* 2 pi) #1) 0 0)) (M #0 0 0 0))]
+Time: 3141ms
+Wrote to "ablation-results/2022-10-04_10-51-46/raw/nuts-bolts--no-opt-useless-abstract.json"
+	Command being timed: "../target/release/compress ../data/cogsci/nuts-bolts.json --no-opt-useless-abstract --max-arity=3 --iterations=1 --out=ablation-results/2022-10-04_10-51-46/raw/nuts-bolts--no-opt-useless-abstract.json"
+	User time (seconds): 3.19
+	System time (seconds): 0.03
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:03.23
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 21204
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 8921
+	Voluntary context switches: 1
+	Involuntary context switches: 319
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 360
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
