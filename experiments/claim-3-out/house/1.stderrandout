@@ -1,0 +1,70 @@
+[38;5;4;1m**********[0m
+[38;5;4;1m* Stitch *[0m
+[38;5;4;1m**********[0m
+Programs:
+	 num: 250
+	 max cost: 25350
+	 max depth: 171
+[38;5;4;1m
+=======Iteration 0=======[0m
+set up egraph: 14ms
+got roots, treenodes, and cloned egraph contents: 79ms
+num_paths_to_node(): 10ms
+associate_tasks() and other task stuff: 4ms
+num unique tasks: 250
+num unique programs: 250
+cost_of_node structs: 1ms
+get_zippers(): 2692ms
+677 zips
+arg_of_zid_node size: 677
+Tracking setup: 0ms
+arity 0: 25ms
+got 2995 arity zero inventions
+built SharedData: 0ms
+[38;5;4m[new best utility][0m @ step=0 trainratio=1.18 for (r 4): utility_upper_bound=656097, body_utility=(201,0), refinements=0, match_locations=1, usages=6498 -> finished: utility=656097, compressive_utility=656298, arity=0, usages=6498
+TOTAL PREP: 2829ms
+running pattern search...
+[38;5;4m[new best utility][0m @ step=184 trainratio=1.28 for (#2 (r 4) h #1 #0): utility_upper_bound=74237422, body_utility=(305,0), refinements=0, match_locations=4558, usages=6498 -> finished: utility=924249, compressive_utility=924554, arity=3, usages=6498
+[38;5;4m[new best utility][0m @ step=227 trainratio=1.28 for (#1 (r 4) h #0): utility_upper_bound=73581125, body_utility=(304,0), refinements=0, match_locations=4558, usages=6498 -> finished: utility=924250, compressive_utility=924554, arity=2, usages=6498
+[38;5;4m[new best utility][0m @ step=233 trainratio=1.46 for (#1 h (r 4) h #0): utility_upper_bound=73501234, body_utility=(405,0), refinements=0, match_locations=4557, usages=6340 -> finished: utility=1338552, compressive_utility=1338957, arity=2, usages=6340
+[38;5;4m[new best utility][0m @ step=279 trainratio=1.46 for (#0 h (r 4) h): utility_upper_bound=72220555, body_utility=(404,0), refinements=0, match_locations=4476, usages=6340 -> finished: utility=1338553, compressive_utility=1338957, arity=1, usages=6340
+[38;5;4m[new best utility][0m @ step=839 trainratio=1.51 for (#2 h (r 4) h #1 h (r 4) h #0): utility_upper_bound=42637855, body_utility=(810,0), refinements=0, match_locations=2656, usages=3197 -> finished: utility=1438642, compressive_utility=1439452, arity=3, usages=3197
+[38;5;4m[new best utility][0m @ step=986 trainratio=1.51 for (#1 h (r 4) h #0 h (r 4) h): utility_upper_bound=41992062, body_utility=(809,0), refinements=0, match_locations=2601, usages=3197 -> finished: utility=1438643, compressive_utility=1439452, arity=2, usages=3197
+[38;5;4m[new best utility][0m @ step=2204 trainratio=1.55 for (#2 h (r 4) h #1 h (r 4) h (l #0)): utility_upper_bound=22045571, body_utility=(911,0), refinements=0, match_locations=1328, usages=1869 -> finished: utility=1509241, compressive_utility=1510152, arity=3, usages=1869
+TOTAL SEARCH: 5889ms
+TOTAL PREP + SEARCH: 8719ms
+Stats { worklist_steps: 60027, finished: 7, calc_final_utility: 8861, upper_bound_fired: 3973, free_vars_fired: 0, single_use_fired: 1456, single_task_fired: 13286, useless_abstract_fired: 46237, force_multiuse_fired: 71 }
+Cost before: 4245083
+0: utility: 1509241 | final_cost: 2734931 | 1.55x | uses: 1869 | body: [fn_0 arity=3: (#2 h (r 4) h #1 h (r 4) h (l #0))]
+post stuff: 59ms
+Chose Invention fn_0: utility: 1509241 | final_cost: 2734931 | 1.55x | uses: 1869 | body: [fn_0 arity=3: (#2 h (r 4) h #1 h (r 4) h (l #0))]
+[38;5;4;1m
+=======Compression Summary=======[0m
+Found 1 inventions
+Cost Improvement: (1.55x better) 4245083 -> 2734931
+[38;5;4mfn_0[0m (1.55x wrt orig): utility: 1509241 | final_cost: 2734931 | 1.55x | uses: 1869 | body: [fn_0 arity=3: (#2 h (r 4) h #1 h (r 4) h (l #0))]
+Time: 8810ms
+Wrote to "claim-3-out/house//1.json"
+	Command being timed: "../target/release/compress ../data/cogsci/house.json --verbose-best --hole-choice=depth-first --fmt=programs-list --max-arity=3 --iterations=1 --out=claim-3-out/house//1.json"
+	User time (seconds): 8.80
+	System time (seconds): 0.18
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:08.99
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 343800
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 183222
+	Voluntary context switches: 1
+	Involuntary context switches: 892
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 2792
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

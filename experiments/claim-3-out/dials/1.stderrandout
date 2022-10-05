@@ -1,0 +1,64 @@
+[38;5;4;1m**********[0m
+[38;5;4;1m* Stitch *[0m
+[38;5;4;1m**********[0m
+Programs:
+	 num: 250
+	 max cost: 45045
+	 max depth: 26
+[38;5;4;1m
+=======Iteration 0=======[0m
+set up egraph: 3ms
+got roots, treenodes, and cloned egraph contents: 5ms
+num_paths_to_node(): 1ms
+associate_tasks() and other task stuff: 3ms
+num unique tasks: 250
+num unique programs: 250
+cost_of_node structs: 0ms
+get_zippers(): 40ms
+4009 zips
+arg_of_zid_node size: 4009
+Tracking setup: 0ms
+arity 0: 2ms
+got 766 arity zero inventions
+built SharedData: 0ms
+[38;5;4m[new best utility][0m @ step=0 trainratio=1.25 for (C (T (T (T l (M 3 (/ pi 2) 0 -2)) (M 1 0 0 0)) (M 1 0 0 0)) (T (T (T l (M 1 0 -0.5 0)) (M 2 0 0 0)) (M 1 0 0 1))): utility_upper_bound=710940, body_utility=(4140,0), refinements=0, match_locations=1, usages=177 -> finished: utility=710940, compressive_utility=715080, arity=0, usages=177
+TOTAL PREP: 55ms
+running pattern search...
+[38;5;4m[new best utility][0m @ step=301 trainratio=1.29 for (T #2 (M 1 0 #1 #0)): utility_upper_bound=6030102, body_utility=(406,0), refinements=0, match_locations=180, usages=2711 -> finished: utility=821027, compressive_utility=821433, arity=3, usages=2711
+TOTAL SEARCH: 173ms
+TOTAL PREP + SEARCH: 229ms
+Stats { worklist_steps: 39436, finished: 1, calc_final_utility: 988, upper_bound_fired: 4416, free_vars_fired: 0, single_use_fired: 2859, single_task_fired: 411, useless_abstract_fired: 20258, force_multiuse_fired: 10 }
+Cost before: 3606662
+0: utility: 821027 | final_cost: 2785229 | 1.29x | uses: 2711 | body: [fn_0 arity=3: (T #2 (M 1 0 #1 #0))]
+post stuff: 20ms
+Chose Invention fn_0: utility: 821027 | final_cost: 2785229 | 1.29x | uses: 2711 | body: [fn_0 arity=3: (T #2 (M 1 0 #1 #0))]
+[38;5;4;1m
+=======Compression Summary=======[0m
+Found 1 inventions
+Cost Improvement: (1.29x better) 3606662 -> 2785229
+[38;5;4mfn_0[0m (1.29x wrt orig): utility: 821027 | final_cost: 2785229 | 1.29x | uses: 2711 | body: [fn_0 arity=3: (T #2 (M 1 0 #1 #0))]
+Time: 261ms
+Wrote to "claim-3-out/dials//1.json"
+	Command being timed: "../target/release/compress ../data/cogsci/dials.json --verbose-best --hole-choice=depth-first --fmt=programs-list --max-arity=3 --iterations=1 --out=claim-3-out/dials//1.json"
+	User time (seconds): 0.36
+	System time (seconds): 0.03
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.39
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 33344
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 8334
+	Voluntary context switches: 1
+	Involuntary context switches: 39
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 1024
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

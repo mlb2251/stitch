@@ -1,0 +1,69 @@
+[38;5;4;1m**********[0m
+[38;5;4;1m* Stitch *[0m
+[38;5;4;1m**********[0m
+Programs:
+	 num: 250
+	 max cost: 12523
+	 max depth: 18
+[38;5;4;1m
+=======Iteration 0=======[0m
+set up egraph: 1ms
+got roots, treenodes, and cloned egraph contents: 1ms
+num_paths_to_node(): 0ms
+associate_tasks() and other task stuff: 1ms
+num unique tasks: 250
+num unique programs: 250
+cost_of_node structs: 0ms
+get_zippers(): 7ms
+659 zips
+arg_of_zid_node size: 659
+Tracking setup: 0ms
+arity 0: 0ms
+got 204 arity zero inventions
+built SharedData: 0ms
+[38;5;4m[new best utility][0m @ step=0 trainratio=1.46 for (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi 6))))) 6 (M 1 (/ (* 2 pi) 6) 0 0))): utility_upper_bound=601557, body_utility=(2423,0), refinements=0, match_locations=1, usages=260 -> finished: utility=601557, compressive_utility=603980, arity=0, usages=260
+TOTAL PREP: 14ms
+running pattern search...
+[38;5;4m[new best utility][0m @ step=3574 trainratio=1.58 for (#2 (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #1))))) #1 (M 1 (/ (* 2 pi) #1) 0 0)) #0)): utility_upper_bound=1378545, body_utility=(2125,0), refinements=0, match_locations=26, usages=320 -> finished: utility=708915, compressive_utility=711040, arity=3, usages=320
+[38;5;4m[new best utility][0m @ step=3591 trainratio=1.63 for (#2 (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #1))))) #1 (M 1 (/ (* 2 pi) #1) 0 0)) (#0 0))): utility_upper_bound=1378444, body_utility=(2226,0), refinements=0, match_locations=26, usages=320 -> finished: utility=741134, compressive_utility=743360, arity=3, usages=320
+[38;5;4m[new best utility][0m @ step=3600 trainratio=1.67 for (#2 (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #1))))) #1 (M 1 (/ (* 2 pi) #1) 0 0)) (#0 0 0))): utility_upper_bound=1378343, body_utility=(2327,0), refinements=0, match_locations=26, usages=320 -> finished: utility=773353, compressive_utility=775680, arity=3, usages=320
+[38;5;4m[new best utility][0m @ step=3605 trainratio=1.72 for (#2 (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #1))))) #1 (M 1 (/ (* 2 pi) #1) 0 0)) (#0 0 0 0))): utility_upper_bound=1378242, body_utility=(2428,0), refinements=0, match_locations=26, usages=320 -> finished: utility=805572, compressive_utility=808000, arity=3, usages=320
+[38;5;4m[new best utility][0m @ step=3608 trainratio=1.77 for (#2 (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #1))))) #1 (M 1 (/ (* 2 pi) #1) 0 0)) (M #0 0 0 0))): utility_upper_bound=1378141, body_utility=(2529,0), refinements=0, match_locations=26, usages=320 -> finished: utility=837791, compressive_utility=840320, arity=3, usages=320
+[38;5;4m[new best utility][0m @ step=8899 trainratio=1.77 for (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #1))))) #1 (M 1 (/ (* 2 pi) #1) 0 0)) (M #0 0 0 0)): utility_upper_bound=902432, body_utility=(2528,0), refinements=0, match_locations=8, usages=320 -> finished: utility=837792, compressive_utility=840320, arity=2, usages=320
+TOTAL SEARCH: 70ms
+TOTAL PREP + SEARCH: 84ms
+Stats { worklist_steps: 9932, finished: 6, calc_final_utility: 367, upper_bound_fired: 1451, free_vars_fired: 0, single_use_fired: 259, single_task_fired: 226, useless_abstract_fired: 3717, force_multiuse_fired: 29 }
+Cost before: 1919558
+0: utility: 837792 | final_cost: 1079238 | 1.78x | uses: 320 | body: [fn_0 arity=2: (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #1))))) #1 (M 1 (/ (* 2 pi) #1) 0 0)) (M #0 0 0 0))]
+post stuff: 5ms
+Chose Invention fn_0: utility: 837792 | final_cost: 1079238 | 1.78x | uses: 320 | body: [fn_0 arity=2: (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #1))))) #1 (M 1 (/ (* 2 pi) #1) 0 0)) (M #0 0 0 0))]
+[38;5;4;1m
+=======Compression Summary=======[0m
+Found 1 inventions
+Cost Improvement: (1.78x better) 1919558 -> 1079238
+[38;5;4mfn_0[0m (1.78x wrt orig): utility: 837792 | final_cost: 1079238 | 1.78x | uses: 320 | body: [fn_0 arity=2: (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #1))))) #1 (M 1 (/ (* 2 pi) #1) 0 0)) (M #0 0 0 0))]
+Time: 94ms
+Wrote to "claim-3-out/nuts-bolts//1.json"
+	Command being timed: "../target/release/compress ../data/cogsci/nuts-bolts.json --verbose-best --hole-choice=depth-first --fmt=programs-list --max-arity=3 --iterations=1 --out=claim-3-out/nuts-bolts//1.json"
+	User time (seconds): 0.14
+	System time (seconds): 0.01
+	Percent of CPU this job got: 100%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.16
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 12020
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 2711
+	Voluntary context switches: 1
+	Involuntary context switches: 17
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 360
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

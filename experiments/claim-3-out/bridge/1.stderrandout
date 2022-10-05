@@ -1,0 +1,68 @@
+[38;5;4;1m**********[0m
+[38;5;4;1m* Stitch *[0m
+[38;5;4;1m**********[0m
+Programs:
+	 num: 250
+	 max cost: 33026
+	 max depth: 219
+[38;5;4;1m
+=======Iteration 0=======[0m
+set up egraph: 6ms
+got roots, treenodes, and cloned egraph contents: 31ms
+num_paths_to_node(): 4ms
+associate_tasks() and other task stuff: 2ms
+num unique tasks: 250
+num unique programs: 250
+cost_of_node structs: 0ms
+get_zippers(): 881ms
+869 zips
+arg_of_zid_node size: 869
+Tracking setup: 0ms
+arity 0: 13ms
+got 3432 arity zero inventions
+built SharedData: 0ms
+[38;5;4m[new best utility][0m @ step=0 trainratio=1.08 for (r 4): utility_upper_bound=242199, body_utility=(201,0), refinements=0, match_locations=1, usages=2400 -> finished: utility=242199, compressive_utility=242400, arity=0, usages=2400
+TOTAL PREP: 940ms
+running pattern search...
+[38;5;4m[new best utility][0m @ step=53 trainratio=1.18 for (#2 #0 (r #1) #0): utility_upper_bound=65555764, body_utility=(104,0), refinements=0, match_locations=2469, usages=6981 -> finished: utility=529742, compressive_utility=529846, arity=3, usages=6981
+[38;5;4m[new best utility][0m @ step=272 trainratio=1.23 for (#1 t (r #0) t): utility_upper_bound=36483522, body_utility=(304,0), refinements=0, match_locations=1549, usages=3805 -> finished: utility=655388, compressive_utility=655692, arity=2, usages=3805
+[38;5;4m[new best utility][0m @ step=1168 trainratio=1.24 for (#2 (r #0) t #1 t (r #0) t): utility_upper_bound=20448659, body_utility=(508,0), refinements=0, match_locations=738, usages=2223 -> finished: utility=662052, compressive_utility=662560, arity=3, usages=2223
+[38;5;4m[new best utility][0m @ step=1173 trainratio=1.29 for (#2 t (r #0) t #1 t (r #0) t): utility_upper_bound=20448558, body_utility=(609,0), refinements=0, match_locations=738, usages=2223 -> finished: utility=775677, compressive_utility=776286, arity=3, usages=2223
+[38;5;4m[new best utility][0m @ step=8492 trainratio=1.33 for (#2 t (r #1) t (l #1) t (r #1) t (l #0)): utility_upper_bound=9493289, body_utility=(812,0), refinements=0, match_locations=183, usages=1541 -> finished: utility=857284, compressive_utility=858096, arity=3, usages=1541
+TOTAL SEARCH: 4386ms
+TOTAL PREP + SEARCH: 5327ms
+Stats { worklist_steps: 238644, finished: 5, calc_final_utility: 16216, upper_bound_fired: 17729, free_vars_fired: 0, single_use_fired: 7079, single_task_fired: 3430, useless_abstract_fired: 209443, force_multiuse_fired: 1261 }
+Cost before: 3459707
+0: utility: 857284 | final_cost: 2601611 | 1.33x | uses: 1541 | body: [fn_0 arity=3: (#2 t (r #1) t (l #1) t (r #1) t (l #0))]
+post stuff: 14ms
+Chose Invention fn_0: utility: 857284 | final_cost: 2601611 | 1.33x | uses: 1541 | body: [fn_0 arity=3: (#2 t (r #1) t (l #1) t (r #1) t (l #0))]
+[38;5;4;1m
+=======Compression Summary=======[0m
+Found 1 inventions
+Cost Improvement: (1.33x better) 3459707 -> 2601611
+[38;5;4mfn_0[0m (1.33x wrt orig): utility: 857284 | final_cost: 2601611 | 1.33x | uses: 1541 | body: [fn_0 arity=3: (#2 t (r #1) t (l #1) t (r #1) t (l #0))]
+Time: 5355ms
+Wrote to "claim-3-out/bridge//1.json"
+	Command being timed: "../target/release/compress ../data/cogsci/bridge.json --verbose-best --hole-choice=depth-first --fmt=programs-list --max-arity=3 --iterations=1 --out=claim-3-out/bridge//1.json"
+	User time (seconds): 5.36
+	System time (seconds): 0.10
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:05.47
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 122748
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 49502
+	Voluntary context switches: 1
+	Involuntary context switches: 561
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 784
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
