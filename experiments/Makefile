@@ -11,4 +11,10 @@ clean:
 	rm -rf plots/*
 	rm -rf compression_benchmark/benches/*/out/stitch
 
+clean-dreamcoder:
+	rm -rf compression_benchmark/benches/*/out/dc
+
+dreamcoder: clean-dreamcoder
+	./bench_dreamcoder_all.sh
+
 .PHONY: claim-1 claim-1-viz clean
