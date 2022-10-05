@@ -1,0 +1,1642 @@
+rm -rf claim-2-out-50
+STITCH_DIR=.. ./claim-2.sh 50 claim-2-out-50
+~/proj/stitch-artifact/stitch_experiments ~/proj/stitch-artifact/stitch_experiments/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.38s
+~/proj/stitch-artifact/stitch_experiments/experiments
+[claim-2.sh] Starting workload bridge, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 4
+[claim-2.sh] Split data; seed used was 4, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 5
+[claim-2.sh] Split data; seed used was 5, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 6
+[claim-2.sh] Split data; seed used was 6, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 7
+[claim-2.sh] Split data; seed used was 7, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 8
+[claim-2.sh] Split data; seed used was 8, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 9
+[claim-2.sh] Split data; seed used was 9, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 10
+[claim-2.sh] Split data; seed used was 10, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 11
+[claim-2.sh] Split data; seed used was 11, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 12
+[claim-2.sh] Split data; seed used was 12, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 13
+[claim-2.sh] Split data; seed used was 13, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 14
+[claim-2.sh] Split data; seed used was 14, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 15
+[claim-2.sh] Split data; seed used was 15, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 16
+[claim-2.sh] Split data; seed used was 16, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 17
+[claim-2.sh] Split data; seed used was 17, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 18
+[claim-2.sh] Split data; seed used was 18, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 19
+[claim-2.sh] Split data; seed used was 19, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 20
+[claim-2.sh] Split data; seed used was 20, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 21
+[claim-2.sh] Split data; seed used was 21, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 22
+[claim-2.sh] Split data; seed used was 22, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 23
+[claim-2.sh] Split data; seed used was 23, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 24
+[claim-2.sh] Split data; seed used was 24, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 25
+[claim-2.sh] Split data; seed used was 25, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 26
+[claim-2.sh] Split data; seed used was 26, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 27
+[claim-2.sh] Split data; seed used was 27, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 28
+[claim-2.sh] Split data; seed used was 28, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 29
+[claim-2.sh] Split data; seed used was 29, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 30
+[claim-2.sh] Split data; seed used was 30, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 31
+[claim-2.sh] Split data; seed used was 31, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 32
+[claim-2.sh] Split data; seed used was 32, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 33
+[claim-2.sh] Split data; seed used was 33, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 34
+[claim-2.sh] Split data; seed used was 34, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 35
+[claim-2.sh] Split data; seed used was 35, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 36
+[claim-2.sh] Split data; seed used was 36, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 37
+[claim-2.sh] Split data; seed used was 37, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 38
+[claim-2.sh] Split data; seed used was 38, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 39
+[claim-2.sh] Split data; seed used was 39, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 40
+[claim-2.sh] Split data; seed used was 40, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 41
+[claim-2.sh] Split data; seed used was 41, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 42
+[claim-2.sh] Split data; seed used was 42, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 43
+[claim-2.sh] Split data; seed used was 43, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 44
+[claim-2.sh] Split data; seed used was 44, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 45
+[claim-2.sh] Split data; seed used was 45, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 46
+[claim-2.sh] Split data; seed used was 46, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 47
+[claim-2.sh] Split data; seed used was 47, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 48
+[claim-2.sh] Split data; seed used was 48, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 49
+[claim-2.sh] Split data; seed used was 49, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 50
+[claim-2.sh] Split data; seed used was 50, train test % was 80%
+Running Stitch
+removed 'bridge-10-split.json'
+removed 'bridge-11-split.json'
+removed 'bridge-12-split.json'
+removed 'bridge-13-split.json'
+removed 'bridge-14-split.json'
+removed 'bridge-15-split.json'
+removed 'bridge-16-split.json'
+removed 'bridge-17-split.json'
+removed 'bridge-18-split.json'
+removed 'bridge-19-split.json'
+removed 'bridge-1-split.json'
+removed 'bridge-20-split.json'
+removed 'bridge-21-split.json'
+removed 'bridge-22-split.json'
+removed 'bridge-23-split.json'
+removed 'bridge-24-split.json'
+removed 'bridge-25-split.json'
+removed 'bridge-26-split.json'
+removed 'bridge-27-split.json'
+removed 'bridge-28-split.json'
+removed 'bridge-29-split.json'
+removed 'bridge-2-split.json'
+removed 'bridge-30-split.json'
+removed 'bridge-31-split.json'
+removed 'bridge-32-split.json'
+removed 'bridge-33-split.json'
+removed 'bridge-34-split.json'
+removed 'bridge-35-split.json'
+removed 'bridge-36-split.json'
+removed 'bridge-37-split.json'
+removed 'bridge-38-split.json'
+removed 'bridge-39-split.json'
+removed 'bridge-3-split.json'
+removed 'bridge-40-split.json'
+removed 'bridge-41-split.json'
+removed 'bridge-42-split.json'
+removed 'bridge-43-split.json'
+removed 'bridge-44-split.json'
+removed 'bridge-45-split.json'
+removed 'bridge-46-split.json'
+removed 'bridge-47-split.json'
+removed 'bridge-48-split.json'
+removed 'bridge-49-split.json'
+removed 'bridge-4-split.json'
+removed 'bridge-50-split.json'
+removed 'bridge-5-split.json'
+removed 'bridge-6-split.json'
+removed 'bridge-7-split.json'
+removed 'bridge-8-split.json'
+removed 'bridge-9-split.json'
+[claim-2.sh] Starting workload castle, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 4
+[claim-2.sh] Split data; seed used was 4, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 5
+[claim-2.sh] Split data; seed used was 5, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 6
+[claim-2.sh] Split data; seed used was 6, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 7
+[claim-2.sh] Split data; seed used was 7, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 8
+[claim-2.sh] Split data; seed used was 8, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 9
+[claim-2.sh] Split data; seed used was 9, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 10
+[claim-2.sh] Split data; seed used was 10, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 11
+[claim-2.sh] Split data; seed used was 11, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 12
+[claim-2.sh] Split data; seed used was 12, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 13
+[claim-2.sh] Split data; seed used was 13, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 14
+[claim-2.sh] Split data; seed used was 14, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 15
+[claim-2.sh] Split data; seed used was 15, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 16
+[claim-2.sh] Split data; seed used was 16, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 17
+[claim-2.sh] Split data; seed used was 17, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 18
+[claim-2.sh] Split data; seed used was 18, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 19
+[claim-2.sh] Split data; seed used was 19, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 20
+[claim-2.sh] Split data; seed used was 20, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 21
+[claim-2.sh] Split data; seed used was 21, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 22
+[claim-2.sh] Split data; seed used was 22, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 23
+[claim-2.sh] Split data; seed used was 23, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 24
+[claim-2.sh] Split data; seed used was 24, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 25
+[claim-2.sh] Split data; seed used was 25, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 26
+[claim-2.sh] Split data; seed used was 26, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 27
+[claim-2.sh] Split data; seed used was 27, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 28
+[claim-2.sh] Split data; seed used was 28, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 29
+[claim-2.sh] Split data; seed used was 29, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 30
+[claim-2.sh] Split data; seed used was 30, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 31
+[claim-2.sh] Split data; seed used was 31, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 32
+[claim-2.sh] Split data; seed used was 32, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 33
+[claim-2.sh] Split data; seed used was 33, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 34
+[claim-2.sh] Split data; seed used was 34, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 35
+[claim-2.sh] Split data; seed used was 35, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 36
+[claim-2.sh] Split data; seed used was 36, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 37
+[claim-2.sh] Split data; seed used was 37, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 38
+[claim-2.sh] Split data; seed used was 38, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 39
+[claim-2.sh] Split data; seed used was 39, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 40
+[claim-2.sh] Split data; seed used was 40, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 41
+[claim-2.sh] Split data; seed used was 41, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 42
+[claim-2.sh] Split data; seed used was 42, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 43
+[claim-2.sh] Split data; seed used was 43, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 44
+[claim-2.sh] Split data; seed used was 44, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 45
+[claim-2.sh] Split data; seed used was 45, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 46
+[claim-2.sh] Split data; seed used was 46, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 47
+[claim-2.sh] Split data; seed used was 47, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 48
+[claim-2.sh] Split data; seed used was 48, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 49
+[claim-2.sh] Split data; seed used was 49, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 50
+[claim-2.sh] Split data; seed used was 50, train test % was 80%
+Running Stitch
+removed 'castle-10-split.json'
+removed 'castle-11-split.json'
+removed 'castle-12-split.json'
+removed 'castle-13-split.json'
+removed 'castle-14-split.json'
+removed 'castle-15-split.json'
+removed 'castle-16-split.json'
+removed 'castle-17-split.json'
+removed 'castle-18-split.json'
+removed 'castle-19-split.json'
+removed 'castle-1-split.json'
+removed 'castle-20-split.json'
+removed 'castle-21-split.json'
+removed 'castle-22-split.json'
+removed 'castle-23-split.json'
+removed 'castle-24-split.json'
+removed 'castle-25-split.json'
+removed 'castle-26-split.json'
+removed 'castle-27-split.json'
+removed 'castle-28-split.json'
+removed 'castle-29-split.json'
+removed 'castle-2-split.json'
+removed 'castle-30-split.json'
+removed 'castle-31-split.json'
+removed 'castle-32-split.json'
+removed 'castle-33-split.json'
+removed 'castle-34-split.json'
+removed 'castle-35-split.json'
+removed 'castle-36-split.json'
+removed 'castle-37-split.json'
+removed 'castle-38-split.json'
+removed 'castle-39-split.json'
+removed 'castle-3-split.json'
+removed 'castle-40-split.json'
+removed 'castle-41-split.json'
+removed 'castle-42-split.json'
+removed 'castle-43-split.json'
+removed 'castle-44-split.json'
+removed 'castle-45-split.json'
+removed 'castle-46-split.json'
+removed 'castle-47-split.json'
+removed 'castle-48-split.json'
+removed 'castle-49-split.json'
+removed 'castle-4-split.json'
+removed 'castle-50-split.json'
+removed 'castle-5-split.json'
+removed 'castle-6-split.json'
+removed 'castle-7-split.json'
+removed 'castle-8-split.json'
+removed 'castle-9-split.json'
+[claim-2.sh] Starting workload city, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 4
+[claim-2.sh] Split data; seed used was 4, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 5
+[claim-2.sh] Split data; seed used was 5, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 6
+[claim-2.sh] Split data; seed used was 6, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 7
+[claim-2.sh] Split data; seed used was 7, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 8
+[claim-2.sh] Split data; seed used was 8, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 9
+[claim-2.sh] Split data; seed used was 9, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 10
+[claim-2.sh] Split data; seed used was 10, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 11
+[claim-2.sh] Split data; seed used was 11, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 12
+[claim-2.sh] Split data; seed used was 12, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 13
+[claim-2.sh] Split data; seed used was 13, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 14
+[claim-2.sh] Split data; seed used was 14, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 15
+[claim-2.sh] Split data; seed used was 15, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 16
+[claim-2.sh] Split data; seed used was 16, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 17
+[claim-2.sh] Split data; seed used was 17, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 18
+[claim-2.sh] Split data; seed used was 18, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 19
+[claim-2.sh] Split data; seed used was 19, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 20
+[claim-2.sh] Split data; seed used was 20, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 21
+[claim-2.sh] Split data; seed used was 21, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 22
+[claim-2.sh] Split data; seed used was 22, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 23
+[claim-2.sh] Split data; seed used was 23, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 24
+[claim-2.sh] Split data; seed used was 24, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 25
+[claim-2.sh] Split data; seed used was 25, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 26
+[claim-2.sh] Split data; seed used was 26, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 27
+[claim-2.sh] Split data; seed used was 27, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 28
+[claim-2.sh] Split data; seed used was 28, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 29
+[claim-2.sh] Split data; seed used was 29, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 30
+[claim-2.sh] Split data; seed used was 30, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 31
+[claim-2.sh] Split data; seed used was 31, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 32
+[claim-2.sh] Split data; seed used was 32, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 33
+[claim-2.sh] Split data; seed used was 33, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 34
+[claim-2.sh] Split data; seed used was 34, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 35
+[claim-2.sh] Split data; seed used was 35, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 36
+[claim-2.sh] Split data; seed used was 36, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 37
+[claim-2.sh] Split data; seed used was 37, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 38
+[claim-2.sh] Split data; seed used was 38, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 39
+[claim-2.sh] Split data; seed used was 39, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 40
+[claim-2.sh] Split data; seed used was 40, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 41
+[claim-2.sh] Split data; seed used was 41, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 42
+[claim-2.sh] Split data; seed used was 42, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 43
+[claim-2.sh] Split data; seed used was 43, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 44
+[claim-2.sh] Split data; seed used was 44, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 45
+[claim-2.sh] Split data; seed used was 45, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 46
+[claim-2.sh] Split data; seed used was 46, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 47
+[claim-2.sh] Split data; seed used was 47, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 48
+[claim-2.sh] Split data; seed used was 48, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 49
+[claim-2.sh] Split data; seed used was 49, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 50
+[claim-2.sh] Split data; seed used was 50, train test % was 80%
+Running Stitch
+removed 'city-10-split.json'
+removed 'city-11-split.json'
+removed 'city-12-split.json'
+removed 'city-13-split.json'
+removed 'city-14-split.json'
+removed 'city-15-split.json'
+removed 'city-16-split.json'
+removed 'city-17-split.json'
+removed 'city-18-split.json'
+removed 'city-19-split.json'
+removed 'city-1-split.json'
+removed 'city-20-split.json'
+removed 'city-21-split.json'
+removed 'city-22-split.json'
+removed 'city-23-split.json'
+removed 'city-24-split.json'
+removed 'city-25-split.json'
+removed 'city-26-split.json'
+removed 'city-27-split.json'
+removed 'city-28-split.json'
+removed 'city-29-split.json'
+removed 'city-2-split.json'
+removed 'city-30-split.json'
+removed 'city-31-split.json'
+removed 'city-32-split.json'
+removed 'city-33-split.json'
+removed 'city-34-split.json'
+removed 'city-35-split.json'
+removed 'city-36-split.json'
+removed 'city-37-split.json'
+removed 'city-38-split.json'
+removed 'city-39-split.json'
+removed 'city-3-split.json'
+removed 'city-40-split.json'
+removed 'city-41-split.json'
+removed 'city-42-split.json'
+removed 'city-43-split.json'
+removed 'city-44-split.json'
+removed 'city-45-split.json'
+removed 'city-46-split.json'
+removed 'city-47-split.json'
+removed 'city-48-split.json'
+removed 'city-49-split.json'
+removed 'city-4-split.json'
+removed 'city-50-split.json'
+removed 'city-5-split.json'
+removed 'city-6-split.json'
+removed 'city-7-split.json'
+removed 'city-8-split.json'
+removed 'city-9-split.json'
+[claim-2.sh] Starting workload dials, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 4
+[claim-2.sh] Split data; seed used was 4, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 5
+[claim-2.sh] Split data; seed used was 5, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 6
+[claim-2.sh] Split data; seed used was 6, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 7
+[claim-2.sh] Split data; seed used was 7, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 8
+[claim-2.sh] Split data; seed used was 8, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 9
+[claim-2.sh] Split data; seed used was 9, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 10
+[claim-2.sh] Split data; seed used was 10, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 11
+[claim-2.sh] Split data; seed used was 11, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 12
+[claim-2.sh] Split data; seed used was 12, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 13
+[claim-2.sh] Split data; seed used was 13, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 14
+[claim-2.sh] Split data; seed used was 14, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 15
+[claim-2.sh] Split data; seed used was 15, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 16
+[claim-2.sh] Split data; seed used was 16, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 17
+[claim-2.sh] Split data; seed used was 17, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 18
+[claim-2.sh] Split data; seed used was 18, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 19
+[claim-2.sh] Split data; seed used was 19, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 20
+[claim-2.sh] Split data; seed used was 20, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 21
+[claim-2.sh] Split data; seed used was 21, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 22
+[claim-2.sh] Split data; seed used was 22, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 23
+[claim-2.sh] Split data; seed used was 23, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 24
+[claim-2.sh] Split data; seed used was 24, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 25
+[claim-2.sh] Split data; seed used was 25, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 26
+[claim-2.sh] Split data; seed used was 26, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 27
+[claim-2.sh] Split data; seed used was 27, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 28
+[claim-2.sh] Split data; seed used was 28, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 29
+[claim-2.sh] Split data; seed used was 29, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 30
+[claim-2.sh] Split data; seed used was 30, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 31
+[claim-2.sh] Split data; seed used was 31, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 32
+[claim-2.sh] Split data; seed used was 32, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 33
+[claim-2.sh] Split data; seed used was 33, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 34
+[claim-2.sh] Split data; seed used was 34, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 35
+[claim-2.sh] Split data; seed used was 35, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 36
+[claim-2.sh] Split data; seed used was 36, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 37
+[claim-2.sh] Split data; seed used was 37, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 38
+[claim-2.sh] Split data; seed used was 38, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 39
+[claim-2.sh] Split data; seed used was 39, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 40
+[claim-2.sh] Split data; seed used was 40, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 41
+[claim-2.sh] Split data; seed used was 41, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 42
+[claim-2.sh] Split data; seed used was 42, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 43
+[claim-2.sh] Split data; seed used was 43, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 44
+[claim-2.sh] Split data; seed used was 44, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 45
+[claim-2.sh] Split data; seed used was 45, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 46
+[claim-2.sh] Split data; seed used was 46, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 47
+[claim-2.sh] Split data; seed used was 47, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 48
+[claim-2.sh] Split data; seed used was 48, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 49
+[claim-2.sh] Split data; seed used was 49, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 50
+[claim-2.sh] Split data; seed used was 50, train test % was 80%
+Running Stitch
+removed 'dials-10-split.json'
+removed 'dials-11-split.json'
+removed 'dials-12-split.json'
+removed 'dials-13-split.json'
+removed 'dials-14-split.json'
+removed 'dials-15-split.json'
+removed 'dials-16-split.json'
+removed 'dials-17-split.json'
+removed 'dials-18-split.json'
+removed 'dials-19-split.json'
+removed 'dials-1-split.json'
+removed 'dials-20-split.json'
+removed 'dials-21-split.json'
+removed 'dials-22-split.json'
+removed 'dials-23-split.json'
+removed 'dials-24-split.json'
+removed 'dials-25-split.json'
+removed 'dials-26-split.json'
+removed 'dials-27-split.json'
+removed 'dials-28-split.json'
+removed 'dials-29-split.json'
+removed 'dials-2-split.json'
+removed 'dials-30-split.json'
+removed 'dials-31-split.json'
+removed 'dials-32-split.json'
+removed 'dials-33-split.json'
+removed 'dials-34-split.json'
+removed 'dials-35-split.json'
+removed 'dials-36-split.json'
+removed 'dials-37-split.json'
+removed 'dials-38-split.json'
+removed 'dials-39-split.json'
+removed 'dials-3-split.json'
+removed 'dials-40-split.json'
+removed 'dials-41-split.json'
+removed 'dials-42-split.json'
+removed 'dials-43-split.json'
+removed 'dials-44-split.json'
+removed 'dials-45-split.json'
+removed 'dials-46-split.json'
+removed 'dials-47-split.json'
+removed 'dials-48-split.json'
+removed 'dials-49-split.json'
+removed 'dials-4-split.json'
+removed 'dials-50-split.json'
+removed 'dials-5-split.json'
+removed 'dials-6-split.json'
+removed 'dials-7-split.json'
+removed 'dials-8-split.json'
+removed 'dials-9-split.json'
+[claim-2.sh] Starting workload furniture, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 4
+[claim-2.sh] Split data; seed used was 4, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 5
+[claim-2.sh] Split data; seed used was 5, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 6
+[claim-2.sh] Split data; seed used was 6, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 7
+[claim-2.sh] Split data; seed used was 7, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 8
+[claim-2.sh] Split data; seed used was 8, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 9
+[claim-2.sh] Split data; seed used was 9, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 10
+[claim-2.sh] Split data; seed used was 10, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 11
+[claim-2.sh] Split data; seed used was 11, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 12
+[claim-2.sh] Split data; seed used was 12, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 13
+[claim-2.sh] Split data; seed used was 13, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 14
+[claim-2.sh] Split data; seed used was 14, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 15
+[claim-2.sh] Split data; seed used was 15, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 16
+[claim-2.sh] Split data; seed used was 16, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 17
+[claim-2.sh] Split data; seed used was 17, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 18
+[claim-2.sh] Split data; seed used was 18, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 19
+[claim-2.sh] Split data; seed used was 19, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 20
+[claim-2.sh] Split data; seed used was 20, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 21
+[claim-2.sh] Split data; seed used was 21, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 22
+[claim-2.sh] Split data; seed used was 22, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 23
+[claim-2.sh] Split data; seed used was 23, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 24
+[claim-2.sh] Split data; seed used was 24, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 25
+[claim-2.sh] Split data; seed used was 25, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 26
+[claim-2.sh] Split data; seed used was 26, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 27
+[claim-2.sh] Split data; seed used was 27, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 28
+[claim-2.sh] Split data; seed used was 28, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 29
+[claim-2.sh] Split data; seed used was 29, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 30
+[claim-2.sh] Split data; seed used was 30, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 31
+[claim-2.sh] Split data; seed used was 31, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 32
+[claim-2.sh] Split data; seed used was 32, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 33
+[claim-2.sh] Split data; seed used was 33, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 34
+[claim-2.sh] Split data; seed used was 34, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 35
+[claim-2.sh] Split data; seed used was 35, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 36
+[claim-2.sh] Split data; seed used was 36, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 37
+[claim-2.sh] Split data; seed used was 37, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 38
+[claim-2.sh] Split data; seed used was 38, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 39
+[claim-2.sh] Split data; seed used was 39, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 40
+[claim-2.sh] Split data; seed used was 40, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 41
+[claim-2.sh] Split data; seed used was 41, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 42
+[claim-2.sh] Split data; seed used was 42, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 43
+[claim-2.sh] Split data; seed used was 43, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 44
+[claim-2.sh] Split data; seed used was 44, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 45
+[claim-2.sh] Split data; seed used was 45, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 46
+[claim-2.sh] Split data; seed used was 46, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 47
+[claim-2.sh] Split data; seed used was 47, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 48
+[claim-2.sh] Split data; seed used was 48, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 49
+[claim-2.sh] Split data; seed used was 49, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 50
+[claim-2.sh] Split data; seed used was 50, train test % was 80%
+Running Stitch
+removed 'furniture-10-split.json'
+removed 'furniture-11-split.json'
+removed 'furniture-12-split.json'
+removed 'furniture-13-split.json'
+removed 'furniture-14-split.json'
+removed 'furniture-15-split.json'
+removed 'furniture-16-split.json'
+removed 'furniture-17-split.json'
+removed 'furniture-18-split.json'
+removed 'furniture-19-split.json'
+removed 'furniture-1-split.json'
+removed 'furniture-20-split.json'
+removed 'furniture-21-split.json'
+removed 'furniture-22-split.json'
+removed 'furniture-23-split.json'
+removed 'furniture-24-split.json'
+removed 'furniture-25-split.json'
+removed 'furniture-26-split.json'
+removed 'furniture-27-split.json'
+removed 'furniture-28-split.json'
+removed 'furniture-29-split.json'
+removed 'furniture-2-split.json'
+removed 'furniture-30-split.json'
+removed 'furniture-31-split.json'
+removed 'furniture-32-split.json'
+removed 'furniture-33-split.json'
+removed 'furniture-34-split.json'
+removed 'furniture-35-split.json'
+removed 'furniture-36-split.json'
+removed 'furniture-37-split.json'
+removed 'furniture-38-split.json'
+removed 'furniture-39-split.json'
+removed 'furniture-3-split.json'
+removed 'furniture-40-split.json'
+removed 'furniture-41-split.json'
+removed 'furniture-42-split.json'
+removed 'furniture-43-split.json'
+removed 'furniture-44-split.json'
+removed 'furniture-45-split.json'
+removed 'furniture-46-split.json'
+removed 'furniture-47-split.json'
+removed 'furniture-48-split.json'
+removed 'furniture-49-split.json'
+removed 'furniture-4-split.json'
+removed 'furniture-50-split.json'
+removed 'furniture-5-split.json'
+removed 'furniture-6-split.json'
+removed 'furniture-7-split.json'
+removed 'furniture-8-split.json'
+removed 'furniture-9-split.json'
+[claim-2.sh] Starting workload house, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 4
+[claim-2.sh] Split data; seed used was 4, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 5
+[claim-2.sh] Split data; seed used was 5, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 6
+[claim-2.sh] Split data; seed used was 6, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 7
+[claim-2.sh] Split data; seed used was 7, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 8
+[claim-2.sh] Split data; seed used was 8, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 9
+[claim-2.sh] Split data; seed used was 9, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 10
+[claim-2.sh] Split data; seed used was 10, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 11
+[claim-2.sh] Split data; seed used was 11, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 12
+[claim-2.sh] Split data; seed used was 12, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 13
+[claim-2.sh] Split data; seed used was 13, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 14
+[claim-2.sh] Split data; seed used was 14, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 15
+[claim-2.sh] Split data; seed used was 15, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 16
+[claim-2.sh] Split data; seed used was 16, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 17
+[claim-2.sh] Split data; seed used was 17, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 18
+[claim-2.sh] Split data; seed used was 18, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 19
+[claim-2.sh] Split data; seed used was 19, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 20
+[claim-2.sh] Split data; seed used was 20, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 21
+[claim-2.sh] Split data; seed used was 21, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 22
+[claim-2.sh] Split data; seed used was 22, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 23
+[claim-2.sh] Split data; seed used was 23, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 24
+[claim-2.sh] Split data; seed used was 24, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 25
+[claim-2.sh] Split data; seed used was 25, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 26
+[claim-2.sh] Split data; seed used was 26, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 27
+[claim-2.sh] Split data; seed used was 27, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 28
+[claim-2.sh] Split data; seed used was 28, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 29
+[claim-2.sh] Split data; seed used was 29, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 30
+[claim-2.sh] Split data; seed used was 30, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 31
+[claim-2.sh] Split data; seed used was 31, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 32
+[claim-2.sh] Split data; seed used was 32, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 33
+[claim-2.sh] Split data; seed used was 33, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 34
+[claim-2.sh] Split data; seed used was 34, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 35
+[claim-2.sh] Split data; seed used was 35, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 36
+[claim-2.sh] Split data; seed used was 36, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 37
+[claim-2.sh] Split data; seed used was 37, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 38
+[claim-2.sh] Split data; seed used was 38, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 39
+[claim-2.sh] Split data; seed used was 39, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 40
+[claim-2.sh] Split data; seed used was 40, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 41
+[claim-2.sh] Split data; seed used was 41, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 42
+[claim-2.sh] Split data; seed used was 42, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 43
+[claim-2.sh] Split data; seed used was 43, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 44
+[claim-2.sh] Split data; seed used was 44, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 45
+[claim-2.sh] Split data; seed used was 45, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 46
+[claim-2.sh] Split data; seed used was 46, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 47
+[claim-2.sh] Split data; seed used was 47, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 48
+[claim-2.sh] Split data; seed used was 48, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 49
+[claim-2.sh] Split data; seed used was 49, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 50
+[claim-2.sh] Split data; seed used was 50, train test % was 80%
+Running Stitch
+removed 'house-10-split.json'
+removed 'house-11-split.json'
+removed 'house-12-split.json'
+removed 'house-13-split.json'
+removed 'house-14-split.json'
+removed 'house-15-split.json'
+removed 'house-16-split.json'
+removed 'house-17-split.json'
+removed 'house-18-split.json'
+removed 'house-19-split.json'
+removed 'house-1-split.json'
+removed 'house-20-split.json'
+removed 'house-21-split.json'
+removed 'house-22-split.json'
+removed 'house-23-split.json'
+removed 'house-24-split.json'
+removed 'house-25-split.json'
+removed 'house-26-split.json'
+removed 'house-27-split.json'
+removed 'house-28-split.json'
+removed 'house-29-split.json'
+removed 'house-2-split.json'
+removed 'house-30-split.json'
+removed 'house-31-split.json'
+removed 'house-32-split.json'
+removed 'house-33-split.json'
+removed 'house-34-split.json'
+removed 'house-35-split.json'
+removed 'house-36-split.json'
+removed 'house-37-split.json'
+removed 'house-38-split.json'
+removed 'house-39-split.json'
+removed 'house-3-split.json'
+removed 'house-40-split.json'
+removed 'house-41-split.json'
+removed 'house-42-split.json'
+removed 'house-43-split.json'
+removed 'house-44-split.json'
+removed 'house-45-split.json'
+removed 'house-46-split.json'
+removed 'house-47-split.json'
+removed 'house-48-split.json'
+removed 'house-49-split.json'
+removed 'house-4-split.json'
+removed 'house-50-split.json'
+removed 'house-5-split.json'
+removed 'house-6-split.json'
+removed 'house-7-split.json'
+removed 'house-8-split.json'
+removed 'house-9-split.json'
+[claim-2.sh] Starting workload nuts-bolts, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 4
+[claim-2.sh] Split data; seed used was 4, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 5
+[claim-2.sh] Split data; seed used was 5, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 6
+[claim-2.sh] Split data; seed used was 6, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 7
+[claim-2.sh] Split data; seed used was 7, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 8
+[claim-2.sh] Split data; seed used was 8, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 9
+[claim-2.sh] Split data; seed used was 9, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 10
+[claim-2.sh] Split data; seed used was 10, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 11
+[claim-2.sh] Split data; seed used was 11, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 12
+[claim-2.sh] Split data; seed used was 12, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 13
+[claim-2.sh] Split data; seed used was 13, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 14
+[claim-2.sh] Split data; seed used was 14, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 15
+[claim-2.sh] Split data; seed used was 15, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 16
+[claim-2.sh] Split data; seed used was 16, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 17
+[claim-2.sh] Split data; seed used was 17, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 18
+[claim-2.sh] Split data; seed used was 18, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 19
+[claim-2.sh] Split data; seed used was 19, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 20
+[claim-2.sh] Split data; seed used was 20, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 21
+[claim-2.sh] Split data; seed used was 21, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 22
+[claim-2.sh] Split data; seed used was 22, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 23
+[claim-2.sh] Split data; seed used was 23, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 24
+[claim-2.sh] Split data; seed used was 24, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 25
+[claim-2.sh] Split data; seed used was 25, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 26
+[claim-2.sh] Split data; seed used was 26, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 27
+[claim-2.sh] Split data; seed used was 27, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 28
+[claim-2.sh] Split data; seed used was 28, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 29
+[claim-2.sh] Split data; seed used was 29, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 30
+[claim-2.sh] Split data; seed used was 30, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 31
+[claim-2.sh] Split data; seed used was 31, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 32
+[claim-2.sh] Split data; seed used was 32, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 33
+[claim-2.sh] Split data; seed used was 33, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 34
+[claim-2.sh] Split data; seed used was 34, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 35
+[claim-2.sh] Split data; seed used was 35, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 36
+[claim-2.sh] Split data; seed used was 36, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 37
+[claim-2.sh] Split data; seed used was 37, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 38
+[claim-2.sh] Split data; seed used was 38, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 39
+[claim-2.sh] Split data; seed used was 39, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 40
+[claim-2.sh] Split data; seed used was 40, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 41
+[claim-2.sh] Split data; seed used was 41, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 42
+[claim-2.sh] Split data; seed used was 42, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 43
+[claim-2.sh] Split data; seed used was 43, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 44
+[claim-2.sh] Split data; seed used was 44, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 45
+[claim-2.sh] Split data; seed used was 45, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 46
+[claim-2.sh] Split data; seed used was 46, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 47
+[claim-2.sh] Split data; seed used was 47, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 48
+[claim-2.sh] Split data; seed used was 48, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 49
+[claim-2.sh] Split data; seed used was 49, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 50
+[claim-2.sh] Split data; seed used was 50, train test % was 80%
+Running Stitch
+removed 'nuts-bolts-10-split.json'
+removed 'nuts-bolts-11-split.json'
+removed 'nuts-bolts-12-split.json'
+removed 'nuts-bolts-13-split.json'
+removed 'nuts-bolts-14-split.json'
+removed 'nuts-bolts-15-split.json'
+removed 'nuts-bolts-16-split.json'
+removed 'nuts-bolts-17-split.json'
+removed 'nuts-bolts-18-split.json'
+removed 'nuts-bolts-19-split.json'
+removed 'nuts-bolts-1-split.json'
+removed 'nuts-bolts-20-split.json'
+removed 'nuts-bolts-21-split.json'
+removed 'nuts-bolts-22-split.json'
+removed 'nuts-bolts-23-split.json'
+removed 'nuts-bolts-24-split.json'
+removed 'nuts-bolts-25-split.json'
+removed 'nuts-bolts-26-split.json'
+removed 'nuts-bolts-27-split.json'
+removed 'nuts-bolts-28-split.json'
+removed 'nuts-bolts-29-split.json'
+removed 'nuts-bolts-2-split.json'
+removed 'nuts-bolts-30-split.json'
+removed 'nuts-bolts-31-split.json'
+removed 'nuts-bolts-32-split.json'
+removed 'nuts-bolts-33-split.json'
+removed 'nuts-bolts-34-split.json'
+removed 'nuts-bolts-35-split.json'
+removed 'nuts-bolts-36-split.json'
+removed 'nuts-bolts-37-split.json'
+removed 'nuts-bolts-38-split.json'
+removed 'nuts-bolts-39-split.json'
+removed 'nuts-bolts-3-split.json'
+removed 'nuts-bolts-40-split.json'
+removed 'nuts-bolts-41-split.json'
+removed 'nuts-bolts-42-split.json'
+removed 'nuts-bolts-43-split.json'
+removed 'nuts-bolts-44-split.json'
+removed 'nuts-bolts-45-split.json'
+removed 'nuts-bolts-46-split.json'
+removed 'nuts-bolts-47-split.json'
+removed 'nuts-bolts-48-split.json'
+removed 'nuts-bolts-49-split.json'
+removed 'nuts-bolts-4-split.json'
+removed 'nuts-bolts-50-split.json'
+removed 'nuts-bolts-5-split.json'
+removed 'nuts-bolts-6-split.json'
+removed 'nuts-bolts-7-split.json'
+removed 'nuts-bolts-8-split.json'
+removed 'nuts-bolts-9-split.json'
+[claim-2.sh] Starting workload wheels, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 4
+[claim-2.sh] Split data; seed used was 4, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 5
+[claim-2.sh] Split data; seed used was 5, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 6
+[claim-2.sh] Split data; seed used was 6, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 7
+[claim-2.sh] Split data; seed used was 7, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 8
+[claim-2.sh] Split data; seed used was 8, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 9
+[claim-2.sh] Split data; seed used was 9, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 10
+[claim-2.sh] Split data; seed used was 10, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 11
+[claim-2.sh] Split data; seed used was 11, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 12
+[claim-2.sh] Split data; seed used was 12, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 13
+[claim-2.sh] Split data; seed used was 13, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 14
+[claim-2.sh] Split data; seed used was 14, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 15
+[claim-2.sh] Split data; seed used was 15, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 16
+[claim-2.sh] Split data; seed used was 16, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 17
+[claim-2.sh] Split data; seed used was 17, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 18
+[claim-2.sh] Split data; seed used was 18, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 19
+[claim-2.sh] Split data; seed used was 19, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 20
+[claim-2.sh] Split data; seed used was 20, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 21
+[claim-2.sh] Split data; seed used was 21, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 22
+[claim-2.sh] Split data; seed used was 22, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 23
+[claim-2.sh] Split data; seed used was 23, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 24
+[claim-2.sh] Split data; seed used was 24, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 25
+[claim-2.sh] Split data; seed used was 25, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 26
+[claim-2.sh] Split data; seed used was 26, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 27
+[claim-2.sh] Split data; seed used was 27, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 28
+[claim-2.sh] Split data; seed used was 28, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 29
+[claim-2.sh] Split data; seed used was 29, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 30
+[claim-2.sh] Split data; seed used was 30, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 31
+[claim-2.sh] Split data; seed used was 31, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 32
+[claim-2.sh] Split data; seed used was 32, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 33
+[claim-2.sh] Split data; seed used was 33, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 34
+[claim-2.sh] Split data; seed used was 34, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 35
+[claim-2.sh] Split data; seed used was 35, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 36
+[claim-2.sh] Split data; seed used was 36, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 37
+[claim-2.sh] Split data; seed used was 37, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 38
+[claim-2.sh] Split data; seed used was 38, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 39
+[claim-2.sh] Split data; seed used was 39, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 40
+[claim-2.sh] Split data; seed used was 40, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 41
+[claim-2.sh] Split data; seed used was 41, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 42
+[claim-2.sh] Split data; seed used was 42, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 43
+[claim-2.sh] Split data; seed used was 43, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 44
+[claim-2.sh] Split data; seed used was 44, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 45
+[claim-2.sh] Split data; seed used was 45, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 46
+[claim-2.sh] Split data; seed used was 46, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 47
+[claim-2.sh] Split data; seed used was 47, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 48
+[claim-2.sh] Split data; seed used was 48, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 49
+[claim-2.sh] Split data; seed used was 49, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 50
+[claim-2.sh] Split data; seed used was 50, train test % was 80%
+Running Stitch
+removed 'wheels-10-split.json'
+removed 'wheels-11-split.json'
+removed 'wheels-12-split.json'
+removed 'wheels-13-split.json'
+removed 'wheels-14-split.json'
+removed 'wheels-15-split.json'
+removed 'wheels-16-split.json'
+removed 'wheels-17-split.json'
+removed 'wheels-18-split.json'
+removed 'wheels-19-split.json'
+removed 'wheels-1-split.json'
+removed 'wheels-20-split.json'
+removed 'wheels-21-split.json'
+removed 'wheels-22-split.json'
+removed 'wheels-23-split.json'
+removed 'wheels-24-split.json'
+removed 'wheels-25-split.json'
+removed 'wheels-26-split.json'
+removed 'wheels-27-split.json'
+removed 'wheels-28-split.json'
+removed 'wheels-29-split.json'
+removed 'wheels-2-split.json'
+removed 'wheels-30-split.json'
+removed 'wheels-31-split.json'
+removed 'wheels-32-split.json'
+removed 'wheels-33-split.json'
+removed 'wheels-34-split.json'
+removed 'wheels-35-split.json'
+removed 'wheels-36-split.json'
+removed 'wheels-37-split.json'
+removed 'wheels-38-split.json'
+removed 'wheels-39-split.json'
+removed 'wheels-3-split.json'
+removed 'wheels-40-split.json'
+removed 'wheels-41-split.json'
+removed 'wheels-42-split.json'
+removed 'wheels-43-split.json'
+removed 'wheels-44-split.json'
+removed 'wheels-45-split.json'
+removed 'wheels-46-split.json'
+removed 'wheels-47-split.json'
+removed 'wheels-48-split.json'
+removed 'wheels-49-split.json'
+removed 'wheels-4-split.json'
+removed 'wheels-50-split.json'
+removed 'wheels-5-split.json'
+removed 'wheels-6-split.json'
+removed 'wheels-7-split.json'
+removed 'wheels-8-split.json'
+removed 'wheels-9-split.json'
+Done: claim-2-out-50
+python3 plot.py claim-2 claim-2-out-50 50
++--------------+-------------------+---------------+---------------+----------------------+
+|    Domain    | Training set C.R. | Test set C.R. |  Runtime (s)  | Peak mem. usage (MB) |
++--------------+-------------------+---------------+---------------+----------------------+
+| nuts & bolts |   12.00 +- 0.25   | 11.57 +- 0.49 |  0.20 +- 0.01 |    11.19 +- 0.27     |
+|   gadgets    |    4.03 +- 0.15   |  3.91 +- 0.31 |  1.43 +- 0.07 |    30.57 +- 0.76     |
+|  furniture   |    4.95 +- 0.07   |  4.85 +- 0.26 |  2.48 +- 0.09 |    31.61 +- 0.58     |
+|   vehicles   |    4.28 +- 0.14   |  4.14 +- 0.25 |  1.27 +- 0.04 |    27.35 +- 0.80     |
+|   bridges    |    4.36 +- 0.06   |  3.78 +- 0.14 | 14.71 +- 0.56 |   199.45 +- 10.70    |
+|    cities    |    3.15 +- 0.05   |  3.06 +- 0.14 | 37.97 +- 1.52 |    432.11 +- 9.87    |
+|   castles    |    2.57 +- 0.07   |  2.55 +- 0.08 | 59.88 +- 4.29 |   715.16 +- 34.12    |
+|    houses    |    8.92 +- 0.21   |  8.85 +- 0.57 | 11.43 +- 0.36 |    243.65 +- 2.88    |
++--------------+-------------------+---------------+---------------+----------------------+
+	Command being timed: "make claim-2"
+	User time (seconds): 6510.48
+	System time (seconds): 74.51
+	Percent of CPU this job got: 100%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:49:43
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 803488
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 46373949
+	Voluntary context switches: 2771
+	Involuntary context switches: 3867830
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 1799864
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

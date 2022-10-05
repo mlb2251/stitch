@@ -1,0 +1,302 @@
+[38;5;4;1m**********[0m
+[38;5;4;1m* Stitch *[0m
+[38;5;4;1m**********[0m
+Programs:
+	 num: 200
+	 max cost: 32521
+	 max depth: 219
+> Running with train/test split active
+Programs:
+	 num: 50
+	 max cost: 29491
+	 max depth: 196
+[38;5;4;1m
+=======Iteration 0=======[0m
+set up egraph: 9ms
+got roots, treenodes, and cloned egraph contents: 57ms
+num_paths_to_node(): 7ms
+associate_tasks() and other task stuff: 3ms
+num unique tasks: 200
+num unique programs: 200
+cost_of_node structs: 1ms
+get_zippers(): 1590ms
+871 zips
+arg_of_zid_node size: 871
+Tracking setup: 0ms
+arity 0: 6ms
+got 2311 arity zero inventions
+built SharedData: 0ms
+TOTAL PREP: 1677ms
+running pattern search...
+TOTAL SEARCH: 8992ms
+TOTAL PREP + SEARCH: 10669ms
+Stats { worklist_steps: 334676, finished: 8, calc_final_utility: 21896, upper_bound_fired: 40953, free_vars_fired: 0, single_use_fired: 25494, single_task_fired: 11378, useless_abstract_fired: 220138, force_multiuse_fired: 1932 }
+Cost before: 3272907
+0: utility: 645086 | final_cost: 2627315 | 1.25x | uses: 1598 | body: [fn_0 arity=2: (#1 (l #0) h (r 4) h)]
+post stuff: 43ms
+Chose Invention fn_0: utility: 645086 | final_cost: 2627315 | 1.25x | uses: 1598 | body: [fn_0 arity=2: (#1 (l #0) h (r 4) h)]
+[38;5;4;1m
+=======Iteration 1=======[0m
+set up egraph: 9ms
+got roots, treenodes, and cloned egraph contents: 34ms
+num_paths_to_node(): 3ms
+associate_tasks() and other task stuff: 2ms
+num unique tasks: 200
+num unique programs: 200
+cost_of_node structs: 0ms
+get_zippers(): 2026ms
+514925 zips
+arg_of_zid_node size: 514925
+Tracking setup: 0ms
+arity 0: 6ms
+got 1773 arity zero inventions
+built SharedData: 0ms
+TOTAL PREP: 2082ms
+running pattern search...
+TOTAL SEARCH: 4921ms
+TOTAL PREP + SEARCH: 7004ms
+Stats { worklist_steps: 222661, finished: 7, calc_final_utility: 18554, upper_bound_fired: 22331, free_vars_fired: 0, single_use_fired: 15496, single_task_fired: 8823, useless_abstract_fired: 138928, force_multiuse_fired: 1221 }
+Cost before: 2627315
+0: utility: 437734 | final_cost: 2187965 | 1.20x | uses: 290 | body: [fn_1 arity=1: (#0 h (r 1) t (l 2) t (r 6) t (l 2) t (r 1) h)]
+post stuff: 15ms
+Chose Invention fn_1: utility: 437734 | final_cost: 2187965 | 1.20x | uses: 290 | body: [fn_1 arity=1: (#0 h (r 1) t (l 2) t (r 6) t (l 2) t (r 1) h)]
+[38;5;4;1m
+=======Iteration 2=======[0m
+set up egraph: 7ms
+got roots, treenodes, and cloned egraph contents: 22ms
+num_paths_to_node(): 3ms
+associate_tasks() and other task stuff: 2ms
+num unique tasks: 200
+num unique programs: 200
+cost_of_node structs: 0ms
+get_zippers(): 1541ms
+465517 zips
+arg_of_zid_node size: 465517
+Tracking setup: 0ms
+arity 0: 9ms
+got 1520 arity zero inventions
+built SharedData: 0ms
+TOTAL PREP: 1586ms
+running pattern search...
+TOTAL SEARCH: 3477ms
+TOTAL PREP + SEARCH: 5064ms
+Stats { worklist_steps: 190016, finished: 7, calc_final_utility: 15503, upper_bound_fired: 17924, free_vars_fired: 0, single_use_fired: 16084, single_task_fired: 7419, useless_abstract_fired: 124245, force_multiuse_fired: 1075 }
+Cost before: 2187965
+0: utility: 255226 | final_cost: 1931021 | 1.13x | uses: 159 | body: [fn_2 arity=2: (fn_0 6 (fn_0 10 (fn_0 #1 #0 (r 4) h (r 4) h) (r 4) h) (l 2) h)]
+post stuff: 15ms
+Chose Invention fn_2: utility: 255226 | final_cost: 1931021 | 1.13x | uses: 159 | body: [fn_2 arity=2: (fn_0 6 (fn_0 10 (fn_0 #1 #0 (r 4) h (r 4) h) (r 4) h) (l 2) h)]
+[38;5;4;1m
+=======Iteration 3=======[0m
+set up egraph: 8ms
+got roots, treenodes, and cloned egraph contents: 18ms
+num_paths_to_node(): 3ms
+associate_tasks() and other task stuff: 1ms
+num unique tasks: 200
+num unique programs: 200
+cost_of_node structs: 0ms
+get_zippers(): 1223ms
+347563 zips
+arg_of_zid_node size: 347563
+Tracking setup: 0ms
+arity 0: 8ms
+got 1306 arity zero inventions
+built SharedData: 0ms
+TOTAL PREP: 1265ms
+running pattern search...
+TOTAL SEARCH: 3496ms
+TOTAL PREP + SEARCH: 4762ms
+Stats { worklist_steps: 229287, finished: 3, calc_final_utility: 18757, upper_bound_fired: 21015, free_vars_fired: 0, single_use_fired: 23511, single_task_fired: 6655, useless_abstract_fired: 147447, force_multiuse_fired: 1262 }
+Cost before: 1931021
+0: utility: 194221 | final_cost: 1736495 | 1.11x | uses: 963 | body: [fn_3 arity=3: (#2 (l #1) t (r #0))]
+post stuff: 26ms
+Chose Invention fn_3: utility: 194221 | final_cost: 1736495 | 1.11x | uses: 963 | body: [fn_3 arity=3: (#2 (l #1) t (r #0))]
+[38;5;4;1m
+=======Iteration 4=======[0m
+set up egraph: 5ms
+got roots, treenodes, and cloned egraph contents: 13ms
+num_paths_to_node(): 2ms
+associate_tasks() and other task stuff: 1ms
+num unique tasks: 200
+num unique programs: 200
+cost_of_node structs: 0ms
+get_zippers(): 858ms
+327691 zips
+arg_of_zid_node size: 327691
+Tracking setup: 0ms
+arity 0: 4ms
+got 1135 arity zero inventions
+built SharedData: 0ms
+TOTAL PREP: 885ms
+running pattern search...
+TOTAL SEARCH: 2236ms
+TOTAL PREP + SEARCH: 3121ms
+Stats { worklist_steps: 156796, finished: 11, calc_final_utility: 13731, upper_bound_fired: 12652, free_vars_fired: 0, single_use_fired: 15950, single_task_fired: 5735, useless_abstract_fired: 108361, force_multiuse_fired: 479 }
+Cost before: 1736495
+0: utility: 188971 | final_cost: 1546514 | 1.12x | uses: 209 | body: [fn_4 arity=1: (#0 t (r 3) h (l 1) t (l 3) h)]
+post stuff: 11ms
+Chose Invention fn_4: utility: 188971 | final_cost: 1546514 | 1.12x | uses: 209 | body: [fn_4 arity=1: (#0 t (r 3) h (l 1) t (l 3) h)]
+[38;5;4;1m
+=======Iteration 5=======[0m
+set up egraph: 5ms
+got roots, treenodes, and cloned egraph contents: 10ms
+num_paths_to_node(): 1ms
+associate_tasks() and other task stuff: 1ms
+num unique tasks: 200
+num unique programs: 200
+cost_of_node structs: 0ms
+get_zippers(): 730ms
+270473 zips
+arg_of_zid_node size: 270473
+Tracking setup: 0ms
+arity 0: 4ms
+got 1026 arity zero inventions
+built SharedData: 0ms
+TOTAL PREP: 755ms
+running pattern search...
+TOTAL SEARCH: 1724ms
+TOTAL PREP + SEARCH: 2479ms
+Stats { worklist_steps: 141071, finished: 4, calc_final_utility: 11814, upper_bound_fired: 11036, free_vars_fired: 0, single_use_fired: 10853, single_task_fired: 5053, useless_abstract_fired: 97582, force_multiuse_fired: 456 }
+Cost before: 1546514
+0: utility: 141801 | final_cost: 1403397 | 1.10x | uses: 175 | body: [fn_5 arity=3: (fn_3 #2 4 (fn_3 #2 4 (#1 (r 3) t) h #0 h (r 3) t) h)]
+post stuff: 10ms
+Chose Invention fn_5: utility: 141801 | final_cost: 1403397 | 1.10x | uses: 175 | body: [fn_5 arity=3: (fn_3 #2 4 (fn_3 #2 4 (#1 (r 3) t) h #0 h (r 3) t) h)]
+[38;5;4;1m
+=======Iteration 6=======[0m
+set up egraph: 4ms
+got roots, treenodes, and cloned egraph contents: 9ms
+num_paths_to_node(): 1ms
+associate_tasks() and other task stuff: 1ms
+num unique tasks: 200
+num unique programs: 200
+cost_of_node structs: 0ms
+get_zippers(): 483ms
+213967 zips
+arg_of_zid_node size: 213967
+Tracking setup: 0ms
+arity 0: 4ms
+got 967 arity zero inventions
+built SharedData: 0ms
+TOTAL PREP: 505ms
+running pattern search...
+TOTAL SEARCH: 757ms
+TOTAL PREP + SEARCH: 1263ms
+Stats { worklist_steps: 46977, finished: 5, calc_final_utility: 6026, upper_bound_fired: 7459, free_vars_fired: 0, single_use_fired: 5586, single_task_fired: 4607, useless_abstract_fired: 43962, force_multiuse_fired: 148 }
+Cost before: 1403397
+0: utility: 133724 | final_cost: 1269067 | 1.11x | uses: 266 | body: [fn_6 arity=1: (fn_0 5 (fn_3 6 5 #0 t))]
+post stuff: 11ms
+Chose Invention fn_6: utility: 133724 | final_cost: 1269067 | 1.11x | uses: 266 | body: [fn_6 arity=1: (fn_0 5 (fn_3 6 5 #0 t))]
+[38;5;4;1m
+=======Iteration 7=======[0m
+set up egraph: 4ms
+got roots, treenodes, and cloned egraph contents: 8ms
+num_paths_to_node(): 1ms
+associate_tasks() and other task stuff: 1ms
+num unique tasks: 200
+num unique programs: 200
+cost_of_node structs: 0ms
+get_zippers(): 383ms
+180025 zips
+arg_of_zid_node size: 180025
+Tracking setup: 0ms
+arity 0: 3ms
+got 926 arity zero inventions
+built SharedData: 0ms
+TOTAL PREP: 403ms
+running pattern search...
+TOTAL SEARCH: 686ms
+TOTAL PREP + SEARCH: 1090ms
+Stats { worklist_steps: 42556, finished: 2, calc_final_utility: 5881, upper_bound_fired: 7498, free_vars_fired: 0, single_use_fired: 6247, single_task_fired: 4353, useless_abstract_fired: 41848, force_multiuse_fired: 164 }
+Cost before: 1269067
+0: utility: 109382 | final_cost: 1159381 | 1.09x | uses: 543 | body: [fn_7 arity=2: (#1 h (#0 4) h)]
+post stuff: 16ms
+Chose Invention fn_7: utility: 109382 | final_cost: 1159381 | 1.09x | uses: 543 | body: [fn_7 arity=2: (#1 h (#0 4) h)]
+[38;5;4;1m
+=======Iteration 8=======[0m
+set up egraph: 3ms
+got roots, treenodes, and cloned egraph contents: 6ms
+num_paths_to_node(): 1ms
+associate_tasks() and other task stuff: 1ms
+num unique tasks: 200
+num unique programs: 200
+cost_of_node structs: 0ms
+get_zippers(): 284ms
+147513 zips
+arg_of_zid_node size: 147513
+Tracking setup: 0ms
+arity 0: 3ms
+got 810 arity zero inventions
+built SharedData: 0ms
+TOTAL PREP: 300ms
+running pattern search...
+TOTAL SEARCH: 675ms
+TOTAL PREP + SEARCH: 975ms
+Stats { worklist_steps: 63338, finished: 4, calc_final_utility: 7286, upper_bound_fired: 8356, free_vars_fired: 0, single_use_fired: 10548, single_task_fired: 3711, useless_abstract_fired: 55254, force_multiuse_fired: 99 }
+Cost before: 1159381
+0: utility: 61710 | final_cost: 1097165 | 1.06x | uses: 154 | body: [fn_8 arity=2: (fn_7 r (fn_0 #1 #0 (r 4)))]
+post stuff: 10ms
+Chose Invention fn_8: utility: 61710 | final_cost: 1097165 | 1.06x | uses: 154 | body: [fn_8 arity=2: (fn_7 r (fn_0 #1 #0 (r 4)))]
+[38;5;4;1m
+=======Iteration 9=======[0m
+set up egraph: 3ms
+got roots, treenodes, and cloned egraph contents: 5ms
+num_paths_to_node(): 1ms
+associate_tasks() and other task stuff: 1ms
+num unique tasks: 200
+num unique programs: 200
+cost_of_node structs: 0ms
+get_zippers(): 260ms
+129365 zips
+arg_of_zid_node size: 129365
+Tracking setup: 0ms
+arity 0: 3ms
+got 789 arity zero inventions
+built SharedData: 0ms
+TOTAL PREP: 277ms
+running pattern search...
+TOTAL SEARCH: 618ms
+TOTAL PREP + SEARCH: 895ms
+Stats { worklist_steps: 57297, finished: 5, calc_final_utility: 6933, upper_bound_fired: 7434, free_vars_fired: 0, single_use_fired: 7242, single_task_fired: 3609, useless_abstract_fired: 50669, force_multiuse_fired: 128 }
+Cost before: 1097165
+0: utility: 58277 | final_cost: 1037070 | 1.06x | uses: 35 | body: [fn_9 arity=1: (fn_0 3 (fn_3 2 3 (fn_0 3 (fn_3 2 3 (fn_0 3 (#0 t (r 2) t)) t)) t))]
+post stuff: 6ms
+Chose Invention fn_9: utility: 58277 | final_cost: 1037070 | 1.06x | uses: 35 | body: [fn_9 arity=1: (fn_0 3 (fn_3 2 3 (fn_0 3 (fn_3 2 3 (fn_0 3 (#0 t (r 2) t)) t)) t))]
+[38;5;4;1m
+=======Compression Summary=======[0m
+Found 10 inventions
+Cost Improvement: (3.16x better) 3272907 -> 1037070
+[38;5;4mfn_0[0m (1.25x wrt orig): utility: 645086 | final_cost: 2627315 | 1.25x | uses: 1598 | body: [fn_0 arity=2: (#1 (l #0) h (r 4) h)]
+[38;5;4mfn_1[0m (1.50x wrt orig): utility: 437734 | final_cost: 2187965 | 1.20x | uses: 290 | body: [fn_1 arity=1: (#0 h (r 1) t (l 2) t (r 6) t (l 2) t (r 1) h)]
+[38;5;4mfn_2[0m (1.69x wrt orig): utility: 255226 | final_cost: 1931021 | 1.13x | uses: 159 | body: [fn_2 arity=2: (fn_0 6 (fn_0 10 (fn_0 #1 #0 (r 4) h (r 4) h) (r 4) h) (l 2) h)]
+[38;5;4mfn_3[0m (1.88x wrt orig): utility: 194221 | final_cost: 1736495 | 1.11x | uses: 963 | body: [fn_3 arity=3: (#2 (l #1) t (r #0))]
+[38;5;4mfn_4[0m (2.12x wrt orig): utility: 188971 | final_cost: 1546514 | 1.12x | uses: 209 | body: [fn_4 arity=1: (#0 t (r 3) h (l 1) t (l 3) h)]
+[38;5;4mfn_5[0m (2.33x wrt orig): utility: 141801 | final_cost: 1403397 | 1.10x | uses: 175 | body: [fn_5 arity=3: (fn_3 #2 4 (fn_3 #2 4 (#1 (r 3) t) h #0 h (r 3) t) h)]
+[38;5;4mfn_6[0m (2.58x wrt orig): utility: 133724 | final_cost: 1269067 | 1.11x | uses: 266 | body: [fn_6 arity=1: (fn_0 5 (fn_3 6 5 #0 t))]
+[38;5;4mfn_7[0m (2.82x wrt orig): utility: 109382 | final_cost: 1159381 | 1.09x | uses: 543 | body: [fn_7 arity=2: (#1 h (#0 4) h)]
+[38;5;4mfn_8[0m (2.98x wrt orig): utility: 61710 | final_cost: 1097165 | 1.06x | uses: 154 | body: [fn_8 arity=2: (fn_7 r (fn_0 #1 #0 (r 4)))]
+[38;5;4mfn_9[0m (3.16x wrt orig): utility: 58277 | final_cost: 1037070 | 1.06x | uses: 35 | body: [fn_9 arity=1: (fn_0 3 (fn_3 2 3 (fn_0 3 (fn_3 2 3 (fn_0 3 (#0 t (r 2) t)) t)) t))]
+Time: 39029ms
+Test set compression with all inventions applied: 2.941291649108531
+Wrote to "claim-2-out-50/city/19.json"
+	Command being timed: "../target/release/compress city-19-split.json --hole-choice=depth-first --fmt=split-programs-list --max-arity=3 --iterations=10 --out=claim-2-out-50/city/19.json"
+	User time (seconds): 38.73
+	System time (seconds): 0.60
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:39.36
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 428436
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 403585
+	Voluntary context switches: 0
+	Involuntary context switches: 3895
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 5808
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
