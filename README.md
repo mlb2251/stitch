@@ -232,4 +232,6 @@ install if you havent: `cargo install flamegraph`
 
 ## Acknowledgement
 
+This work is supported by the National Science Foundation under Grant No. 1918839 *Understanding the World Through Code* http://www.neurosymbolic.org/ 
+
 This work is supported in part by the Defense Advanced Research Projects Agency (DARPA) under the program Symbiotic Design for Cyber Physical Systems (SDCPS) Contract FA8750-20-C-0542 (Systemic Generative Engineering). The views, opinions, and/or findings expressed are those of the author(s) and do not necessarily reflect the view of DARPA.
