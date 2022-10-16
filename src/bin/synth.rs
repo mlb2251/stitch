@@ -141,7 +141,7 @@ fn uniform_top_down<D: Domain>(tasks: &[Task<D>], args: &Args) {
 
     top_down::<D,_>(
         OrigamiModel::new(
-            UniformModel::new(NotNan::new(-1.).unwrap(),NotNan::new(-1.).unwrap()),
+            UniformModel::new(NotNan::new(0.).unwrap(),NotNan::new(0.).unwrap()),
             "fix_flip".into(),
             "fix".into()
         ),
