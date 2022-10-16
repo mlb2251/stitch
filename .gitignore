@@ -20,3 +20,4 @@ experiments/benches*
 experiments/cs2*
 experiments/plots
 experiments/launchers
+perf.data

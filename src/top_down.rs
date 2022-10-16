@@ -394,167 +394,167 @@ pub fn expansions<D: Domain>(expr: &PartialExpr, hole_idx: usize) -> impl Iterat
 
 
 
-pub fn top_down<D: Domain, M: ProbabilisticModel>(
-    model: M,
-    all_tasks: &[Task<D>],
-    cfg: &TopDownConfig,
-) {
+// pub fn top_down<D: Domain, M: ProbabilisticModel>(
+//     model: M,
+//     all_tasks: &[Task<D>],
+//     cfg: &TopDownConfig,
+// ) {
 
-    println!("DSL:");
-    for entry in D::dsl_entries() {
-        println!("\t{} :: {}", entry.name, entry.tp);
-    }
+//     println!("DSL:");
+//     for entry in D::dsl_entries() {
+//         println!("\t{} :: {}", entry.name, entry.tp);
+//     }
 
-    let mut ll_record = NotNan::new(0.).unwrap();
+//     let mut ll_record = NotNan::new(0.).unwrap();
 
-    let task_tps: HashMap<Type,Vec<Task<D>>> = all_tasks.iter().map(|task| (task.tp.clone(), task.clone())).into_group_map();
+//     let task_tps: HashMap<Type,Vec<Task<D>>> = all_tasks.iter().map(|task| (task.tp.clone(), task.clone())).into_group_map();
     
 
-    // assert!(tasks.iter().all(|task| task.tp == tp));
+//     // assert!(tasks.iter().all(|task| task.tp == tp));
 
-    // for task in tasks {
-    //     assert_eq!(tp, task.tp.arity());
-    //     // let mut ctx = Context::empty();
-    //     // let tp_task = task.tp.instantiate(&mut ctx);
-    //     // let tp_overall = tp.instantiate(&mut ctx);
-    //     // ctx.unify(
-    //     //     &tp_task,
-    //     //     &tp_overall
-    //     // ).unwrap();
-    // }
+//     // for task in tasks {
+//     //     assert_eq!(tp, task.tp.arity());
+//     //     // let mut ctx = Context::empty();
+//     //     // let tp_task = task.tp.instantiate(&mut ctx);
+//     //     // let tp_overall = tp.instantiate(&mut ctx);
+//     //     // ctx.unify(
+//     //     //     &tp_task,
+//     //     //     &tp_overall
+//     //     // ).unwrap();
+//     // }
 
-    for (tp, tasks) in task_tps.iter() {
-        println!("Searching for {tp} solutions:");
-        for task in tasks {
-            println!("\t{}", task.name)
-        }
+//     for (tp, tasks) in task_tps.iter() {
+//         println!("Searching for {tp} solutions:");
+//         for task in tasks {
+//             println!("\t{}", task.name)
+//         }
 
-        let mut stats = Stats::default();
+//         let mut stats = Stats::default();
 
-        // if we want to wrap this in some lambdas and return it, then the outermost lambda should be the first type in
-        // the list of arg types. This will be the *largest* de bruijn index within the body of the program, therefore
-        // we should reverse the 
-        let mut env: VecDeque<Type> = tp.iter_args().cloned().collect();
-        env.make_contiguous().reverse();
+//         // if we want to wrap this in some lambdas and return it, then the outermost lambda should be the first type in
+//         // the list of arg types. This will be the *largest* de bruijn index within the body of the program, therefore
+//         // we should reverse the 
+//         let mut env: VecDeque<Type> = tp.iter_args().cloned().collect();
+//         env.make_contiguous().reverse();
 
-        let mut worklist: BinaryHeap<WorklistItem> = Default::default();
-        let mut worklist_buf: Vec<WorklistItem> = vec![];
-        let mut expansions_buf: Vec<(NotNan<f32>, PartialExpr)> = vec![];
-        let mut solved_buf: Vec<(NotNan<f32>, String, PartialExpr)> = vec![];
-        worklist.push(WorklistItem::new(NotNan::new(0.).unwrap(), PartialExpr::single_hole(tp.return_type().clone(), env)));
+//         let mut worklist: BinaryHeap<WorklistItem> = Default::default();
+//         let mut worklist_buf: Vec<WorklistItem> = vec![];
+//         let mut expansions_buf: Vec<(NotNan<f32>, PartialExpr)> = vec![];
+//         let mut solved_buf: Vec<(NotNan<f32>, String, PartialExpr)> = vec![];
+//         worklist.push(WorklistItem::new(NotNan::new(0.).unwrap(), PartialExpr::single_hole(tp.return_type().clone(), env)));
 
-        loop {
+//         loop {
 
-            worklist.extend(worklist_buf.drain(..));
+//             worklist.extend(worklist_buf.drain(..));
 
-            let item = match worklist.pop() {
-                Some(item) => item,
-                None => break,
-            };
+//             let item = match worklist.pop() {
+//                 Some(item) => item,
+//                 None => break,
+//             };
 
-            if let Some(track) = &cfg.t_track {
-                if !track.starts_with(item.expr.to_string().split("??").next().unwrap()) {
-                    continue;
-                }
-            } 
+//             if let Some(track) = &cfg.t_track {
+//                 if !track.starts_with(item.expr.to_string().split("??").next().unwrap()) {
+//                     continue;
+//                 }
+//             } 
 
-            if item.ll.trunc() < *ll_record {
-                ll_record = NotNan::new(item.ll.trunc()).unwrap();
-                println!("enumerated all programs under this ll: {} ({} wips processed; {} finished; worklist_size={})", item.ll, stats.num_processed, stats.num_finished, worklist.len());
-            }
+//             if item.ll.trunc() < *ll_record {
+//                 ll_record = NotNan::new(item.ll.trunc()).unwrap();
+//                 println!("enumerated all programs under this ll: {} ({} wips processed; {} finished; worklist_size={})", item.ll, stats.num_processed, stats.num_finished, worklist.len());
+//             }
 
-            // println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
+//             // println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
 
-            let mut unnormalized_ll_total = NotNan::new(f32::NEG_INFINITY).unwrap(); // start as ll=-inf -> P=0
+//             let mut unnormalized_ll_total = NotNan::new(f32::NEG_INFINITY).unwrap(); // start as ll=-inf -> P=0
 
-            let hole_idx = item.expr.holes.len() - 1;
-            stats.num_processed += 1;
+//             let hole_idx = item.expr.holes.len() - 1;
+//             stats.num_processed += 1;
 
-            for expanded in expansions::<D>(&item.expr, hole_idx) {
-                // println!("new expansion: {}", expanded);
+//             for expanded in expansions::<D>(&item.expr, hole_idx) {
+//                 // println!("new expansion: {}", expanded);
 
-                let unnormalized_ll = model.expansion_unnormalized_ll(expanded.prev_prod.as_ref().unwrap(), &item.expr, hole_idx);
-                unnormalized_ll_total = logsumexp(unnormalized_ll_total, unnormalized_ll);
-                if unnormalized_ll_total == f32::NEG_INFINITY {
-                    continue; // we skip adding -infs to the worklist entirely
-                }
+//                 let unnormalized_ll = model.expansion_unnormalized_ll(expanded.prev_prod.as_ref().unwrap(), &item.expr, hole_idx);
+//                 unnormalized_ll_total = logsumexp(unnormalized_ll_total, unnormalized_ll);
+//                 if unnormalized_ll_total == f32::NEG_INFINITY {
+//                     continue; // we skip adding -infs to the worklist entirely
+//                 }
 
-                if expanded.holes.is_empty() {
-                    // new completed program
-                    // todo run the program, see if it works, discard if not or keep if yes
-                    // let expr: Expr = "(fix_flip $0 (lam (lam (if (is_empty $0) 0 (+ ($1 (tail $0)) 1)))))".parse().unwrap();
-                    let expr = Expr::new(expanded.expr.clone());
-                    let mut exec = Executable::<D>::from(expr);
-                    stats.num_finished += 1;
+//                 if expanded.holes.is_empty() {
+//                     // new completed program
+//                     // todo run the program, see if it works, discard if not or keep if yes
+//                     // let expr: Expr = "(fix_flip $0 (lam (lam (if (is_empty $0) 0 (+ ($1 (tail $0)) 1)))))".parse().unwrap();
+//                     let expr = Expr::new(expanded.expr.clone());
+//                     let mut exec = Executable::<D>::from(expr);
+//                     stats.num_finished += 1;
 
-                    for task in tasks {
-                        let mut solved = true;
-                        for io in task.ios.iter() {
-                            // probably excessively much cloning and such here lol
-                            let mut exec_env: Vec<LazyVal<D>> = io.inputs.iter().map(|v| LazyVal::new_strict(v.clone())).collect();
-                            exec_env.reverse(); // for proper arg order
+//                     for task in tasks {
+//                         let mut solved = true;
+//                         for io in task.ios.iter() {
+//                             // probably excessively much cloning and such here lol
+//                             let mut exec_env: Vec<LazyVal<D>> = io.inputs.iter().map(|v| LazyVal::new_strict(v.clone())).collect();
+//                             exec_env.reverse(); // for proper arg order
 
-                            // println!("about to exec");
+//                             // println!("about to exec");
 
-                            exec.set_timeout(Duration::from_millis(100));
-                            if let Ok(res) = exec.eval_child(Id::from(expanded.root.unwrap()), &mut exec_env.clone()) {
-                            // if let Ok(res) = exec.eval_child(exec.expr.root(),&mut exec_env.clone()) {
-                                // println!("done");
-                                    stats.num_eval_ok += 1;
+//                             exec.set_timeout(Duration::from_millis(100));
+//                             if let Ok(res) = exec.eval_child(Id::from(expanded.root.unwrap()), &mut exec_env.clone()) {
+//                             // if let Ok(res) = exec.eval_child(exec.expr.root(),&mut exec_env.clone()) {
+//                                 // println!("done");
+//                                     stats.num_eval_ok += 1;
 
-                                if res == io.output {
-                                    // println!("{} {} {:?}", expanded, "=>".green(), res);
-                                } else {
-                                    // println!("{} {} {:?}", expanded, "=>".yellow(), res);
-                                    solved = false;
-                                    break
-                                }
+//                                 if res == io.output {
+//                                     // println!("{} {} {:?}", expanded, "=>".green(), res);
+//                                 } else {
+//                                     // println!("{} {} {:?}", expanded, "=>".yellow(), res);
+//                                     solved = false;
+//                                     break
+//                                 }
 
-                            } else {
-                                // println!("done");
+//                             } else {
+//                                 // println!("done");
 
-                                // println!("{} {} err", "=>".red(), expanded);
-                                stats.num_eval_err += 1;
-                                solved = false;
-                                break
-                            }
-                        } 
-                        if solved {
-                            solved_buf.push((unnormalized_ll, task.name.clone(), expanded.clone()));
-                        }
-                    }
+//                                 // println!("{} {} err", "=>".red(), expanded);
+//                                 stats.num_eval_err += 1;
+//                                 solved = false;
+//                                 break
+//                             }
+//                         } 
+//                         if solved {
+//                             solved_buf.push((unnormalized_ll, task.name.clone(), expanded.clone()));
+//                         }
+//                     }
                     
-                } else {
-                    // new partial program
-                    expansions_buf.push((unnormalized_ll, expanded));
-                }
-                // panic!("done")
-            }
-            // normalize the log likelihoods, calculate total log likelihood
-            worklist_buf.extend(expansions_buf.drain(..).map(|(unnormalized_ll,expanded)| {
-                // normalize the ll
-                let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
-                // extend prods and holes
-                // println!("{} ll={}", expanded, ll);
-                WorklistItem::new(ll, expanded)
-            }));
+//                 } else {
+//                     // new partial program
+//                     expansions_buf.push((unnormalized_ll, expanded));
+//                 }
+//                 // panic!("done")
+//             }
+//             // normalize the log likelihoods, calculate total log likelihood
+//             worklist_buf.extend(expansions_buf.drain(..).map(|(unnormalized_ll,expanded)| {
+//                 // normalize the ll
+//                 let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
+//                 // extend prods and holes
+//                 // println!("{} ll={}", expanded, ll);
+//                 WorklistItem::new(ll, expanded)
+//             }));
 
-            for (unnormalized_ll, task_name, expanded) in solved_buf.iter() {
-                // normalize the ll
-                let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
-                println!("{} {} [ll={}]: {}", "Solved".green(), task_name, ll, expanded);
-            }
-            solved_buf.clear();
+//             for (unnormalized_ll, task_name, expanded) in solved_buf.iter() {
+//                 // normalize the ll
+//                 let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
+//                 println!("{} {} [ll={}]: {}", "Solved".green(), task_name, ll, expanded);
+//             }
+//             solved_buf.clear();
 
-            // if stats.num_expansions >= 40 {
-            //     break
-            // }
-        }
+//             // if stats.num_expansions >= 40 {
+//             //     break
+//             // }
+//         }
 
 
-    }
+//     }
 
-}
+// }
 
 
 pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
@@ -568,133 +568,144 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
         println!("\t{} :: {}", entry.name, entry.tp);
     }
 
-    let mut ll_record = NotNan::new(0.).unwrap();
+    let budget_decr = NotNan::new(1.5).unwrap();
+    let mut upper_bound = NotNan::new(0.).unwrap();
+    let mut lower_bound = upper_bound - budget_decr;
 
     let task_tps: HashMap<Type,Vec<Task<D>>> = all_tasks.iter().map(|task| (task.tp.clone(), task.clone())).into_group_map();
 
-    for (tp, tasks) in task_tps.iter() {
-        println!("Searching for {tp} solutions:");
-        for task in tasks {
-            println!("\t{}", task.name)
-        }
-
-        let mut stats = Stats::default();
-
-        // if we want to wrap this in some lambdas and return it, then the outermost lambda should be the first type in
-        // the list of arg types. This will be the *largest* de bruijn index within the body of the program, therefore
-        // we should reverse the 
-        let mut env: VecDeque<Type> = tp.iter_args().cloned().collect();
-        env.make_contiguous().reverse();
-
-        let mut worklist: BinaryHeap<WorklistItem> = Default::default();
-        let mut worklist_buf: Vec<WorklistItem> = vec![];
-        let mut expansions_buf: Vec<(NotNan<f32>, PartialExpr)> = vec![];
-        let mut solved_buf: Vec<(NotNan<f32>, String, PartialExpr)> = vec![];
-        worklist.push(WorklistItem::new(NotNan::new(0.).unwrap(), PartialExpr::single_hole(tp.return_type().clone(), env)));
-
-        loop {
-
-            worklist.extend(worklist_buf.drain(..));
-
-            let item = match worklist.pop() {
-                Some(item) => item,
-                None => break,
-            };
-
-            if let Some(track) = &cfg.t_track {
-                if !track.starts_with(item.expr.to_string().split("??").next().unwrap()) {
-                    continue;
-                }
-            } 
-
-            if item.ll.trunc() < *ll_record {
-                ll_record = NotNan::new(item.ll.trunc()).unwrap();
-                println!("enumerated all programs under this ll: {} ({} wips processed; {} finished; worklist_size={})", item.ll, stats.num_processed, stats.num_finished, worklist.len());
+    loop {
+        for (tp, tasks) in task_tps.iter() {
+            println!("Searching for {tp} solutions in range {lower_bound} <= ll <= {upper_bound}:");
+            for task in tasks {
+                println!("\t{}", task.name)
             }
 
-            // println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
+            let mut stats = Stats::default();
 
-            let mut unnormalized_ll_total = NotNan::new(f32::NEG_INFINITY).unwrap(); // start as ll=-inf -> P=0
+            // if we want to wrap this in some lambdas and return it, then the outermost lambda should be the first type in
+            // the list of arg types. This will be the *largest* de bruijn index within the body of the program, therefore
+            // we should reverse the 
+            let mut env: VecDeque<Type> = tp.iter_args().cloned().collect();
+            env.make_contiguous().reverse();
 
-            let hole_idx = item.expr.holes.len() - 1;
-            stats.num_processed += 1;
+            let mut worklist: Vec<WorklistItem> = Default::default();
+            let mut worklist_buf: Vec<WorklistItem> = vec![];
+            let mut expansions_buf: Vec<(NotNan<f32>, PartialExpr)> = vec![];
+            let mut solved_buf: Vec<(NotNan<f32>, String, PartialExpr)> = vec![];
+            worklist.push(WorklistItem::new(NotNan::new(0.).unwrap(), PartialExpr::single_hole(tp.return_type().clone(), env)));
 
-            for expanded in expansions::<D>(&item.expr, hole_idx) {
-                // println!("new expansion: {}", expanded);
+            loop {
 
-                let unnormalized_ll = model.expansion_unnormalized_ll(expanded.prev_prod.as_ref().unwrap(), &item.expr, hole_idx);
-                unnormalized_ll_total = logsumexp(unnormalized_ll_total, unnormalized_ll);
-                if unnormalized_ll_total == f32::NEG_INFINITY {
-                    continue; // we skip adding -infs to the worklist entirely
+                worklist.extend(worklist_buf.drain(..));
+
+                let item = match worklist.pop() {
+                    Some(item) => item,
+                    None => break,
+                };
+
+                if item.ll <= lower_bound {
+                    continue; 
                 }
 
-                if expanded.holes.is_empty() {
-                    // new completed program
-                    // todo run the program, see if it works, discard if not or keep if yes
-                    let expr = Expr::new(expanded.expr.clone());
-                    let mut exec = Executable::<D>::from(expr);
-                    stats.num_finished += 1;
+                if let Some(track) = &cfg.t_track {
+                    if !track.starts_with(item.expr.to_string().split("??").next().unwrap()) {
+                        continue;
+                    }
+                } 
 
-                    for task in tasks {
-                        let mut solved = true;
-                        for io in task.ios.iter() {
-                            // probably excessively much cloning and such here lol
-                            let mut exec_env: Vec<LazyVal<D>> = io.inputs.iter().map(|v| LazyVal::new_strict(v.clone())).collect();
-                            exec_env.reverse(); // for proper arg order
+                // println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
 
-                            // println!("about to exec");
+                let mut unnormalized_ll_total = NotNan::new(f32::NEG_INFINITY).unwrap(); // start as ll=-inf -> P=0
 
-                            exec.set_timeout(Duration::from_millis(100));
-                            if let Ok(res) = exec.eval_child(Id::from(expanded.root.unwrap()), &mut exec_env.clone()) {
-                            // if let Ok(res) = exec.eval_child(exec.expr.root(),&mut exec_env.clone()) {
-                                // println!("done");
-                                    stats.num_eval_ok += 1;
+                let hole_idx = item.expr.holes.len() - 1;
+                stats.num_processed += 1;
 
-                                if res == io.output {
-                                    // println!("{} {} {:?}", expanded, "=>".green(), res);
+                for expanded in expansions::<D>(&item.expr, hole_idx) {
+                    // println!("new expansion: {}", expanded);
+
+                    let unnormalized_ll = model.expansion_unnormalized_ll(expanded.prev_prod.as_ref().unwrap(), &item.expr, hole_idx);
+                    unnormalized_ll_total = logsumexp(unnormalized_ll_total, unnormalized_ll);
+                    if unnormalized_ll_total == f32::NEG_INFINITY {
+                        continue; // we skip adding -infs to the worklist entirely
+                    }
+
+                    if expanded.holes.is_empty() {
+                        // new completed program
+
+                        if item.ll > upper_bound {
+                            continue; 
+                        }
+
+                        // run the program, see if it works, discard if not or keep if yes
+                        let expr = Expr::new(expanded.expr.clone());
+                        let mut exec = Executable::<D>::from(expr);
+                        stats.num_finished += 1;
+
+                        for task in tasks {
+                            let mut solved = true;
+                            for io in task.ios.iter() {
+                                // probably excessively much cloning and such here lol
+                                let mut exec_env: Vec<LazyVal<D>> = io.inputs.iter().map(|v| LazyVal::new_strict(v.clone())).collect();
+                                exec_env.reverse(); // for proper arg order
+
+                                // println!("about to exec");
+
+                                exec.set_timeout(Duration::from_millis(100));
+                                if let Ok(res) = exec.eval_child(Id::from(expanded.root.unwrap()), &mut exec_env.clone()) {
+                                // if let Ok(res) = exec.eval_child(exec.expr.root(),&mut exec_env.clone()) {
+                                    // println!("done");
+                                        stats.num_eval_ok += 1;
+
+                                    if res == io.output {
+                                        // println!("{} {} {:?}", expanded, "=>".green(), res);
+                                    } else {
+                                        // println!("{} {} {:?}", expanded, "=>".yellow(), res);
+                                        solved = false;
+                                        break
+                                    }
+
                                 } else {
-                                    // println!("{} {} {:?}", expanded, "=>".yellow(), res);
+                                    // println!("done");
+
+                                    // println!("{} {} err", "=>".red(), expanded);
+                                    stats.num_eval_err += 1;
                                     solved = false;
                                     break
                                 }
-
-                            } else {
-                                // println!("done");
-
-                                // println!("{} {} err", "=>".red(), expanded);
-                                stats.num_eval_err += 1;
-                                solved = false;
-                                break
+                            } 
+                            if solved {
+                                solved_buf.push((unnormalized_ll, task.name.clone(), expanded.clone()));
                             }
-                        } 
-                        if solved {
-                            solved_buf.push((unnormalized_ll, task.name.clone(), expanded.clone()));
                         }
+                        
+                    } else {
+                        // new partial program
+                        expansions_buf.push((unnormalized_ll, expanded));
                     }
-                    
-                } else {
-                    // new partial program
-                    expansions_buf.push((unnormalized_ll, expanded));
                 }
-            }
-            // normalize the log likelihoods, calculate total log likelihood
-            worklist_buf.extend(expansions_buf.drain(..).map(|(unnormalized_ll,expanded)| {
-                // normalize the ll
-                let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
-                // extend prods and holes
-                // println!("{} ll={}", expanded, ll);
-                WorklistItem::new(ll, expanded)
-            }));
+                // normalize the log likelihoods, calculate total log likelihood
+                worklist_buf.extend(expansions_buf.drain(..).map(|(unnormalized_ll,expanded)| {
+                    // normalize the ll
+                    let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
+                    // extend prods and holes
+                    // println!("{} ll={}", expanded, ll);
+                    WorklistItem::new(ll, expanded)
+                }));
 
-            for (unnormalized_ll, task_name, expanded) in solved_buf.iter() {
-                // normalize the ll
-                let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
-                println!("{} {} [ll={}]: {}", "Solved".green(), task_name, ll, expanded);
+                for (unnormalized_ll, task_name, expanded) in solved_buf.iter() {
+                    // normalize the ll
+                    let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
+                    println!("{} {} [ll={}]: {}", "Solved".green(), task_name, ll, expanded);
+                }
+                solved_buf.clear();
             }
-            solved_buf.clear();
+
+
         }
 
-
+        lower_bound -= budget_decr;
+        upper_bound -= budget_decr;
     }
 
 }
