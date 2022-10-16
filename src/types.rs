@@ -244,8 +244,10 @@ impl Context {
     /// and if theres an obvious mismatch there it gives up. Then it goes and looks up the types in the ctx
     /// in case they were typevars, and then again checks if they have th same constructor. It uses apply_immut() to
     /// avoid mutating the context for this lookup.
+    /// Note the apply_immut version of this was wrong bc thats only safe to do on the hole_tp side and apply_immut
+    /// is already done to the hole before then anyways
     pub fn might_unify(&self, t1: &Type, t2: &Type) -> bool {
-        self.might_unify_(t1,t2) && self.might_unify_(&t1.apply_immut(self), &t2.apply_immut(self))
+        self.might_unify_(t1,t2) // && self.might_unify_(&t1.apply_immut(self), &t2.apply_immut(self))
     }
 
     pub fn might_unify_(&self, t1: &Type, t2: &Type) -> bool {

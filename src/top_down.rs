@@ -13,13 +13,9 @@ use std::collections::HashMap;
 #[derive(Parser, Debug, Serialize)]
 #[clap(name = "Top-down synthesis")]
 pub struct TopDownConfig {
-    /// Max cost to enumerate to
-    // #[clap(short = 'c', long, default_value = "10")]
-    // pub max_cost: usize,
-
-    /// print all exprs found at end
+    /// program to track
     #[clap(long)]
-    pub print_found: bool,
+    pub t_track: Option<String>,
 }
 
 
@@ -340,6 +336,7 @@ pub fn expansions<D: Domain>(expr: &PartialExpr, hole_idx: usize) -> impl Iterat
                 new_expr.prev_prod = Some(prod.clone());
                 new_expr.expr.push(prod);
                 let mut expr_so_far_idx = new_expr.expr.len() - 1;
+                let num_holes = prod_tp.arity();
                 // add a new hole for each arg, along with any apps and lams
                 for arg_tp in prod_tp.iter_args() {
                     // push on an app
@@ -361,6 +358,8 @@ pub fn expansions<D: Domain>(expr: &PartialExpr, hole_idx: usize) -> impl Iterat
                     let new_hole_tp = arg_tp.return_type().clone();
                     new_expr.holes.push(Hole::new(new_hole_tp, new_hole_env, new_expr.expr.len() - 1))
                 }
+                let len = new_expr.holes.len();
+                new_expr.holes[len-num_holes..].reverse(); // reverse order of the ones we added
                 if hole.parent != SENTINEL {
                     fill_sentinel(&mut new_expr.expr[hole.parent], expr_so_far_idx);
                 } else {
@@ -397,7 +396,7 @@ pub fn expansions<D: Domain>(expr: &PartialExpr, hole_idx: usize) -> impl Iterat
 pub fn top_down<D: Domain, M: ProbabilisticModel>(
     model: M,
     all_tasks: &[Task<D>],
-    // cfg: &TopDownConfig,
+    cfg: &TopDownConfig,
 ) {
 
     println!("DSL:");
@@ -451,12 +450,18 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
                 None => break,
             };
 
+            if let Some(track) = &cfg.t_track {
+                if !track.starts_with(item.expr.to_string().split("??").next().unwrap()) {
+                    continue;
+                }
+            } 
+
             if item.ll.trunc() < *ll_record {
                 ll_record = NotNan::new(item.ll.trunc()).unwrap();
                 println!("enumerated all programs under this ll: {} ({} wips processed; {} finished; worklist_size={})", item.ll, stats.num_processed, stats.num_finished, worklist.len());
             }
 
-            // println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
+            println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
 
             let mut unnormalized_ll_total = NotNan::new(f32::NEG_INFINITY).unwrap(); // start as ll=-inf -> P=0
 
@@ -464,7 +469,7 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
             stats.num_processed += 1;
 
             for expanded in expansions::<D>(&item.expr, hole_idx) {
-                // println!("new expansion: {:?}", expanded.expr);
+                // println!("new expansion: {}", expanded);
 
                 let unnormalized_ll = model.expansion_unnormalized_ll(expanded.prev_prod.as_ref().unwrap(), &item.expr, hole_idx);
                 unnormalized_ll_total = logsumexp(unnormalized_ll_total, unnormalized_ll);
@@ -475,6 +480,7 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
                 if expanded.holes.is_empty() {
                     // new completed program
                     // todo run the program, see if it works, discard if not or keep if yes
+                    // let expr: Expr = "(fix_flip $0 (lam (lam (if (is_empty $0) 0 (+ ($1 (tail $0)) 1)))))".parse().unwrap();
                     let expr = Expr::new(expanded.expr.clone());
                     let exec = Executable::<D>::from(expr);
                     stats.num_finished += 1;
@@ -487,7 +493,8 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
                             exec_env.reverse(); // for proper arg order
 
                             if let Ok(res) = exec.eval_child(Id::from(expanded.root.unwrap()), &mut exec_env.clone()) {
-                                stats.num_eval_ok += 1;
+                            // if let Ok(res) = exec.eval_child(exec.expr.root(),&mut exec_env.clone()) {
+                                    stats.num_eval_ok += 1;
 
                                 if res == io.output {
                                     // println!("{} {} {:?}", expanded, "=>".green(), res);
@@ -513,6 +520,7 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
                     // new partial program
                     expansions_buf.push((unnormalized_ll, expanded));
                 }
+                // panic!("done")
             }
             // normalize the log likelihoods, calculate total log likelihood
             worklist_buf.extend(expansions_buf.drain(..).map(|(unnormalized_ll,expanded)| {

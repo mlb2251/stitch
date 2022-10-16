@@ -33,7 +33,10 @@ pub struct Args {
     pub domain: DomainChoice,
 
     #[clap(flatten)]
-    pub cfg: BottomUpConfig,
+    pub bottom_up_cfg: BottomUpConfig,
+
+    #[clap(flatten)]
+    pub top_down_cfg: TopDownConfig,
 }
 
 #[derive(Debug, Clone, ArgEnum, Serialize)]
@@ -113,7 +116,7 @@ fn simple_bottom_up(args: &Args) {
     let fns: Vec<(DSLEntry<SimpleVal>,usize)> = SimpleVal::dsl_entries()
         .map(|entry| (entry.clone(),1)).collect();
 
-    bottom_up(&initial, &fns, &args.cfg)
+    bottom_up(&initial, &fns, &args.bottom_up_cfg)
 }
 
 
@@ -129,7 +132,7 @@ fn prim_list_bottom_up(args: &Args) {
     let fns: Vec<(DSLEntry<ListVal>,usize)> = ListVal::dsl_entries()
         .map(|entry| (entry.clone(),1)).collect();
 
-    bottom_up(&initial, &fns, &args.cfg)
+    bottom_up(&initial, &fns, &args.bottom_up_cfg)
 }
 
 
@@ -142,7 +145,8 @@ fn uniform_top_down<D: Domain>(tasks: &[Task<D>], args: &Args) {
             "fix_flip".into(),
             "fix".into()
         ),
-        tasks
+        tasks,
+        &args.top_down_cfg
     );
 }
 
