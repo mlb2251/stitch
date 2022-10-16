@@ -5,6 +5,7 @@ use serde::Serialize;
 use std::{collections::{VecDeque, BinaryHeap}, default, fmt::Display};
 use ordered_float::NotNan;
 use std::collections::HashMap;
+use std::time::Duration;
 
 // pub type PartialLambda = Option<Lambda>;
 // pub type PartialExpr = Vec<PartialLambda>;
@@ -461,7 +462,7 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
                 println!("enumerated all programs under this ll: {} ({} wips processed; {} finished; worklist_size={})", item.ll, stats.num_processed, stats.num_finished, worklist.len());
             }
 
-            println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
+            // println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
 
             let mut unnormalized_ll_total = NotNan::new(f32::NEG_INFINITY).unwrap(); // start as ll=-inf -> P=0
 
@@ -482,7 +483,7 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
                     // todo run the program, see if it works, discard if not or keep if yes
                     // let expr: Expr = "(fix_flip $0 (lam (lam (if (is_empty $0) 0 (+ ($1 (tail $0)) 1)))))".parse().unwrap();
                     let expr = Expr::new(expanded.expr.clone());
-                    let exec = Executable::<D>::from(expr);
+                    let mut exec = Executable::<D>::from(expr);
                     stats.num_finished += 1;
 
                     for task in tasks {
@@ -492,8 +493,12 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
                             let mut exec_env: Vec<LazyVal<D>> = io.inputs.iter().map(|v| LazyVal::new_strict(v.clone())).collect();
                             exec_env.reverse(); // for proper arg order
 
+                            // println!("about to exec");
+
+                            exec.set_timeout(Duration::from_millis(100));
                             if let Ok(res) = exec.eval_child(Id::from(expanded.root.unwrap()), &mut exec_env.clone()) {
                             // if let Ok(res) = exec.eval_child(exec.expr.root(),&mut exec_env.clone()) {
+                                // println!("done");
                                     stats.num_eval_ok += 1;
 
                                 if res == io.output {
@@ -505,6 +510,8 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
                                 }
 
                             } else {
+                                // println!("done");
+
                                 // println!("{} {} err", "=>".red(), expanded);
                                 stats.num_eval_err += 1;
                                 solved = false;

@@ -181,6 +181,7 @@ fn cons(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     load_args!(handle, args, x:Val, xs:Vec<Val>); 
     let mut rxs = xs;
     rxs.insert(0, x);
+    // println!("{:?}", rxs);
     ok(rxs)
 }
 
@@ -242,6 +243,7 @@ fn tail(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
 /// type i think: ((t0 -> t1) -> t0 -> t1) -> t0 -> t1 
 fn fix(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     *handle.data.borrow_mut() += 1;
+    // println!("fix invocations: {}", handle.data.borrow());
     if *handle.data.borrow() > MAX_FIX_INVOCATIONS {
         return Err(format!("Exceeded max number of fix invocations. Max was {}", MAX_FIX_INVOCATIONS));
     }

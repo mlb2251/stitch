@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::fmt::{self, Formatter, Display, Debug, Write};
 use std::hash::Hash;
 use std::cell::RefCell;
+use std::time::{Instant,Duration};
 use serde::{Serialize, Deserialize};
 use std::collections::hash_map::Values;
 
@@ -118,6 +119,7 @@ pub struct Executable<D: Domain> {
     #[allow(clippy::type_complexity)]
     pub evals: RefCell<HashMap<(Id, Env<D>), Val<D>>>, // from (node,env) to result
     pub data: RefCell<D::Data>,
+    pub start_and_timelimit: Option<(Instant, Duration)>
 }
 
 impl<D: Domain> From<Expr> for Executable<D> {
@@ -126,6 +128,7 @@ impl<D: Domain> From<Expr> for Executable<D> {
             expr,
             evals: HashMap::new().into(),
             data: D::Data::default().into(),
+            start_and_timelimit: None,
         }
     }
 }
@@ -341,8 +344,19 @@ impl<D: Domain> Executable<D> {
         }
     }
 
+    pub fn set_timeout(&mut self, timeout: Duration) {
+        self.start_and_timelimit = Some((Instant::now(), timeout))
+    }
+
     /// eval a subexpression in an environment
     pub fn eval_child(&self, child: Id, env: &mut [LazyVal<D>]) -> VResult<D> {
+        if let Some((start_time, duration)) = &self.start_and_timelimit {
+            if start_time.elapsed() >= *duration {
+                return Err(format!("Eval Timeout"));
+            }
+        }
+
+
         let key = (child, env.to_vec());
         if let Some(val) = self.evals.borrow().get(&key).cloned() {
             return Ok(val);
