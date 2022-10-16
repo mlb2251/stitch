@@ -139,7 +139,7 @@ fn prim_list_bottom_up(args: &Args) {
 
 fn uniform_top_down<D: Domain>(tasks: &[Task<D>], args: &Args) {
 
-    top_down::<D,_>(
+    top_down_inplace::<D,_>(
         OrigamiModel::new(
             UniformModel::new(NotNan::new(0.).unwrap(),NotNan::new(0.).unwrap()),
             "fix_flip".into(),

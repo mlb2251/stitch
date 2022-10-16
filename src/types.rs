@@ -148,6 +148,7 @@ impl Type {
                 Type::Var(i) => {
                     let new = i + shift_by;
                     ctx.ensure_capacity(new);
+                    assert!(ctx.get(new).is_none());
                     Type::Var(new)
                 },
                 Type::Term(name, args) => Type::Term(*name, args.iter().map(|t| instantiate_aux(t, ctx, shift_by)).collect()),
@@ -277,10 +278,9 @@ impl Context {
         match (t1, t2) {
             (Type::Var(i), ty) | (ty, Type::Var(i)) => {
                 if ty == Type::Var(i) { return Ok(()) } // unify(t0, t0) -> true
-                if ty.occurs(i) { return Err(UnifyErr::Occurs) } // unify(t0, (t0 -> int)) -> false
+                if ty.occurs(i) { return Err(UnifyErr::Occurs) } // recursive type  e.g. unify(t0, (t0 -> int)) -> false
                 // *** Above is the "occurs" check, which prevents recursive definitions of types. Removing it would allow them.
 
-                // todo is it really ok to just set this to this? what if that overwrites some important equality thats already there?
                 self.set(i, ty);
                 Ok(())
             },
@@ -306,6 +306,7 @@ impl Context {
     #[inline(always)]
     fn set(&mut self, var: usize, ty: Type) {
         self.ensure_capacity(var);
+        assert!(self.subst[var].is_none());
         self.subst[var] = Some(ty);
     }
 
