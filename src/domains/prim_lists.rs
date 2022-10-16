@@ -243,7 +243,6 @@ fn tail(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
 /// type i think: ((t0 -> t1) -> t0 -> t1) -> t0 -> t1 
 fn fix(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     *handle.data.borrow_mut() += 1;
-    // println!("fix invocations: {}", handle.data.borrow());
     if *handle.data.borrow() > MAX_FIX_INVOCATIONS {
         return Err(format!("Exceeded max number of fix invocations. Max was {}", MAX_FIX_INVOCATIONS));
     }
@@ -251,11 +250,13 @@ fn fix(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
 
     // fix f x = f(fix f)(x)
     let fixf = PrimFun(CurriedFn::new_with_args(Symbol::from("fix"), 2, vec![LazyVal::new_strict(fn_val.clone())]));
-    if let VResult::Ok(ffixf) = handle.apply(&fn_val, fixf) {
+    let res = if let VResult::Ok(ffixf) = handle.apply(&fn_val, fixf) {
         handle.apply(&ffixf, x)
     } else {
         Err("Could not apply fixf to f".into())
-    }
+    };
+    *handle.data.borrow_mut() -= 1;
+    res
 }
 
 /// fix x f = f(fix f)(x)

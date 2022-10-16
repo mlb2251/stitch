@@ -440,6 +440,7 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
         let mut worklist: BinaryHeap<WorklistItem> = Default::default();
         let mut worklist_buf: Vec<WorklistItem> = vec![];
         let mut expansions_buf: Vec<(NotNan<f32>, PartialExpr)> = vec![];
+        let mut solved_buf: Vec<(NotNan<f32>, String, PartialExpr)> = vec![];
         worklist.push(WorklistItem::new(NotNan::new(0.).unwrap(), PartialExpr::single_hole(tp.return_type().clone(), env)));
 
         loop {
@@ -519,7 +520,7 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
                             }
                         } 
                         if solved {
-                            println!("{} {}: {}", "Solved".green(), task.name, expanded);
+                            solved_buf.push((unnormalized_ll, task.name.clone(), expanded.clone()));
                         }
                     }
                     
@@ -537,6 +538,13 @@ pub fn top_down<D: Domain, M: ProbabilisticModel>(
                 // println!("{} ll={}", expanded, ll);
                 WorklistItem::new(ll, expanded)
             }));
+
+            for (unnormalized_ll, task_name, expanded) in solved_buf.iter() {
+                // normalize the ll
+                let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
+                println!("{} {} [ll={}]: {}", "Solved".green(), task_name, ll, expanded);
+            }
+            solved_buf.clear();
 
             // if stats.num_expansions >= 40 {
             //     break
