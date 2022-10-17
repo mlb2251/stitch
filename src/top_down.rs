@@ -5,7 +5,7 @@ use serde::Serialize;
 use std::{collections::{VecDeque, BinaryHeap}, default, fmt::Display};
 use ordered_float::NotNan;
 use std::collections::HashMap;
-use std::time::Duration;
+use std::time::{Duration,Instant};
 
 // pub type PartialLambda = Option<Lambda>;
 // pub type PartialExpr = Vec<PartialLambda>;
@@ -17,6 +17,11 @@ pub struct TopDownConfig {
     /// program to track
     #[clap(long)]
     pub t_track: Option<String>,
+
+    /// min ll
+    #[clap(long)]
+    pub t_min_ll: Option<f32>,
+    
 }
 
 
@@ -576,6 +581,8 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
 
     let mut stats = Stats::default();
 
+    let tstart = Instant::now();
+
     let budget_decr = NotNan::new(1.5).unwrap();
     let mut upper_bound = NotNan::new(0.).unwrap();
     let mut lower_bound = upper_bound - budget_decr;
@@ -583,13 +590,17 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
     let task_tps: HashMap<Type,Vec<Task<D>>> = all_tasks.iter().map(|task| (task.tp.clone(), task.clone())).into_group_map();
 
     loop {
-        if *lower_bound <= -4.5 {
-            break
+
+        if let Some(min_ll) =  cfg.t_min_ll {
+            if *lower_bound <= min_ll {
+                break
+            }
         }
 
 
+
         for (tp, tasks) in task_tps.iter() {
-            println!("{:?}", stats);
+            println!("{:?} @ {}s", stats, tstart.elapsed().as_secs_f32());
             println!("Searching for {tp} solutions in range {lower_bound} <= ll <= {upper_bound}:");
             for task in tasks {
                 println!("\t{}", task.name)
@@ -626,7 +637,7 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                     }
                 }
 
-                println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
+                // println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
                 // println!("holes: {:?}", item.expr.holes);
                 // println!("ctx: {:?}", item.expr.ctx);
 
@@ -648,9 +659,10 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
 
                         // new completed program
 
-                        if item.ll > upper_bound {
-                            continue; 
-                        }
+
+                        // if item.ll > upper_bound {
+                        //     continue; 
+                        // }
 
                         // run the program, see if it works, discard if not or keep if yes
                         let expr = Expr::new(expanded.expr.clone());
@@ -671,7 +683,7 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
 
                                 // println!("about to exec");
 
-                                exec.set_timeout(Duration::from_millis(100));
+                                exec.set_timeout(Duration::from_millis(10));
                                 if let Ok(res) = exec.eval_child(Id::from(expanded.root.unwrap()), &mut exec_env.clone()) {
                                 // if let Ok(res) = exec.eval_child(exec.expr.root(),&mut exec_env.clone()) {
                                     // println!("done");
@@ -693,7 +705,8 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                                     solved = false;
                                     break
                                 }
-                            } 
+                            }
+                            // solved_buf.push((unnormalized_ll, task.name.clone(), expanded.clone()));
                             if solved {
                                 solved_buf.push((unnormalized_ll, task.name.clone(), expanded.clone()));
                             }
@@ -717,7 +730,7 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                     // normalize the ll
                     let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
                     println!("{} {} [ll={}]: {}", "Solved".green(), task_name, ll, expanded);
-                    panic!("done");
+                    // panic!("done");
                 }
                 solved_buf.clear();
             }
