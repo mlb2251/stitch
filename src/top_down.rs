@@ -327,7 +327,13 @@ pub fn expansions<D: Domain>(expr: &PartialExpr, hole_idx: usize) -> impl Iterat
             // println!("passed might_unify");
             let mut new_expr: PartialExpr = expr.clone();
             new_expr.holes.remove(hole_idx);
-            let prod_tp: Type = prod_tp.instantiate(&mut new_expr.ctx);
+
+            // instantiate if this wasnt a variable
+            let prod_tp: Type = if let Lambda::Var(_) = prod {
+                prod_tp.clone()
+            } else {
+                prod_tp.instantiate(&mut new_expr.ctx)
+            };
             // println!("prod: {:?}", prod);
             // println!("hole parent:", )
             // full unification check
@@ -568,6 +574,8 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
         println!("\t{} :: {}", entry.name, entry.tp);
     }
 
+    let mut stats = Stats::default();
+
     let budget_decr = NotNan::new(1.5).unwrap();
     let mut upper_bound = NotNan::new(0.).unwrap();
     let mut lower_bound = upper_bound - budget_decr;
@@ -576,12 +584,11 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
 
     loop {
         for (tp, tasks) in task_tps.iter() {
+            println!("{:?}", stats);
             println!("Searching for {tp} solutions in range {lower_bound} <= ll <= {upper_bound}:");
             for task in tasks {
                 println!("\t{}", task.name)
             }
-
-            let mut stats = Stats::default();
 
             // if we want to wrap this in some lambdas and return it, then the outermost lambda should be the first type in
             // the list of arg types. This will be the *largest* de bruijn index within the body of the program, therefore
@@ -593,7 +600,7 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
             let mut worklist_buf: Vec<WorklistItem> = vec![];
             let mut expansions_buf: Vec<(NotNan<f32>, PartialExpr)> = vec![];
             let mut solved_buf: Vec<(NotNan<f32>, String, PartialExpr)> = vec![];
-            worklist.push(WorklistItem::new(NotNan::new(0.).unwrap(), PartialExpr::single_hole(tp.return_type().clone(), env)));
+            worklist.push(WorklistItem::new(NotNan::new(0.).unwrap(), PartialExpr::single_hole(tp.return_type().clone(), env.clone())));
 
             loop {
 
@@ -612,9 +619,11 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                     if !track.starts_with(item.expr.to_string().split("??").next().unwrap()) {
                         continue;
                     }
-                } 
+                }
 
                 // println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
+                // println!("holes: {:?}", item.expr.holes);
+                // println!("ctx: {:?}", item.expr.ctx);
 
                 let mut unnormalized_ll_total = NotNan::new(f32::NEG_INFINITY).unwrap(); // start as ll=-inf -> P=0
 
@@ -631,6 +640,7 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                     }
 
                     if expanded.holes.is_empty() {
+
                         // new completed program
 
                         if item.ll > upper_bound {
@@ -639,6 +649,11 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
 
                         // run the program, see if it works, discard if not or keep if yes
                         let expr = Expr::new(expanded.expr.clone());
+                        // println!("{}", expanded);
+                        // println!("{}", expanded.ctx);
+
+                        // check for type errors:
+                        expr.infer::<D>(Some(Id::from(expanded.root.unwrap())), &mut Context::empty(), &mut (env.clone())).unwrap();
                         let mut exec = Executable::<D>::from(expr);
                         stats.num_finished += 1;
 
@@ -697,6 +712,7 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                     // normalize the ll
                     let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
                     println!("{} {} [ll={}]: {}", "Solved".green(), task_name, ll, expanded);
+                    panic!("done");
                 }
                 solved_buf.clear();
             }

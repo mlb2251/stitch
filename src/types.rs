@@ -306,7 +306,7 @@ impl Context {
     #[inline(always)]
     fn set(&mut self, var: usize, ty: Type) {
         self.ensure_capacity(var);
-        assert!(self.subst[var].is_none());
+        // assert!(self.subst[var].is_none());
         self.subst[var] = Some(ty);
     }
 
@@ -337,6 +337,9 @@ impl std::fmt::Display for Context {
 
 impl Expr {
     pub fn infer<D: Domain>(&self, child: Option<Id>, ctx: &mut Context, env: &mut VecDeque<Type>) -> Result<Type,UnifyErr> {
+        // if ctx.subst.is_empty() {
+        //     assert!(env.is_empty(), "if anything has been added to the env, it must have already been added to the ctx otherwise")
+        // }
         // println!("infer({})", self.to_string_uncurried(child));
         let child = child.unwrap_or(self.root());
         match &self.nodes[usize::from(child)] {
