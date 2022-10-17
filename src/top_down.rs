@@ -583,6 +583,11 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
     let task_tps: HashMap<Type,Vec<Task<D>>> = all_tasks.iter().map(|task| (task.tp.clone(), task.clone())).into_group_map();
 
     loop {
+        if *lower_bound <= -4.5 {
+            break
+        }
+
+
         for (tp, tasks) in task_tps.iter() {
             println!("{:?}", stats);
             println!("Searching for {tp} solutions in range {lower_bound} <= ll <= {upper_bound}:");
@@ -621,7 +626,7 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                     }
                 }
 
-                // println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
+                println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
                 // println!("holes: {:?}", item.expr.holes);
                 // println!("ctx: {:?}", item.expr.ctx);
 
@@ -723,6 +728,9 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
         lower_bound -= budget_decr;
         upper_bound -= budget_decr;
     }
+
+    println!("{:?}", stats);
+
 
 }
 

@@ -281,6 +281,7 @@ impl Context {
                 if ty.occurs(i) { return Err(UnifyErr::Occurs) } // recursive type  e.g. unify(t0, (t0 -> int)) -> false
                 // *** Above is the "occurs" check, which prevents recursive definitions of types. Removing it would allow them.
 
+                assert!(self.subst[i].is_none());
                 self.set(i, ty);
                 Ok(())
             },
@@ -306,7 +307,6 @@ impl Context {
     #[inline(always)]
     fn set(&mut self, var: usize, ty: Type) {
         self.ensure_capacity(var);
-        // assert!(self.subst[var].is_none());
         self.subst[var] = Some(ty);
     }
 
