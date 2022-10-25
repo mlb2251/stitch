@@ -15,6 +15,13 @@ else
     OUT_DIR=$1
 fi
 
+if [[ $OSTYPE == 'darwin'* ]]
+then
+    GTIME="gtime"
+else
+    GTIME="/usr/bin/time"
+fi
+
 mkdir -p $OUT_DIR
 
 # Save some info about what state of the repo this experiment was run in
@@ -38,7 +45,7 @@ for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
     OUTF=$OUT_DIR/$WL/
     mkdir -p $OUTF
     echo "[claim-3.sh] Starting workload $WL"
-    /usr/bin/time -v $STITCH_DIR/target/release/compress $WL_PATH $STITCH_FLAGS --out=$OUTF/1.json > $OUTF/1.stderrandout 2>&1
+    $GTIME -v $STITCH_DIR/target/release/compress $WL_PATH $STITCH_FLAGS --out=$OUTF/1.json > $OUTF/1.stderrandout 2>&1
 done
 
 

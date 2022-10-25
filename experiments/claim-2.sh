@@ -24,6 +24,13 @@ fi
 
 mkdir -p $OUT_DIR
 
+if [[ $OSTYPE == 'darwin'* ]]
+then
+    GTIME="gtime"
+else
+    GTIME="/usr/bin/time"
+fi
+
 # Save some info about what state of the repo this experiment was run in
 # to aid reporducibility
 echo -n "Current git commit: " > $OUT_DIR/readme.md
@@ -48,7 +55,7 @@ for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
     python3 split_data.py $SEED $WL_PATH "$WL-$SEED-split.json"
     echo "[claim-2.sh] Split data; seed used was $SEED, train test % was 80%"
     echo "Running Stitch"
-    /usr/bin/time -v $STITCH_DIR/target/release/compress "$WL-$SEED-split.json" $STITCH_FLAGS --out=$OUT_DIR/$WL/$SEED.json > $OUT_DIR/$WL/$SEED.stderrandout 2>&1
+    $GTIME -v $STITCH_DIR/target/release/compress "$WL-$SEED-split.json" $STITCH_FLAGS --out=$OUT_DIR/$WL/$SEED.json > $OUT_DIR/$WL/$SEED.stderrandout 2>&1
     done
     rm -v *-split.json
 done
