@@ -114,9 +114,14 @@ fn parse_vec(vec: &[serde_json::value::Value]) -> Vec<Val> {
     valvec
 }
 
+#[derive(Default,Debug)]
+pub struct ListData {
+    fix_counter: u32,
+}
+
 impl Domain for ListVal {
 
-    type Data = u32;  // Use Data as fix-point invocation counter
+    type Data = ListData;  // Use Data as fix-point invocation counter
 
     const TRUST_LEVEL: TrustLevel = TrustLevel::WontLoopMayPanic;
 
@@ -242,8 +247,8 @@ fn tail(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
 /// fix f x = f(fix f)(x)
 /// type i think: ((t0 -> t1) -> t0 -> t1) -> t0 -> t1 
 fn fix(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
-    *handle.data.borrow_mut() += 1;
-    if *handle.data.borrow() > MAX_FIX_INVOCATIONS {
+    handle.data.borrow_mut().fix_counter += 1;
+    if handle.data.borrow().fix_counter > MAX_FIX_INVOCATIONS {
         return Err(format!("Exceeded max number of fix invocations. Max was {}", MAX_FIX_INVOCATIONS));
     }
     load_args!(handle, args, fn_val: Val, x: Val);
@@ -255,9 +260,10 @@ fn fix(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     } else {
         Err("Could not apply fixf to f".into())
     };
-    *handle.data.borrow_mut() -= 1;
+    handle.data.borrow_mut().fix_counter -= 1;
     res
 }
+
 
 /// fix x f = f(fix f)(x)
 /// type i think: t0 -> ((t0 -> t1) -> t0 -> t1) -> t1 
