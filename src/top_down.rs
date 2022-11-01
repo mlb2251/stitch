@@ -533,7 +533,6 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
 fn check_correctness<D: Domain>(tasks: &Vec<Task<D>>, expanded: &PartialExpr, env: &VecDeque<Type>, stats: &mut Stats, solved_buf: &mut Vec<(NotNan<f32>, String, PartialExpr)>, unnormalized_ll: NotNan<f32>) {
     let expr = Expr::new(expanded.expr.clone());
     debug_assert!(expr.infer::<D>(Some(Id::from(expanded.root.unwrap())), &mut Context::empty(), &mut (env.clone())).is_ok());
-    let mut exec = Executable::<D>::from(expr);
     for task in tasks {
         let mut solved = true;
         for io in task.ios.iter() {
@@ -542,9 +541,7 @@ fn check_correctness<D: Domain>(tasks: &Vec<Task<D>>, expanded: &PartialExpr, en
             exec_env.reverse(); // for proper arg order
 
             // println!("about to exec");
-
-            exec.set_timeout(Duration::from_millis(10));
-            if let Ok(res) = exec.eval_child(Id::from(expanded.root.unwrap()), &mut exec_env.clone()) {
+            if let Ok(res) = expr.eval(Id::from(expanded.root.unwrap()), &mut exec_env.clone(), Some(Duration::from_millis(10))) {
             // if let Ok(res) = exec.eval_child(exec.expr.root(),&mut exec_env.clone()) {
                 // println!("done");
                     stats.num_eval_ok += 1;

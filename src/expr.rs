@@ -334,9 +334,6 @@ impl Expr {
         ProgramCost{}.cost_rec(self.into())
     }
 
-    pub fn executable<D: Domain>(&self) -> Executable<D> {
-        self.clone().into()
-    }
 
     /// Returns a subexpression cloned out of this one with new root `child`.
     /// Generally you want to avoid this because

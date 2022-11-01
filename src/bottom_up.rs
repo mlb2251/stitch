@@ -69,7 +69,7 @@ struct Stats {
 }
 
 pub fn bottom_up<D: Domain>(
-    // handle: &mut Executable<D>,
+    // handle: &mut Evaluator<D>,
     initial: &[FoundExpr<D>],
     fns: &[(DSLEntry<D>,usize)],
     cfg: &BottomUpConfig,
@@ -84,17 +84,17 @@ pub fn bottom_up<D: Domain>(
     let mut vals_of_type: AHashMap<Type,Vec<Found<D>>> = Default::default();
 
     // add each dsl fn so the ith dsl fn is expr.nodes[i] // todo programs() is a gross way to do this
-    let mut handle: Executable<D> = {
+    let mut handle: Expr = {
         let dsl_fns_expr: Expr = Expr::programs(fns.iter().map(|(entry,_)| Expr::prim(entry.name)).collect());
         let init_vals_expr: Expr = Expr::programs(initial.iter().map(|found_expr| found_expr.expr.clone()).collect());    
-        Expr::programs(vec![dsl_fns_expr,init_vals_expr]).into()
+        Expr::programs(vec![dsl_fns_expr,init_vals_expr])
     };
 
     let mut seen: AHashMap<Val<D>,usize> = AHashMap::new();
     let mut seen_types: Vec<Type> = vec![];
 
     // ids for the exprs passed in as `initial`
-    let init_val_ids: Vec<Id> = handle.expr.get(handle.expr.get_root().children()[1]).children().to_vec();
+    let init_val_ids: Vec<Id> = handle.get(handle.get_root().children()[1]).children().to_vec();
 
     println!("Productions:");
     for (f,cost) in fns.iter() {
@@ -107,7 +107,7 @@ pub fn bottom_up<D: Domain>(
         let found = Found::new(found_expr.val.clone(), id, found_expr.cost);
         let tp = found_expr.expr.infer::<D>(None, &mut Default::default(), &mut Default::default()).unwrap();
 
-        println!("(cost {}) {} :: {} => {:?}", found.cost, handle.expr.to_string_uncurried(Some(found.id)), tp, found.val);
+        println!("(cost {}) {} :: {} => {:?}", found.cost, handle.to_string_uncurried(Some(found.id)), tp, found.val);
 
         vals_of_type.entry(tp).or_default().push(found.clone());
         seen.insert(found.val.clone(), found.cost);
@@ -134,15 +134,15 @@ pub fn bottom_up<D: Domain>(
             for (found_args, tp, cost) in ArgChoiceIterator::new(&vals_of_type, &seen_types, &dsl_entry.tp, *fn_cost, curr_cost, curr_cost - cfg.cost_step) {
                 let args: Vec<LazyVal<D>> = found_args.iter().map(|&f| LazyVal::new_strict(f.val.clone())).collect();
                 // println!("trying ({} {})", dsl_entry.name, found_cfg.iter().map(|arg| format!("{:?}",arg.val)).collect::<Vec<_>>().join(" "));
-                if let Ok(val) = (D::lookup_fn_ptr(dsl_entry.name)) (args, &mut handle) {
+                if let Ok(val) = (D::lookup_fn_ptr(dsl_entry.name)) (args, &mut handle.as_eval(None)) {
                     stats.num_eval_ok += 1;
                     match seen.get(&val) {
                         None => {
                             stats.num_not_seen += 1;
                             let mut id = Id::from(i_fn); // assumes we constructed the ith fn primitive to be the ith element in handle.expr.nodes
                             for arg in found_args.iter() {
-                                handle.expr.nodes.push(Lambda::App([id,arg.id]));
-                                id = Id::from(handle.expr.nodes.len()-1);
+                                handle.nodes.push(Lambda::App([id,arg.id]));
+                                id = Id::from(handle.nodes.len()-1);
                             }
                             new_vals_of_type.entry(tp).or_default().push(Found::new(val, id, cost));
                         }
@@ -151,8 +151,8 @@ pub fn bottom_up<D: Domain>(
                             if old_cost > cost {
                                 let mut id = Id::from(i_fn); // assumes we constructed the ith fn primitive to be the ith element in handle.expr.nodes
                                 for arg in found_args.iter() {
-                                    handle.expr.nodes.push(Lambda::App([id,arg.id]));
-                                    id = Id::from(handle.expr.nodes.len()-1);
+                                    handle.nodes.push(Lambda::App([id,arg.id]));
+                                    id = Id::from(handle.nodes.len()-1);
                                 }
                                 new_vals_of_type.entry(tp).or_default().push(Found::new(val, id, cost));
         
@@ -177,7 +177,7 @@ pub fn bottom_up<D: Domain>(
                         seen.insert(found.val.clone(),found.cost);
                         vals_of_type.entry(tp.clone()).or_default().push(found.clone());
                         if cfg.print_found{
-                            println!("(cost {}) {} :: {} => {:?}", found.cost, handle.expr.to_string_uncurried(Some(found.id)), tp, found.val);
+                            println!("(cost {}) {} :: {} => {:?}", found.cost, handle.to_string_uncurried(Some(found.id)), tp, found.val);
                         }
                     }
                     Some(&old_cost) => {
@@ -192,7 +192,7 @@ pub fn bottom_up<D: Domain>(
                             // add new value
                             vals_of_type.entry(tp.clone()).or_default().push(found.clone());
                             if cfg.print_found{
-                                println!("(cost {}) {} :: {:?} -> {:?}", found.cost, handle.expr.to_string_uncurried(Some(found.id)), tp, found.val);
+                                println!("(cost {}) {} :: {:?} -> {:?}", found.cost, handle.to_string_uncurried(Some(found.id)), tp, found.val);
                             }  
                         }
                     }

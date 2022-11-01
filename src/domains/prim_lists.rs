@@ -17,7 +17,7 @@ const MAX_FIX_INVOCATIONS: u32 = 20;
 
 type Val = domain::Val<ListVal>;
 type LazyVal = domain::LazyVal<ListVal>;
-type Executable = domain::Executable<ListVal>;
+type Evaluator<'a> = domain::Evaluator<'a,ListVal>;
 type VResult = domain::VResult<ListVal>;
 type DSLFn = domain::DSLFn<ListVal>;
 
@@ -123,8 +123,6 @@ impl Domain for ListVal {
 
     type Data = ListData;  // Use Data as fix-point invocation counter
 
-    const TRUST_LEVEL: TrustLevel = TrustLevel::WontLoopMayPanic;
-
     // val_of_prim takes a symbol like "+" or "0" and returns the corresponding Val.
     // Note that it can largely just be a call to the global hashmap PRIMS that define_semantics generated
     // however you're also free to do any sort of generic parsing you want, allowing for domains with
@@ -182,7 +180,7 @@ impl Domain for ListVal {
 
 // *** DSL FUNCTIONS ***
 
-fn cons(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+fn cons(mut args: Vec<LazyVal>, handle: &Evaluator) -> VResult {
     load_args!(handle, args, x:Val, xs:Vec<Val>); 
     let mut rxs = xs;
     rxs.insert(0, x);
@@ -190,22 +188,22 @@ fn cons(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     ok(rxs)
 }
 
-fn add(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+fn add(mut args: Vec<LazyVal>, handle: &Evaluator) -> VResult {
     load_args!(handle, args, x:i32, y:i32); 
     ok(x+y)
 }
 
-fn sub(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+fn sub(mut args: Vec<LazyVal>, handle: &Evaluator) -> VResult {
     load_args!(handle, args, x:i32, y:i32); 
     ok(x-y)
 }
 
-fn gt(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+fn gt(mut args: Vec<LazyVal>, handle: &Evaluator) -> VResult {
     load_args!(handle, args, x:i32, y:i32); 
     ok(x>y)
 }
 
-fn branch(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+fn branch(mut args: Vec<LazyVal>, handle: &Evaluator) -> VResult {
     load_args!(handle, args, b: bool);
     load_args_lazy!(args, tbranch: LazyVal, fbranch: LazyVal); 
     if b { 
@@ -215,17 +213,17 @@ fn branch(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     }
 }
 
-fn eq(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+fn eq(mut args: Vec<LazyVal>, handle: &Evaluator) -> VResult {
     load_args!(handle, args, x:Val, y:Val); 
     ok(x == y) // since Vals have Eq implemented already in the way that we want
 }
 
-fn is_empty(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+fn is_empty(mut args: Vec<LazyVal>, handle: &Evaluator) -> VResult {
     load_args!(handle, args, xs: Vec<Val>);
     ok(xs.is_empty())
 }
 
-fn head(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+fn head(mut args: Vec<LazyVal>, handle: &Evaluator) -> VResult {
     load_args!(handle, args, xs: Vec<Val>);
     if xs.is_empty() {
         Err(String::from("head called on empty list"))
@@ -234,7 +232,7 @@ fn head(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
     }
 }
 
-fn tail(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+fn tail(mut args: Vec<LazyVal>, handle: &Evaluator) -> VResult {
     load_args!(handle, args, xs: Vec<Val>);
     if xs.is_empty() {
         Err(String::from("tail called on empty list"))
@@ -246,7 +244,7 @@ fn tail(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
 
 /// fix f x = f(fix f)(x)
 /// type i think: ((t0 -> t1) -> t0 -> t1) -> t0 -> t1 
-fn fix(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+fn fix(mut args: Vec<LazyVal>, handle: &Evaluator) -> VResult {
     handle.data.borrow_mut().fix_counter += 1;
     if handle.data.borrow().fix_counter > MAX_FIX_INVOCATIONS {
         return Err(format!("Exceeded max number of fix invocations. Max was {}", MAX_FIX_INVOCATIONS));
@@ -268,7 +266,7 @@ fn fix(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
 /// fix x f = f(fix f)(x)
 /// type i think: t0 -> ((t0 -> t1) -> t0 -> t1) -> t1 
 /// This is to match dreamcoder.
-fn fix_flip(mut args: Vec<LazyVal>, handle: &Executable) -> VResult {
+fn fix_flip(mut args: Vec<LazyVal>, handle: &Evaluator) -> VResult {
     args.reverse();
     fix(args, handle)
 }
