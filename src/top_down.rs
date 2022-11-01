@@ -600,7 +600,9 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
 
 
         for (tp, tasks) in task_tps.iter() {
-            println!("{:?} @ {}s", stats, tstart.elapsed().as_secs_f32());
+            let elapsed = tstart.elapsed().as_secs_f32();
+            println!("{:?} @ {}s ({} processed/s)", stats, elapsed, ((stats.num_processed as f32) / elapsed) as i32 );
+            
             println!("Searching for {tp} solutions in range {lower_bound} <= ll <= {upper_bound}:");
             for task in tasks {
                 println!("\t{}", task.name)

@@ -13,7 +13,7 @@ pub enum ListVal {
 
 // In this domain, we limit how many times "fix" can be invoked.
 // This is a crude way of finding infinitely looping programs.
-const MAX_FIX_INVOCATIONS: u32 = 100;
+const MAX_FIX_INVOCATIONS: u32 = 20;
 
 type Val = domain::Val<ListVal>;
 type LazyVal = domain::LazyVal<ListVal>;
