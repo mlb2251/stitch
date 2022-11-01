@@ -64,6 +64,7 @@ struct Stats {
     num_eval_err: usize,
     num_processed: usize,
     num_finished: usize,
+    max_worklist: usize,
 }
 
 
@@ -313,7 +314,7 @@ fn fill_sentinel(node: &mut Lambda, id: usize) {
 }
 
 
-/// returns an iterator over all possible partialexprs obtained by expanding `hole_idx` in `expr`.
+/// returns an iterator over all possible partialexprs obtained by expanding `hole_idx` in `expr`.eeeeee
 pub fn expansions<D: Domain>(expr: &PartialExpr, hole_idx: usize) -> impl Iterator<Item=PartialExpr> + '_ {
     // let mut expr: PartialExpr = expr.clone();
     let hole: &Hole  = &expr.holes[hole_idx];
@@ -442,6 +443,8 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
             loop {
 
                 worklist.extend(worklist_buf.drain(..));
+
+                stats.max_worklist = std::cmp::max(stats.max_worklist, worklist.len());
 
                 let item = match worklist.pop() {
                     Some(item) => item,
