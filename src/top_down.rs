@@ -2,7 +2,7 @@ use crate::*;
 use clap::Parser;
 use itertools::Itertools;
 use serde::Serialize;
-use std::{collections::{VecDeque, BinaryHeap}, default, fmt::Display};
+use std::{collections::{VecDeque}, fmt::Display};
 use ordered_float::NotNan;
 use std::collections::HashMap;
 use std::time::{Duration,Instant};
@@ -173,7 +173,7 @@ impl Hole {
 pub trait ProbabilisticModel {
     fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr, hole_idx: usize) -> NotNan<f32>;
 
-    fn likelihood(e: &Expr) -> NotNan<f32> {
+    fn likelihood(_e: &Expr) -> NotNan<f32> {
         // todo implement this recursively making use of expansion_unnormalized_ll
         unimplemented!()
     }
@@ -287,7 +287,7 @@ impl UniformModel {
 }
 
 impl ProbabilisticModel for UniformModel {
-    fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr, hole_idx: usize) -> NotNan<f32> {
+    fn expansion_unnormalized_ll(&self, prod: &Lambda, _expr: &PartialExpr, _hole_idx: usize) -> NotNan<f32> {
         match prod {
             Lambda::Var(_) => self.var_ll,
             Lambda::Prim(_) => self.prim_ll,
@@ -300,7 +300,7 @@ impl ProbabilisticModel for UniformModel {
 #[inline]
 fn fill_sentinel(node: &mut Lambda, id: usize) {
     match node {
-        Lambda::App([f,x]) => {
+        Lambda::App([_,x]) => {
             assert_eq!(usize::from(*x), SENTINEL);
             *x = Id::from(id);
         },

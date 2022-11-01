@@ -52,7 +52,7 @@ pub enum SynthChoice {
 }
 
 
-fn parse_tasks<D: Domain>(path: &AsRef<Path>) -> Vec<Task<D>> {
+fn parse_tasks<D: Domain>(path: &dyn AsRef<Path>) -> Vec<Task<D>> {
     let json: serde_json::Value = from_reader(File::open(path).expect("file not found")).expect("json deserializing error");
     let tasks: Vec<Task<D>> = json.as_array().unwrap().iter().map(|task| {
         Task::new(

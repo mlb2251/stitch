@@ -410,15 +410,15 @@ fn test_types() {
     // assert_infer("(map (lam (+ 1)))", Err(UnifyErr::Production));
     // assert_infer("map 3");
 
-    let mut ctx = Context::empty();
+    // let mut ctx = Context::empty();
 
-    let map_tp: Type = "((t0 -> t1) -> (list t0) -> (list t1))".parse().unwrap();
+    // let map_tp: Type = "((t0 -> t1) -> (list t0) -> (list t1))".parse().unwrap();
 
-    let args: Vec<&Type> = map_tp.iter_args().collect();
+    // let args: Vec<&Type> = map_tp.iter_args().collect();
 
-    ctx.unify(args[0], &"int -> bool".parse().unwrap());
-    println!("{}", ctx);
-    println!("{}", args[1].apply(&mut ctx));
+    // ctx.unify(args[0], &"int -> bool".parse().unwrap());
+    // println!("{}", ctx);
+    // println!("{}", args[1].apply(&mut ctx));
 
 
 }

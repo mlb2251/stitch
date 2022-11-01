@@ -91,7 +91,6 @@ pub fn bottom_up<D: Domain>(
     };
 
     let mut seen: AHashMap<Val<D>,usize> = AHashMap::new();
-    let mut seen_types: Vec<Type> = vec![];
 
     // ids for the exprs passed in as `initial`
     let init_val_ids: Vec<Id> = handle.get(handle.get_root().children()[1]).children().to_vec();
@@ -122,7 +121,7 @@ pub fn bottom_up<D: Domain>(
             // vals.dedup_by(|a,b| a.val == b.val);
         });
 
-        seen_types = vals_of_type.keys().cloned().collect();
+        let seen_types: Vec<Type> = vals_of_type.keys().cloned().collect();
 
         println!("new curr cost: {}", curr_cost);
         let mut new_vals_of_type: AHashMap<Type,Vec<Found<D>>> = Default::default();
