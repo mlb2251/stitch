@@ -119,7 +119,8 @@ pub struct Executable<D: Domain> {
     #[allow(clippy::type_complexity)]
     pub evals: RefCell<HashMap<(Id, Env<D>), Val<D>>>, // from (node,env) to result
     pub data: RefCell<D::Data>,
-    pub start_and_timelimit: Option<(Instant, Duration)>
+    pub start_and_timelimit: Option<(Instant, Duration)>,
+    pub use_cache: bool,
 }
 
 impl<D: Domain> From<Expr> for Executable<D> {
@@ -129,6 +130,7 @@ impl<D: Domain> From<Expr> for Executable<D> {
             evals: HashMap::new().into(),
             data: D::Data::default().into(),
             start_and_timelimit: None,
+            use_cache: false,
         }
     }
 }
@@ -358,8 +360,10 @@ impl<D: Domain> Executable<D> {
 
 
         let key = (child, env.to_vec());
-        if let Some(val) = self.evals.borrow().get(&key).cloned() {
-            return Ok(val);
+        if self.use_cache {
+            if let Some(val) = self.evals.borrow().get(&key).cloned() {
+                return Ok(val);
+            }
         }
         let val = match self.expr.nodes[usize::from(child)] {
             Lambda::Var(i) => {
@@ -386,7 +390,9 @@ impl<D: Domain> Executable<D> {
                 panic!("todo implement")
             }
         };
-        self.evals.borrow_mut().insert(key, val.clone());
+        if self.use_cache {
+            self.evals.borrow_mut().insert(key, val.clone());
+        }
         Ok(val)
     }
 }
