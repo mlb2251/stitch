@@ -309,10 +309,10 @@ impl Context {
     /// it still). See unify_cached() for amortized unionfind. Note that this is likely not slower
     /// than unify_cached() in most cases.
     pub fn unify(&mut self, t1: &Type,  t2: &Type) -> UnifyResult {
-        // println!("unify({},{}) {}", t1, t2, self);
+        // println!("\tunify({},{}) {}", t1, t2, self);
         let t1: Type = t1.apply(self);
         let t2: Type = t2.apply(self);
-        // println!("  ...({},{}) {}", t1, t2, self);
+        // println!("\t  ...({},{}) {}", t1, t2, self);
         if t1.is_concrete() && t2.is_concrete() {
             // if both types are concrete, simple equality works because we dont need to do any fancy variable binding
             if t1 == t2 {

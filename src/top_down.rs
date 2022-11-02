@@ -293,14 +293,24 @@ impl Expansion {
         Expansion { prod, prod_tp, ll }
     }
     pub fn apply(self, expr: &mut PartialExpr, hole: &Hole) {
-        // push on the new primitive or var
+
+        // perform unification - 
+        // todo its weird and silly that we repeat this here
+        // instantiate if this wasnt a variable
+        let prod_tp: Type = if let Lambda::Var(_) = self.prod {
+            self.prod_tp.clone()
+        } else {
+            self.prod_tp.instantiate(&mut expr.ctx)
+        };
+        expr.ctx.unify(&hole.tp.apply(&expr.ctx), prod_tp.return_type()).unwrap();
+
         expr.ll = self.ll;
         expr.prev_prod = Some(self.prod.clone());
         expr.expr.push(self.prod.clone());
         let mut expr_so_far_idx = expr.expr.len() - 1;
-        let num_holes = self.prod_tp.arity();
+        let num_holes = prod_tp.arity();
         // add a new hole for each arg, along with any apps and lams
-        for arg_tp in self.prod_tp.iter_args() {
+        for arg_tp in prod_tp.iter_args() {
             // push on an app
             expr.expr.push(Lambda::App([expr_so_far_idx.into(), SENTINEL.into()]));
             expr_so_far_idx = expr.expr.len() - 1;
@@ -340,6 +350,8 @@ pub fn add_expansions<D: Domain, M: ProbabilisticModel>(expr: &mut PartialExpr, 
 
     let ctx_save_state = expr.ctx.save_state();
     // println!("hole type: {}", hole_tp);
+    // println!("ctx: {:?}", expr.ctx);
+
     assert!(!hole_tp.is_arrow());
     // loop over all dsl entries and all variables in the env
     for (prod, prod_tp) in
@@ -352,18 +364,21 @@ pub fn add_expansions<D: Domain, M: ProbabilisticModel>(expr: &mut PartialExpr, 
         if !expr.ctx.might_unify(&hole_tp, prod_tp.return_type()) {
             continue
         }
+        // println!("passed might_unify()");
 
         // instantiate if this wasnt a variable
-        let prod_tp: Type = if let Lambda::Var(_) = prod {
+        let instantiated_prod_tp: Type = if let Lambda::Var(_) = prod {
             prod_tp.clone()
         } else {
             prod_tp.instantiate(&mut expr.ctx)
         };
 
         // full unification check
-        if !expr.ctx.unify(&hole_tp, prod_tp.return_type()).is_ok() {
+        if !expr.ctx.unify(&hole_tp, instantiated_prod_tp.return_type()).is_ok() {
             continue;
         }
+        // println!("passed unify()");
+
 
         let unnormalized_ll = model.expansion_unnormalized_ll(&prod, expr);
 
@@ -371,7 +386,7 @@ pub fn add_expansions<D: Domain, M: ProbabilisticModel>(expr: &mut PartialExpr, 
             continue // skip directly
         }
 
-        expansions_buf.push(Expansion::new(prod, prod_tp, unnormalized_ll))
+        expansions_buf.push(Expansion::new(prod, prod_tp.clone(), unnormalized_ll))
     }
     expr.ctx.load_state(ctx_save_state);
 
@@ -560,10 +575,10 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                     }
 
                 } else {
+                    // println!("{}: {} (ll={})", "expanding".yellow(), expr, expr.ll);
                     add_expansions::<D,M>(&mut expr, &mut expansions, &mut save_states, &model, lower_bound);
                 }
 
-                // println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
                 // println!("holes: {:?}", item.expr.holes);
                 // println!("ctx: {:?}", item.expr.ctx);
 
