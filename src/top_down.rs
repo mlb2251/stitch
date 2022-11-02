@@ -381,28 +381,38 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                 // println!("holes: {:?}", item.expr.holes);
                 // println!("ctx: {:?}", item.expr.ctx);
 
-                let mut unnormalized_ll_total = NotNan::new(f32::NEG_INFINITY).unwrap(); // start as ll=-inf -> P=0
-
                 let hole_idx = item.expr.holes.len() - 1;
                 stats.num_processed += 1;
 
-                for expanded in expansions::<D>(&item.expr, hole_idx) {
+                // collect all expansions
+                let mut expansions: Vec<(PartialExpr,NotNan<f32>)> = expansions::<D>(&item.expr, hole_idx)
+                    // get unnormalized lls
+                    .map(|expanded| {
+                        let ll = model.expansion_unnormalized_ll(expanded.prev_prod.as_ref().unwrap(), &item.expr, hole_idx);
+                        (expanded,ll)
+                    })
+                    // discard entirely if unnormalized ll is -inf 
+                    .filter(|(_,ll)| *ll != f32::NEG_INFINITY).collect();
+
+                // normalize
+                let ll_total = expansions.iter().map(|(_,ll)| ll).copied().reduce(logsumexp).unwrap_or(NotNan::new(f32::NEG_INFINITY).unwrap());
+                for (_,ll) in expansions.iter_mut() {
+                    *ll = item.ll + (*ll - ll_total)
+                }
+
+                for (expanded, ll) in expansions.into_iter() {
                     // println!("new expansion: {}", expanded);
 
-                    let unnormalized_ll = model.expansion_unnormalized_ll(expanded.prev_prod.as_ref().unwrap(), &item.expr, hole_idx);
-                    unnormalized_ll_total = logsumexp(unnormalized_ll_total, unnormalized_ll);
-                    if unnormalized_ll_total == f32::NEG_INFINITY {
-                        continue; // we skip adding -infs to the worklist entirely
-                    }
+                    // if ll < lower_bound {
+                    //     continue; // too low probability
+                    // }
 
                     if expanded.holes.is_empty() {
-
                         // new completed program
-
-
-                        // if item.ll > upper_bound {
-                        //     continue; 
+                        // if ll > upper_bound {
+                        //     continue; // too high probability - was enumerated on a previous pass of depth first search
                         // }
+
 
                         // run the program, see if it works, discard if not or keep if yes
                         // println!("{}", expanded);
@@ -411,25 +421,23 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                         // check for type errors:
                         stats.num_finished += 1;
 
-                        check_correctness(tasks, &expanded, &env, &mut stats, &mut solved_buf, unnormalized_ll);
+                        check_correctness(tasks, &expanded, &env, &mut stats, &mut solved_buf, ll);
                         
                     } else {
                         // new partial program
-                        expansions_buf.push((unnormalized_ll, expanded));
+                        expansions_buf.push((ll, expanded));
                     }
                 }
                 // normalize the log likelihoods, calculate total log likelihood
-                worklist_buf.extend(expansions_buf.drain(..).map(|(unnormalized_ll,expanded)| {
+                worklist_buf.extend(expansions_buf.drain(..).map(|(ll,expanded)| {
                     // normalize the ll
-                    let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
                     // extend prods and holes
                     // println!("{} ll={}", expanded, ll);
                     WorklistItem::new(ll, expanded)
                 }));
 
-                for (unnormalized_ll, task_name, expanded) in solved_buf.iter() {
+                for (ll, task_name, expanded) in solved_buf.iter() {
                     // normalize the ll
-                    let ll = item.ll + (unnormalized_ll - unnormalized_ll_total);
                     println!("{} {} [ll={}]: {}", "Solved".green(), task_name, ll, expanded);
                     // panic!("done");
                 }
@@ -449,7 +457,7 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
 }
 
 #[inline(never)]
-fn check_correctness<D: Domain>(tasks: &Vec<Task<D>>, expanded: &PartialExpr, env: &VecDeque<Type>, stats: &mut Stats, solved_buf: &mut Vec<(NotNan<f32>, String, PartialExpr)>, unnormalized_ll: NotNan<f32>) {
+fn check_correctness<D: Domain>(tasks: &Vec<Task<D>>, expanded: &PartialExpr, env: &VecDeque<Type>, stats: &mut Stats, solved_buf: &mut Vec<(NotNan<f32>, String, PartialExpr)>, ll: NotNan<f32>) {
     let expr = Expr::new(expanded.expr.clone());
     debug_assert!(expr.infer::<D>(Some(Id::from(expanded.root.unwrap())), &mut Context::empty(), &mut (env.clone())).is_ok());
     for task in tasks {
@@ -484,7 +492,7 @@ fn check_correctness<D: Domain>(tasks: &Vec<Task<D>>, expanded: &PartialExpr, en
         }
         // solved_buf.push((unnormalized_ll, task.name.clone(), expanded.clone()));
         if solved {
-            solved_buf.push((unnormalized_ll, task.name.clone(), expanded.clone()));
+            solved_buf.push((ll, task.name.clone(), expanded.clone()));
         }
     }
 }
