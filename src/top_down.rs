@@ -63,7 +63,6 @@ struct Stats {
 
 #[derive(Debug,Clone, PartialEq)]
 pub struct WorklistItem {
-    pub ll: NotNan<f32>,
     pub expr: PartialExpr,
 }
 
@@ -76,14 +75,15 @@ pub struct PartialExpr {
     ctx: Context, // typing context so far
     holes: Vec<Hole>, // holes so far
     prev_prod: Option<Lambda>, // previous production rule used, this is a Var | Prim or it's None if this is empty / the root
+    ll: NotNan<f32>,
 }
 
 impl PartialExpr {
-    pub fn new(expr: Vec<Lambda>, root: Option<usize>, ctx: Context, holes: Vec<Hole>) -> PartialExpr {
-        PartialExpr { expr, root, ctx, holes, prev_prod: None }
+    pub fn new(expr: Vec<Lambda>, root: Option<usize>, ctx: Context, holes: Vec<Hole>, ll: NotNan<f32>) -> PartialExpr {
+        PartialExpr { expr, root, ctx, holes, prev_prod: None, ll }
     }
     pub fn single_hole(tp: Type, env: VecDeque<Type>) -> PartialExpr {
-        PartialExpr::new(vec![], None, Context::empty(), vec![Hole::new(tp,env,SENTINEL)])
+        PartialExpr::new(vec![], None, Context::empty(), vec![Hole::new(tp,env,SENTINEL)], NotNan::new(0.).unwrap())
     }
 }
 
@@ -97,19 +97,19 @@ impl Display for PartialExpr {
 // partialord and ord for the binaryheap
 impl PartialOrd for WorklistItem {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.ll.partial_cmp(&other.ll) // compares by ll
+        self.expr.ll.partial_cmp(&other.expr.ll) // compares by ll
     }
 }
 
 impl Ord for WorklistItem {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.ll.partial_cmp(&other.ll).unwrap() // compares by ll but NaN != NaN
+        self.expr.ll.partial_cmp(&other.expr.ll).unwrap() // compares by ll but NaN != NaN
     }
 }
 
 impl WorklistItem {
-    pub fn new(ll: NotNan<f32>, expr: PartialExpr) -> WorklistItem {
-        WorklistItem { ll, expr }
+    pub fn new(expr: PartialExpr) -> WorklistItem {
+        WorklistItem { expr }
     }
 }
 
@@ -128,7 +128,7 @@ impl Hole {
 
 
 pub trait ProbabilisticModel {
-    fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr, hole_idx: usize) -> NotNan<f32>;
+    fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr) -> NotNan<f32>;
 
     fn likelihood(_e: &Expr) -> NotNan<f32> {
         // todo implement this recursively making use of expansion_unnormalized_ll
@@ -159,7 +159,7 @@ impl<M: ProbabilisticModel> OrigamiModel<M> {
 }
 
 impl<M: ProbabilisticModel> ProbabilisticModel for OrigamiModel<M> {
-    fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr, hole_idx: usize) -> NotNan<f32> {
+    fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr) -> NotNan<f32> {
         // if this is not the very first expansion, and it's to a fix_flip() operator, then set the probability to 0
         if !expr.expr.is_empty() {
             if let Lambda::Prim(p) = prod {
@@ -177,7 +177,6 @@ impl<M: ProbabilisticModel> ProbabilisticModel for OrigamiModel<M> {
         // if we previously expanded with fix_flip(), then force next expansion (ie first argument) to be $0
         if let Some(Lambda::Prim(p)) = expr.prev_prod {
             if p == self.fix_flip {
-                assert!(hole_idx == expr.holes.len() - 1); // we assume a left to right hole filling order for this to make sense (things were pushed on in opposite order hence we take the last hole), though you could change it
                 if let Lambda::Var(0) = prod {
                     // doesnt really matter what we set this to as long as its not -inf, itll get normalized to ll=0 and P=1 since all other productions will be -inf
                     NotNan::new(-1.).unwrap();
@@ -187,7 +186,7 @@ impl<M: ProbabilisticModel> ProbabilisticModel for OrigamiModel<M> {
             }
         }
         // default
-        self.model.expansion_unnormalized_ll(prod, expr, hole_idx)
+        self.model.expansion_unnormalized_ll(prod, expr)
     }
 }
 
@@ -204,7 +203,7 @@ impl UniformModel {
 }
 
 impl ProbabilisticModel for UniformModel {
-    fn expansion_unnormalized_ll(&self, prod: &Lambda, _expr: &PartialExpr, _hole_idx: usize) -> NotNan<f32> {
+    fn expansion_unnormalized_ll(&self, prod: &Lambda, _expr: &PartialExpr) -> NotNan<f32> {
         match prod {
             Lambda::Var(_) => self.var_ll,
             Lambda::Prim(_) => self.prim_ll,
@@ -228,80 +227,243 @@ fn fill_sentinel(node: &mut Lambda, id: usize) {
         _ => unreachable!()
     }
 }
+#[inline]
+fn make_sentinel(node: &mut Lambda) {
+    match node {
+        Lambda::App([_,x]) => {
+            *x = Id::from(SENTINEL);
+        },
+        Lambda::Lam([b]) => {
+            *b = Id::from(SENTINEL); 
+        },
+        _ => unreachable!()
+    }
+}
+
+
+// pub struct TopDownIterator {
+//     states: Vec<SaveState>,
+//     expansions: Vec<Expansion>,
+// }
+// impl Search {
+
+// }
+
+pub struct SaveState {
+    hole: Hole, // hole that was expanded
+    ctx_save_state: (usize,usize), // result of ctx.save_state() right before this expansion happened
+    root: Option<usize>,
+    prev_prod: Option<Lambda>,
+    ll: NotNan<f32>,
+    hole_len: usize, // len of expr.holes (after removing the new `hole`)
+    expr_len: usize,
+    num_expansions: usize,
+}
+
+
+
+impl SaveState {
+    pub fn new(expr: &PartialExpr, hole: Hole, num_expansions: usize) -> SaveState {
+        SaveState { hole, ctx_save_state: expr.ctx.save_state(), root: expr.root.clone(), prev_prod: expr.prev_prod.clone(), ll: expr.ll, hole_len: expr.holes.len(), expr_len: expr.expr.len(), num_expansions }
+    }
+    pub fn apply_with_hole(self, expr: &mut PartialExpr) {
+        self.apply_without_hole(expr);
+        expr.holes.push(self.hole);
+    }
+    pub fn apply_without_hole(&self, expr: &mut PartialExpr) {
+        expr.ctx.load_state(self.ctx_save_state);
+        expr.root = self.root.clone();
+        expr.prev_prod = self.prev_prod.clone();
+        expr.ll = self.ll;
+        expr.holes.truncate(self.hole_len);
+        expr.expr.truncate(self.expr_len);
+        if self.hole.parent != SENTINEL {
+            make_sentinel(&mut expr.expr[self.hole.parent]);
+        }
+    }
+}
+
+pub struct Expansion {
+    prod: Lambda, // production rule used in expansion
+    prod_tp: Type,
+    ll: NotNan<f32>,
+}
+impl Expansion {
+    pub fn new(prod: Lambda, prod_tp: Type, ll: NotNan<f32>) -> Expansion {
+        Expansion { prod, prod_tp, ll }
+    }
+    pub fn apply(self, expr: &mut PartialExpr, hole: &Hole) {
+        // push on the new primitive or var
+        expr.ll = self.ll;
+        expr.prev_prod = Some(self.prod.clone());
+        expr.expr.push(self.prod.clone());
+        let mut expr_so_far_idx = expr.expr.len() - 1;
+        let num_holes = self.prod_tp.arity();
+        // add a new hole for each arg, along with any apps and lams
+        for arg_tp in self.prod_tp.iter_args() {
+            // push on an app
+            expr.expr.push(Lambda::App([expr_so_far_idx.into(), SENTINEL.into()]));
+            expr_so_far_idx = expr.expr.len() - 1;
+
+            // if this arg is higher order it may have arguments - we push those types onto our new env and push lambdas
+            // into our expr
+            let mut new_hole_env = hole.env.clone();
+            for inner_arg_tp in arg_tp.iter_args().cloned() {
+                new_hole_env.push_front(inner_arg_tp);
+                expr.expr.push(Lambda::Lam([SENTINEL.into()]));
+                // adjust pointers so the previous node points to the new node we created
+                let last = expr.expr.len() - 1;
+                fill_sentinel(&mut expr.expr[last - 1], last);
+            }
+
+            // the hole type is the return type of the arg (bc all lambdas were autofilled)
+            let new_hole_tp = arg_tp.return_type().clone();
+            expr.holes.push(Hole::new(new_hole_tp, new_hole_env, expr.expr.len() - 1))
+        }
+        let len = expr.holes.len();
+        expr.holes[len-num_holes..].reverse(); // reverse order of the ones we added
+        if hole.parent != SENTINEL {
+            fill_sentinel(&mut expr.expr[hole.parent], expr_so_far_idx);
+        } else {
+            // filling the single_hole so we can set our root
+            assert!(expr.root.is_none());
+            expr.root = Some(expr_so_far_idx);
+        }
+    }
+}
+
+pub fn add_expansions<D: Domain, M: ProbabilisticModel>(expr: &mut PartialExpr, expansions: &mut Vec<Expansion>, save_states: &mut Vec<SaveState>, model: &M, lower_bound: NotNan<f32>) {
+    let hole: Hole  = expr.holes.pop().unwrap();
+    let hole_tp = hole.tp.apply(&expr.ctx); 
+
+    let mut expansions_buf = vec![];
+
+    let ctx_save_state = expr.ctx.save_state();
+    // println!("hole type: {}", hole_tp);
+    assert!(!hole_tp.is_arrow());
+    // loop over all dsl entries and all variables in the env
+    for (prod, prod_tp) in
+        D::dsl_entries().map(|entry| (Lambda::Prim(entry.name), &entry.tp))
+        .chain(hole.env.iter().enumerate().map(|(i,tp)| (Lambda::Var(i as i32),tp)))
+    {
+        expr.ctx.load_state(ctx_save_state);
+        // println!("considering: {} :: {}", prod, prod_tp);
+        // lightweight check for unification potential before doing the full clone and instantiation
+        if !expr.ctx.might_unify(&hole_tp, prod_tp.return_type()) {
+            continue
+        }
+
+        // instantiate if this wasnt a variable
+        let prod_tp: Type = if let Lambda::Var(_) = prod {
+            prod_tp.clone()
+        } else {
+            prod_tp.instantiate(&mut expr.ctx)
+        };
+
+        // full unification check
+        if !expr.ctx.unify(&hole_tp, prod_tp.return_type()).is_ok() {
+            continue;
+        }
+
+        let unnormalized_ll = model.expansion_unnormalized_ll(&prod, expr);
+
+        if unnormalized_ll == f32::NEG_INFINITY {
+            continue // skip directly
+        }
+
+        expansions_buf.push(Expansion::new(prod, prod_tp, unnormalized_ll))
+    }
+    expr.ctx.load_state(ctx_save_state);
+
+    
+    // normalize
+    let ll_total = expansions_buf.iter().map(|exp| exp.ll).reduce(logsumexp).unwrap_or(NotNan::new(f32::NEG_INFINITY).unwrap());
+    for exp in expansions_buf.iter_mut() {
+        exp.ll = expr.ll + (exp.ll - ll_total)
+    }
+
+    // LOWER BOUND: keep ones that are higher than the lower bound in probability
+    // expansions_buf.retain(|exp| exp.ll > lower_bound); // cant easily fit a skip() in here but thats harmless so its ok
+    let old_expansions_len = expansions.len();
+    expansions.extend(expansions_buf.drain(..).filter(|exp| exp.ll > lower_bound));
+
+    save_states.push(SaveState::new(expr, hole, expansions.len() - old_expansions_len));
+}
+
 
 
 /// returns an iterator over all possible partialexprs obtained by expanding `hole_idx` in `expr`.eeeeee
-pub fn expansions<D: Domain>(expr: &PartialExpr, hole_idx: usize) -> impl Iterator<Item=PartialExpr> + '_ {
-    // let mut expr: PartialExpr = expr.clone();
-    let hole: &Hole  = &expr.holes[hole_idx];
-    // let env = hole.env.clone();
-    let hole_tp = hole.tp.apply(&expr.ctx); 
-    // println!("hole type: {}", hole_tp);
-    assert!(!hole.tp.is_arrow());
-    // loop over all dsl entries and all variables in the env
-    D::dsl_entries().map(|entry| (Lambda::Prim(entry.name), &entry.tp))
-        .chain(hole.env.iter().enumerate().map(|(i,tp)| (Lambda::Var(i as i32),tp)))
-        .filter_map(move |(prod, prod_tp)|
-    {
-        // println!("considering: {} :: {}", prod, prod_tp);
-        // lightweight check for unification potential before doing the full clone
-        if expr.ctx.might_unify(&hole_tp, prod_tp.return_type()) {
-            // println!("passed might_unify");
-            let mut new_expr: PartialExpr = expr.clone();
-            new_expr.holes.remove(hole_idx);
+// pub fn expansions<D: Domain>(expr: &PartialExpr) -> impl Iterator<Item=PartialExpr> + '_ {
+//     // let mut expr: PartialExpr = expr.clone();
+//     let hole: &Hole  = &expr.holes.last().unwrap();
+//     // let env = hole.env.clone();
+//     let hole_tp = hole.tp.apply(&expr.ctx); 
+//     // println!("hole type: {}", hole_tp);
+//     assert!(!hole_tp.is_arrow());
+//     // loop over all dsl entries and all variables in the env
+//     D::dsl_entries().map(|entry| (Lambda::Prim(entry.name), &entry.tp))
+//         .chain(hole.env.iter().enumerate().map(|(i,tp)| (Lambda::Var(i as i32),tp)))
+//         .filter_map(move |(prod, prod_tp)|
+//     {
+//         // println!("considering: {} :: {}", prod, prod_tp);
+//         // lightweight check for unification potential before doing the full clone
+//         if expr.ctx.might_unify(&hole_tp, prod_tp.return_type()) {
+//             // println!("passed might_unify");
+//             let mut new_expr: PartialExpr = expr.clone();
+//             new_expr.holes.pop().unwrap();
 
-            // instantiate if this wasnt a variable
-            let prod_tp: Type = if let Lambda::Var(_) = prod {
-                prod_tp.clone()
-            } else {
-                prod_tp.instantiate(&mut new_expr.ctx)
-            };
-            // println!("prod: {:?}", prod);
-            // println!("hole parent:", )
-            // full unification check
-            if new_expr.ctx.unify(&hole_tp, prod_tp.return_type()).is_ok() {
-                // println!("passed unify");
-                // push on the new primitive or var
-                new_expr.prev_prod = Some(prod.clone());
-                new_expr.expr.push(prod);
-                let mut expr_so_far_idx = new_expr.expr.len() - 1;
-                let num_holes = prod_tp.arity();
-                // add a new hole for each arg, along with any apps and lams
-                for arg_tp in prod_tp.iter_args() {
-                    // push on an app
-                    new_expr.expr.push(Lambda::App([expr_so_far_idx.into(), SENTINEL.into()]));
-                    expr_so_far_idx = new_expr.expr.len() - 1;
+//             // instantiate if this wasnt a variable
+//             let prod_tp: Type = if let Lambda::Var(_) = prod {
+//                 prod_tp.clone()
+//             } else {
+//                 prod_tp.instantiate(&mut new_expr.ctx)
+//             };
+//             // println!("prod: {:?}", prod);
+//             // println!("hole parent:", )
+//             // full unification check
+//             if new_expr.ctx.unify(&hole_tp, prod_tp.return_type()).is_ok() {
+//                 // println!("passed unify");
+//                 // push on the new primitive or var
+//                 new_expr.prev_prod = Some(prod.clone());
+//                 new_expr.expr.push(prod);
+//                 let mut expr_so_far_idx = new_expr.expr.len() - 1;
+//                 let num_holes = prod_tp.arity();
+//                 // add a new hole for each arg, along with any apps and lams
+//                 for arg_tp in prod_tp.iter_args() {
+//                     // push on an app
+//                     new_expr.expr.push(Lambda::App([expr_so_far_idx.into(), SENTINEL.into()]));
+//                     expr_so_far_idx = new_expr.expr.len() - 1;
 
-                    // if this arg is higher order it may have arguments - we push those types onto our new env and push lambdas
-                    // into our expr
-                    let mut new_hole_env = hole.env.clone();
-                    for inner_arg_tp in arg_tp.iter_args().cloned() {
-                        new_hole_env.push_front(inner_arg_tp);
-                        new_expr.expr.push(Lambda::Lam([SENTINEL.into()]));
-                        // adjust pointers so the previous node points to the new node we created
-                        let last = new_expr.expr.len() - 1;
-                        fill_sentinel(&mut new_expr.expr[last - 1], last);
-                    }
+//                     // if this arg is higher order it may have arguments - we push those types onto our new env and push lambdas
+//                     // into our expr
+//                     let mut new_hole_env = hole.env.clone();
+//                     for inner_arg_tp in arg_tp.iter_args().cloned() {
+//                         new_hole_env.push_front(inner_arg_tp);
+//                         new_expr.expr.push(Lambda::Lam([SENTINEL.into()]));
+//                         // adjust pointers so the previous node points to the new node we created
+//                         let last = new_expr.expr.len() - 1;
+//                         fill_sentinel(&mut new_expr.expr[last - 1], last);
+//                     }
 
-                    // the hole type is the return type of the arg (bc all lambdas were autofilled)
-                    let new_hole_tp = arg_tp.return_type().clone();
-                    new_expr.holes.push(Hole::new(new_hole_tp, new_hole_env, new_expr.expr.len() - 1))
-                }
-                let len = new_expr.holes.len();
-                new_expr.holes[len-num_holes..].reverse(); // reverse order of the ones we added
-                if hole.parent != SENTINEL {
-                    fill_sentinel(&mut new_expr.expr[hole.parent], expr_so_far_idx);
-                } else {
-                    // filling the single_hole so we can set our root
-                    assert!(new_expr.root.is_none());
-                    new_expr.root = Some(expr_so_far_idx);
-                }
-                return Some(new_expr)
-            }
-        }
-        None
-    })
-}
+//                     // the hole type is the return type of the arg (bc all lambdas were autofilled)
+//                     let new_hole_tp = arg_tp.return_type().clone();
+//                     new_expr.holes.push(Hole::new(new_hole_tp, new_hole_env, new_expr.expr.len() - 1))
+//                 }
+//                 let len = new_expr.holes.len();
+//                 new_expr.holes[len-num_holes..].reverse(); // reverse order of the ones we added
+//                 if hole.parent != SENTINEL {
+//                     fill_sentinel(&mut new_expr.expr[hole.parent], expr_so_far_idx);
+//                 } else {
+//                     // filling the single_hole so we can set our root
+//                     assert!(new_expr.root.is_none());
+//                     new_expr.root = Some(expr_so_far_idx);
+//                 }
+//                 return Some(new_expr)
+//             }
+//         }
+//         None
+//     })
+// }
 
 
 pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
@@ -350,96 +512,61 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
             let mut env: VecDeque<Type> = tp.iter_args().cloned().collect();
             env.make_contiguous().reverse();
 
-            let mut worklist: Vec<WorklistItem> = Default::default();
-            let mut worklist_buf: Vec<WorklistItem> = vec![];
-            let mut expansions_buf: Vec<(NotNan<f32>, PartialExpr)> = vec![];
-            let mut solved_buf: Vec<(NotNan<f32>, String, PartialExpr)> = vec![];
-            worklist.push(WorklistItem::new(NotNan::new(0.).unwrap(), PartialExpr::single_hole(tp.return_type().clone(), env.clone())));
+            let mut save_states: Vec<SaveState> = vec![];
+            let mut expansions: Vec<Expansion> = vec![];
+            let mut solved_buf: Vec<(String, PartialExpr)> = vec![];
+            let mut expr = PartialExpr::single_hole(tp.return_type().clone(), env.clone());
+            add_expansions::<D,M>(&mut expr, &mut expansions, &mut save_states, &model, lower_bound);
 
             loop {
+                // check if totally done
+                if save_states.is_empty() {
+                    break 
+                }
 
-                worklist.extend(worklist_buf.drain(..));
+                // check if we need to pop our save state to pop a step upwards in DFS
+                if save_states.last().unwrap().num_expansions == 0 {
+                    save_states.pop().unwrap().apply_with_hole(&mut expr);
+                    continue
+                }
 
-                stats.max_worklist = std::cmp::max(stats.max_worklist, worklist.len());
+                // reset to the current save state
+                save_states.last().unwrap().apply_without_hole(&mut expr);
 
-                let item = match worklist.pop() {
-                    Some(item) => item,
-                    None => break,
-                };
+                // apply the expansion
+                expansions.pop().unwrap().apply(&mut expr, &save_states.last().unwrap().hole);
+                save_states.last_mut().unwrap().num_expansions -= 1;
 
-                assert!(item.ll > lower_bound);
+                assert!(expr.ll > lower_bound);
+
+                stats.num_processed += 1;
 
                 if let Some(track) = &cfg.t_track {
-                    if !track.starts_with(item.expr.to_string().split("??").next().unwrap()) {
+                    if !track.starts_with(expr.to_string().split("??").next().unwrap()) {
                         continue;
                     }
+                }
+
+                if expr.holes.is_empty() {
+                    // newly completed program
+                    if expr.ll > upper_bound {
+                        continue; // too high probability - was enumerated on a previous pass of depth first search
+                    }
+                    stats.num_finished += 1;
+                    let solved_tasks = check_correctness(tasks, &expr, &env, &mut stats, &mut solved_buf);
+
+                    for task_name in solved_tasks {
+                        println!("{} {} [ll={}]: {}", "Solved".green(), task_name, expr.ll, expr);
+                    }
+
+                } else {
+                    add_expansions::<D,M>(&mut expr, &mut expansions, &mut save_states, &model, lower_bound);
                 }
 
                 // println!("{}: {} (ll={}; P={})", "expanding".yellow(), item.expr, item.ll, item.ll.exp());
                 // println!("holes: {:?}", item.expr.holes);
                 // println!("ctx: {:?}", item.expr.ctx);
 
-                let hole_idx = item.expr.holes.len() - 1;
-                stats.num_processed += 1;
-
-                // collect all expansions
-                let mut expansions: Vec<(PartialExpr,NotNan<f32>)> = expansions::<D>(&item.expr, hole_idx)
-                    // get unnormalized lls
-                    .map(|expanded| {
-                        let ll = model.expansion_unnormalized_ll(expanded.prev_prod.as_ref().unwrap(), &item.expr, hole_idx);
-                        (expanded,ll)
-                    })
-                    // discard entirely if unnormalized ll is -inf 
-                    .filter(|(_,ll)| *ll != f32::NEG_INFINITY).collect();
-
-                // normalize
-                let ll_total = expansions.iter().map(|(_,ll)| ll).copied().reduce(logsumexp).unwrap_or(NotNan::new(f32::NEG_INFINITY).unwrap());
-                for (_,ll) in expansions.iter_mut() {
-                    *ll = item.ll + (*ll - ll_total)
-                }
-
-                for (expanded, ll) in expansions.into_iter() {
-                    // println!("new expansion: {}", expanded);
-
-                    if ll <= lower_bound {
-                        continue; // too low probability
-                    }
-
-                    if expanded.holes.is_empty() {
-                        // new completed program
-                        if ll > upper_bound {
-                            continue; // too high probability - was enumerated on a previous pass of depth first search
-                        }
-
-
-                        // run the program, see if it works, discard if not or keep if yes
-                        // println!("{}", expanded);
-                        // println!("{}", expanded.ctx);
-
-                        // check for type errors:
-                        stats.num_finished += 1;
-
-                        check_correctness(tasks, &expanded, &env, &mut stats, &mut solved_buf, ll);
-                        
-                    } else {
-                        // new partial program
-                        expansions_buf.push((ll, expanded));
-                    }
-                }
-                // normalize the log likelihoods, calculate total log likelihood
-                worklist_buf.extend(expansions_buf.drain(..).map(|(ll,expanded)| {
-                    // normalize the ll
-                    // extend prods and holes
-                    // println!("{} ll={}", expanded, ll);
-                    WorklistItem::new(ll, expanded)
-                }));
-
-                for (ll, task_name, expanded) in solved_buf.iter() {
-                    // normalize the ll
-                    println!("{} {} [ll={}]: {}", "Solved".green(), task_name, ll, expanded);
-                    // panic!("done");
-                }
-                solved_buf.clear();
             }
 
 
@@ -455,7 +582,8 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
 }
 
 #[inline(never)]
-fn check_correctness<D: Domain>(tasks: &Vec<Task<D>>, expanded: &PartialExpr, env: &VecDeque<Type>, stats: &mut Stats, solved_buf: &mut Vec<(NotNan<f32>, String, PartialExpr)>, ll: NotNan<f32>) {
+fn check_correctness<D: Domain>(tasks: &Vec<Task<D>>, expanded: &PartialExpr, env: &VecDeque<Type>, stats: &mut Stats, solved_buf: &mut Vec<(String, PartialExpr)>) -> Vec<String>{
+    let mut solved_tasks: Vec<String> = vec![];
     let expr = Expr::new(expanded.expr.clone());
     debug_assert!(expr.infer::<D>(Some(Id::from(expanded.root.unwrap())), &mut Context::empty(), &mut (env.clone())).is_ok());
     for task in tasks {
@@ -490,9 +618,10 @@ fn check_correctness<D: Domain>(tasks: &Vec<Task<D>>, expanded: &PartialExpr, en
         }
         // solved_buf.push((unnormalized_ll, task.name.clone(), expanded.clone()));
         if solved {
-            solved_buf.push((ll, task.name.clone(), expanded.clone()));
+            solved_tasks.push(task.name.clone());
         }
     }
+    solved_tasks
 }
 
 

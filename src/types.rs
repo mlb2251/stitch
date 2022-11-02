@@ -254,14 +254,15 @@ impl Context {
         }
     }
 
-    pub fn save_state(&self) -> usize {
+    pub fn save_state(&self) -> (usize,usize) {
         assert!(self.append_only);
-        self.subst_append_only.len()
+        (self.subst_append_only.len(), self.next_var)
     }
 
-    pub fn load_state(&mut self, state: usize) {
+    pub fn load_state(&mut self, state: (usize,usize)) {
         assert!(self.append_only);
-        self.subst_append_only.truncate(state);
+        self.subst_append_only.truncate(state.0);
+        self.next_var = state.1;
     }
 
     fn fresh_type_var(&mut self) -> Type {
@@ -281,7 +282,8 @@ impl Context {
     }
 
     /// a very quick non-allocating check that returns false if it's
-    /// obvious that these types won't unify. First this checks if t1 and t2 have the same constructors
+    /// obvious that these types won't unify. This works *even when a type hasnt
+    /// been instantiated() to have new type variables*. First this checks if t1 and t2 have the same constructors
     /// and if theres an obvious mismatch there it gives up. Then it goes and looks up the types in the ctx
     /// in case they were typevars, and then again checks if they have th same constructor. It uses apply_immut() to
     /// avoid mutating the context for this lookup.
