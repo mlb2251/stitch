@@ -52,12 +52,6 @@ impl<D:Domain> IO<D> {
 }
 
 
-
-
-
-
-
-
 #[derive(Clone, Debug, Default)]
 struct Stats {
     num_eval_ok: usize,
@@ -66,22 +60,6 @@ struct Stats {
     num_finished: usize,
     max_worklist: usize,
 }
-
-
-// #[derive(Debug,Clone, Eq, PartialEq)]
-// struct PartialExprHeavy {
-//     cost: f32,
-//     expr: Vec<Lambda>,
-//     next_hole_parent: usize, // ptr into expr to the next app or lam that needs a righthand child
-//     ctx: Context,
-// }
-
-// #[derive(Debug,Clone, Eq, PartialEq)]
-// struct PartialExprLight {
-//     cost: f32,
-//     parent: usize,
-//     holes: Vec<HoleEntry>,
-// }
 
 #[derive(Debug,Clone, PartialEq)]
 pub struct WorklistItem {
@@ -116,15 +94,6 @@ impl Display for PartialExpr {
     }
 }
 
-
-// #[derive(Debug,Clone, Eq, PartialEq)]
-// struct HoleEntry {
-//     parent: usize, // And since its a parent of ours, any ctx vars it refers to will still be in our ctx so we all good.
-//     tp: usize, // this is just gonna be the typevar we can use to look up the real type in the context - important so we get the most updated version
-// }
-
-
-
 // partialord and ord for the binaryheap
 impl PartialOrd for WorklistItem {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -143,19 +112,6 @@ impl WorklistItem {
         WorklistItem { ll, expr }
     }
 }
-
-
-// pub struct Expansion {
-//     prod: Vec<Lambda>, // must be Prim(Symbol) | Var(i32)
-//     ctx: Context,
-//     holes: Vec<Hole>,
-// }
-
-// impl Expansion {
-//     fn new(prod: Vec<Lambda>, ctx: Context, holes: Vec<Hole>) -> Expansion {
-//         Expansion {prod, ctx, holes}
-//     }
-// }
 
 #[derive(Debug,Clone, PartialEq, Eq)]
 pub struct Hole {
@@ -180,46 +136,6 @@ pub trait ProbabilisticModel {
     }
 
 }
-
-
-// pub struct MaskPrimitives<M: ProbabilisticModel>
-//  {
-//     model: M,
-//     masked: Vec<Symbol>,
-// }
-
-// impl<M: ProbabilisticModel> ProbabilisticModel for MaskPrimitives<M> {
-//     fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr, hole_idx: usize) -> NotNan<f32> {
-//         // mask out anything in self.masked to probability 0
-//         if let Lambda::Prim(p) = prod {
-//             if self.masked.contains(p) {
-//                 return NotNan::new(f32::NEG_INFINITY).unwrap();
-//             }
-//         }
-//         self.model.expansion_unnormalized_ll(prod, expr, hole_idx)
-//     }
-// }
-
-
-// pub struct OverrideModel<M, F>
-// where
-//     M: ProbabilisticModel,
-//     F: Fn(&Lambda, &PartialExpr, usize, NotNan<f32>) -> NotNan<f32>
-// {
-//     model: M,
-//     f: F,
-// }
-
-// impl<M,F> ProbabilisticModel for OverrideModel<M,F>
-// where
-//     M: ProbabilisticModel,
-//     F: Fn(&Lambda, &PartialExpr, usize, NotNan<f32>) -> NotNan<f32>
-// {
-
-//     fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr, hole_idx: usize) -> NotNan<f32> {
-//         (self.f) (prod, expr, hole_idx, self.model.expansion_unnormalized_ll(prod, expr, hole_idx))
-//     }
-// }
 
 
 /// This wraps a model to make it behave roughly like the DreamCoder enumerator, which when it detects a fixpoint operator
@@ -452,7 +368,7 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                 };
 
                 if item.ll <= lower_bound {
-                    continue; 
+                    continue;
                 }
 
                 if let Some(track) = &cfg.t_track {
