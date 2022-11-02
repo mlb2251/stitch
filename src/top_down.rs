@@ -235,7 +235,7 @@ pub fn expansions<D: Domain>(expr: &PartialExpr, hole_idx: usize) -> impl Iterat
     // let mut expr: PartialExpr = expr.clone();
     let hole: &Hole  = &expr.holes[hole_idx];
     // let env = hole.env.clone();
-    let hole_tp = hole.tp.apply_immut(&expr.ctx); 
+    let hole_tp = hole.tp.apply(&expr.ctx); 
     // println!("hole type: {}", hole_tp);
     assert!(!hole.tp.is_arrow());
     // loop over all dsl entries and all variables in the env

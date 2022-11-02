@@ -104,7 +104,7 @@ pub fn bottom_up<D: Domain>(
     for (i,found_expr) in initial.iter().enumerate() {
         let id = init_val_ids[i]; // ith child of programs node
         let found = Found::new(found_expr.val.clone(), id, found_expr.cost);
-        let tp = found_expr.expr.infer::<D>(None, &mut Default::default(), &mut Default::default()).unwrap();
+        let tp = found_expr.expr.infer::<D>(None, &mut Context::empty(), &mut Default::default()).unwrap();
 
         println!("(cost {}) {} :: {} => {:?}", found.cost, handle.to_string_uncurried(Some(found.id)), tp, found.val);
 
