@@ -20,6 +20,11 @@ pub enum Type {
     // Arrow(Box<Type>,Box<Type>)
 }
 
+
+lazy_static::lazy_static! {
+    static ref ARROW_SYM: egg::Symbol = Symbol::from(Type::ARROW);
+}
+
 impl Type {
     pub const ARROW: &'static str = "->";
 
@@ -28,20 +33,20 @@ impl Type {
     }
 
     pub fn arrow(left: Type, right: Type) -> Type {
-        Type::Term(Type::ARROW.into(), vec![left, right])
+        Type::Term(*ARROW_SYM, vec![left, right])
     }
 
     pub fn is_arrow(&self) -> bool {
         match self {
             Type::Var(_) => false,
-            Type::Term(name, _) => name.as_str() == Type::ARROW,
+            Type::Term(name, _) => *name == *ARROW_SYM,
         }
     }
 
     pub fn as_arrow(&self) -> Option<(&Type, &Type)> {
         match self {
             Type::Term(name,args) => {
-                if name.as_str() != Type::ARROW {
+                if *name != *ARROW_SYM {
                     return None
                 }
                 assert_eq!(args.len(),2);
@@ -193,7 +198,7 @@ impl std::fmt::Display for Type {
                 Type::Term(name, args) => {
                     if args.is_empty() {
                         write!(f, "{}", name)
-                    } else if name.as_str() == Type::ARROW {
+                    } else if *name == *ARROW_SYM {
                         assert_eq!(args.len(), 2);
                         // write!(f, "({} {} {})", &args[0], name, &args[1])
                         if arrow_parens {
