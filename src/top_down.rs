@@ -367,9 +367,7 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                     None => break,
                 };
 
-                if item.ll <= lower_bound {
-                    continue;
-                }
+                assert!(item.ll > lower_bound);
 
                 if let Some(track) = &cfg.t_track {
                     if !track.starts_with(item.expr.to_string().split("??").next().unwrap()) {
@@ -403,15 +401,15 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                 for (expanded, ll) in expansions.into_iter() {
                     // println!("new expansion: {}", expanded);
 
-                    // if ll < lower_bound {
-                    //     continue; // too low probability
-                    // }
+                    if ll <= lower_bound {
+                        continue; // too low probability
+                    }
 
                     if expanded.holes.is_empty() {
                         // new completed program
-                        // if ll > upper_bound {
-                        //     continue; // too high probability - was enumerated on a previous pass of depth first search
-                        // }
+                        if ll > upper_bound {
+                            continue; // too high probability - was enumerated on a previous pass of depth first search
+                        }
 
 
                         // run the program, see if it works, discard if not or keep if yes
