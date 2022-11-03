@@ -128,7 +128,7 @@ impl Hole {
 
 
 pub trait ProbabilisticModel {
-    fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr) -> NotNan<f32>;
+    fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr, hole: &Hole) -> NotNan<f32>;
 
     fn likelihood(_e: &Expr) -> NotNan<f32> {
         // todo implement this recursively making use of expansion_unnormalized_ll
@@ -158,38 +158,100 @@ impl<M: ProbabilisticModel> OrigamiModel<M> {
     }
 }
 
+lazy_static::lazy_static! {
+    static ref SYMMETRY_RULES: Vec<(usize,Symbol,Symbol)> = vec![
+        (0,"head","cons"), // arg_idx, parent, child
+        (0,"head","[]"),
+        (0,"tail","cons"),
+        (0,"tail","[]"),
+        (0,"+","0"),
+        (1,"+","0"),
+        (1,"-","0"),
+        (0,"+","+"),
+        (0,"*","*"),
+        (0,"*","0"),
+        (1,"*","0"),
+        (0,"*","1"),
+        (1,"*","1"),
+        (0,"is_empty","cons"),
+        (0,"is_empty","[]"),
+    ].into_iter().map(|(x,s1,s2)| (x,s1.into(),s2.into())).collect();
+    
+}
+
 impl<M: ProbabilisticModel> ProbabilisticModel for OrigamiModel<M> {
-    fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr) -> NotNan<f32> {
+    fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr, hole: &Hole) -> NotNan<f32> {
         // if this is not the very first expansion, and it's to a fix_flip() operator, then set the probability to 0
-        if !expr.expr.is_empty() {
-            if let Lambda::Prim(p) = prod {
-                if *p == self.fix_flip {
-                    return NotNan::new(f32::NEG_INFINITY).unwrap();
-                }
-            }
+        if !expr.expr.is_empty() && *prod == Lambda::Prim(self.fix_flip)  {
+            return NotNan::new(f32::NEG_INFINITY).unwrap();
         }
         // if this is an expansion to the fix() operator, set it to 0
-        if let Lambda::Prim(p) = prod {
-            if *p == self.fix {
+        if *prod == Lambda::Prim(self.fix) {
+            return NotNan::new(f32::NEG_INFINITY).unwrap();
+        }
+        // if we previously expanded with fix_flip(), then force next expansion (ie first argument) to be $0
+        if expr.prev_prod == Some(Lambda::Prim(self.fix_flip)) {
+            if let Lambda::Var(0) = prod {
+                // doesnt really matter what we set this to as long as its not -inf, itll get normalized to ll=0 and P=1 since all other productions will be -inf
+                return NotNan::new(-1.).unwrap();
+            } else {
                 return NotNan::new(f32::NEG_INFINITY).unwrap();
             }
         }
-        // if we previously expanded with fix_flip(), then force next expansion (ie first argument) to be $0
-        if let Some(Lambda::Prim(p)) = expr.prev_prod {
-            if p == self.fix_flip {
-                if let Lambda::Var(0) = prod {
-                    // doesnt really matter what we set this to as long as its not -inf, itll get normalized to ll=0 and P=1 since all other productions will be -inf
-                    NotNan::new(-1.).unwrap();
-                } else {
+        // println!("{}", Expr::new(expr.expr.clone()).to_string_uncurried(expr.root.map(|u|u.into())));
+
+        // we forbid the use of the very outermost argument if we used a fix_flip at the top level
+        if let Lambda::Var(i) = prod {
+            if *i+1 == hole.env.len() as i32 {
+                if let Some(root) = expr.root {
+                    if let Lambda::App([f,_]) = expr.expr[root] {
+                        if let Lambda::App([f,_]) = expr.expr[usize::from(f)] {
+                            if expr.expr[usize::from(f)] == Lambda::Prim(self.fix_flip) {
+                                return NotNan::new(f32::NEG_INFINITY).unwrap();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // dreamcoders symmetry breaking rules
+        if let Lambda::Prim(p) = prod {
+            if let Some((Lambda::Prim(parent), arg_idx)) = parent_and_arg_idx(expr, hole) {
+                if SYMMETRY_RULES.contains(&(arg_idx,parent,*p)) {
                     return NotNan::new(f32::NEG_INFINITY).unwrap();
                 }
             }
         }
+
+
         // default
-        self.model.expansion_unnormalized_ll(prod, expr)
+        self.model.expansion_unnormalized_ll(prod, expr, hole)
     }
 }
 
+
+/// who is the parent of the hole and which child are we of it. Doesnt handle higher order stuff.
+/// bc we didnt need that to replicate the dreamcoder symmetry rules
+fn parent_and_arg_idx(expr: &PartialExpr, hole: &Hole) -> Option<(Lambda, usize)> {
+    if hole.parent == SENTINEL {
+        return None
+    }
+    if let Lambda::App([f,_]) = expr.expr[hole.parent] {
+        let mut arg_idx = 0;
+        let mut func = f;
+        loop {
+            if let Lambda::App([f,_]) = expr.expr[usize::from(func)] {
+                arg_idx += 1;
+                func = f;
+            } else {
+                return Some((expr.expr[usize::from(func)].clone(), arg_idx));
+            }
+        }
+    } else {
+        return None // we dont handle Lams
+    }
+}
 
 pub struct UniformModel {
     var_ll: NotNan<f32>,
@@ -203,7 +265,7 @@ impl UniformModel {
 }
 
 impl ProbabilisticModel for UniformModel {
-    fn expansion_unnormalized_ll(&self, prod: &Lambda, _expr: &PartialExpr) -> NotNan<f32> {
+    fn expansion_unnormalized_ll(&self, prod: &Lambda, _expr: &PartialExpr, _hole: &Hole) -> NotNan<f32> {
         match prod {
             Lambda::Var(_) => self.var_ll,
             Lambda::Prim(_) => self.prim_ll,
@@ -391,7 +453,7 @@ pub fn add_expansions<D: Domain, M: ProbabilisticModel>(expr: &mut PartialExpr, 
         // println!("done unify");
         // println!("passed unify()");
 
-        let unnormalized_ll = model.expansion_unnormalized_ll(&node, expr);
+        let unnormalized_ll = model.expansion_unnormalized_ll(&node, expr, &hole);
 
         if unnormalized_ll == f32::NEG_INFINITY {
             continue // skip directly
