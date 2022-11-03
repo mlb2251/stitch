@@ -500,6 +500,8 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
     let mut upper_bound = NotNan::new(0.).unwrap();
     let mut lower_bound = upper_bound - budget_decr;
 
+    let mut typeset = TypeSet::empty();
+
     let task_tps: HashMap<Type,Vec<Task<D>>> = all_tasks.iter().map(|task| (task.tp.clone(), task.clone())).into_group_map();
 
     loop {

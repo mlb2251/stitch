@@ -1,3 +1,4 @@
+use core::panic;
 use std::{collections::VecDeque, default};
 
 use crate::*;
@@ -19,6 +20,319 @@ pub enum Type {
     Term(Symbol, Vec<Type>), // symbol is the name like "int" or "list" or "->" and Vec<Type> is the args which is empty list for things like int etc
     // Arrow(Box<Type>,Box<Type>)
 }
+
+
+/// int
+/// [Term("int",None)]
+/// 
+/// (list int)
+/// [Term("int",None),Term("list",0)]
+/// 
+/// (-> int int)
+/// [Term("int",None), Term("int",None), ArgCons(0,1), Term("->", Some(2))]
+
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TNode {
+    Var(usize), // type variable like t0 t1 etc
+    Term(Symbol, Option<RawTypeRef>), // symbol is the name like "int" or "list" or "->" and Option<usize> is the index of an ArgCons
+    ArgCons(RawTypeRef,Option<RawTypeRef>),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct TypeRef {
+    raw: RawTypeRef,
+    shift: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RawTypeRef(usize);
+
+
+impl RawTypeRef {
+    fn shift(&self, shift: usize) -> TypeRef {
+        TypeRef::new(*self,shift)
+    }
+
+    pub fn resolve<'a>(&self, typeset: &'a TypeSet) -> &'a TNode {
+        &typeset.nodes[self.0]
+    }
+
+    pub fn iter_term_args<'a>(&self, typeset: &'a TypeSet) -> TermArgIter<'a> {
+        if let TNode::Term(_,args) = self.resolve(typeset) {
+            TermArgIter { typeset, curr_idx: args}
+        } else {
+            panic!("cant iterate, not a term")
+        }
+    }
+
+    pub fn as_arrow(&self, typeset: &TypeSet) -> Option<(RawTypeRef, RawTypeRef)> {
+        if let TNode::Term(name,_) = self.resolve(typeset) {
+            if *name != *ARROW_SYM {
+                return None
+            }
+            let mut it = self.iter_term_args(typeset);
+            let left = it.next().unwrap();
+            let right = it.next().unwrap();
+            assert!(it.next().is_none(), "malformed arrow");
+            Some((left,right))
+        } else {
+             None
+        }
+    }
+
+    /// iterates over all nodes in the term of this type
+    pub fn iter_arrows<'a>(&self, typeset: &'a TypeSet) -> ArrowIterTypeRef<'a> {
+        ArrowIterTypeRef { curr: *self, typeset: typeset }
+    }
+
+    /// iterates over uncurried argument types of this arrow type
+    pub fn iter_args<'a>(&self, typeset: &'a TypeSet) -> impl Iterator<Item=RawTypeRef> + 'a {
+        self.iter_arrows(typeset).map(|(left,_right)| left)
+    }
+
+    /// arity of this arrow type (zero if not an arrow type)
+    pub fn arity(&self, typeset: &TypeSet) -> usize {
+        self.iter_args(typeset).count()
+    }
+
+    /// return type of this arrow types *after* uncurrying. For a non arrow type
+    /// this just returns the type itself.
+    pub fn return_type(&self, typeset: &TypeSet) -> RawTypeRef {
+        self.iter_arrows(typeset).last().map(|(_left,right)| right).unwrap_or(*self)
+    }
+
+    /// true if there are no type vars in this type
+    pub fn is_concrete(&self, typeset: &TypeSet) -> bool {
+        match self.resolve(typeset) {
+            TNode::Var(_) => false,
+            TNode::Term(_, args) => self.iter_term_args(typeset).all(|ty| ty.is_concrete(typeset)),
+            TNode::ArgCons(_,_) => panic!("is_concrete on an ArgCons")
+        }
+    }
+
+    pub fn max_var(&self, typeset: &TypeSet) -> Option<usize> {
+        match self.resolve(typeset) {
+            TNode::Var(i) => Some(*i),
+            TNode::Term(_, args) => self.iter_term_args(typeset).map(|ty| ty.max_var(typeset)).filter_map(|x|x).max(),
+            TNode::ArgCons(_,_) => panic!("is_concrete on an ArgCons")
+        }
+    }
+
+    pub fn instantiate(&self, typeset: &mut TypeSet) -> TypeRef {
+        let shift_by = typeset.next_var;
+        if let Some(max_var) = self.max_var(typeset) {
+            // create a fresh type var for each new variable
+            for _ in 0..=max_var {
+                typeset.fresh_type_var();
+            }
+        }
+        TypeRef::new(*self, shift_by)
+    }
+
+}
+
+
+impl TypeRef {
+    fn new(raw: RawTypeRef, shift: usize) -> TypeRef {
+        TypeRef {raw, shift}
+    }
+
+    /// if `self` is a Var that is bound by our context, return whatever it is bound to 
+    pub fn canonicalize(&self, typeset: &TypeSet) -> TypeRef {
+        if let TNode::Var(i) = &typeset.nodes[self.raw.0] {
+            if let Some(tp_ref) = typeset.get_var(*i + self.shift) {
+                return tp_ref.canonicalize(typeset) // recursively resolve the lookup result
+            }
+        }
+        *self
+    }
+
+    /// canonicalizes any toplevel variable away then resolves the resulting raw type ref. Note that
+    /// the TNode returned here will not be shifted
+    pub fn resolve<'a>(&self, typeset: &'a TypeSet) -> &'a TNode {
+        self.canonicalize(typeset).raw.resolve(typeset)
+    }
+
+    pub fn iter_term_args<'a>(&'a self, typeset: &'a TypeSet) -> impl Iterator<Item=TypeRef> + 'a {
+        self.canonicalize(typeset).raw.iter_term_args(typeset).map(move |raw| raw.shift(self.shift))
+    }
+
+    pub fn as_arrow(&self, typeset: &TypeSet) -> Option<(TypeRef, TypeRef)> {
+        self.canonicalize(typeset).raw.as_arrow(typeset).map(|(r1,r2)| (r1.shift(self.shift),r2.shift(self.shift)))
+    }
+
+    /// iterates over all nodes in the term of this type
+    pub fn iter_arrows<'a>(&'a self, typeset: &'a TypeSet) -> impl Iterator<Item=(TypeRef,TypeRef)> + 'a {
+        self.canonicalize(typeset).raw.iter_arrows(typeset).map(move |(r1,r2)| (r1.shift(self.shift),r2.shift(self.shift)))
+    }
+
+    /// iterates over uncurried argument types of this arrow type
+    pub fn iter_args<'a>(&'a self, typeset: &'a TypeSet) -> impl Iterator<Item=TypeRef> + 'a {
+        self.iter_arrows(typeset).map(|(left,_right)| left)
+    }
+
+    /// arity of this arrow type (zero if not an arrow type)
+    pub fn arity(&self, typeset: &TypeSet) -> usize {
+        self.iter_args(typeset).count()
+    }
+
+    /// return type of this arrow types *after* uncurrying. For a non arrow type
+    /// this just returns the type itself.
+    pub fn return_type(&self, typeset: &TypeSet) -> TypeRef {
+        self.iter_arrows(typeset).last().map(|(_left,right)| right).unwrap_or(*self)
+    }
+
+    /// true if there are no type vars in this type
+    pub fn is_concrete(&self, typeset: &TypeSet) -> bool {
+        match self.resolve(typeset) {
+            TNode::Var(_) => false,
+            TNode::Term(_, _) => self.iter_term_args(typeset).all(|ty| ty.is_concrete(typeset)),
+            TNode::ArgCons(_,_) => panic!("is_concrete on an ArgCons")
+        }
+    }
+
+    /// true if type var i occurs in this type (post-shifting of this type)
+    pub fn occurs(&self, i: usize, typeset: &TypeSet) -> bool {
+        // todo!() // not sure if need to run substitution here
+        match self.resolve(typeset) {
+            TNode::Var(j)  => i == *j + self.shift,
+            TNode::Term(_, _) => self.iter_term_args(typeset).any(|ty| ty.occurs(i, typeset)),
+            TNode::ArgCons(_, _) => panic!("occurs() on ArgCons")
+        }
+    }
+
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypeSet {
+    nodes: Vec<TNode>,
+    subst: Vec<(usize,TypeRef)>,
+    next_var: usize,
+}
+
+impl TypeSet {
+    pub fn add_tp(&mut self, tp: &Type) -> RawTypeRef {
+        match tp {
+            Type::Var(i) => {
+                self.nodes.push(TNode::Var(*i));
+                RawTypeRef(self.nodes.len() - 1)
+            }
+            Type::Term(p, args) => {
+                let mut arg_cons = None;
+                for arg in args.iter().rev() {
+                    let arg_hd = self.add_tp(arg);
+                    self.nodes.push(TNode::ArgCons(arg_hd, arg_cons));
+                    arg_cons = Some(RawTypeRef(self.nodes.len() - 1));
+                }
+                self.nodes.push(TNode::Term(*p, arg_cons));
+                RawTypeRef(self.nodes.len() - 1)
+            },
+        }
+    }
+    /// This is the usual way of creating a new Context. The context will be append-only
+    /// meaning you can roll it back to a point by truncating
+    pub fn empty() -> TypeSet {
+        TypeSet {
+            nodes: Default::default(),
+            subst: Default::default(),
+            next_var: 0,
+        }
+    }
+
+    pub fn save_state(&self) -> (usize,usize) {
+        (self.subst.len(), self.next_var)
+    }
+
+    pub fn load_state(&mut self, state: (usize,usize)) {
+        self.subst.truncate(state.0);
+        self.next_var = state.1;
+    }
+
+    fn fresh_type_var(&mut self) -> Type {
+        self.next_var += 1;
+        Type::Var(self.next_var-1)
+    }
+
+    // /// adds new fresh type vars as necessary such that variable Var exists
+    // #[inline(always)]
+    // fn fresh_type_vars(&mut self, var: usize) {
+    //     while var >= self.next_var {
+    //         self.fresh_type_var();
+    //     }
+    // }
+
+    /// a very quick non-allocating check that returns false if it's
+    /// obvious that these types won't unify. This works *even when a type hasnt
+    /// been instantiated() to have new type variables*. First this checks if t1 and t2 have the same constructors
+    /// and if theres an obvious mismatch there it gives up. Then it goes and looks up the types in the ctx
+    /// in case they were typevars, and then again checks if they have th same constructor. It uses apply_immut() to
+    /// avoid mutating the context for this lookup.
+    /// Note the apply_immut version of this was wrong bc thats only safe to do on the hole_tp side and apply_immut
+    /// is already done to the hole before then anyways
+    pub fn might_unify(&self, t1: &RawTypeRef, t2: &TypeRef) -> bool {
+        let node1 = t1.resolve(self);
+        let node2 = t2.resolve(self);
+        match (node1,node2) {
+            (TNode::Var(_), TNode::Var(_)) => true,
+            (TNode::Var(_), TNode::Term(_, _)) => true,
+            (TNode::Term(_, _), TNode::Var(_)) => true,
+            (TNode::Term(x, _), TNode::Term(y, _)) => {
+                x == y && t1.arity(self) == t2.arity(self) && t1.iter_term_args(self).zip(t2.iter_term_args(self)).all(|(x,y)| self.might_unify(&x,&y))
+            },
+            _ => panic!("attempting to unify ArgCons or some other invalid constructor"),
+        }
+    }
+
+    /// Normal unification. Does not do the amortizing step of the unionfind (but may mutate
+    /// it still). See unify_cached() for amortized unionfind. Note that this is likely not slower
+    /// than unify_cached() in most cases.
+    pub fn unify(&mut self, t1: &TypeRef,  t2: &TypeRef) -> UnifyResult {
+        // println!("\tunify({},{}) {}", t1, t2, self);
+        // let t1: Type = t1.apply(self);
+        // let t2: Type = t2.apply(self);
+        // println!("\t  ...({},{}) {}", t1, t2, self);
+
+        let t1 = t1.canonicalize(self);
+
+        match ((t1.resolve(self),t1.canonicalize(self)), (t2.resolve(self),t2.canonicalize(self))) {
+            ((TNode::Var(i), _), (other, tref_other))
+          | ((other, tref_other), (TNode::Var(i),_)) =>
+          {
+                if *other == TNode::Var(*i) { return Ok(()) } // unify(t0, t0) -> true
+                if tref_other.occurs(*i, self) { return Err(UnifyErr::Occurs) } // recursive type  e.g. unify(t0, (t0 -> int)) -> false
+                // *** Above is the "occurs" check, which prevents recursive definitions of types. Removing it would allow them.
+
+                assert!(self.get_var(*i).is_none());
+                self.set_var(*i, tref_other);
+                Ok(())
+            },
+            ((TNode::Term(x, _),tref_x), (TNode::Term(y, _),tref_y)) =>
+            {
+                // simply recurse
+                if x != y || tref_x.arity(self) != tref_y.arity(self) {
+                    return Err(UnifyErr::Production)
+                }
+                // todo sad collect() here for borrow checker but might wanna find a way around
+                tref_x.iter_term_args(self).zip(tref_y.iter_term_args(self)).collect::<Vec<_>>().into_iter().try_for_each(|(x,y)| self.unify(&x,&y))
+            }
+            _ => unreachable!()
+        }
+    }
+
+    /// get what a variable is bound to (if anything).
+    #[inline(always)]
+    fn get_var(&self, var: usize) -> Option<&TypeRef> { // todo written in a silly way, rewrite
+        self.subst.iter().rfind(|(i,_)| *i == var).map(|(_,tp)| tp)
+    }
+    /// set what a variable is bound to
+    #[inline(always)]
+    fn set_var(&mut self, var: usize, ty: TypeRef) {
+        self.subst.push((var,ty));
+    }
+}
+
+
 
 
 lazy_static::lazy_static! {
@@ -123,7 +437,7 @@ impl Type {
         }
     }
 
-    /// same as apply() but doesnt do the unionfind style caching of results, so there's no need to mutate the ctx
+    /// same as apply_cached() but doesnt do the unionfind style caching of results, so there's no need to mutate the ctx
     pub fn apply(&self, ctx: &Context) -> Type {
         if self.is_concrete() {
             return self.clone();
@@ -175,6 +489,46 @@ impl<'a> Iterator for ArrowIter<'a> {
         if let Some((left,right)) = self.curr.as_arrow() {
             self.curr = right;
             Some((left,right))
+        } else {
+            None
+        }
+    }
+}
+
+pub struct ArrowIterTypeRef<'a> {
+    typeset: &'a TypeSet,
+    curr: RawTypeRef,
+}
+
+impl<'a> Iterator for ArrowIterTypeRef<'a> {
+    type Item = (RawTypeRef,RawTypeRef);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some((left,right)) = self.curr.as_arrow(self.typeset) {
+            self.curr = right;
+            Some((left,right))
+        } else {
+            None
+        }
+    }
+}
+
+pub struct TermArgIter<'a> {
+    typeset: &'a TypeSet,
+    curr_idx: &'a Option<RawTypeRef>,
+}
+
+impl<'a> Iterator for TermArgIter<'a> {
+    type Item = RawTypeRef;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(curr_idx) = self.curr_idx {
+            if let TNode::ArgCons(arg,tl) = curr_idx.resolve(self.typeset) {
+                self.curr_idx = tl;
+                Some(*arg)
+            } else {
+                panic!("Cant iterate over something that's not a term")
+            }
         } else {
             None
         }
@@ -462,6 +816,12 @@ fn test_types() {
         let mut ctx = Context::empty();
         let res = ctx.unify(&t1.parse::<Type>().unwrap(),
                      &t2.parse::<Type>().unwrap());
+        assert_eq!(res, expected);
+
+        let mut typeset = TypeSet::empty();
+        let t1 = typeset.add_tp(&t1.parse::<Type>().unwrap()).instantiate(&mut typeset);
+        let t2 = typeset.add_tp(&t2.parse::<Type>().unwrap()).instantiate(&mut typeset);
+        let res = typeset.unify(&t1,&t2);
         assert_eq!(res, expected);
     }
 
