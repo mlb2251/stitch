@@ -4,7 +4,6 @@ use itertools::Itertools;
 use serde::Serialize;
 use std::{collections::{VecDeque}, fmt::Display};
 use ordered_float::NotNan;
-use std::collections::HashMap;
 use std::time::{Duration,Instant};
 
 // pub type PartialLambda = Option<Lambda>;
@@ -58,7 +57,6 @@ struct Stats {
     num_eval_err: usize,
     num_processed: usize,
     num_finished: usize,
-    max_worklist: usize,
 }
 
 #[derive(Debug,Clone, PartialEq)]
@@ -659,7 +657,8 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                     let solved_tasks = check_correctness(tasks, &expr, &env, &mut stats, &mut solved_buf);
 
                     for task_name in solved_tasks {
-                        println!("{} {} [ll={}]: {}", "Solved".green(), task_name, expr.ll, expr);
+                        println!("{} {} [ll={}] @ {}s: {}", "Solved".green(), task_name, expr.ll, tstart.elapsed().as_secs_f32(), expr);
+
                         panic!("done")
                     }
 

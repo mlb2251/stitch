@@ -1,5 +1,5 @@
 use core::panic;
-use std::{collections::VecDeque, default};
+use std::{collections::VecDeque};
 
 use crate::*;
 use egg::Symbol;
@@ -129,7 +129,7 @@ impl RawTypeRef {
     pub fn is_concrete(&self, typeset: &TypeSet) -> bool {
         match self.resolve(typeset) {
             TNode::Var(_) => false,
-            TNode::Term(_, args) => self.iter_term_args(typeset).all(|ty| ty.is_concrete(typeset)),
+            TNode::Term(_, _) => self.iter_term_args(typeset).all(|ty| ty.is_concrete(typeset)),
             TNode::ArgCons(_,_) => panic!("is_concrete on an ArgCons")
         }
     }
@@ -137,7 +137,7 @@ impl RawTypeRef {
     pub fn max_var(&self, typeset: &TypeSet) -> Option<usize> {
         match self.resolve(typeset) {
             TNode::Var(i) => Some(*i),
-            TNode::Term(_, args) => self.iter_term_args(typeset).map(|ty| ty.max_var(typeset)).filter_map(|x|x).max(),
+            TNode::Term(_, _) => self.iter_term_args(typeset).map(|ty| ty.max_var(typeset)).filter_map(|x|x).max(),
             TNode::ArgCons(_,_) => panic!("is_concrete on an ArgCons")
         }
     }
@@ -356,8 +356,8 @@ impl TypeSet {
         // println!("about to resolve");
 
         match ((t1.resolve(self),t1.canonicalize(self)), (t2.resolve(self),t2.canonicalize(self))) {
-            ((TNode::Var(i), tref_var), (other, tref_other))
-          | ((other, tref_other), (TNode::Var(i),tref_var)) =>
+            ((TNode::Var(i), _), (other, tref_other))
+          | ((other, tref_other), (TNode::Var(i),_)) =>
           {
                 // println!("resolved");
 
