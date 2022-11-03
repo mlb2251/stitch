@@ -289,6 +289,7 @@ pub struct Expansion {
     prod: Prod,
     ll: NotNan<f32>,
 }
+#[derive(Clone,Debug)]
 pub enum Prod {
     Prim(Symbol, RawTypeRef),
     Var(i32, TypeRef)
@@ -349,7 +350,7 @@ impl Expansion {
     }
 }
 
-pub fn add_expansions<D: Domain, M: ProbabilisticModel>(expr: &mut PartialExpr, expansions: &mut Vec<Expansion>, save_states: &mut Vec<SaveState>, rawtyperef_of_tp: &HashMap<Type,RawTypeRef>, model: &M, lower_bound: NotNan<f32>) {
+pub fn add_expansions<D: Domain, M: ProbabilisticModel>(expr: &mut PartialExpr, expansions: &mut Vec<Expansion>, save_states: &mut Vec<SaveState>, prods: &[Prod], model: &M, lower_bound: NotNan<f32>) {
     // println!("b");
     let hole: Hole  = expr.holes.pop().unwrap();
     let hole_tp = hole.tp; 
@@ -363,7 +364,7 @@ pub fn add_expansions<D: Domain, M: ProbabilisticModel>(expr: &mut PartialExpr, 
     assert!(!hole_tp.is_arrow(&expr.ctx));
     // loop over all dsl entries and all variables in the env
     for prod in
-        D::dsl_entries().map(|entry| (Prod::Prim(entry.name, *rawtyperef_of_tp.get(&entry.tp).unwrap())))
+        prods.iter().cloned()
         .chain(hole.env.iter().enumerate().map(|(i,tp)| Prod::Var(i as i32,*tp)))
     {
         expr.ctx.load_state(ctx_save_state);
@@ -512,12 +513,14 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
 
     let mut original_typeset = TypeSet::empty();
 
-    let task_tps: HashMap<Type,Vec<Task<D>>> = all_tasks.iter().map(|task| (task.tp.clone(), task.clone())).into_group_map();
+    let task_tps: Vec<(RawTypeRef,Vec<Task<D>>)> = all_tasks.iter().map(|task| (task.tp.clone(), task.clone())).into_group_map()
+        .into_iter().map(|(tp,tasks)| (original_typeset.add_tp(&tp),tasks)).collect();
 
-    let rawtyperef_of_tp: HashMap<Type,RawTypeRef> = task_tps
-        .keys().cloned().chain(D::dsl_entries().map(|entry| entry.tp.clone()))
-        .map(|tp| (tp.clone(),original_typeset.add_tp(&tp))).collect();
+    // let rawtyperef_of_tp: HashMap<Type,RawTypeRef> = task_tps
+    //     .keys().cloned().chain(D::dsl_entries().map(|entry| entry.tp.clone()))
+    //     .map(|tp| (tp.clone(),original_typeset.add_tp(&tp))).collect();
 
+    let prods: Vec<Prod> = D::dsl_entries().map(|entry| Prod::Prim(entry.name, original_typeset.add_tp(&entry.tp))).collect();
 
     loop {
 
@@ -533,14 +536,14 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
             let elapsed = tstart.elapsed().as_secs_f32();
             println!("{:?} @ {}s ({} processed/s)", stats, elapsed, ((stats.num_processed as f32) / elapsed) as i32 );
             
-            println!("Searching for {tp} solutions in range {lower_bound} <= ll <= {upper_bound}:");
+            println!("Searching for {} solutions in range {lower_bound} <= ll <= {upper_bound}:", tp.tp(&original_typeset));
             for task in tasks {
                 println!("\t{}", task.name)
             }
 
 
             let mut typeset = original_typeset.clone();
-            let tp = rawtyperef_of_tp.get(tp).unwrap().instantiate(&mut typeset);
+            let tp = tp.instantiate(&mut typeset);
 
             // if we want to wrap this in some lambdas and return it, then the outermost lambda should be the first type in
             // the list of arg types. This will be the *largest* de bruijn index within the body of the program, therefore
@@ -552,7 +555,7 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
             let mut expansions: Vec<Expansion> = vec![];
             let mut solved_buf: Vec<(String, PartialExpr)> = vec![];
             let mut expr = PartialExpr::single_hole(tp.return_type(&typeset), env.clone(), typeset);
-            add_expansions::<D,M>(&mut expr, &mut expansions, &mut save_states, &rawtyperef_of_tp, &model, lower_bound);
+            add_expansions::<D,M>(&mut expr, &mut expansions, &mut save_states, &prods, &model, lower_bound);
 
             loop {
                 // println!("a");
@@ -595,11 +598,12 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
 
                     for task_name in solved_tasks {
                         println!("{} {} [ll={}]: {}", "Solved".green(), task_name, expr.ll, expr);
+                        panic!("done")
                     }
 
                 } else {
                     // println!("{}: {} (ll={})", "expanding".yellow(), expr, expr.ll);
-                    add_expansions::<D,M>(&mut expr, &mut expansions, &mut save_states, &rawtyperef_of_tp, &model, lower_bound);
+                    add_expansions::<D,M>(&mut expr, &mut expansions, &mut save_states, &prods, &model, lower_bound);
                 }
 
                 // println!("holes: {:?}", item.expr.holes);
