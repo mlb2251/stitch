@@ -179,10 +179,16 @@ lazy_static::lazy_static! {
 
 impl<M: ProbabilisticModel> ProbabilisticModel for OrigamiModel<M> {
     fn expansion_unnormalized_ll(&self, prod: &Lambda, expr: &PartialExpr, hole: &Hole) -> NotNan<f32> {
-        // if this is not the very first expansion, and it's to a fix_flip() operator, then set the probability to 0
+        // if this is not the very first expansion, we forbid the fix_flip() operator
         if !expr.expr.is_empty() && *prod == Lambda::Prim(self.fix_flip)  {
             return NotNan::new(f32::NEG_INFINITY).unwrap();
         }
+
+        // if this is the very first expansion, we require it to be the fix_flip() operator
+        if expr.expr.is_empty() && *prod != Lambda::Prim(self.fix_flip)  {
+            return NotNan::new(f32::NEG_INFINITY).unwrap();
+        }
+
         // if this is an expansion to the fix() operator, set it to 0
         if *prod == Lambda::Prim(self.fix) {
             return NotNan::new(f32::NEG_INFINITY).unwrap();
