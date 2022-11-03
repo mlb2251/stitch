@@ -580,7 +580,13 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
     //     .keys().cloned().chain(D::dsl_entries().map(|entry| entry.tp.clone()))
     //     .map(|tp| (tp.clone(),original_typeset.add_tp(&tp))).collect();
 
-    let prods: Vec<Prod> = D::dsl_entries().map(|entry| Prod::Prim(entry.name, original_typeset.add_tp(&entry.tp))).collect();
+    let mut prods: Vec<Prod> = D::dsl_entries().map(|entry| Prod::Prim(entry.name, original_typeset.add_tp(&entry.tp))).collect();
+    // sort by arity as DC does to explore smaller things first (also sort  by name but thats just for determinism)
+    prods.sort_by_key(|prod| {
+        if let Prod::Prim(name, tp) = prod {
+            (tp.arity(&original_typeset),*name)
+        } else { unreachable!() }
+    });
 
     loop {
 
@@ -658,8 +664,8 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
 
                     for task_name in solved_tasks {
                         println!("{} {} [ll={}] @ {}s: {}", "Solved".green(), task_name, expr.ll, tstart.elapsed().as_secs_f32(), expr);
-
-                        panic!("done")
+                        println!("{:?}",stats);
+                        panic!("done");
                     }
 
                 } else {
