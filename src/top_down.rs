@@ -72,18 +72,18 @@ impl Eq for WorklistItem {}
 pub struct PartialExpr {
     expr: Vec<Lambda>, // expr
     root: Option<usize>, // root of the expression in `expr` or None if its a single hole
-    ctx: Context, // typing context so far
+    ctx: TypeSet, // typing context so far
     holes: Vec<Hole>, // holes so far
     prev_prod: Option<Lambda>, // previous production rule used, this is a Var | Prim or it's None if this is empty / the root
     ll: NotNan<f32>,
 }
 
 impl PartialExpr {
-    pub fn new(expr: Vec<Lambda>, root: Option<usize>, ctx: Context, holes: Vec<Hole>, ll: NotNan<f32>) -> PartialExpr {
+    pub fn new(expr: Vec<Lambda>, root: Option<usize>, ctx: TypeSet, holes: Vec<Hole>, ll: NotNan<f32>) -> PartialExpr {
         PartialExpr { expr, root, ctx, holes, prev_prod: None, ll }
     }
-    pub fn single_hole(tp: Type, env: VecDeque<Type>) -> PartialExpr {
-        PartialExpr::new(vec![], None, Context::empty(), vec![Hole::new(tp,env,SENTINEL)], NotNan::new(0.).unwrap())
+    pub fn single_hole(tp: TypeRef, env: VecDeque<TypeRef>, typeset: TypeSet) -> PartialExpr {
+        PartialExpr::new(vec![], None, typeset, vec![Hole::new(tp,env,SENTINEL)], NotNan::new(0.).unwrap())
     }
 }
 
@@ -115,13 +115,13 @@ impl WorklistItem {
 
 #[derive(Debug,Clone, PartialEq, Eq)]
 pub struct Hole {
-    tp: Type,
-    env: VecDeque<Type>, // env[i] is $i
+    tp: TypeRef,
+    env: VecDeque<TypeRef>, // env[i] is $i
     parent: usize, // parent of the hole - either the hole is the child of a lam or the right side of an app
 }
 
 impl Hole {
-    fn new(tp: Type, env: VecDeque<Type>, parent: usize) -> Hole {
+    fn new(tp: TypeRef, env: VecDeque<TypeRef>, parent: usize) -> Hole {
         Hole {tp, env, parent}
     }
 }
@@ -284,33 +284,40 @@ impl SaveState {
 }
 
 pub struct Expansion {
-    prod: Lambda, // production rule used in expansion
-    prod_tp: Type,
+    // prod: Lambda, // production rule used in expansion
+    // prod_tp: RawTypeRef,
+    prod: Prod,
     ll: NotNan<f32>,
 }
+pub enum Prod {
+    Prim(Symbol, RawTypeRef),
+    Var(i32, TypeRef)
+}
+
+
 impl Expansion {
-    pub fn new(prod: Lambda, prod_tp: Type, ll: NotNan<f32>) -> Expansion {
-        Expansion { prod, prod_tp, ll }
+    pub fn new(prod: Prod, ll: NotNan<f32>) -> Expansion {
+        Expansion { prod, ll }
     }
     pub fn apply(self, expr: &mut PartialExpr, hole: &Hole) {
 
         // perform unification - 
         // todo its weird and silly that we repeat this here
         // instantiate if this wasnt a variable
-        let prod_tp: Type = if let Lambda::Var(_) = self.prod {
-            self.prod_tp.clone()
-        } else {
-            self.prod_tp.instantiate(&mut expr.ctx)
+        let (prod,prod_tp) = match self.prod {
+            Prod::Prim(p, raw_tp_ref) => (Lambda::Prim(p), raw_tp_ref.instantiate(&mut expr.ctx)),
+            Prod::Var(i, tp_ref) => (Lambda::Var(i), tp_ref),
         };
-        expr.ctx.unify(&hole.tp.apply(&expr.ctx), prod_tp.return_type()).unwrap();
+        
+        expr.ctx.unify(&hole.tp, &prod_tp.return_type(&expr.ctx)).unwrap();
 
         expr.ll = self.ll;
-        expr.prev_prod = Some(self.prod.clone());
-        expr.expr.push(self.prod.clone());
+        expr.prev_prod = Some(prod.clone());
+        expr.expr.push(prod.clone());
         let mut expr_so_far_idx = expr.expr.len() - 1;
-        let num_holes = prod_tp.arity();
+        let num_holes = prod_tp.arity(&expr.ctx);
         // add a new hole for each arg, along with any apps and lams
-        for arg_tp in prod_tp.iter_args() {
+        for arg_tp in prod_tp.iter_args(&expr.ctx) {
             // push on an app
             expr.expr.push(Lambda::App([expr_so_far_idx.into(), SENTINEL.into()]));
             expr_so_far_idx = expr.expr.len() - 1;
@@ -318,7 +325,7 @@ impl Expansion {
             // if this arg is higher order it may have arguments - we push those types onto our new env and push lambdas
             // into our expr
             let mut new_hole_env = hole.env.clone();
-            for inner_arg_tp in arg_tp.iter_args().cloned() {
+            for inner_arg_tp in arg_tp.iter_args(&expr.ctx) {
                 new_hole_env.push_front(inner_arg_tp);
                 expr.expr.push(Lambda::Lam([SENTINEL.into()]));
                 // adjust pointers so the previous node points to the new node we created
@@ -327,7 +334,7 @@ impl Expansion {
             }
 
             // the hole type is the return type of the arg (bc all lambdas were autofilled)
-            let new_hole_tp = arg_tp.return_type().clone();
+            let new_hole_tp = arg_tp.return_type(&expr.ctx).clone();
             expr.holes.push(Hole::new(new_hole_tp, new_hole_env, expr.expr.len() - 1))
         }
         let len = expr.holes.len();
@@ -342,9 +349,10 @@ impl Expansion {
     }
 }
 
-pub fn add_expansions<D: Domain, M: ProbabilisticModel>(expr: &mut PartialExpr, expansions: &mut Vec<Expansion>, save_states: &mut Vec<SaveState>, model: &M, lower_bound: NotNan<f32>) {
+pub fn add_expansions<D: Domain, M: ProbabilisticModel>(expr: &mut PartialExpr, expansions: &mut Vec<Expansion>, save_states: &mut Vec<SaveState>, rawtyperef_of_tp: &HashMap<Type,RawTypeRef>, model: &M, lower_bound: NotNan<f32>) {
+    // println!("b");
     let hole: Hole  = expr.holes.pop().unwrap();
-    let hole_tp = hole.tp.apply(&expr.ctx); 
+    let hole_tp = hole.tp; 
 
     let mut expansions_buf = vec![];
 
@@ -352,41 +360,43 @@ pub fn add_expansions<D: Domain, M: ProbabilisticModel>(expr: &mut PartialExpr, 
     // println!("hole type: {}", hole_tp);
     // println!("ctx: {:?}", expr.ctx);
 
-    assert!(!hole_tp.is_arrow());
+    assert!(!hole_tp.is_arrow(&expr.ctx));
     // loop over all dsl entries and all variables in the env
-    for (prod, prod_tp) in
-        D::dsl_entries().map(|entry| (Lambda::Prim(entry.name), &entry.tp))
-        .chain(hole.env.iter().enumerate().map(|(i,tp)| (Lambda::Var(i as i32),tp)))
+    for prod in
+        D::dsl_entries().map(|entry| (Prod::Prim(entry.name, *rawtyperef_of_tp.get(&entry.tp).unwrap())))
+        .chain(hole.env.iter().enumerate().map(|(i,tp)| Prod::Var(i as i32,*tp)))
     {
         expr.ctx.load_state(ctx_save_state);
+
+        let (node,prod_tp) = match prod {
+            Prod::Prim(p, raw_tp_ref) => (Lambda::Prim(p), raw_tp_ref.instantiate(&mut expr.ctx)),
+            Prod::Var(i, tp_ref) => (Lambda::Var(i), tp_ref),
+        };
+        
+
         // println!("considering: {} :: {}", prod, prod_tp);
         // lightweight check for unification potential before doing the full clone and instantiation
-        if !expr.ctx.might_unify(&hole_tp, prod_tp.return_type()) {
-            continue
-        }
+        // if !expr.ctx.might_unify(&hole_tp, &prod_tp.return_type(&expr.ctx)) {
+        //     continue
+        // }
+
         // println!("passed might_unify()");
 
-        // instantiate if this wasnt a variable
-        let instantiated_prod_tp: Type = if let Lambda::Var(_) = prod {
-            prod_tp.clone()
-        } else {
-            prod_tp.instantiate(&mut expr.ctx)
-        };
-
         // full unification check
-        if !expr.ctx.unify(&hole_tp, instantiated_prod_tp.return_type()).is_ok() {
+        // println!("about to unify");
+        if !expr.ctx.unify(&hole_tp, &prod_tp.return_type(&expr.ctx)).is_ok() {
             continue;
         }
+        // println!("done unify");
         // println!("passed unify()");
 
-
-        let unnormalized_ll = model.expansion_unnormalized_ll(&prod, expr);
+        let unnormalized_ll = model.expansion_unnormalized_ll(&node, expr);
 
         if unnormalized_ll == f32::NEG_INFINITY {
             continue // skip directly
         }
 
-        expansions_buf.push(Expansion::new(prod, prod_tp.clone(), unnormalized_ll))
+        expansions_buf.push(Expansion::new(prod, unnormalized_ll))
     }
     expr.ctx.load_state(ctx_save_state);
 
@@ -428,7 +438,7 @@ pub fn add_expansions<D: Domain, M: ProbabilisticModel>(expr: &mut PartialExpr, 
 //             new_expr.holes.pop().unwrap();
 
 //             // instantiate if this wasnt a variable
-//             let prod_tp: Type = if let Lambda::Var(_) = prod {
+//             let prod_tp: TypeRef = if let Lambda::Var(_) = prod {
 //                 prod_tp.clone()
 //             } else {
 //                 prod_tp.instantiate(&mut new_expr.ctx)
@@ -500,9 +510,14 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
     let mut upper_bound = NotNan::new(0.).unwrap();
     let mut lower_bound = upper_bound - budget_decr;
 
-    let mut typeset = TypeSet::empty();
+    let mut original_typeset = TypeSet::empty();
 
     let task_tps: HashMap<Type,Vec<Task<D>>> = all_tasks.iter().map(|task| (task.tp.clone(), task.clone())).into_group_map();
+
+    let rawtyperef_of_tp: HashMap<Type,RawTypeRef> = task_tps
+        .keys().cloned().chain(D::dsl_entries().map(|entry| entry.tp.clone()))
+        .map(|tp| (tp.clone(),original_typeset.add_tp(&tp))).collect();
+
 
     loop {
 
@@ -523,19 +538,24 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                 println!("\t{}", task.name)
             }
 
+
+            let mut typeset = original_typeset.clone();
+            let tp = rawtyperef_of_tp.get(tp).unwrap().instantiate(&mut typeset);
+
             // if we want to wrap this in some lambdas and return it, then the outermost lambda should be the first type in
             // the list of arg types. This will be the *largest* de bruijn index within the body of the program, therefore
             // we should reverse the 
-            let mut env: VecDeque<Type> = tp.iter_args().cloned().collect();
+            let mut env: VecDeque<TypeRef> = tp.iter_args(&typeset).collect();
             env.make_contiguous().reverse();
 
             let mut save_states: Vec<SaveState> = vec![];
             let mut expansions: Vec<Expansion> = vec![];
             let mut solved_buf: Vec<(String, PartialExpr)> = vec![];
-            let mut expr = PartialExpr::single_hole(tp.return_type().clone(), env.clone());
-            add_expansions::<D,M>(&mut expr, &mut expansions, &mut save_states, &model, lower_bound);
+            let mut expr = PartialExpr::single_hole(tp.return_type(&typeset), env.clone(), typeset);
+            add_expansions::<D,M>(&mut expr, &mut expansions, &mut save_states, &rawtyperef_of_tp, &model, lower_bound);
 
             loop {
+                // println!("a");
                 // check if totally done
                 if save_states.is_empty() {
                     break 
@@ -570,6 +590,7 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                         continue; // too high probability - was enumerated on a previous pass of depth first search
                     }
                     stats.num_finished += 1;
+
                     let solved_tasks = check_correctness(tasks, &expr, &env, &mut stats, &mut solved_buf);
 
                     for task_name in solved_tasks {
@@ -578,7 +599,7 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
 
                 } else {
                     // println!("{}: {} (ll={})", "expanding".yellow(), expr, expr.ll);
-                    add_expansions::<D,M>(&mut expr, &mut expansions, &mut save_states, &model, lower_bound);
+                    add_expansions::<D,M>(&mut expr, &mut expansions, &mut save_states, &rawtyperef_of_tp, &model, lower_bound);
                 }
 
                 // println!("holes: {:?}", item.expr.holes);
@@ -599,10 +620,10 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
 }
 
 #[inline(never)]
-fn check_correctness<D: Domain>(tasks: &Vec<Task<D>>, expanded: &PartialExpr, env: &VecDeque<Type>, stats: &mut Stats, solved_buf: &mut Vec<(String, PartialExpr)>) -> Vec<String>{
+fn check_correctness<D: Domain>(tasks: &Vec<Task<D>>, expanded: &PartialExpr, env: &VecDeque<TypeRef>, stats: &mut Stats, solved_buf: &mut Vec<(String, PartialExpr)>) -> Vec<String>{
     let mut solved_tasks: Vec<String> = vec![];
     let expr = Expr::new(expanded.expr.clone());
-    debug_assert!(expr.infer::<D>(Some(Id::from(expanded.root.unwrap())), &mut Context::empty(), &mut (env.clone())).is_ok());
+    // debug_assert!(expr.infer::<D>(Some(Id::from(expanded.root.unwrap())), &mut Context::empty(), &mut (env.clone())).is_ok());
     for task in tasks {
         let mut solved = true;
         for io in task.ios.iter() {

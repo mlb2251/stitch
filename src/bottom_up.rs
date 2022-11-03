@@ -13,7 +13,7 @@ use itertools::Itertools;
 #[clap(name = "Bottom-up synthesis")]
 pub struct BottomUpConfig {
     /// How big of a step to increase cost by for each round of bottom up
-    #[clap(short, long, default_value = "1")]
+    #[clap(long, default_value = "1")]
     pub cost_step: usize,
 
     /// Max cost to enumerate to
