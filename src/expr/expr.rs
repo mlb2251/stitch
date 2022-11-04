@@ -1,8 +1,11 @@
-use crate::*;
+use crate::expr::*;
+use crate::expr::parse_expr::{curry_sexp,uncurry_sexp};
 use std::fmt::{self, Formatter, Display, Debug};
 use std::hash::Hash;
 use sexp::Sexp;
 use serde::{Serialize, Deserialize};
+use egg::Analysis;
+
 
 /// A node of an untyped lambda calculus expression compatible with `egg` but also used more widely throughout this crate.
 /// Note that there is no domain associated with this object. This makes it easy to run compression on
@@ -216,19 +219,7 @@ impl Display for Expr {
     }
 }
 
-impl std::str::FromStr for Expr {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.contains("(app ") {
-            // this is curried
-            Self::from_curried(s)
-        } else {
-            // this is uncurried. Note that even if it's curried and just lacks
-            // a "(app " then that means that it's identical to an uncurried one. 
-            Self::from_uncurried(s)
-        }
-    }
-}
+
 
 
 impl Expr {
@@ -416,9 +407,65 @@ impl Expr {
 
     /// write the Expr to a file (includes structural hashing sharing)
     /// writes to `outdir/name.png` (no need to provide the extension)
-    pub fn save(&self, name: &str, outdir: &str) {
-        let mut egraph: EGraph = Default::default();
+    pub fn save<A: Analysis<Lambda> + Default>(&self, name: &str, outdir: &str) {
+        let mut egraph: EGraph<Lambda,A> = Default::default();
         egraph.add_expr(self.into());
         egraph.dot().to_png(format!("{}/{}.png",outdir,name)).unwrap();
+    }
+}
+
+// todo REMOVE THESE
+const COST_NONTERMINAL:i32 = 1;
+const COST_TERMINAL:i32 = 100;
+
+
+/// the cost of a program, where `app` and `lam` cost 1, `programs` costs nothing,
+/// `ivar` and `var` and `prim` cost 100.
+pub struct ProgramCost {}
+impl CostFunction<Lambda> for ProgramCost {
+    type Cost = i32;
+    fn cost<C>(&mut self, enode: &Lambda, mut costs: C) -> Self::Cost
+    where
+        C: FnMut(Id) -> Self::Cost
+    {
+        match enode {
+            Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => COST_TERMINAL,
+            Lambda::App([f, x]) => {
+                COST_NONTERMINAL + costs(*f) + costs(*x)
+            }
+            Lambda::Lam([b]) => {
+                COST_NONTERMINAL + costs(*b)
+            }
+            Lambda::Programs(ps) => {
+                ps.iter()
+                .map(|p|costs(*p))
+                .sum()
+            }
+        }
+    }
+}
+
+/// depth of a program. For example a leaf is depth 1.
+pub struct ProgramDepth {}
+impl CostFunction<Lambda> for ProgramDepth {
+    type Cost = i32;
+    fn cost<C>(&mut self, enode: &Lambda, mut costs: C) -> Self::Cost
+    where
+        C: FnMut(Id) -> Self::Cost
+    {
+        match enode {
+            Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => 1,
+            Lambda::App([f, x]) => {
+                1 + std::cmp::max(costs(*f), costs(*x))
+            }
+            Lambda::Lam([b]) => {
+                1 + costs(*b)
+            }
+            Lambda::Programs(ps) => {
+                ps.iter()
+                .map(|p|costs(*p))
+                .max().unwrap()
+            }
+        }
     }
 }

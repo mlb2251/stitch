@@ -1,8 +1,9 @@
 use core::panic;
 use std::{collections::VecDeque};
-
-use crate::*;
-use egg::Symbol;
+use crate::expr::parse_type;
+use crate::expr::expr::{Expr,Lambda};
+use crate::expr::dsl::Domain;
+use egg::{Symbol,Id};
 
 
 
@@ -606,7 +607,7 @@ impl<'a> Iterator for TermArgIter<'a> {
 impl std::str::FromStr for Type {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        crate::parse_types::parse(s)
+        parse_type::parse(s)
     }
 }
 
@@ -874,54 +875,3 @@ impl Expr {
 }
 
 
-#[test]
-fn test_types() {
-    use domains::simple::SimpleVal;
-
-    fn assert_unify(t1: &str, t2: &str, expected: UnifyResult) {
-        let mut ctx = Context::empty();
-        let res = ctx.unify(&t1.parse::<Type>().unwrap(),
-                     &t2.parse::<Type>().unwrap());
-        assert_eq!(res, expected);
-
-        let mut typeset = TypeSet::empty();
-        let t1 = typeset.add_tp(&t1.parse::<Type>().unwrap()).instantiate(&mut typeset);
-        let t2 = typeset.add_tp(&t2.parse::<Type>().unwrap()).instantiate(&mut typeset);
-        let res = typeset.unify(&t1,&t2);
-        assert_eq!(res, expected);
-    }
-
-    fn assert_infer(p: &str, expected: Result<&str, UnifyErr>) {
-        let res = p.parse::<Expr>().unwrap().infer::<SimpleVal>(None, &mut Context::empty(), &mut Default::default());
-        assert_eq!(res, expected.map(|ty| ty.parse::<Type>().unwrap()));
-    }
-
-    assert_unify("int", "int", Ok(()));
-    assert_unify("int", "t0", Ok(()));
-    assert_unify("int", "t1", Ok(()));
-    assert_unify("(list int)", "(list t1)", Ok(()));
-    assert_unify("(int -> bool)", "(int -> t0)", Ok(()));
-    assert_unify("t0", "t1", Ok(()));
-
-    assert_infer("3", Ok("int"));
-    assert_infer("[1,2,3]", Ok("list int"));
-    assert_infer("(+ 2 3)", Ok("int"));
-    assert_infer("(lam $0)", Ok("t0 -> t0"));
-    assert_infer("(lam (+ $0 1))", Ok("int -> int"));
-    assert_infer("map", Ok("((t0 -> t1) -> (list t0) -> (list t1))"));
-    assert_infer("(map (lam (+ $0 1)))", Ok("list int -> list int"));
-    // assert_infer("(map (lam (+ 1)))", Err(UnifyErr::Production));
-    // assert_infer("map 3");
-
-    // let mut ctx = Context::empty();
-
-    // let map_tp: Type = "((t0 -> t1) -> (list t0) -> (list t1))".parse().unwrap();
-
-    // let args: Vec<&Type> = map_tp.iter_args().collect();
-
-    // ctx.unify(args[0], &"int -> bool".parse().unwrap());
-    // println!("{}", ctx);
-    // println!("{}", args[1].apply(&mut ctx));
-
-
-}

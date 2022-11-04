@@ -1,9 +1,11 @@
-use crate::*;
+use crate::abstraction_learning::*;
+use crate::abstraction_learning::egraphs::EGraph;
+use crate::expr::*;
 use rustc_hash::{FxHashMap,FxHashSet};
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
-use extraction::extract;
+use rewriting::extract;
 use serde_json::json;
 use clap::{Parser};
 use serde::Serialize;
@@ -240,7 +242,7 @@ fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &FxHashMap<Zip,ZId>) -> Vec<Vec
 impl Pattern {
     /// create a single hole pattern `??`
     //#[inline(never)]
-    fn single_hole(treenodes: &[Id], cost_of_node_all: &[i32], num_paths_to_node: &[i32], egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
+    fn single_hole(treenodes: &[Id], cost_of_node_all: &[i32], num_paths_to_node: &[i32], egraph: &EGraph, cfg: &CompressionStepConfig) -> Self {
         let body_utility = 0;
         let mut match_locations = treenodes.to_owned();
         match_locations.sort(); // we assume match_locations is always sorted
@@ -496,7 +498,7 @@ pub struct Tracking {
 impl CriticalMultithreadData {
     /// Create a new mutable multithread data struct with
     /// a worklist that just has a single hole on it
-    fn new(donelist: Vec<FinishedPattern>, treenodes: &[Id], cost_of_node_all: &[i32], num_paths_to_node: &[i32], egraph: &crate::EGraph, cfg: &CompressionStepConfig) -> Self {
+    fn new(donelist: Vec<FinishedPattern>, treenodes: &[Id], cost_of_node_all: &[i32], num_paths_to_node: &[i32], egraph: &EGraph, cfg: &CompressionStepConfig) -> Self {
         // push an empty hole onto a new worklist
         let mut worklist = BinaryHeap::new();
         worklist.push(HeapItem::new(Pattern::single_hole(treenodes, cost_of_node_all, num_paths_to_node, egraph, cfg)));
@@ -1094,7 +1096,7 @@ impl FinishedPattern {
 fn get_zippers(
     treenodes: &[Id],
     cost_of_node_once: &[i32],
-    egraph: &mut crate::EGraph,
+    egraph: &mut EGraph,
 ) -> (FxHashMap<Zip, ZId>, Vec<Zip>, Vec<FxHashMap<Id,Arg>>, FxHashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>) {
     let cache: &mut Option<RecVarModCache> = &mut Some(FxHashMap::default());
 

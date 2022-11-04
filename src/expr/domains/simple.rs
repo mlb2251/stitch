@@ -1,6 +1,6 @@
 /// This is an example domain, heavily commented to explain how to implement your own!
 
-use crate::*;
+use crate::expr::*;
 use std::collections::HashMap;
 
 /// A simple domain with ints and polymorphic lists (allows nested lists).
@@ -21,16 +21,16 @@ pub enum SimpleType {
 }
 
 // aliases of various typed specialized to our SimpleVal
-type Val = domain::Val<SimpleVal>;
-type LazyVal = domain::LazyVal<SimpleVal>;
-type Evaluator<'a> = domain::Evaluator<'a,SimpleVal>;
-type VResult = domain::VResult<SimpleVal>;
-type DSLFn = domain::DSLFn<SimpleVal>;
+type Val = crate::expr::eval::Val<SimpleVal>;
+type LazyVal = crate::expr::eval::LazyVal<SimpleVal>;
+type Evaluator<'a> = crate::expr::eval::Evaluator<'a,SimpleVal>;
+type VResult = crate::expr::eval::VResult<SimpleVal>;
+type DSLFn = crate::expr::dsl::DSLFn<SimpleVal>;
 
 // to more concisely refer to the variants
 use SimpleVal::*;
 
-use domain::Val::*;
+use crate::expr::eval::Val::*;
 // use domain::Type::*;
 
 // this macro generates two global lazy_static constants: PRIM and FUNCS
@@ -178,10 +178,47 @@ fn sum(mut args: Vec<LazyVal>, handle: &Evaluator) -> VResult {
 mod tests {
     use super::*;
 
-    
+    #[test]
+    fn test_types_simple() {
+        use domains::simple::SimpleVal;
+
+        fn assert_unify(t1: &str, t2: &str, expected: UnifyResult) {
+            let mut ctx = Context::empty();
+            let res = ctx.unify(&t1.parse::<Type>().unwrap(),
+                        &t2.parse::<Type>().unwrap());
+            assert_eq!(res, expected);
+
+            let mut typeset = TypeSet::empty();
+            let t1 = typeset.add_tp(&t1.parse::<Type>().unwrap()).instantiate(&mut typeset);
+            let t2 = typeset.add_tp(&t2.parse::<Type>().unwrap()).instantiate(&mut typeset);
+            let res = typeset.unify(&t1,&t2);
+            assert_eq!(res, expected);
+        }
+
+        fn assert_infer(p: &str, expected: Result<&str, UnifyErr>) {
+            let res = p.parse::<Expr>().unwrap().infer::<SimpleVal>(None, &mut Context::empty(), &mut Default::default());
+            assert_eq!(res, expected.map(|ty| ty.parse::<Type>().unwrap()));
+        }
+
+        assert_unify("int", "int", Ok(()));
+        assert_unify("int", "t0", Ok(()));
+        assert_unify("int", "t1", Ok(()));
+        assert_unify("(list int)", "(list t1)", Ok(()));
+        assert_unify("(int -> bool)", "(int -> t0)", Ok(()));
+        assert_unify("t0", "t1", Ok(()));
+
+        assert_infer("3", Ok("int"));
+        assert_infer("[1,2,3]", Ok("list int"));
+        assert_infer("(+ 2 3)", Ok("int"));
+        assert_infer("(lam $0)", Ok("t0 -> t0"));
+        assert_infer("(lam (+ $0 1))", Ok("int -> int"));
+        assert_infer("map", Ok("((t0 -> t1) -> (list t0) -> (list t1))"));
+        assert_infer("(map (lam (+ $0 1)))", Ok("list int -> list int"));
+
+    }
 
     #[test]
-    fn eval_test() {
+    fn test_eval_simple() {
 
         assert_execution::<domains::simple::SimpleVal, i32>("(+ 1 2)", &[], 3);
 

@@ -1,6 +1,7 @@
 // use itertools::Itertools;
 
-use crate::*;
+use crate::abstraction_learning::*;
+use crate::expr::*;
 use rustc_hash::{FxHashSet};
 
 
@@ -89,58 +90,6 @@ impl Analysis<Lambda> for LambdaAnalysis {
 }
 
 
-/// the cost of a program, where `app` and `lam` cost 1, `programs` costs nothing,
-/// `ivar` and `var` and `prim` cost 100.
-pub struct ProgramCost {}
-impl CostFunction<Lambda> for ProgramCost {
-    type Cost = i32;
-    fn cost<C>(&mut self, enode: &Lambda, mut costs: C) -> Self::Cost
-    where
-        C: FnMut(Id) -> Self::Cost
-    {
-        match enode {
-            Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => COST_TERMINAL,
-            Lambda::App([f, x]) => {
-                COST_NONTERMINAL + costs(*f) + costs(*x)
-            }
-            Lambda::Lam([b]) => {
-                COST_NONTERMINAL + costs(*b)
-            }
-            Lambda::Programs(ps) => {
-                ps.iter()
-                .map(|p|costs(*p))
-                .sum()
-            }
-        }
-    }
-}
-
-/// depth of a program. For example a leaf is depth 1.
-pub struct ProgramDepth {}
-impl CostFunction<Lambda> for ProgramDepth {
-    type Cost = i32;
-    fn cost<C>(&mut self, enode: &Lambda, mut costs: C) -> Self::Cost
-    where
-        C: FnMut(Id) -> Self::Cost
-    {
-        match enode {
-            Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => 1,
-            Lambda::App([f, x]) => {
-                1 + std::cmp::max(costs(*f), costs(*x))
-            }
-            Lambda::Lam([b]) => {
-                1 + costs(*b)
-            }
-            Lambda::Programs(ps) => {
-                ps.iter()
-                .map(|p|costs(*p))
-                .max().unwrap()
-            }
-        }
-    }
-}
-
-
 /// does a child first traversal of the egraph and returns a Vec<Id> in that
 /// order. Notably an Id will never show up twice (if it showed up earlier
 /// it wont show up again). Assumes no cycles in the EGraph.
@@ -199,7 +148,7 @@ fn associate_task_rec(node: Id, egraph: &EGraph, task_id: usize, tasks_of_node: 
 
 /// Does debruijn index shifting of a subtree, incrementing all Vars by the given amount
 #[inline] // useful to inline since callsite can usually tell which Shift type is happening allowing further optimization
-pub fn shift(e: Id, incr_by: i32, egraph: &mut crate::EGraph, cache: &mut Option<RecVarModCache>) -> Option<Id> {
+pub fn shift(e: Id, incr_by: i32, egraph: &mut EGraph, cache: &mut Option<RecVarModCache>) -> Option<Id> {
     let empty = &mut RecVarModCache::default();
     let seen: &mut RecVarModCache = cache.as_mut().unwrap_or(empty);
 
@@ -214,7 +163,7 @@ pub fn shift(e: Id, incr_by: i32, egraph: &mut crate::EGraph, cache: &mut Option
 
 /// replaces upward refs to 0 with negative ivar
 #[inline]
-pub fn insert_arg_ivars(e: Id, set_to: i32, egraph: &mut crate::EGraph) -> Option<Id> {
+pub fn insert_arg_ivars(e: Id, set_to: i32, egraph: &mut EGraph) -> Option<Id> {
     recursive_var_mod(
         |actual_idx, _depth, which_upward_ref, egraph| {
             if which_upward_ref == 0 {

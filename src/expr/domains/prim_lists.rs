@@ -1,6 +1,6 @@
 // The primitive list domain from Josh Rule's thesis, p.170.
 
-use crate::*;
+use crate::expr::*;
 use std::collections::HashMap;
 
 #[derive(Clone,Debug, PartialEq, Eq, Hash)]
@@ -15,14 +15,14 @@ pub enum ListVal {
 // This is a crude way of finding infinitely looping programs.
 const MAX_FIX_INVOCATIONS: u32 = 20;
 
-type Val = domain::Val<ListVal>;
-type LazyVal = domain::LazyVal<ListVal>;
-type Evaluator<'a> = domain::Evaluator<'a,ListVal>;
-type VResult = domain::VResult<ListVal>;
-type DSLFn = domain::DSLFn<ListVal>;
+type Val = crate::expr::eval::Val<ListVal>;
+type LazyVal = crate::expr::eval::LazyVal<ListVal>;
+type Evaluator<'a> = crate::expr::eval::Evaluator<'a,ListVal>;
+type VResult = crate::expr::eval::VResult<ListVal>;
+type DSLFn = crate::expr::dsl::DSLFn<ListVal>;
 
 use ListVal::*;
-use domain::Val::*;
+use crate::expr::eval::Val::*;
 // use domain::Type::*;
 
 // this macro generates two global lazy_static constants: PRIM and FUNCS
@@ -275,10 +275,8 @@ fn fix_flip(mut args: Vec<LazyVal>, handle: &Evaluator) -> VResult {
 mod tests {
     use super::*;
 
-    
-
     #[test]
-    fn eval_test() {
+    fn test_eval_prim_lists() {
 
         let arg = ListVal::val_of_prim("[]".into()).unwrap();
         assert_execution::<ListVal, Vec<Val>>("(if (is_empty $0) $0 (tail $0))", &[arg], vec![]);

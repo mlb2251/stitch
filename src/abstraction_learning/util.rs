@@ -1,89 +1,8 @@
-use crate::*;
-use sexp::{Sexp,Atom};
-use std::fmt::Debug;
+use crate::abstraction_learning::*;
+use crate::abstraction_learning::egraphs::EGraph;
+use crate::expr::*;
 use rustc_hash::{FxHashMap};
 use std::hash::Hash;
-
-
-/// Uncurries an s expression. For example: (app (app foo x) y) -> (foo x y)
-/// panics if sexp is already uncurried.
-pub fn uncurry_sexp(e: &Sexp) -> Sexp {
-    match e {
-        Sexp::List(orig_list) => {
-            assert!(orig_list.len() > 1);
-            // recurse on children
-            let uncurried_children: Vec<Sexp> = orig_list.iter().map(uncurry_sexp).collect();
-            match uncurried_children[0].to_string().as_str() {
-                "lam" => {
-                    Sexp::List(uncurried_children)
-                },
-                "app" =>  {
-                    // (app (app foo x) y) -> (foo x y)
-                    assert_eq!(uncurried_children.len(), 3);
-
-                    // see if `f` is also an app in which case we'll have to flatten
-                    let has_inner_app = if let Sexp::List(innerlist) = &orig_list[1] {
-                        innerlist[0].to_string().as_str() == "app"
-                    } else { false };
-
-                    let f = uncurried_children[1].clone();
-                    let x = uncurried_children[2].clone();
-                    
-                    let mut res = vec![];
-
-                    if has_inner_app {
-                        match f {
-                            Sexp::List(list) => { res.extend(list) }
-                            _ => panic!("expected list, got {}", f)
-                        }
-                    } else {
-                        res.push(f);
-                    }
-                    res.push(x);
-                    Sexp::List(res)
-                },
-                "programs" => {
-                    Sexp::List(uncurried_children)
-                }
-                _ => {
-                    panic!("not curried {}",e);
-                }
-            }
-        },
-        Sexp::Atom(atom) => Sexp::Atom(atom.clone())
-    }
-}
-
-/// Currys an s expression. For example: (foo x y) -> (app (app foo x) y)
-/// panics if sexp is already curried.
-pub fn curry_sexp(e: &Sexp) -> Sexp {
-    let app:Sexp = Sexp::Atom(Atom::S("app".into()));
-    match e {
-        Sexp::List(list) => {
-            assert!(list.len() > 1);
-            // recurse on children
-            let list: Vec<Sexp> = list.iter().map(curry_sexp).collect();
-            match list[0].to_string().as_str() {
-                "lam" => {
-                    Sexp::List(list)
-                },
-                "app" => panic!("already curried: {}",e),
-                "programs" => {
-                    Sexp::List(list)
-                }
-                _ => {
-                    // (foo x y) -> (app (app foo x) y)
-                    let mut res = Sexp::List(vec![app.clone(), list[0].clone(), list[1].clone()]);
-                    for item in list.iter().skip(2) {
-                        res = Sexp::List(vec![app.clone(), res, item.clone()])
-                    }
-                    res
-                }
-            }
-        },
-        Sexp::Atom(atom) => Sexp::Atom(atom.clone())
-    }
-}
 
 /// print some info about a Vec of programs
 pub fn programs_info(programs: &[Expr]) {
@@ -110,37 +29,6 @@ pub fn egraph_info(egraph: &EGraph) -> String
     format!("{} nodes, {} classes, {} memo", egraph.total_number_of_nodes(), egraph.number_of_classes(), egraph.total_size())
 }
 
-/// convenience function for returning arguments from a DSL function
-pub fn ok<T: Into<Val<D>> , D:Domain>(v: T) -> VResult<D> {
-    Ok(v.into())
-}
-
-/// convenience function for equality assertions
-pub fn assert_eq_val<D:Domain, T>(v: &Val<D>, o: T)
-where T: FromVal<D> + Debug + PartialEq,
-{
-    assert_eq!(T::from_val(v.clone()).unwrap(), o);
-}
-
-/// convenience function for asserting that something executes to what you'd expect
-pub fn assert_execution<D: Domain, T>(expr: &str, args: &[Val<D>], expected: T)
-where T: FromVal<D> + Debug + PartialEq,
-{
-    let e: Expr = expr.parse().unwrap();
-    let mut args: Vec<LazyVal<D>> = args.iter().map(|arg|LazyVal::new_strict(arg.clone())).collect();
-    let res = e.eval(e.root(), &mut args, None).unwrap();
-    assert_eq_val(&res,expected);
-}
-
-pub fn assert_error<D: Domain, T>(expr: &str, args: &[Val<D>], expected_error_msg: String)
-where T: FromVal<D> + Debug + PartialEq
-{
-    let e: Expr = expr.parse().unwrap();
-    let mut args: Vec<LazyVal<D>> = args.iter().map(|arg|LazyVal::new_strict(arg.clone())).collect();
-    let res = e.eval(e.root(),&mut args, None);
-    assert!(res.is_err());
-    assert_eq!(expected_error_msg, res.err().unwrap());
-}
 
 pub fn compression_factor(original: &Expr, compressed: &Expr) -> f64 {
     f64::from(original.cost())/f64::from(compressed.cost())
@@ -232,10 +120,10 @@ pub type RecVarModCache = FxHashMap<(Id,i32),Option<Id>>;
 /// the enode data that tells us if there are no free variables in a branch (and thus it can be ignored),
 /// it operates on the structurally hashed form of the graph, etc.
 pub fn recursive_var_mod(
-    var_mod: impl Fn(i32, i32, i32, &mut crate::EGraph) -> Option<Id>,
+    var_mod: impl Fn(i32, i32, i32, &mut EGraph) -> Option<Id>,
     ivars: bool,
     eclass:Id,
-    egraph: &mut crate::EGraph,
+    egraph: &mut EGraph,
     seen: &mut RecVarModCache
     ) -> Option<Id>
     {
@@ -251,11 +139,11 @@ pub fn recursive_var_mod(
 
 /// see `recursive_var_mod`
 fn recursive_var_mod_helper(
-    var_mod: &impl Fn(i32, i32, i32, &mut crate::EGraph) -> Option<Id>,
+    var_mod: &impl Fn(i32, i32, i32, &mut EGraph) -> Option<Id>,
     ivars: bool, // whether to run this on vars or ivars
     eclass:Id,
     depth: i32,
-    egraph: &mut crate::EGraph,
+    egraph: &mut EGraph,
     seen : &mut RecVarModCache,
     ) -> Option<Id>
     {
@@ -354,12 +242,12 @@ pub fn group_by_key<T: Copy, U: Ord>(v: Vec<T>, key: impl Fn(&T)->U) -> Vec<Vec<
 
 /// Returns a vec from node id to number of places that node is used in the tree. Essentially this just
 /// follows all paths down from the root and logs how many times it encounters each node
-pub fn num_paths_to_node(roots: &[Id], treenodes: &[Id], egraph: &crate::EGraph) -> (Vec<i32>, Vec<Vec<i32>>) {
+pub fn num_paths_to_node(roots: &[Id], treenodes: &[Id], egraph: &EGraph) -> (Vec<i32>, Vec<Vec<i32>>) {
     let mut num_paths_to_node_by_root_idx: Vec<Vec<i32>> = vec![vec![0; treenodes.len()]; roots.len()];
     // treenodes.iter().for_each(|treenode| {
     //     num_paths_to_node.insert(*treenode, 0);
     // });
-    fn helper(num_paths_to_node: &mut Vec<i32>, node: &Id, egraph: &crate::EGraph) {
+    fn helper(num_paths_to_node: &mut Vec<i32>, node: &Id, egraph: &EGraph) {
         // num_paths_to_node.insert(*child, num_paths_to_node[node] + 1);
         num_paths_to_node[usize::from(*node)] += 1;
         for child in egraph[*node].nodes[0].children() {
