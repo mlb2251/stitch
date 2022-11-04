@@ -2,3 +2,7 @@
 	path = experiments/compression_benchmark
 	url = https://github.com/mlb2251/compression_benchmark.git
 	shallow = true
+[submodule "experiments/dreamcoder"]
+	path = experiments/dreamcoder
+	url = https://github.com/mlb2251/dreamcoder
+	shallow=true
