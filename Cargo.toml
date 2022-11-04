@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = ["Matthew Bowers <mlbowers@mit.edu>", "Theo X. Olausson <theoxo@mit.edu>"]
 edition = "2018"
 license = "MIT"
+description = "A scalable abstraction learning library"
+repository = "https://github.com/mlb2251/stitch"
 
 [features]
 python = ["pyo3"]
