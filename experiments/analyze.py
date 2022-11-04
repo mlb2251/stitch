@@ -7,8 +7,6 @@ from pathlib import Path
 import shutil
 from copy import deepcopy
 
-from torch import absolute
-
 def load(file):
     with open(file,'rb') as f:
         return json.load(f)
@@ -905,10 +903,10 @@ if __name__ == '__main__':
                     assert stitch_processed['num_inventions'] == dreamcoder_processed['num_inventions']
                     num_inventions = stitch_processed['num_inventions']
 
-                    for inv in dreamcoder_processed['inventions']:
-                        if inv['arity'] > 3:
-                            a = inv['arity']
-                            print(f"dc found high arity ({domain}): {a}")
+                    # for inv in dreamcoder_processed['inventions']:
+                    #     if inv['arity'] > 3:
+                    #         a = inv['arity']
+                    #         print(f"dc found high arity ({domain}): {a}")
 
                     # we dont record metrics on runs that have no inventions
                     if num_inventions == 0:
@@ -1059,7 +1057,7 @@ if __name__ == '__main__':
             plt.legend()
             plt.tight_layout()
 
-            # os.makedirs(bench_dir / 'plots', exist_ok=True)
+            os.makedirs('plots', exist_ok=True)
             plt.savefig(f'plots/{benches_dir.name}_{metric}.png',dpi=400)
             plt.savefig(f'plots/{benches_dir.name}_{metric}.pdf')
             print(f"wrote to plots/{benches_dir.name}_{metric}.png and pdf")

@@ -31,7 +31,7 @@ itertools = "0.10.3"
 rand = "0.8.4"
 parking_lot = "0.12.0"
 colorful = "0.2.1"
-ahash = "0.7.6"
+rustc-hash = "1.1.0"
 ordered-float = "3.0.0"
 
 [dependencies.pyo3]

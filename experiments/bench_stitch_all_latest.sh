@@ -8,7 +8,7 @@ fi
 
 BENCHES=$1
 
-for COMPARE_TO in $(python analyze.py latest dreamcoder $BENCHES); do
+for COMPARE_TO in $(python3 analyze.py latest dreamcoder $BENCHES); do
     ./bench_stitch.sh compare $COMPARE_TO
 done
 

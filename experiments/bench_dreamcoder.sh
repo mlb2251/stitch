@@ -13,6 +13,13 @@ then
     exit 1
 fi
 
+if [[ $OSTYPE == 'darwin'* ]]
+then
+    GTIME="gtime"
+else
+    GTIME="/usr/bin/time"
+fi
+
 BENCH_DIR=$1
 
 if [ -z $2 ]
@@ -48,12 +55,12 @@ for BENCH_PATH in $BENCH_DIR/bench*.json; do
     echo "[bench_dreamcoder.sh] Running Dreamcoder on: $BENCH"
 
 
-    /usr/bin/time -v $COMPRESSION_BIN $BENCH_PATH > $RAW 2> >(tee $STDERR >&2)
+    $GTIME -v $COMPRESSION_BIN $BENCH_PATH > $RAW 2> >(tee $STDERR >&2)
 done
 
 echo "Done: $OUT_DIR"
 
-python analyze.py process dreamcoder $OUT_DIR
+python3 analyze.py process dreamcoder $OUT_DIR
 
 echo "you can compare to stitch with: ./bench_stitch.sh $BENCH_DIR $OUT_DIR"
 

@@ -1,7 +1,7 @@
 use crate::*;
 use sexp::{Sexp,Atom};
 use std::fmt::Debug;
-use ahash::{AHashMap};
+use rustc_hash::{FxHashMap};
 use std::hash::Hash;
 
 
@@ -147,7 +147,7 @@ pub fn compression_factor(original: &Expr, compressed: &Expr) -> f64 {
 }
 
 /// Replace the ivars in an expr based on an i32->Expr map
-pub fn ivar_replace(e: &Expr, child: Id, map: &AHashMap<i32, Expr>) -> Expr {
+pub fn ivar_replace(e: &Expr, child: Id, map: &FxHashMap<i32, Expr>) -> Expr {
     match e.get(child) {
         Lambda::IVar(i) => map.get(i).unwrap_or(e).clone(),
         Lambda::Var(v) => Expr::var(*v),
@@ -210,7 +210,7 @@ pub fn replace_prim_with(s: &str, prim: &str, new: &str) -> String {
 }
 
 /// cache for shift()
-pub type RecVarModCache = AHashMap<(Id,i32),Option<Id>>;
+pub type RecVarModCache = FxHashMap<(Id,i32),Option<Id>>;
 
 
 /// This is a helper function for implementing various recursive operations that only
@@ -377,23 +377,23 @@ pub fn num_paths_to_node(roots: &[Id], treenodes: &[Id], egraph: &crate::EGraph)
     (num_paths_to_node_all, num_paths_to_node_by_root_idx)
 }
 
-/// same as Itertools::counts() but returns an AHashMap instead of a HashMap
-pub fn counts_ahash<T: Hash + Eq + Clone>(v: &[T]) -> AHashMap<T, usize>
+/// same as Itertools::counts() but returns an FxHashMap instead of a HashMap
+pub fn counts_ahash<T: Hash + Eq + Clone>(v: &[T]) -> FxHashMap<T, usize>
 {
-    let mut counts = AHashMap::new();
+    let mut counts = FxHashMap::default();
     v.iter().for_each(|item| *counts.entry(item.clone()).or_default() += 1);
     counts
 }
 
 
 // pub trait IterUtil : Iterator {
-//     /// same as Itertools::counts() but returns an AHashMap instead of a HashMap
-//     fn counts_ahash(self) -> AHashMap<Self::Item, usize>
+//     /// same as Itertools::counts() but returns an FxHashMap instead of a HashMap
+//     fn counts_ahash(self) -> FxHashMap<Self::Item, usize>
 //     where
 //         Self: Sized,
 //         Self::Item: Eq + Hash,
 //     {
-//         let mut counts = AHashMap::new();
+//         let mut counts = FxHashMap::default();
 //         self.for_each(|item| *counts.entry(item).or_default() += 1);
 //         counts
 //     }

@@ -1,0 +1,1406 @@
+echo "Cleaning outputs..."
+Cleaning outputs...
+rm -rf plots/*
+rm -rf compression_benchmark/benches/*/out/stitch
+STITCH_DIR=.. ./bench_stitch_all_latest.sh compression_benchmark/benches
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.05s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it2
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it4
+[bench_stitch.sh] Running Stitch with -a3 on: bench004_it5
+[bench_stitch.sh] Running Stitch with -a3 on: bench005_it6
+[bench_stitch.sh] Running Stitch with -a3 on: bench006_it7
+[bench_stitch.sh] Running Stitch with -a3 on: bench007_it8
+[bench_stitch.sh] Running Stitch with -a3 on: bench008_it9
+[bench_stitch.sh] Running Stitch with -a3 on: bench009_it10
+skipping compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/bench010_it12.json since comparison is nonexistant or has zero iterations
+[bench_stitch.sh] Running Stitch with -a3 on: bench011_it15
+[bench_stitch.sh] Running Stitch with -a3 on: bench012_it16
+[bench_stitch.sh] Running Stitch with -a3 on: bench013_it19
+processing bench000_it0
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench002_it2.json
+processing bench003_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench003_it4.json
+processing bench004_it5
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench004_it5.json
+processing bench005_it6
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench005_it6.json
+processing bench006_it7
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench006_it7.json
+processing bench007_it8
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench007_it8.json
+processing bench008_it9
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench008_it9.json
+processing bench009_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench009_it10.json
+processing bench011_it15
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench011_it15.json
+processing bench012_it16
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench012_it16.json
+processing bench013_it19
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench013_it19.json
+Done: compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41 compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/dc/2022-04-13_03-38-39
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.06s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+processing bench000_it0
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.05.43/out/stitch/2022-10-05_12-53-43/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.05.43/out/stitch/2022-10-05_12-53-43/processed/bench001_it1.json
+Done: compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.05.43/out/stitch/2022-10-05_12-53-43
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.05.43/out/stitch/2022-10-05_12-53-43 compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.05.43/out/dc/2022-04-13_02-09-45
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.05s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it3
+processing bench000_it1
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.09.23/out/stitch/2022-10-05_12-53-43/processed/bench000_it1.json
+processing bench001_it3
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.09.23/out/stitch/2022-10-05_12-53-43/processed/bench001_it3.json
+Done: compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.09.23/out/stitch/2022-10-05_12-53-43
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.09.23/out/stitch/2022-10-05_12-53-43 compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.09.23/out/dc/2022-04-13_04-24-20
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.06s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it2
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it3
+[bench_stitch.sh] Running Stitch with -a3 on: bench004_it4
+[bench_stitch.sh] Running Stitch with -a3 on: bench005_it6
+[bench_stitch.sh] Running Stitch with -a3 on: bench006_it9
+[bench_stitch.sh] Running Stitch with -a3 on: bench007_it10
+[bench_stitch.sh] Running Stitch with -a3 on: bench008_it13
+[bench_stitch.sh] Running Stitch with -a3 on: bench009_it15
+[bench_stitch.sh] Running Stitch with -a3 on: bench010_it17
+processing bench000_it0
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench004_it4.json
+processing bench005_it6
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench005_it6.json
+processing bench006_it9
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench006_it9.json
+processing bench007_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench007_it10.json
+processing bench008_it13
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench008_it13.json
+processing bench009_it15
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench009_it15.json
+processing bench010_it17
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench010_it17.json
+Done: compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44 compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/dc/2022-04-13_01-56-08
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.05s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it8
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it13
+processing bench000_it0
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.02.03/out/stitch/2022-10-05_12-53-45/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.02.03/out/stitch/2022-10-05_12-53-45/processed/bench001_it1.json
+processing bench002_it8
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.02.03/out/stitch/2022-10-05_12-53-45/processed/bench002_it8.json
+processing bench003_it13
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.02.03/out/stitch/2022-10-05_12-53-45/processed/bench003_it13.json
+Done: compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.02.03/out/stitch/2022-10-05_12-53-45
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.02.03/out/stitch/2022-10-05_12-53-45 compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.02.03/out/dc/2022-04-12_22-58-47
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.05s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it2
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it3
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it4
+[bench_stitch.sh] Running Stitch with -a3 on: bench004_it5
+[bench_stitch.sh] Running Stitch with -a3 on: bench005_it7
+[bench_stitch.sh] Running Stitch with -a3 on: bench006_it8
+[bench_stitch.sh] Running Stitch with -a3 on: bench007_it9
+[bench_stitch.sh] Running Stitch with -a3 on: bench008_it10
+[bench_stitch.sh] Running Stitch with -a3 on: bench009_it11
+[bench_stitch.sh] Running Stitch with -a3 on: bench010_it12
+processing bench000_it1
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench000_it1.json
+processing bench001_it2
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench001_it2.json
+processing bench002_it3
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench002_it3.json
+processing bench003_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench003_it4.json
+processing bench004_it5
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench004_it5.json
+processing bench005_it7
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench005_it7.json
+processing bench006_it8
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench006_it8.json
+processing bench007_it9
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench007_it9.json
+processing bench008_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench008_it10.json
+processing bench009_it11
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench009_it11.json
+processing bench010_it12
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench010_it12.json
+Done: compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46 compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/dc/2022-04-13_08-45-03
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.05s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+processing bench000_it0
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.16.45/out/stitch/2022-10-05_12-53-47/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.16.45/out/stitch/2022-10-05_12-53-47/processed/bench001_it1.json
+Done: compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.16.45/out/stitch/2022-10-05_12-53-47
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.16.45/out/stitch/2022-10-05_12-53-47 compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.16.45/out/dc/2022-04-12_21-38-25
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.06s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+processing bench000_it0
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.13.12/out/stitch/2022-10-05_12-53-48/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.13.12/out/stitch/2022-10-05_12-53-48/processed/bench001_it1.json
+Done: compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.13.12/out/stitch/2022-10-05_12-53-48
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.13.12/out/stitch/2022-10-05_12-53-48 compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.13.12/out/dc/2022-04-13_02-18-11
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.06s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it3
+processing bench000_it0
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50/out/stitch/2022-10-05_12-53-49/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50/out/stitch/2022-10-05_12-53-49/processed/bench001_it1.json
+processing bench002_it3
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50/out/stitch/2022-10-05_12-53-49/processed/bench002_it3.json
+Done: compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50/out/stitch/2022-10-05_12-53-49
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50/out/stitch/2022-10-05_12-53-49 compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50/out/dc/2022-04-12_23-23-41
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.06s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it8
+processing bench000_it0
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.13.04/out/stitch/2022-10-05_12-53-49/processed/bench000_it0.json
+processing bench001_it8
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.13.04/out/stitch/2022-10-05_12-53-49/processed/bench001_it8.json
+Done: compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.13.04/out/stitch/2022-10-05_12-53-49
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.13.04/out/stitch/2022-10-05_12-53-49 compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.13.04/out/dc/2022-04-13_06-25-06
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.05s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it2
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it3
+[bench_stitch.sh] Running Stitch with -a3 on: bench004_it4
+[bench_stitch.sh] Running Stitch with -a3 on: bench005_it5
+[bench_stitch.sh] Running Stitch with -a3 on: bench006_it6
+[bench_stitch.sh] Running Stitch with -a3 on: bench007_it7
+[bench_stitch.sh] Running Stitch with -a3 on: bench008_it8
+[bench_stitch.sh] Running Stitch with -a3 on: bench009_it10
+[bench_stitch.sh] Running Stitch with -a3 on: bench010_it12
+[bench_stitch.sh] Running Stitch with -a3 on: bench011_it17
+processing bench000_it0
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench005_it5.json
+processing bench006_it6
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench006_it6.json
+processing bench007_it7
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench007_it7.json
+processing bench008_it8
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench008_it8.json
+processing bench009_it10
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench009_it10.json
+processing bench010_it12
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench010_it12.json
+processing bench011_it17
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench011_it17.json
+Done: compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50 compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/dc/2022-04-13_02-37-14
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.07s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it2
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it3
+[bench_stitch.sh] Running Stitch with -a3 on: bench004_it4
+[bench_stitch.sh] Running Stitch with -a3 on: bench005_it5
+skipping compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/bench006_it6.json since comparison is nonexistant or has zero iterations
+[bench_stitch.sh] Running Stitch with -a3 on: bench007_it9
+[bench_stitch.sh] Running Stitch with -a3 on: bench008_it10
+[bench_stitch.sh] Running Stitch with -a3 on: bench009_it11
+processing bench000_it0
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench005_it5.json
+processing bench007_it9
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench007_it9.json
+processing bench008_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench008_it10.json
+processing bench009_it11
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench009_it11.json
+Done: compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52 compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/dc/2022-04-12_20-46-48
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.05s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+processing bench000_it0
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.20.13/out/stitch/2022-10-05_12-53-53/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.20.13/out/stitch/2022-10-05_12-53-53/processed/bench001_it1.json
+Done: compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.20.13/out/stitch/2022-10-05_12-53-53
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.20.13/out/stitch/2022-10-05_12-53-53 compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.20.13/out/dc/2022-04-13_00-58-00
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.06s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it3
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it9
+processing bench000_it0
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.51.16/out/stitch/2022-10-05_12-53-54/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.51.16/out/stitch/2022-10-05_12-53-54/processed/bench001_it1.json
+processing bench002_it3
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.51.16/out/stitch/2022-10-05_12-53-54/processed/bench002_it3.json
+processing bench003_it9
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.51.16/out/stitch/2022-10-05_12-53-54/processed/bench003_it9.json
+Done: compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.51.16/out/stitch/2022-10-05_12-53-54
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.51.16/out/stitch/2022-10-05_12-53-54 compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.51.16/out/dc/2022-04-12_22-09-20
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.05s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it3
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it5
+processing bench000_it0
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.58.24/out/stitch/2022-10-05_12-53-54/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.58.24/out/stitch/2022-10-05_12-53-54/processed/bench001_it1.json
+processing bench002_it3
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.58.24/out/stitch/2022-10-05_12-53-54/processed/bench002_it3.json
+processing bench003_it5
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.58.24/out/stitch/2022-10-05_12-53-54/processed/bench003_it5.json
+Done: compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.58.24/out/stitch/2022-10-05_12-53-54
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.58.24/out/stitch/2022-10-05_12-53-54 compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.58.24/out/dc/2022-04-12_21-16-47
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.05s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it2
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it3
+[bench_stitch.sh] Running Stitch with -a3 on: bench004_it4
+processing bench000_it0
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/stitch/2022-10-05_12-53-55/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/stitch/2022-10-05_12-53-55/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/stitch/2022-10-05_12-53-55/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/stitch/2022-10-05_12-53-55/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/stitch/2022-10-05_12-53-55/processed/bench004_it4.json
+Done: compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/stitch/2022-10-05_12-53-55
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/stitch/2022-10-05_12-53-55 compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/dc/2022-04-12_22-38-42
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.06s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it2
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it4
+[bench_stitch.sh] Running Stitch with -a3 on: bench004_it5
+[bench_stitch.sh] Running Stitch with -a3 on: bench005_it7
+[bench_stitch.sh] Running Stitch with -a3 on: bench006_it8
+[bench_stitch.sh] Running Stitch with -a3 on: bench007_it10
+[bench_stitch.sh] Running Stitch with -a3 on: bench008_it11
+[bench_stitch.sh] Running Stitch with -a3 on: bench009_it12
+[bench_stitch.sh] Running Stitch with -a3 on: bench010_it15
+processing bench000_it0
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench002_it2.json
+processing bench003_it4
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench003_it4.json
+processing bench004_it5
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench004_it5.json
+processing bench005_it7
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench005_it7.json
+processing bench006_it8
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench006_it8.json
+processing bench007_it10
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench007_it10.json
+processing bench008_it11
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench008_it11.json
+processing bench009_it12
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench009_it12.json
+processing bench010_it15
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench010_it15.json
+Done: compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56 compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/dc/2022-04-12_20-46-50
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.06s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it2
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it13
+processing bench000_it0
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.54.52/out/stitch/2022-10-05_12-53-57/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.54.52/out/stitch/2022-10-05_12-53-57/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.54.52/out/stitch/2022-10-05_12-53-57/processed/bench002_it2.json
+processing bench003_it13
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.54.52/out/stitch/2022-10-05_12-53-57/processed/bench003_it13.json
+Done: compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.54.52/out/stitch/2022-10-05_12-53-57
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.54.52/out/stitch/2022-10-05_12-53-57 compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.54.52/out/dc/2022-04-13_05-48-09
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.05s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it4
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it5
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it6
+[bench_stitch.sh] Running Stitch with -a3 on: bench004_it7
+[bench_stitch.sh] Running Stitch with -a3 on: bench005_it8
+[bench_stitch.sh] Running Stitch with -a3 on: bench006_it10
+[bench_stitch.sh] Running Stitch with -a3 on: bench007_it12
+[bench_stitch.sh] Running Stitch with -a3 on: bench008_it18
+processing bench000_it0
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench000_it0.json
+processing bench001_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench001_it4.json
+processing bench002_it5
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench002_it5.json
+processing bench003_it6
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench003_it6.json
+processing bench004_it7
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench004_it7.json
+processing bench005_it8
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench005_it8.json
+processing bench006_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench006_it10.json
+processing bench007_it12
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench007_it12.json
+processing bench008_it18
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench008_it18.json
+Done: compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58 compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/dc/2022-04-13_00-41-23
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.05s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it2
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it3
+[bench_stitch.sh] Running Stitch with -a3 on: bench004_it4
+[bench_stitch.sh] Running Stitch with -a3 on: bench005_it5
+[bench_stitch.sh] Running Stitch with -a3 on: bench006_it7
+processing bench000_it0
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59/processed/bench005_it5.json
+processing bench006_it7
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59/processed/bench006_it7.json
+Done: compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59 compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/dc/2022-04-13_03-06-06
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.05s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it2
+processing bench000_it0
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.16.56/out/stitch/2022-10-05_12-54-00/processed/bench000_it0.json
+processing bench001_it2
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.16.56/out/stitch/2022-10-05_12-54-00/processed/bench001_it2.json
+Done: compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.16.56/out/stitch/2022-10-05_12-54-00
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.16.56/out/stitch/2022-10-05_12-54-00 compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.16.56/out/dc/2022-04-12_21-23-15
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.05s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it2
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it3
+[bench_stitch.sh] Running Stitch with -a3 on: bench004_it4
+[bench_stitch.sh] Running Stitch with -a3 on: bench005_it5
+[bench_stitch.sh] Running Stitch with -a3 on: bench006_it6
+[bench_stitch.sh] Running Stitch with -a3 on: bench007_it7
+[bench_stitch.sh] Running Stitch with -a3 on: bench008_it8
+[bench_stitch.sh] Running Stitch with -a3 on: bench009_it13
+[bench_stitch.sh] Running Stitch with -a3 on: bench010_it17
+[bench_stitch.sh] Running Stitch with -a3 on: bench011_it19
+processing bench000_it0
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench005_it5.json
+processing bench006_it6
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench006_it6.json
+processing bench007_it7
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench007_it7.json
+processing bench008_it8
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench008_it8.json
+processing bench009_it13
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench009_it13.json
+processing bench010_it17
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench010_it17.json
+processing bench011_it19
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench011_it19.json
+Done: compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01 compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/dc/2022-04-13_00-53-41
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.05s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it2
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it3
+[bench_stitch.sh] Running Stitch with -a3 on: bench004_it4
+[bench_stitch.sh] Running Stitch with -a3 on: bench005_it5
+[bench_stitch.sh] Running Stitch with -a3 on: bench006_it6
+[bench_stitch.sh] Running Stitch with -a3 on: bench007_it7
+[bench_stitch.sh] Running Stitch with -a3 on: bench008_it8
+[bench_stitch.sh] Running Stitch with -a3 on: bench009_it11
+[bench_stitch.sh] Running Stitch with -a3 on: bench010_it16
+[bench_stitch.sh] Running Stitch with -a3 on: bench011_it18
+processing bench000_it0
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench005_it5.json
+processing bench006_it6
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench006_it6.json
+processing bench007_it7
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench007_it7.json
+processing bench008_it8
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench008_it8.json
+processing bench009_it11
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench009_it11.json
+processing bench010_it16
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench010_it16.json
+processing bench011_it18
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench011_it18.json
+Done: compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02 compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/dc/2022-04-13_03-52-04
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.05s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it2
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it3
+[bench_stitch.sh] Running Stitch with -a3 on: bench004_it4
+[bench_stitch.sh] Running Stitch with -a3 on: bench005_it5
+[bench_stitch.sh] Running Stitch with -a3 on: bench006_it6
+[bench_stitch.sh] Running Stitch with -a3 on: bench007_it7
+[bench_stitch.sh] Running Stitch with -a3 on: bench008_it9
+[bench_stitch.sh] Running Stitch with -a3 on: bench009_it10
+[bench_stitch.sh] Running Stitch with -a3 on: bench010_it15
+processing bench000_it0
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench005_it5.json
+processing bench006_it6
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench006_it6.json
+processing bench007_it7
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench007_it7.json
+processing bench008_it9
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench008_it9.json
+processing bench009_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench009_it10.json
+processing bench010_it15
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench010_it15.json
+Done: compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04 compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/dc/2022-04-13_00-14-20
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.06s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it2
+processing bench000_it0
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.05.16/out/stitch/2022-10-05_12-54-05/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.05.16/out/stitch/2022-10-05_12-54-05/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.05.16/out/stitch/2022-10-05_12-54-05/processed/bench002_it2.json
+Done: compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.05.16/out/stitch/2022-10-05_12-54-05
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.05.16/out/stitch/2022-10-05_12-54-05 compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.05.16/out/dc/2022-04-13_01-15-53
+[bench_stitch.sh] Running in strict mode
+~/proj/stitch-artifact/stitch ~/proj/stitch-artifact/stitch/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.06s
+~/proj/stitch-artifact/stitch/experiments
+[bench_stitch.sh] Running Stitch with -a3 on: bench000_it0
+[bench_stitch.sh] Running Stitch with -a3 on: bench001_it1
+[bench_stitch.sh] Running Stitch with -a3 on: bench002_it3
+[bench_stitch.sh] Running Stitch with -a3 on: bench003_it4
+[bench_stitch.sh] Running Stitch with -a3 on: bench004_it5
+[bench_stitch.sh] Running Stitch with -a3 on: bench005_it6
+[bench_stitch.sh] Running Stitch with -a3 on: bench006_it7
+[bench_stitch.sh] Running Stitch with -a3 on: bench007_it8
+[bench_stitch.sh] Running Stitch with -a3 on: bench008_it9
+[bench_stitch.sh] Running Stitch with -a3 on: bench009_it10
+[bench_stitch.sh] Running Stitch with -a3 on: bench010_it11
+[bench_stitch.sh] Running Stitch with -a3 on: bench011_it14
+processing bench000_it0
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench001_it1.json
+processing bench002_it3
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench002_it3.json
+processing bench003_it4
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench003_it4.json
+processing bench004_it5
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench004_it5.json
+processing bench005_it6
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench005_it6.json
+processing bench006_it7
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench006_it7.json
+processing bench007_it8
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench007_it8.json
+processing bench008_it9
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench008_it9.json
+processing bench009_it10
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench009_it10.json
+processing bench010_it11
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench010_it11.json
+processing bench011_it14
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench011_it14.json
+Done: compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06
+You can graph with: python3 analyze.py graphs bar compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06 compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/dc/2022-04-13_01-26-37
+./process_all.sh compression_benchmark/benches
+processing bench000_it0
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/dc/2022-04-12_20-46-50/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/dc/2022-04-12_20-46-50/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/dc/2022-04-12_20-46-50/processed/bench002_it2.json
+processing bench003_it4
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/dc/2022-04-12_20-46-50/processed/bench003_it4.json
+processing bench004_it5
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/dc/2022-04-12_20-46-50/processed/bench004_it5.json
+processing bench005_it7
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/dc/2022-04-12_20-46-50/processed/bench005_it7.json
+processing bench006_it8
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/dc/2022-04-12_20-46-50/processed/bench006_it8.json
+processing bench007_it10
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/dc/2022-04-12_20-46-50/processed/bench007_it10.json
+processing bench008_it11
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/dc/2022-04-12_20-46-50/processed/bench008_it11.json
+processing bench009_it12
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/dc/2022-04-12_20-46-50/processed/bench009_it12.json
+processing bench010_it15
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/dc/2022-04-12_20-46-50/processed/bench010_it15.json
+processing bench000_it0
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/dc/2022-04-13_03-52-04/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/dc/2022-04-13_03-52-04/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/dc/2022-04-13_03-52-04/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/dc/2022-04-13_03-52-04/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/dc/2022-04-13_03-52-04/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/dc/2022-04-13_03-52-04/processed/bench005_it5.json
+processing bench006_it6
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/dc/2022-04-13_03-52-04/processed/bench006_it6.json
+processing bench007_it7
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/dc/2022-04-13_03-52-04/processed/bench007_it7.json
+processing bench008_it8
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/dc/2022-04-13_03-52-04/processed/bench008_it8.json
+processing bench009_it11
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/dc/2022-04-13_03-52-04/processed/bench009_it11.json
+processing bench010_it16
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/dc/2022-04-13_03-52-04/processed/bench010_it16.json
+processing bench011_it18
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/dc/2022-04-13_03-52-04/processed/bench011_it18.json
+processing bench000_it0
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/dc/2022-04-13_02-37-14/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/dc/2022-04-13_02-37-14/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/dc/2022-04-13_02-37-14/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/dc/2022-04-13_02-37-14/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/dc/2022-04-13_02-37-14/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/dc/2022-04-13_02-37-14/processed/bench005_it5.json
+processing bench006_it6
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/dc/2022-04-13_02-37-14/processed/bench006_it6.json
+processing bench007_it7
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/dc/2022-04-13_02-37-14/processed/bench007_it7.json
+processing bench008_it8
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/dc/2022-04-13_02-37-14/processed/bench008_it8.json
+processing bench009_it10
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/dc/2022-04-13_02-37-14/processed/bench009_it10.json
+processing bench010_it12
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/dc/2022-04-13_02-37-14/processed/bench010_it12.json
+processing bench011_it17
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/dc/2022-04-13_02-37-14/processed/bench011_it17.json
+processing bench000_it0
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/dc/2022-04-13_01-26-37/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/dc/2022-04-13_01-26-37/processed/bench001_it1.json
+processing bench002_it3
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/dc/2022-04-13_01-26-37/processed/bench002_it3.json
+processing bench003_it4
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/dc/2022-04-13_01-26-37/processed/bench003_it4.json
+processing bench004_it5
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/dc/2022-04-13_01-26-37/processed/bench004_it5.json
+processing bench005_it6
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/dc/2022-04-13_01-26-37/processed/bench005_it6.json
+processing bench006_it7
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/dc/2022-04-13_01-26-37/processed/bench006_it7.json
+processing bench007_it8
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/dc/2022-04-13_01-26-37/processed/bench007_it8.json
+processing bench008_it9
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/dc/2022-04-13_01-26-37/processed/bench008_it9.json
+processing bench009_it10
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/dc/2022-04-13_01-26-37/processed/bench009_it10.json
+processing bench010_it11
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/dc/2022-04-13_01-26-37/processed/bench010_it11.json
+processing bench011_it14
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/dc/2022-04-13_01-26-37/processed/bench011_it14.json
+processing bench000_it0
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/dc/2022-04-13_00-53-41/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/dc/2022-04-13_00-53-41/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/dc/2022-04-13_00-53-41/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/dc/2022-04-13_00-53-41/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/dc/2022-04-13_00-53-41/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/dc/2022-04-13_00-53-41/processed/bench005_it5.json
+processing bench006_it6
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/dc/2022-04-13_00-53-41/processed/bench006_it6.json
+processing bench007_it7
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/dc/2022-04-13_00-53-41/processed/bench007_it7.json
+processing bench008_it8
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/dc/2022-04-13_00-53-41/processed/bench008_it8.json
+processing bench009_it13
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/dc/2022-04-13_00-53-41/processed/bench009_it13.json
+processing bench010_it17
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/dc/2022-04-13_00-53-41/processed/bench010_it17.json
+processing bench011_it19
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/dc/2022-04-13_00-53-41/processed/bench011_it19.json
+processing bench000_it0
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.02.03/out/dc/2022-04-12_22-58-47/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.02.03/out/dc/2022-04-12_22-58-47/processed/bench001_it1.json
+processing bench002_it8
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.02.03/out/dc/2022-04-12_22-58-47/processed/bench002_it8.json
+processing bench003_it13
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.02.03/out/dc/2022-04-12_22-58-47/processed/bench003_it13.json
+processing bench000_it0
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.05.43/out/dc/2022-04-13_02-09-45/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.05.43/out/dc/2022-04-13_02-09-45/processed/bench001_it1.json
+processing bench000_it1
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.09.23/out/dc/2022-04-13_04-24-20/processed/bench000_it1.json
+processing bench001_it3
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.09.23/out/dc/2022-04-13_04-24-20/processed/bench001_it3.json
+processing bench000_it0
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.13.04/out/dc/2022-04-13_06-25-06/processed/bench000_it0.json
+processing bench001_it8
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.13.04/out/dc/2022-04-13_06-25-06/processed/bench001_it8.json
+processing bench000_it0
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.16.56/out/dc/2022-04-12_21-23-15/processed/bench000_it0.json
+processing bench001_it2
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.16.56/out/dc/2022-04-12_21-23-15/processed/bench001_it2.json
+processing bench000_it0
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/dc/2022-04-12_22-38-42/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/dc/2022-04-12_22-38-42/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/dc/2022-04-12_22-38-42/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/dc/2022-04-12_22-38-42/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/dc/2022-04-12_22-38-42/processed/bench004_it4.json
+processing bench000_it0
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/dc/2022-04-13_03-06-06/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/dc/2022-04-13_03-06-06/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/dc/2022-04-13_03-06-06/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/dc/2022-04-13_03-06-06/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/dc/2022-04-13_03-06-06/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/dc/2022-04-13_03-06-06/processed/bench005_it5.json
+processing bench006_it7
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/dc/2022-04-13_03-06-06/processed/bench006_it7.json
+processing bench000_it0
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.13.12/out/dc/2022-04-13_02-18-11/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.13.12/out/dc/2022-04-13_02-18-11/processed/bench001_it1.json
+processing bench000_it0
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.16.45/out/dc/2022-04-12_21-38-25/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.16.45/out/dc/2022-04-12_21-38-25/processed/bench001_it1.json
+processing bench000_it0
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.20.13/out/dc/2022-04-13_00-58-00/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.20.13/out/dc/2022-04-13_00-58-00/processed/bench001_it1.json
+processing bench000_it0
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/dc/2022-04-13_00-14-20/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/dc/2022-04-13_00-14-20/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/dc/2022-04-13_00-14-20/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/dc/2022-04-13_00-14-20/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/dc/2022-04-13_00-14-20/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/dc/2022-04-13_00-14-20/processed/bench005_it5.json
+processing bench006_it6
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/dc/2022-04-13_00-14-20/processed/bench006_it6.json
+processing bench007_it7
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/dc/2022-04-13_00-14-20/processed/bench007_it7.json
+processing bench008_it9
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/dc/2022-04-13_00-14-20/processed/bench008_it9.json
+processing bench009_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/dc/2022-04-13_00-14-20/processed/bench009_it10.json
+processing bench010_it15
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/dc/2022-04-13_00-14-20/processed/bench010_it15.json
+processing bench000_it0
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/dc/2022-04-13_00-41-23/processed/bench000_it0.json
+processing bench001_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/dc/2022-04-13_00-41-23/processed/bench001_it4.json
+processing bench002_it5
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/dc/2022-04-13_00-41-23/processed/bench002_it5.json
+processing bench003_it6
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/dc/2022-04-13_00-41-23/processed/bench003_it6.json
+processing bench004_it7
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/dc/2022-04-13_00-41-23/processed/bench004_it7.json
+processing bench005_it8
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/dc/2022-04-13_00-41-23/processed/bench005_it8.json
+processing bench006_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/dc/2022-04-13_00-41-23/processed/bench006_it10.json
+processing bench007_it12
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/dc/2022-04-13_00-41-23/processed/bench007_it12.json
+processing bench008_it18
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/dc/2022-04-13_00-41-23/processed/bench008_it18.json
+processing bench000_it0
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/dc/2022-04-13_03-38-39/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/dc/2022-04-13_03-38-39/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/dc/2022-04-13_03-38-39/processed/bench002_it2.json
+processing bench003_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/dc/2022-04-13_03-38-39/processed/bench003_it4.json
+processing bench004_it5
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/dc/2022-04-13_03-38-39/processed/bench004_it5.json
+processing bench005_it6
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/dc/2022-04-13_03-38-39/processed/bench005_it6.json
+processing bench006_it7
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/dc/2022-04-13_03-38-39/processed/bench006_it7.json
+processing bench007_it8
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/dc/2022-04-13_03-38-39/processed/bench007_it8.json
+processing bench008_it9
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/dc/2022-04-13_03-38-39/processed/bench008_it9.json
+processing bench009_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/dc/2022-04-13_03-38-39/processed/bench009_it10.json
+processing bench010_it12
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/dc/2022-04-13_03-38-39/processed/bench010_it12.json
+processing bench011_it15
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/dc/2022-04-13_03-38-39/processed/bench011_it15.json
+processing bench012_it16
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/dc/2022-04-13_03-38-39/processed/bench012_it16.json
+processing bench013_it19
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/dc/2022-04-13_03-38-39/processed/bench013_it19.json
+processing bench000_it1
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/dc/2022-04-13_08-45-03/processed/bench000_it1.json
+processing bench001_it2
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/dc/2022-04-13_08-45-03/processed/bench001_it2.json
+processing bench002_it3
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/dc/2022-04-13_08-45-03/processed/bench002_it3.json
+processing bench003_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/dc/2022-04-13_08-45-03/processed/bench003_it4.json
+processing bench004_it5
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/dc/2022-04-13_08-45-03/processed/bench004_it5.json
+processing bench005_it7
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/dc/2022-04-13_08-45-03/processed/bench005_it7.json
+processing bench006_it8
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/dc/2022-04-13_08-45-03/processed/bench006_it8.json
+processing bench007_it9
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/dc/2022-04-13_08-45-03/processed/bench007_it9.json
+processing bench008_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/dc/2022-04-13_08-45-03/processed/bench008_it10.json
+processing bench009_it11
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/dc/2022-04-13_08-45-03/processed/bench009_it11.json
+processing bench010_it12
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/dc/2022-04-13_08-45-03/processed/bench010_it12.json
+processing bench000_it0
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/dc/2022-04-13_01-56-08/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/dc/2022-04-13_01-56-08/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/dc/2022-04-13_01-56-08/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/dc/2022-04-13_01-56-08/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/dc/2022-04-13_01-56-08/processed/bench004_it4.json
+processing bench005_it6
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/dc/2022-04-13_01-56-08/processed/bench005_it6.json
+processing bench006_it9
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/dc/2022-04-13_01-56-08/processed/bench006_it9.json
+processing bench007_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/dc/2022-04-13_01-56-08/processed/bench007_it10.json
+processing bench008_it13
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/dc/2022-04-13_01-56-08/processed/bench008_it13.json
+processing bench009_it15
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/dc/2022-04-13_01-56-08/processed/bench009_it15.json
+processing bench010_it17
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/dc/2022-04-13_01-56-08/processed/bench010_it17.json
+processing bench000_it0
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/dc/2022-04-12_20-46-48/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/dc/2022-04-12_20-46-48/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/dc/2022-04-12_20-46-48/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/dc/2022-04-12_20-46-48/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/dc/2022-04-12_20-46-48/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/dc/2022-04-12_20-46-48/processed/bench005_it5.json
+processing bench006_it6
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/dc/2022-04-12_20-46-48/processed/bench006_it6.json
+processing bench007_it9
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/dc/2022-04-12_20-46-48/processed/bench007_it9.json
+processing bench008_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/dc/2022-04-12_20-46-48/processed/bench008_it10.json
+processing bench009_it11
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/dc/2022-04-12_20-46-48/processed/bench009_it11.json
+processing bench000_it0
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.51.16/out/dc/2022-04-12_22-09-20/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.51.16/out/dc/2022-04-12_22-09-20/processed/bench001_it1.json
+processing bench002_it3
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.51.16/out/dc/2022-04-12_22-09-20/processed/bench002_it3.json
+processing bench003_it9
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.51.16/out/dc/2022-04-12_22-09-20/processed/bench003_it9.json
+processing bench000_it0
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.54.52/out/dc/2022-04-13_05-48-09/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.54.52/out/dc/2022-04-13_05-48-09/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.54.52/out/dc/2022-04-13_05-48-09/processed/bench002_it2.json
+processing bench003_it13
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.54.52/out/dc/2022-04-13_05-48-09/processed/bench003_it13.json
+processing bench000_it0
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.58.24/out/dc/2022-04-12_21-16-47/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.58.24/out/dc/2022-04-12_21-16-47/processed/bench001_it1.json
+processing bench002_it3
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.58.24/out/dc/2022-04-12_21-16-47/processed/bench002_it3.json
+processing bench003_it5
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.58.24/out/dc/2022-04-12_21-16-47/processed/bench003_it5.json
+processing bench000_it0
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50/out/dc/2022-04-12_23-23-41/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50/out/dc/2022-04-12_23-23-41/processed/bench001_it1.json
+processing bench002_it3
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50/out/dc/2022-04-12_23-23-41/processed/bench002_it3.json
+processing bench000_it0
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.05.16/out/dc/2022-04-13_01-15-53/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.05.16/out/dc/2022-04-13_01-15-53/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.05.16/out/dc/2022-04-13_01-15-53/processed/bench002_it2.json
+processing bench000_it0
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench002_it2.json
+processing bench003_it4
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench003_it4.json
+processing bench004_it5
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench004_it5.json
+processing bench005_it7
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench005_it7.json
+processing bench006_it8
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench006_it8.json
+processing bench007_it10
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench007_it10.json
+processing bench008_it11
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench008_it11.json
+processing bench009_it12
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench009_it12.json
+processing bench010_it15
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/stitch/2022-10-05_12-53-56/processed/bench010_it15.json
+processing bench000_it0
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench005_it5.json
+processing bench006_it6
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench006_it6.json
+processing bench007_it7
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench007_it7.json
+processing bench008_it8
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench008_it8.json
+processing bench009_it11
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench009_it11.json
+processing bench010_it16
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench010_it16.json
+processing bench011_it18
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.31.39/out/stitch/2022-10-05_12-54-02/processed/bench011_it18.json
+processing bench000_it0
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench005_it5.json
+processing bench006_it6
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench006_it6.json
+processing bench007_it7
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench007_it7.json
+processing bench008_it8
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench008_it8.json
+processing bench009_it10
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench009_it10.json
+processing bench010_it12
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench010_it12.json
+processing bench011_it17
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/stitch/2022-10-05_12-53-50/processed/bench011_it17.json
+processing bench000_it0
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench001_it1.json
+processing bench002_it3
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench002_it3.json
+processing bench003_it4
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench003_it4.json
+processing bench004_it5
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench004_it5.json
+processing bench005_it6
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench005_it6.json
+processing bench006_it7
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench006_it7.json
+processing bench007_it8
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench007_it8.json
+processing bench008_it9
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench008_it9.json
+processing bench009_it10
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench009_it10.json
+processing bench010_it11
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench010_it11.json
+processing bench011_it14
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.39.19/out/stitch/2022-10-05_12-54-06/processed/bench011_it14.json
+processing bench000_it0
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench005_it5.json
+processing bench006_it6
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench006_it6.json
+processing bench007_it7
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench007_it7.json
+processing bench008_it8
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench008_it8.json
+processing bench009_it13
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench009_it13.json
+processing bench010_it17
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench010_it17.json
+processing bench011_it19
+wrote compression_benchmark/benches/list_list_hard_test_ellisk_2019-02-15T11.43.28/out/stitch/2022-10-05_12-54-01/processed/bench011_it19.json
+processing bench000_it0
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.02.03/out/stitch/2022-10-05_12-53-45/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.02.03/out/stitch/2022-10-05_12-53-45/processed/bench001_it1.json
+processing bench002_it8
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.02.03/out/stitch/2022-10-05_12-53-45/processed/bench002_it8.json
+processing bench003_it13
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.02.03/out/stitch/2022-10-05_12-53-45/processed/bench003_it13.json
+processing bench000_it0
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.05.43/out/stitch/2022-10-05_12-53-43/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.05.43/out/stitch/2022-10-05_12-53-43/processed/bench001_it1.json
+processing bench000_it1
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.09.23/out/stitch/2022-10-05_12-53-43/processed/bench000_it1.json
+processing bench001_it3
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.09.23/out/stitch/2022-10-05_12-53-43/processed/bench001_it3.json
+processing bench000_it0
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.13.04/out/stitch/2022-10-05_12-53-49/processed/bench000_it0.json
+processing bench001_it8
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.13.04/out/stitch/2022-10-05_12-53-49/processed/bench001_it8.json
+processing bench000_it0
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.16.56/out/stitch/2022-10-05_12-54-00/processed/bench000_it0.json
+processing bench001_it2
+wrote compression_benchmark/benches/logo_logo_batch_50_1h_ellisk_2019-03-23T14.16.56/out/stitch/2022-10-05_12-54-00/processed/bench001_it2.json
+processing bench000_it0
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/stitch/2022-10-05_12-53-55/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/stitch/2022-10-05_12-53-55/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/stitch/2022-10-05_12-53-55/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/stitch/2022-10-05_12-53-55/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.05.46/out/stitch/2022-10-05_12-53-55/processed/bench004_it4.json
+processing bench000_it0
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59/processed/bench005_it5.json
+processing bench006_it7
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.09.34/out/stitch/2022-10-05_12-53-59/processed/bench006_it7.json
+processing bench000_it0
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.13.12/out/stitch/2022-10-05_12-53-48/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.13.12/out/stitch/2022-10-05_12-53-48/processed/bench001_it1.json
+processing bench000_it0
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.16.45/out/stitch/2022-10-05_12-53-47/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.16.45/out/stitch/2022-10-05_12-53-47/processed/bench001_it1.json
+processing bench000_it0
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.20.13/out/stitch/2022-10-05_12-53-53/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.20.13/out/stitch/2022-10-05_12-53-53/processed/bench001_it1.json
+processing bench000_it0
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench005_it5.json
+processing bench006_it6
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench006_it6.json
+processing bench007_it7
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench007_it7.json
+processing bench008_it9
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench008_it9.json
+processing bench009_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench009_it10.json
+processing bench010_it15
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.49.39/out/stitch/2022-10-05_12-54-04/processed/bench010_it15.json
+processing bench000_it0
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench000_it0.json
+processing bench001_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench001_it4.json
+processing bench002_it5
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench002_it5.json
+processing bench003_it6
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench003_it6.json
+processing bench004_it7
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench004_it7.json
+processing bench005_it8
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench005_it8.json
+processing bench006_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench006_it10.json
+processing bench007_it12
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench007_it12.json
+processing bench008_it18
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.53.45/out/stitch/2022-10-05_12-53-58/processed/bench008_it18.json
+processing bench000_it0
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench002_it2.json
+processing bench003_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench003_it4.json
+processing bench004_it5
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench004_it5.json
+processing bench005_it6
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench005_it6.json
+processing bench006_it7
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench006_it7.json
+processing bench007_it8
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench007_it8.json
+processing bench008_it9
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench008_it9.json
+processing bench009_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench009_it10.json
+processing bench011_it15
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench011_it15.json
+processing bench012_it16
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench012_it16.json
+processing bench013_it19
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T21.58.02/out/stitch/2022-10-05_12-53-41/processed/bench013_it19.json
+processing bench000_it1
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench000_it1.json
+processing bench001_it2
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench001_it2.json
+processing bench002_it3
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench002_it3.json
+processing bench003_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench003_it4.json
+processing bench004_it5
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench004_it5.json
+processing bench005_it7
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench005_it7.json
+processing bench006_it8
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench006_it8.json
+processing bench007_it9
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench007_it9.json
+processing bench008_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench008_it10.json
+processing bench009_it11
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench009_it11.json
+processing bench010_it12
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.01.57/out/stitch/2022-10-05_12-53-46/processed/bench010_it12.json
+processing bench000_it0
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench004_it4.json
+processing bench005_it6
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench005_it6.json
+processing bench006_it9
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench006_it9.json
+processing bench007_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench007_it10.json
+processing bench008_it13
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench008_it13.json
+processing bench009_it15
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench009_it15.json
+processing bench010_it17
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-24T22.05.53/out/stitch/2022-10-05_12-53-44/processed/bench010_it17.json
+processing bench000_it0
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench002_it2.json
+processing bench003_it3
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench003_it3.json
+processing bench004_it4
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench004_it4.json
+processing bench005_it5
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench005_it5.json
+processing bench007_it9
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench007_it9.json
+processing bench008_it10
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench008_it10.json
+processing bench009_it11
+wrote compression_benchmark/benches/text_text_ellisk_2019-01-25T20.19.06/out/stitch/2022-10-05_12-53-52/processed/bench009_it11.json
+processing bench000_it0
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.51.16/out/stitch/2022-10-05_12-53-54/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.51.16/out/stitch/2022-10-05_12-53-54/processed/bench001_it1.json
+processing bench002_it3
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.51.16/out/stitch/2022-10-05_12-53-54/processed/bench002_it3.json
+processing bench003_it9
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.51.16/out/stitch/2022-10-05_12-53-54/processed/bench003_it9.json
+processing bench000_it0
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.54.52/out/stitch/2022-10-05_12-53-57/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.54.52/out/stitch/2022-10-05_12-53-57/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.54.52/out/stitch/2022-10-05_12-53-57/processed/bench002_it2.json
+processing bench003_it13
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.54.52/out/stitch/2022-10-05_12-53-57/processed/bench003_it13.json
+processing bench000_it0
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.58.24/out/stitch/2022-10-05_12-53-54/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.58.24/out/stitch/2022-10-05_12-53-54/processed/bench001_it1.json
+processing bench002_it3
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.58.24/out/stitch/2022-10-05_12-53-54/processed/bench002_it3.json
+processing bench003_it5
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T10.58.24/out/stitch/2022-10-05_12-53-54/processed/bench003_it5.json
+processing bench000_it0
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50/out/stitch/2022-10-05_12-53-49/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50/out/stitch/2022-10-05_12-53-49/processed/bench001_it1.json
+processing bench002_it3
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50/out/stitch/2022-10-05_12-53-49/processed/bench002_it3.json
+processing bench000_it0
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.05.16/out/stitch/2022-10-05_12-54-05/processed/bench000_it0.json
+processing bench001_it1
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.05.16/out/stitch/2022-10-05_12-54-05/processed/bench001_it1.json
+processing bench002_it2
+wrote compression_benchmark/benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.05.16/out/stitch/2022-10-05_12-54-05/processed/bench002_it2.json
+python3 analyze.py graph_all compression_benchmark/benches
+No handles with labels found to put in legend.
+No handles with labels found to put in legend.
+Gathered all data, on to graphing...
+Found logo data: 12/12; zero: 0; skipped:
+Found list data: 59/59; zero: 0; skipped:
+Found towers data: 18/18; zero: 0; skipped:
+Found text data: 64/66; zero: 0; skipped:
+
+BENCH: text_text_ellisk_2019-01-24T21.58.02/bench010_it12.json
+
+BENCH: text_text_ellisk_2019-01-25T20.19.06/bench006_it6.json
+Found physics data: 18/18; zero: 0; skipped:
+wrote to plots/benches_time_per_inv_with_rewrite.png and pdf
+wrote to plots/benches_time_per_inv_no_rewrite.png and pdf
+wrote to plots/benches_mem_peak_kb.png and pdf
+wrote to plots/benches_compression_ratio.png and pdf
+wrote to plots/benches_compression_ratio_min.png and pdf
+	Command being timed: "make claim-1"
+	User time (seconds): 29.21
+	System time (seconds): 15.45
+	Percent of CPU this job got: 130%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:34.25
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 254412
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 1078883
+	Voluntary context switches: 3057
+	Involuntary context switches: 2516291
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 32056
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

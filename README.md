@@ -2,6 +2,8 @@
 
 A pre-print of Stitch is available [here](https://mlb2251.github.io/stitch_jul11.pdf).
 
+Tutorial coming soon!
+
 # Stitch
 
 ## Quickstart
@@ -183,11 +185,12 @@ Or see the other commandline arguments beginning with `--no-opt-` to disable spe
 ## Python Bindings
 
 Currently initial Python bindings are offered.
-- Build the bindings by running `./gen_bindings.sh` (they will be added to `bindings/`)
-  - Tell me or open an issue if this command doesn't work! It may vary by OS and the current command may be somewhat OSX-specific in the `rustc` flags used but that could be improved
+- Build the bindings by running `./gen_bindings_osx.sh` or `./gen_bindings_linux.sh` depending on your OS (they will be added to `bindings/`)
+  - Tell me or open an issue if this command doesn't work! It may vary by OS and the current commands may be overfit to my computers.
 - Add the `stitch/bindings/` folder to your `$PYTHONPATH`, for example by adding `export PYTHONPATH="$PYTHONPATH:path/to/stitch/bindings/"` to your  `~/.bashrc` or however you do it with your particular shell / venv. This will mean the `stitch.so` file is in your python path which will let you import it.
-- Launch `python` and try to `import stitch`.
+- Launch `python` and try to `import stitch` (nothing should be printed if this works)
 - As a simple example run the Python code `import stitch,json; result = json.loads(stitch.compression(["(a a a)", "(b b b)"], iterations=1, max_arity=2)); print("Result:", result)` and it should find the `(#0 #0 #0)` abstraction.
+- Note that currently it outputs a large python dictionary similar to the usual out/out.json output of stitch.
 - There are a lot more keyword arguments available (full list in `examples/stitch.rs` which is where the bindings live since keeping things in `examples/` is a workaround for having a project generate a cdylib for Python bindings in addition to normal Rust/). Basically everything that you would find in  `cargo run --release --bin=compress -- --help` is included.
 
 
@@ -225,8 +228,10 @@ Details:
 ## Flamegraph
 
 install if you havent: `cargo install flamegraph`
-`cargo build --release && sudo cargo flamegraph --root --output=out/flamegraph.svg --bin=compress -- data/cogsci/nuts-bolts.json`
+`cargo flamegraph --root --open --deterministic --output=out/flamegraph.svg --bin=compress -- data/cogsci/nuts-bolts.json`
 
 ## Acknowledgement
+
+This work is supported by the National Science Foundation under Grant No. 1918839 *Understanding the World Through Code* http://www.neurosymbolic.org/ 
 
 This work is supported in part by the Defense Advanced Research Projects Agency (DARPA) under the program Symbiotic Design for Cyber Physical Systems (SDCPS) Contract FA8750-20-C-0542 (Systemic Generative Engineering). The views, opinions, and/or findings expressed are those of the author(s) and do not necessarily reflect the view of DARPA.

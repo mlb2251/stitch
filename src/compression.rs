@@ -1,5 +1,5 @@
 use crate::*;
-use ahash::{AHashMap, AHashSet};
+use rustc_hash::{FxHashMap,FxHashSet};
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
@@ -191,7 +191,7 @@ impl Expr {
 }
 
 /// returns the vec of zippers to each ivar
-fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &AHashMap<Zip,ZId>) -> Vec<Vec<ZId>> {
+fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &FxHashMap<Zip,ZId>) -> Vec<Vec<ZId>> {
 
     // quickly determine arity
     let mut arity = 0;
@@ -206,7 +206,7 @@ fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &AHashMap<Zip,ZId>) -> Vec<Vec<
     let mut curr_zip: Zip = vec![];
     let mut zids_of_ivar = vec![vec![]; arity as usize];
 
-    fn helper(curr_node: Id, expr: &Expr, curr_zip: &mut Zip, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &AHashMap<Zip,ZId>) {
+    fn helper(curr_node: Id, expr: &Expr, curr_zip: &mut Zip, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &FxHashMap<Zip,ZId>) {
         match expr.get(curr_node) {
             Lambda::Prim(_) => {},
             Lambda::Var(_) => {},
@@ -452,7 +452,7 @@ pub struct CriticalMultithreadData {
     donelist: Vec<FinishedPattern>,
     worklist: BinaryHeap<HeapItem>,
     utility_pruning_cutoff: i32,
-    active_threads: AHashSet<std::thread::ThreadId>, // list of threads currently holding worklist items
+    active_threads: FxHashSet<std::thread::ThreadId>, // list of threads currently holding worklist items
 }
 
 /// All the data shared among threads, mostly read-only
@@ -460,25 +460,25 @@ pub struct CriticalMultithreadData {
 #[derive(Debug)]
 pub struct SharedData {
     pub crit: Mutex<CriticalMultithreadData>,
-    pub arg_of_zid_node: Vec<AHashMap<Id,Arg>>,
+    pub arg_of_zid_node: Vec<FxHashMap<Id,Arg>>,
     pub treenodes: Vec<Id>,
     pub node_of_id: Vec<Lambda>,
     pub programs_node: Id,
     pub roots: Vec<Id>,
-    pub zids_of_node: AHashMap<Id,Vec<ZId>>,
+    pub zids_of_node: FxHashMap<Id,Vec<ZId>>,
     pub zip_of_zid: Vec<Zip>,
-    pub zid_of_zip: AHashMap<Zip, ZId>,
+    pub zid_of_zip: FxHashMap<Zip, ZId>,
     pub extensions_of_zid: Vec<ZIdExtension>,
     pub egraph: EGraph,
     pub num_paths_to_node: Vec<i32>,
     pub num_paths_to_node_by_root_idx: Vec<Vec<i32>>,
-    pub tasks_of_node: Vec<AHashSet<usize>>,
+    pub tasks_of_node: Vec<FxHashSet<usize>>,
     pub task_name_of_task: Vec<String>,
     pub task_of_root_idx: Vec<usize>,
     pub root_idxs_of_task: Vec<Vec<usize>>,
     pub cost_of_node_once: Vec<i32>,
     pub cost_of_node_all: Vec<i32>,
-    pub free_vars_of_node: Vec<AHashSet<i32>>,
+    pub free_vars_of_node: Vec<FxHashSet<i32>>,
     pub init_cost: i32,
     pub init_cost_by_root_idx: Vec<i32>,
     pub stats: Mutex<Stats>,
@@ -505,7 +505,7 @@ impl CriticalMultithreadData {
             donelist,
             worklist,
             utility_pruning_cutoff: 0,
-            active_threads: AHashSet::new(),
+            active_threads: FxHashSet::default(),
         };
         res.update(cfg);
         res
@@ -541,7 +541,7 @@ impl Invention {
     /// replace any #i with args[i], returning a new expression
     pub fn apply(&self, args: &[Expr]) -> Expr {
         assert_eq!(args.len(), self.arity);
-        let map: AHashMap<i32, Expr> = args.iter().enumerate().map(|(i,e)| (i as i32, e.clone())).collect();
+        let map: FxHashMap<i32, Expr> = args.iter().enumerate().map(|(i,e)| (i as i32, e.clone())).collect();
         ivar_replace(&self.body, self.body.root(), &map)
     }
 }
@@ -1005,7 +1005,7 @@ fn stitch_search(
 }
 
 //#[inline(never)]
-fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &AHashMap<Id,Arg>, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<Id>)> {
+fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Id,Arg>, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<Id>)> {
     let mut ivars_expansions = vec![];
     // consider all ivars used previously
     for ivar in 0..original_pattern.first_zid_of_ivar.len() {
@@ -1095,17 +1095,17 @@ fn get_zippers(
     treenodes: &[Id],
     cost_of_node_once: &[i32],
     egraph: &mut crate::EGraph,
-) -> (AHashMap<Zip, ZId>, Vec<Zip>, Vec<AHashMap<Id,Arg>>, AHashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>) {
-    let cache: &mut Option<RecVarModCache> = &mut Some(AHashMap::new());
+) -> (FxHashMap<Zip, ZId>, Vec<Zip>, Vec<FxHashMap<Id,Arg>>, FxHashMap<Id,Vec<ZId>>,  Vec<ZIdExtension>) {
+    let cache: &mut Option<RecVarModCache> = &mut Some(FxHashMap::default());
 
-    let mut zid_of_zip: AHashMap<Zip, ZId> = Default::default();
+    let mut zid_of_zip: FxHashMap<Zip, ZId> = Default::default();
     let mut zip_of_zid: Vec<Zip> = Default::default();
-    let mut arg_of_zid_node: Vec<AHashMap<Id,Arg>> = Default::default();
-    let mut zids_of_node: AHashMap<Id,Vec<ZId>> = Default::default();
+    let mut arg_of_zid_node: Vec<FxHashMap<Id,Arg>> = Default::default();
+    let mut zids_of_node: FxHashMap<Id,Vec<ZId>> = Default::default();
 
     zid_of_zip.insert(vec![], EMPTY_ZID);
     zip_of_zid.push(vec![]);
-    arg_of_zid_node.push(AHashMap::new());
+    arg_of_zid_node.push(FxHashMap::default());
     
     // loop over all nodes in all programs in bottom up order
     for treenode in treenodes.iter() {
@@ -1133,7 +1133,7 @@ fn get_zippers(
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
-                        arg_of_zid_node.push(AHashMap::new());
+                        arg_of_zid_node.push(FxHashMap::default());
                         zid
                     });
                     // add new zid to this node
@@ -1151,7 +1151,7 @@ fn get_zippers(
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
-                        arg_of_zid_node.push(AHashMap::new());
+                        arg_of_zid_node.push(FxHashMap::default());
                         zid
                     });
                     // add new zid to this node
@@ -1171,7 +1171,7 @@ fn get_zippers(
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip.clone());
-                        arg_of_zid_node.push(AHashMap::new());
+                        arg_of_zid_node.push(FxHashMap::default());
                         zid
                     });
                     // add new zid to this node
@@ -1460,9 +1460,9 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
 }
 
 //#[inline(never)]
-fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_of_loc_once: &[i32]) -> (Vec<i32>,AHashMap<Id,bool>) {
+fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_of_loc_once: &[i32]) -> (Vec<i32>,FxHashMap<Id,bool>) {
     let mut cumulative_utility_of_node: Vec<i32> = vec![0; shared.treenodes.len()];
-    let mut corrected_utils: AHashMap<Id,bool> = Default::default();
+    let mut corrected_utils: FxHashMap<Id,bool> = Default::default();
 
     for node in shared.treenodes.iter() {
 
@@ -1501,7 +1501,7 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UtilityCalculation {
     pub util: i32,
-    pub corrected_utils: AHashMap<Id,bool>, // whether to accept
+    pub corrected_utils: FxHashMap<Id,bool>, // whether to accept
 }
 
 /// Multistep compression. See `compression_step` if you'd just like to do a single step of compression.
@@ -1626,7 +1626,7 @@ pub fn compression_step(
         task_of_root_idx.push(task);
         root_idxs_of_task[task].push(root_idx);
     }
-    let tasks_of_node: Vec<AHashSet<usize>> = associate_tasks(programs_node, &egraph, &treenodes, &task_of_root_idx);
+    let tasks_of_node: Vec<FxHashSet<usize>> = associate_tasks(programs_node, &egraph, &treenodes, &task_of_root_idx);
 
     let init_cost_by_root_idx: Vec<i32> = roots.iter().map(|id| egraph[*id].data.inventionless_cost).collect();
     // assert_eq!(init_cost, init_cost_by_root_idx.iter().sum::<i32>());
@@ -1648,7 +1648,7 @@ pub fn compression_step(
     // cost of a single usage times number of paths to node
     let cost_of_node_all: Vec<i32> = treenodes.iter().map(|node| cost_of_node_once[usize::from(*node)] * num_paths_to_node[usize::from(*node)]).collect();
 
-    let free_vars_of_node: Vec<AHashSet<i32>> = treenodes.iter().map(|node| egraph[*node].data.free_vars.clone()).collect();
+    let free_vars_of_node: Vec<FxHashSet<i32>> = treenodes.iter().map(|node| egraph[*node].data.free_vars.clone()).collect();
 
     println!("cost_of_node structs: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();

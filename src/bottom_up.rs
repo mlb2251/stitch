@@ -1,6 +1,6 @@
 
 use crate::*;
-use ahash::{AHashMap};
+use rustc_hash::{FxHashMap};
 use std::{time::Instant};
 use clap::{Parser};
 use serde::Serialize;
@@ -81,7 +81,7 @@ pub fn bottom_up<D: Domain>(
     let mut stats: Stats = Default::default();
 
     let mut curr_cost = cfg.cost_step;
-    let mut vals_of_type: AHashMap<Type,Vec<Found<D>>> = Default::default();
+    let mut vals_of_type: FxHashMap<Type,Vec<Found<D>>> = Default::default();
 
     // add each dsl fn so the ith dsl fn is expr.nodes[i] // todo programs() is a gross way to do this
     let mut handle: Expr = {
@@ -90,7 +90,7 @@ pub fn bottom_up<D: Domain>(
         Expr::programs(vec![dsl_fns_expr,init_vals_expr])
     };
 
-    let mut seen: AHashMap<Val<D>,usize> = AHashMap::new();
+    let mut seen: FxHashMap<Val<D>,usize> = FxHashMap::default();
 
     // ids for the exprs passed in as `initial`
     let init_val_ids: Vec<Id> = handle.get(handle.get_root().children()[1]).children().to_vec();
@@ -124,7 +124,7 @@ pub fn bottom_up<D: Domain>(
         let seen_types: Vec<Type> = vals_of_type.keys().cloned().collect();
 
         println!("new curr cost: {}", curr_cost);
-        let mut new_vals_of_type: AHashMap<Type,Vec<Found<D>>> = Default::default();
+        let mut new_vals_of_type: FxHashMap<Type,Vec<Found<D>>> = Default::default();
 
 
         for (i_fn, (dsl_entry, fn_cost)) in fns.iter().enumerate() {
@@ -247,7 +247,7 @@ pub fn bottom_up<D: Domain>(
 struct ArgChoiceIterator<'a, D: Domain> {
     args: Vec<ArgState<'a,D>>,
     arg_tp_iter: Box<dyn Iterator<Item=(Vec<(&'a Type, &'a Type)>, Type)> + 'a>,
-    vals_of_type: &'a AHashMap<Type,Vec<Found<D>>>, // vals[i] is the list of found vals for the ith arg
+    vals_of_type: &'a FxHashMap<Type,Vec<Found<D>>>, // vals[i] is the list of found vals for the ith arg
     return_tp: Option<Type>,
     fn_cost: usize,
     max_cost: usize,
@@ -276,7 +276,7 @@ struct ArgState<'a, D: Domain> {
 
 
 impl <'a, D: Domain> ArgChoiceIterator<'a,D> {
-    fn new(vals_of_type: &'a AHashMap<Type,Vec<Found<D>>>, seen_types: &'a [Type], fn_tp: &'a Type, fn_cost: usize, max_cost:  usize, prev_max_cost: usize) -> Self {
+    fn new(vals_of_type: &'a FxHashMap<Type,Vec<Found<D>>>, seen_types: &'a [Type], fn_tp: &'a Type, fn_cost: usize, max_cost:  usize, prev_max_cost: usize) -> Self {
         assert!( max_cost > prev_max_cost);
         assert!(fn_tp.arity() > 0); // we use the empty .args list as a sentinel
         
