@@ -6,9 +6,6 @@ use std::{collections::{VecDeque}, fmt::Display};
 use ordered_float::NotNan;
 use std::time::{Duration,Instant};
 
-// pub type PartialLambda = Option<Lambda>;
-// pub type PartialExpr = Vec<PartialLambda>;
-
 /// Top-down synthesis
 #[derive(Parser, Debug, Serialize)]
 #[clap(name = "Top-down synthesis")]
@@ -22,8 +19,6 @@ pub struct TopDownConfig {
     pub t_min_ll: Option<f32>,
     
 }
-
-
 
 #[derive(Clone)]
 pub struct Task<D: Domain> {
@@ -49,7 +44,6 @@ impl<D:Domain> IO<D> {
         IO { inputs, output }
     }
 }
-
 
 #[derive(Clone, Debug, Default)]
 struct Stats {
@@ -306,15 +300,6 @@ fn make_sentinel(node: &mut Lambda) {
     }
 }
 
-
-// pub struct TopDownIterator {
-//     states: Vec<SaveState>,
-//     expansions: Vec<Expansion>,
-// }
-// impl Search {
-
-// }
-
 pub struct SaveState {
     hole: Hole, // hole that was expanded
     ctx_save_state: (usize,usize), // result of ctx.save_state() right before this expansion happened
@@ -350,8 +335,6 @@ impl SaveState {
 }
 
 pub struct Expansion {
-    // prod: Lambda, // production rule used in expansion
-    // prod_tp: RawTypeRef,
     prod: Prod,
     ll: NotNan<f32>,
 }
@@ -482,82 +465,6 @@ pub fn add_expansions<D: Domain, M: ProbabilisticModel>(expr: &mut PartialExpr, 
     save_states.push(SaveState::new(expr, hole, expansions.len() - old_expansions_len));
 }
 
-
-
-/// returns an iterator over all possible partialexprs obtained by expanding `hole_idx` in `expr`.eeeeee
-// pub fn expansions<D: Domain>(expr: &PartialExpr) -> impl Iterator<Item=PartialExpr> + '_ {
-//     // let mut expr: PartialExpr = expr.clone();
-//     let hole: &Hole  = &expr.holes.last().unwrap();
-//     // let env = hole.env.clone();
-//     let hole_tp = hole.tp.apply(&expr.ctx); 
-//     // println!("hole type: {}", hole_tp);
-//     assert!(!hole_tp.is_arrow());
-//     // loop over all dsl entries and all variables in the env
-//     D::dsl_entries().map(|entry| (Lambda::Prim(entry.name), &entry.tp))
-//         .chain(hole.env.iter().enumerate().map(|(i,tp)| (Lambda::Var(i as i32),tp)))
-//         .filter_map(move |(prod, prod_tp)|
-//     {
-//         // println!("considering: {} :: {}", prod, prod_tp);
-//         // lightweight check for unification potential before doing the full clone
-//         if expr.ctx.might_unify(&hole_tp, prod_tp.return_type()) {
-//             // println!("passed might_unify");
-//             let mut new_expr: PartialExpr = expr.clone();
-//             new_expr.holes.pop().unwrap();
-
-//             // instantiate if this wasnt a variable
-//             let prod_tp: TypeRef = if let Lambda::Var(_) = prod {
-//                 prod_tp.clone()
-//             } else {
-//                 prod_tp.instantiate(&mut new_expr.ctx)
-//             };
-//             // println!("prod: {:?}", prod);
-//             // println!("hole parent:", )
-//             // full unification check
-//             if new_expr.ctx.unify(&hole_tp, prod_tp.return_type()).is_ok() {
-//                 // println!("passed unify");
-//                 // push on the new primitive or var
-//                 new_expr.prev_prod = Some(prod.clone());
-//                 new_expr.expr.push(prod);
-//                 let mut expr_so_far_idx = new_expr.expr.len() - 1;
-//                 let num_holes = prod_tp.arity();
-//                 // add a new hole for each arg, along with any apps and lams
-//                 for arg_tp in prod_tp.iter_args() {
-//                     // push on an app
-//                     new_expr.expr.push(Lambda::App([expr_so_far_idx.into(), SENTINEL.into()]));
-//                     expr_so_far_idx = new_expr.expr.len() - 1;
-
-//                     // if this arg is higher order it may have arguments - we push those types onto our new env and push lambdas
-//                     // into our expr
-//                     let mut new_hole_env = hole.env.clone();
-//                     for inner_arg_tp in arg_tp.iter_args().cloned() {
-//                         new_hole_env.push_front(inner_arg_tp);
-//                         new_expr.expr.push(Lambda::Lam([SENTINEL.into()]));
-//                         // adjust pointers so the previous node points to the new node we created
-//                         let last = new_expr.expr.len() - 1;
-//                         fill_sentinel(&mut new_expr.expr[last - 1], last);
-//                     }
-
-//                     // the hole type is the return type of the arg (bc all lambdas were autofilled)
-//                     let new_hole_tp = arg_tp.return_type().clone();
-//                     new_expr.holes.push(Hole::new(new_hole_tp, new_hole_env, new_expr.expr.len() - 1))
-//                 }
-//                 let len = new_expr.holes.len();
-//                 new_expr.holes[len-num_holes..].reverse(); // reverse order of the ones we added
-//                 if hole.parent != SENTINEL {
-//                     fill_sentinel(&mut new_expr.expr[hole.parent], expr_so_far_idx);
-//                 } else {
-//                     // filling the single_hole so we can set our root
-//                     assert!(new_expr.root.is_none());
-//                     new_expr.root = Some(expr_so_far_idx);
-//                 }
-//                 return Some(new_expr)
-//             }
-//         }
-//         None
-//     })
-// }
-
-
 pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
     model: M,
     all_tasks: &[Task<D>],
@@ -671,7 +578,6 @@ pub fn top_down_inplace<D: Domain, M: ProbabilisticModel>(
                     for task_name in solved_tasks {
                         println!("{} {} [ll={}] @ {}s: {}", "Solved".green(), task_name, expr.ll, tstart.elapsed().as_secs_f32(), expr);
                         println!("{:?}",stats);
-                        panic!("done");
                     }
 
                 } else {
