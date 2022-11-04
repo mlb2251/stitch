@@ -27,6 +27,12 @@ else
     exit 1
 fi
 
+if [[ $OSTYPE == 'darwin'* ]]
+then
+    GTIME="gtime"
+else
+    GTIME="/usr/bin/time"
+fi
 
 
 OUT_DIR="${BENCH_DIR}/out/stitch/$(TZ='America/New_York' date '+%Y-%m-%d_%H-%M-%S')"
@@ -56,7 +62,7 @@ for BENCH_PATH in $BENCH_DIR/bench*.json; do
         ITERATIONS=10 # whatever
     fi
     echo "[bench_stitch.sh] Running Stitch with -a3 on: $BENCH"
-    /usr/bin/time -v $STITCH_DIR/target/release/compress $BENCH_PATH --max-arity=3 --threads=1 --iterations=$ITERATIONS --fmt=dreamcoder --dreamcoder-comparison --out=$OUT_DIR/raw/$BENCH.json 2>&1 &> $OUT_DIR/stderr/$BENCH.stderr
+    $GTIME -v $STITCH_DIR/target/release/compress $BENCH_PATH --max-arity=3 --threads=1 --iterations=$ITERATIONS --fmt=dreamcoder --dreamcoder-comparison --out=$OUT_DIR/raw/$BENCH.json 2>&1 &> $OUT_DIR/stderr/$BENCH.stderr
 done
 
 python3 analyze.py process stitch $OUT_DIR
