@@ -1,6 +1,6 @@
 use crate::abstraction_learning::*;
 use crate::abstraction_learning::egraphs::EGraph;
-use crate::expr::*;
+use lambdas::*;
 use rustc_hash::{FxHashMap,FxHashSet};
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
@@ -166,31 +166,30 @@ pub struct Pattern {
     pub tracked: bool, // for debugging
 }
 
-impl Expr {
-    #[allow(clippy::ptr_arg)]
-    fn zipper_replace(&self, zip: &Zip, new: &str) -> Expr {
-        let child = self.apply_zipper(zip).unwrap();
-        // clone and overwrite that node
-        let mut res = self.clone();
-        res.nodes[usize::from(child)] = Lambda::Prim(new.into());
-        res
-    }
-    /// replaces the node at the end of the zipper with `new` prim,
-    /// returning the new expression
-    #[allow(clippy::ptr_arg)]
-    fn apply_zipper(&self, zip: &Zip) -> Option<Id> {
-        let mut child = self.root();
-        for znode in zip.iter() {
-            child = match (znode, self.get(child)) {
-                (ZNode::Body, Lambda::Lam([b])) => *b,
-                (ZNode::Func, Lambda::App([f,_])) => *f,
-                (ZNode::Arg, Lambda::App([_,x])) => *x,
-                (_,_) => return None // no zipper works here
-            };
-        }
-        Some(child)
-    }
+#[allow(clippy::ptr_arg)]
+fn zipper_replace(expr: &Expr, zip: &Zip, new: &str) -> Expr {
+    let child = apply_zipper(expr,zip).unwrap();
+    // clone and overwrite that node
+    let mut res = expr.clone();
+    res.nodes[usize::from(child)] = Lambda::Prim(new.into());
+    res
 }
+/// replaces the node at the end of the zipper with `new` prim,
+/// returning the new expression
+#[allow(clippy::ptr_arg)]
+fn apply_zipper(expr: &Expr, zip: &Zip) -> Option<Id> {
+    let mut child = expr.root();
+    for znode in zip.iter() {
+        child = match (znode, expr.get(child)) {
+            (ZNode::Body, Lambda::Lam([b])) => *b,
+            (ZNode::Func, Lambda::App([f,_])) => *f,
+            (ZNode::Arg, Lambda::App([_,x])) => *x,
+            (_,_) => return None // no zipper works here
+        };
+    }
+    Some(child)
+}
+
 
 /// returns the vec of zippers to each ivar
 fn zids_of_ivar_of_expr(expr: &Expr, zid_of_zip: &FxHashMap<Zip,ZId>) -> Vec<Vec<ZId>> {
@@ -303,7 +302,7 @@ impl Pattern {
         helper(self.match_locations[0], &mut curr_zip, &zips, shared)
     }
     fn show_track_expansion(&self, hole_zid: ZId, shared: &SharedData) -> String {
-        let mut s = self.to_expr(shared).zipper_replace(&shared.zip_of_zid[hole_zid], "<REPLACE>" ).to_string();
+        let mut s = zipper_replace(&self.to_expr(shared), &shared.zip_of_zid[hole_zid], "<REPLACE>" ).to_string();
         s = s.replace(&"<REPLACE>", &format!("{}",tracked_expands_to(self, hole_zid, shared)).magenta().bold().to_string());
         s
     }
@@ -396,8 +395,7 @@ fn expands_to_of_node(node: &Lambda) -> ExpandsTo {
 fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData) -> ExpandsTo {
     // apply the hole zipper to the original expr being tracked to get the subtree
     // this will expand into, then get the ExpandsTo of that
-    let id = shared.tracking.as_ref().unwrap().expr
-        .apply_zipper(&shared.zip_of_zid[hole_zid]).unwrap();
+    let id =  apply_zipper(&shared.tracking.as_ref().unwrap().expr, &shared.zip_of_zid[hole_zid]).unwrap();
     match expands_to_of_node(shared.tracking.as_ref().unwrap().expr.get(id)) {
         ExpandsTo::IVar(i) => {
             // in the case where we're searching for an IVar we need to be robust to relabellings
@@ -846,7 +844,7 @@ fn stitch_search(
                         && locs.iter().all(|node| shared.tasks_of_node[usize::from(*node)].len() == 1)
                         && locs.iter().all(|node| shared.tasks_of_node[usize::from(locs[0])].iter().next() == shared.tasks_of_node[usize::from(*node)].iter().next()) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
-                    if tracked { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
+                    if tracked { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(&original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], &format!("<{}>",expands_to))); }
                     continue 'expansion;
                 }
 

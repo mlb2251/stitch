@@ -1,6 +1,6 @@
 use crate::abstraction_learning::*;
 use crate::abstraction_learning::egraphs::EGraph;
-use crate::expr::*;
+use lambdas::*;
 use rustc_hash::{FxHashMap,FxHashSet};
 use compression::*;
 

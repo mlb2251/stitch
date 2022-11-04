@@ -58,7 +58,6 @@ pub struct RewriteArgs {
 }
 
 fn main() {
-    procspawn::init();
     let args = RewriteArgs::parse();
 
     // Read in the programs and any previous inventions from the DSL.

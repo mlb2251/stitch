@@ -1,7 +1,7 @@
 // use itertools::Itertools;
 
 use crate::abstraction_learning::*;
-use crate::expr::*;
+use lambdas::*;
 use rustc_hash::{FxHashSet};
 
 
