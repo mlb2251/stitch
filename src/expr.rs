@@ -31,6 +31,9 @@ pub enum Lambda {
     Programs(Vec<Id>), // root node at the very top of the tree
 }
 
+pub const SENTINEL: usize = u32::MAX as usize;
+
+
 /// An untyped lambda calculus expression, much like `egg::RecExpr` but with a public `nodes` field
 /// and many attached functions. See `Lambda` for details on the individual nodes.
 /// 
@@ -55,6 +58,13 @@ pub enum Lambda {
 pub struct Expr {
     pub nodes: Vec<Lambda>, // just like in a RecExpr but public
 }
+
+// impl PartialEq for Expr {
+//     fn eq(&self, other: &Self) -> bool {
+//         self.nodes == other.nodes
+//     }
+// }
+// impl Eq for Expr {}
 
 /// printing a single node prints the operator - this is needed for `egg`.
 /// If you want to print the whole expression, use `Expr` not `Lambda`.
@@ -172,6 +182,10 @@ impl Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // write!(f, "{}", self.to_string_uncurried(None))
         fn fmt_local(e: &Expr, child: Id, left_of_app: bool, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            if usize::from(child) == SENTINEL {
+                return write!(f,"??");
+            }
+
             match &e.nodes[usize::from(child)] {
                 Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => write!(f,"{}", &e.nodes[usize::from(child)]),
                 Lambda::App([fun,x]) => {
@@ -320,9 +334,6 @@ impl Expr {
         ProgramCost{}.cost_rec(self.into())
     }
 
-    pub fn executable<D: Domain>(&self) -> Executable<D> {
-        self.clone().into()
-    }
 
     /// Returns a subexpression cloned out of this one with new root `child`.
     /// Generally you want to avoid this because
@@ -372,11 +383,15 @@ impl Expr {
     /// Uncurried: (foo x y)
     /// Curried: (app (app foo x) y)
     pub fn to_string_uncurried(&self, child:Option<Id>) -> String {
+        
         uncurry_sexp(&self.to_sexp(child.unwrap_or_else(|| self.root()))).to_string()
     }
 
     /// convert to an s expression. Useful for printing / parsing purposes
     pub fn to_sexp(&self, child: Id) -> Sexp {
+        if usize::from(child) == SENTINEL {
+            return Sexp::Atom(sexp::Atom::S("??".to_string()));
+        }
         let node = &self.nodes[usize::from(child)];
         match node {
             Lambda::Var(_) | Lambda::IVar(_) | Lambda::Prim(_) => sexp::parse(&node.to_string()).unwrap(),
