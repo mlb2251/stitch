@@ -1,5 +1,5 @@
 [package]
-name = "stitch"
+name = "stitch_core"
 version = "0.1.0"
 authors = ["Matthew Bowers <mlbowers@mit.edu>", "Theo X. Olausson <theoxo@mit.edu>"]
 edition = "2018"
