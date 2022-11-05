@@ -1,6 +1,6 @@
 // #![cfg(features="python")]
 
-use stitch::*;
+use stitch_core::*;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 use serde_json::{json,Value};

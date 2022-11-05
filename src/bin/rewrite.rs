@@ -18,7 +18,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::PathBuf;
-use stitch::*;
+use stitch_core::*;
 
 // Args for rewrite.rs, which calls `rewrite_with_inventions`.
 #[derive(Parser, Debug, Serialize)]

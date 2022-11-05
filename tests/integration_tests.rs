@@ -1,7 +1,7 @@
-use stitch::{compression, CompressionStepConfig, InputFormat, Input, Expr, CompressionStepResult, timestamp};
+use stitch_core::{compression, CompressionStepConfig, InputFormat, Input, Expr, CompressionStepResult, timestamp};
 use clap::Parser;
 use serde_json::{json,Value};
-// use stitch::format
+// use stitch_core::format
 
 
 fn load_programs(file: &str, input_format: InputFormat) -> (Input,Expr) {

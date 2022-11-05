@@ -1,6 +1,6 @@
-use stitch::*;
-use stitch::domains::prim_lists::*;
-use stitch::domains::simple::*;
+use stitch_core::*;
+use stitch_core::domains::prim_lists::*;
+use stitch_core::domains::simple::*;
 use std::fs::File;
 use std::iter::once;
 use std::path::Path;

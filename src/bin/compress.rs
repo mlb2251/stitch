@@ -1,4 +1,4 @@
-use stitch::*;
+use stitch_core::*;
 // extern crate log;
 use clap::Parser;
 use rand::seq::SliceRandom;
