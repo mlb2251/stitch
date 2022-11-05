@@ -2,7 +2,7 @@ build:
 	cargo build --release --bin=compress
 
 test:
-	cargo test --release --test integration_tests
+	cargo test
 
 bindings-linux:
 	./gen_bindings_linux.sh

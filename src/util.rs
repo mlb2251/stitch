@@ -1,5 +1,5 @@
-use crate::abstraction_learning::*;
-use crate::abstraction_learning::egraphs::EGraph;
+use crate::*;
+use crate::egraphs::EGraph;
 use lambdas::*;
 use rustc_hash::{FxHashMap};
 use std::hash::Hash;
