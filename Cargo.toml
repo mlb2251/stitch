@@ -25,8 +25,8 @@ lambdas = "0.1.0"
 # [patch.crates-io]
 # lambdas = { path = "../lambdas"}
 
-# [patch.crates-io]
-# lambdas = { git = "https://github.com/mlb2251/lambdas"}
+[patch.crates-io]
+lambdas = { git = "https://github.com/mlb2251/lambdas", rev = "3abbbaed2"}
 
 
 [profile.release]

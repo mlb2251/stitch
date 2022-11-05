@@ -60,6 +60,8 @@ pub struct RewriteArgs {
 fn main() {
     let args = RewriteArgs::parse();
 
+    let cost_fn = ProgramCost::new(1, 1, 100, 100, HashMap::new(),  100);
+
     // Read in the programs and any previous inventions from the DSL.
     let mut input = args
         .fmt
@@ -92,10 +94,10 @@ fn main() {
     let mut rewritten_frontiers: HashMap<String, Vec<String>> = HashMap::new();
 
     let programs: Vec<Expr> = input.train_programs.iter().map(|p| p.parse().unwrap()).collect();
-    programs_info(&programs);
+    programs_info(&programs, &cost_fn);
 
     let programs: Expr = Expr::programs(programs);
-    let rewritten = rewrite_with_inventions(programs, &inventions[..]);
+    let rewritten = rewrite_with_inventions(programs, &inventions[..], &cost_fn);
 
     match args.fmt {
         InputFormat::Dreamcoder => {

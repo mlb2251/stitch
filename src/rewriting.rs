@@ -46,6 +46,7 @@ pub fn rewrite_fast(
     pattern: &FinishedPattern,
     shared: &SharedData,
     inv_name: &str,
+    cost_fn: &ProgramCost
 ) -> Vec<Expr>
 {
     // println!("rewriting with {}", pattern.info(&shared));
@@ -145,7 +146,7 @@ pub fn rewrite_fast(
     if !shared.cfg.no_mismatch_check && !shared.cfg.utility_by_rewrite {
         assert_eq!(
             shared.root_idxs_of_task.iter().map(|root_idxs|
-                root_idxs.iter().map(|idx| rewritten_exprs[*idx].cost()).min().unwrap()
+                root_idxs.iter().map(|idx| rewritten_exprs[*idx].cost(cost_fn)).min().unwrap()
             ).sum::<i32>(),
             shared.init_cost - pattern.util_calc.util,
             "\n{}\n", pattern.info(shared)
@@ -179,11 +180,12 @@ impl PtrInvention {
 /// Same as `rewrite_with_invention` but for multiple inventions, rewriting with one after another in order, compounding on each other
 pub fn rewrite_with_inventions(
     e: Expr,
-    invs: &[Invention]
+    invs: &[Invention],
+    cost_fn: &ProgramCost,
 ) -> Expr {
     let mut egraph = EGraph::default();
     let root = egraph.add_expr(&e.into());
-    rewrite_with_inventions_egraph(root, invs, &mut egraph)
+    rewrite_with_inventions_egraph(root, invs, &mut egraph, cost_fn)
 }
 
 /// Rewrite `root` using an invention `inv`. This will use inventions everywhere
@@ -197,10 +199,11 @@ pub fn rewrite_with_inventions(
 pub fn rewrite_with_invention(
     e: Expr,
     inv: &Invention,
+    cost_fn: &ProgramCost
 ) -> Expr {
     let mut egraph = EGraph::default();
     let root = egraph.add_expr(&e.into());
-    rewrite_with_invention_egraph(root, inv, &mut egraph)
+    rewrite_with_invention_egraph(root, inv, &mut egraph, cost_fn)
 }
 
 /// Same as `rewrite_with_invention_egraph` but for multiple inventions, rewriting with one after another in order, compounding on each other
@@ -208,10 +211,11 @@ pub fn rewrite_with_inventions_egraph(
     root: Id,
     invs: &[Invention],
     egraph: &mut EGraph,
+    cost_fn: &ProgramCost,
 ) -> Expr {
     let mut root = root;
     for inv in invs.iter() {
-        let expr = rewrite_with_invention_egraph(root, inv, egraph);
+        let expr = rewrite_with_invention_egraph(root, inv, egraph, cost_fn);
         root = egraph.add_expr(&expr.into());
     }
     extract(root,egraph)
@@ -226,6 +230,7 @@ pub fn rewrite_with_invention_egraph(
     root: Id,
     inv: &Invention,
     egraph: &mut EGraph,
+    cost_fn: &ProgramCost,
 ) -> Expr {
     let inv: PtrInvention = PtrInvention::new(egraph.add_expr(&inv.body.clone().into()), inv.arity, inv.name.clone());
 
@@ -292,7 +297,7 @@ pub fn rewrite_with_invention_egraph(
     }
 
     // Now that we've calculated all the costs, we can extract the cheapest one
-    extract_from_nodecosts(root, &inv, &nodecost_of_treenode, egraph)
+    extract_from_nodecosts(root, &inv, &nodecost_of_treenode, egraph, cost_fn)
 }
 
 fn extract_from_nodecosts(
@@ -300,6 +305,7 @@ fn extract_from_nodecosts(
     inv: &PtrInvention,
     nodecost_of_treenode: &FxHashMap<Id,NodeCost>,
     egraph: &EGraph,
+    cost_fn: &ProgramCost
 ) -> Expr {
 
     let target_cost = nodecost_of_treenode[&root].cost_under_inv(inv);
@@ -310,38 +316,38 @@ fn extract_from_nodecosts(
             let mut expr = Expr::prim(inv.name.clone().into());
             // wrap the new primitive in app() calls. Note that you pass in the $0 args LAST given how appapplamlam works
             for arg in args.iter() {
-                let arg_expr = extract_from_nodecosts(*arg, &inv, nodecost_of_treenode, egraph);
+                let arg_expr = extract_from_nodecosts(*arg, &inv, nodecost_of_treenode, egraph, cost_fn);
                 expr = Expr::app(expr,arg_expr);
             }
-            assert_eq!(target_cost,expr.cost());
+            assert_eq!(target_cost,expr.cost(cost_fn));
             expr
         } else {
             // inventions were used in our children
             let expr: Expr = match &egraph[root].nodes[0] {
                 Lambda::Prim(_) | Lambda::Var(_) | Lambda::IVar(_) => {unreachable!()},
                 Lambda::App([f,x]) => {
-                    let f_expr = extract_from_nodecosts(*f, &inv, nodecost_of_treenode, egraph);
-                    let x_expr = extract_from_nodecosts(*x, &inv, nodecost_of_treenode, egraph);
+                    let f_expr = extract_from_nodecosts(*f, &inv, nodecost_of_treenode, egraph, cost_fn);
+                    let x_expr = extract_from_nodecosts(*x, &inv, nodecost_of_treenode, egraph, cost_fn);
                     Expr::app(f_expr,x_expr)
                 },
                 Lambda::Lam([b]) => {
-                    let b_expr = extract_from_nodecosts(*b, &inv, nodecost_of_treenode, egraph);
+                    let b_expr = extract_from_nodecosts(*b, &inv, nodecost_of_treenode, egraph, cost_fn);
                     Expr::lam(b_expr)
                 }
                 Lambda::Programs(roots) => {
                     let root_exprs: Vec<Expr> = roots.iter()
-                        .map(|r| extract_from_nodecosts(*r, &inv, nodecost_of_treenode, egraph))
+                        .map(|r| extract_from_nodecosts(*r, &inv, nodecost_of_treenode, egraph, cost_fn))
                         .collect();
                     Expr::programs(root_exprs)
                 }
             };
-            assert_eq!(target_cost,expr.cost());
+            assert_eq!(target_cost,expr.cost(cost_fn));
             expr
         }
     } else {
         // no invention was useful, just return original tree
         let expr =  extract(root, egraph);
-        assert_eq!(target_cost,expr.cost());
+        assert_eq!(target_cost,expr.cost(cost_fn));
         expr
     }
 }

@@ -6,6 +6,7 @@ use serde::Serialize;
 use std::path::PathBuf;
 use serde_json::json;
 use itertools::Itertools;
+use std::collections::HashMap;
 
 
 
@@ -93,16 +94,18 @@ fn main() {
     let train_programs: Vec<Expr> = input.train_programs.iter().map(|p| p.parse().unwrap()).collect();
     let test_programs: Option<Vec<Expr>> = input.test_programs.map(|ps| ps.iter().map(|p| p.parse().unwrap()).collect());
 
+    let cost_fn = ProgramCost::new(1, 1, 100, 100, HashMap::new(),  100);
+
     // for prog in programs.iter() {
     //     println!("{}", prog);
     // }
     println!("{}","**********".blue().bold());
     println!("{}","* Stitch *".blue().bold());
     println!("{}","**********".blue().bold());
-    programs_info(&train_programs);
+    programs_info(&train_programs, &cost_fn);
     if let Some(ps) = &test_programs {
         println!("> Running with train/test split active");
-        programs_info(ps);
+        programs_info(ps, &cost_fn);
     }
 
     // build a single `Expr::Programs` node from these programs. Stitch uses these because often we want to treat
@@ -115,13 +118,13 @@ fn main() {
         println!("Normal dreamcoder programs never have unapplied lambdas in them! Who knows what might happen if you run this. Probably it will be fine");
     }
 
-    let step_results = compression(&train_programs, &test_programs, args.iterations, &args.step, &input.tasks, &input.prev_dc_inv_to_inv_strs);
+    let step_results = compression(&train_programs, &test_programs, args.iterations, &args.step, &input.tasks, &input.prev_dc_inv_to_inv_strs, &cost_fn);
 
     // write everything to json
     let out = json!({
         "cmd": std::env::args().join(" "),
         "args": args,
-        "original_cost": train_programs.cost(),
+        "original_cost": train_programs.cost(&cost_fn),
         "original": train_programs.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
         "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
     });
@@ -141,4 +144,5 @@ fn main() {
     }
 
 }
+
 

@@ -461,6 +461,7 @@ pub struct CriticalMultithreadData {
 pub struct SharedData {
     pub crit: Mutex<CriticalMultithreadData>,
     pub arg_of_zid_node: Vec<FxHashMap<Id,Arg>>,
+    pub cost_fn: ProgramCost,
     pub treenodes: Vec<Id>,
     pub node_of_id: Vec<Lambda>,
     pub programs_node: Id,
@@ -972,7 +973,7 @@ fn stitch_search(
 
                 if shared.cfg.rewrite_check {
                     // run rewriting just to make sure the assert in it passes
-                    rewrite_fast(&finished_pattern, &shared, "fake_inv");
+                    rewrite_fast(&finished_pattern, &shared, "fake_inv", &shared.cost_fn);
                 }
 
                 if tracked {
@@ -1056,9 +1057,9 @@ impl FinishedPattern {
             usages,
         };
         if shared.cfg.utility_by_rewrite {
-            let rewritten: Vec<Expr> = rewrite_fast(&res, shared, "fake_inv");
+            let rewritten: Vec<Expr> = rewrite_fast(&res, shared, "fake_inv", &shared.cost_fn);
             res.compressive_utility = shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
-                root_idxs.iter().map(|idx| rewritten[*idx].cost()).min().unwrap()
+                root_idxs.iter().map(|idx| rewritten[*idx].cost(&shared.cost_fn)).min().unwrap()
             ).sum::<i32>();
             // res.compressive_utility = shared.init_cost - rewritten.iter().map(|e|e.cost()).sum::<i32>();
             res.util_calc.util = res.compressive_utility;
@@ -1249,12 +1250,12 @@ impl CompressionStepResult {
         let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { shared.init_cost };
 
         let inv = done.to_invention(inv_name, shared);
-        let rewritten = rewrite_fast(&done, shared, &inv.name);
+        let rewritten = rewrite_fast(&done, shared, &inv.name, &shared.cost_fn);
 
         let expected_cost = shared.init_cost - done.compressive_utility;
         // let final_cost = rewritten.cost();
         let final_cost = shared.root_idxs_of_task.iter().map(|root_idxs|
-            root_idxs.iter().map(|idx| rewritten[*idx].cost()).min().unwrap()
+            root_idxs.iter().map(|idx| rewritten[*idx].cost(&shared.cost_fn)).min().unwrap()
         ).sum::<i32>();
         if expected_cost != final_cost {
             println!("*** expected cost {} != final cost {}", expected_cost, final_cost);
@@ -1512,6 +1513,7 @@ pub fn compression(
     cfg: &CompressionStepConfig,
     tasks: &[String],
     prev_dc_inv_to_inv_strs: &[(String, String)],
+    cost_fn: &ProgramCost,
 ) -> Vec<CompressionStepResult> {
     let num_prior_inventions = prev_dc_inv_to_inv_strs.len();
     let mut rewritten: Expr = train_programs_expr.clone();
@@ -1530,7 +1532,8 @@ pub fn compression(
             cfg,
             &step_results,
             tasks,
-            prev_dc_inv_to_inv_strs);
+            prev_dc_inv_to_inv_strs,
+            cost_fn);
 
         if !res.is_empty() {
             // rewrite with the invention
@@ -1546,9 +1549,9 @@ pub fn compression(
 
     println!("{}","\n=======Compression Summary=======".blue().bold());
     println!("Found {} inventions", step_results.len());
-    println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(train_programs_expr,&rewritten), train_programs_expr.cost(), rewritten.cost());
+    println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(train_programs_expr, &rewritten, cost_fn), train_programs_expr.cost(cost_fn), rewritten.cost(cost_fn));
     for res in step_results.iter() {
-        println!("{} ({:.2}x wrt orig): {}" , res.inv.name.clone().blue(), compression_factor(train_programs_expr, &res.rewritten), res);
+        println!("{} ({:.2}x wrt orig): {}" , res.inv.name.clone().blue(), compression_factor(train_programs_expr, &res.rewritten, cost_fn), res);
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
     if cfg.follow_track && !(
@@ -1563,7 +1566,7 @@ pub fn compression(
     }
 
     if let Some(e) = test_programs_expr {
-        println!("Test set compression with all inventions applied: {}", compression_factor(e, &rewrite_with_inventions(e.clone(), &step_results.iter().map(|r| r.inv.clone()).collect::<Vec<Invention>>())));
+        println!("Test set compression with all inventions applied: {}", compression_factor(e, &rewrite_with_inventions(e.clone(), &step_results.iter().map(|r| r.inv.clone()).collect::<Vec<Invention>>(), cost_fn), cost_fn));
     }
     step_results
 }
@@ -1578,6 +1581,7 @@ pub fn compression_step(
     past_invs: &[CompressionStepResult], // past inventions we've found
     task_name_of_root_idx: &[String],
     prev_dc_inv_to_inv_strs: &[(String, String)],
+    cost_fn: &ProgramCost,
 ) -> Vec<CompressionStepResult> {
 
     let tstart_total = std::time::Instant::now();
@@ -1745,6 +1749,7 @@ pub fn compression_step(
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
         arg_of_zid_node,
+        cost_fn: cost_fn.clone(),
         treenodes: treenodes.clone(),
         node_of_id,
         programs_node,
@@ -1832,7 +1837,7 @@ pub fn compression_step(
         println!("Timing point 1 (from the start of compression_step to final donelist): {:?}ms", tstart_total.elapsed().as_millis());
         println!("Timing Comparison Point A (search) (millis): {}", tstart_total.elapsed().as_millis());
         let tstart_rewrite = std::time::Instant::now();
-        rewrite_fast(&donelist[0], &shared, new_inv_name);
+        rewrite_fast(&donelist[0], &shared, new_inv_name, cost_fn);
         println!("Timing point 2 (rewriting the candidate): {:?}ms", tstart_rewrite.elapsed().as_millis());
         println!("Timing Comparison Point B (search+rewrite) (millis): {}", tstart_total.elapsed().as_millis());
     }

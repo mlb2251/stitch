@@ -5,8 +5,8 @@ use rustc_hash::{FxHashMap};
 use std::hash::Hash;
 
 /// print some info about a Vec of programs
-pub fn programs_info(programs: &[Expr]) {
-    let max_cost = programs.iter().map(|p| p.cost()).max().unwrap();
+pub fn programs_info(programs: &[Expr], cost_fn: &ProgramCost) {
+    let max_cost = programs.iter().map(|p| p.cost(cost_fn)).max().unwrap();
     let max_depth = programs.iter().map(|p| p.depth()).max().unwrap();
     println!("Programs:");
     println!("\t num: {}",programs.len());
@@ -30,8 +30,8 @@ pub fn egraph_info(egraph: &EGraph) -> String
 }
 
 
-pub fn compression_factor(original: &Expr, compressed: &Expr) -> f64 {
-    f64::from(original.cost())/f64::from(compressed.cost())
+pub fn compression_factor(original: &Expr, compressed: &Expr, cost_fn: &ProgramCost) -> f64 {
+    f64::from(original.cost(cost_fn))/f64::from(compressed.cost(cost_fn))
 }
 
 /// Replace the ivars in an expr based on an i32->Expr map
