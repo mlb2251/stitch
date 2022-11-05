@@ -7,13 +7,6 @@ license = "MIT"
 description = "A scalable abstraction learning library"
 repository = "https://github.com/mlb2251/stitch"
 
-[features]
-python = ["pyo3"]
-
-[[example]]
-name = "stitch"
-crate-type = ["cdylib"]
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -35,11 +28,6 @@ lambdas = "0.1.0"
 # [patch.crates-io]
 # lambdas = { git = "https://github.com/mlb2251/lambdas"}
 
-
-[dependencies.pyo3]
-version = "0.16.1"
-features = ["extension-module"]
-optional = true
 
 [profile.release]
 debug = true # for flamegraphs

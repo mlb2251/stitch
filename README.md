@@ -1,6 +1,5 @@
-<!-- # <img src="dream_egg.png" alt="egg of dreams" height="40" align="left"> DreamEgg -->
 
-A pre-print of Stitch is available [here](https://mlb2251.github.io/stitch_jul11.pdf).
+This is the official repo for the tool `stitch` presented in the POPL 2023 paper "Top-Down Synthesis For Library Learning". A pre-print of Stitch is available [here](https://mlb2251.github.io/stitch_jul11.pdf).
 
 Tutorial coming soon!
 
@@ -8,34 +7,81 @@ Tutorial coming soon!
 
 ## Quickstart
 
-Run `cargo run --release --bin=compress -- data/cogsci/nuts-bolts.json --max-arity=3 --iterations=10`
+Lets take a look at some simple examples of the `stitch` input format. Put the following in a new file `data/basic/ex1.json`:
+```json
+[
+    "(foo (a a a))",
+    "(bar (b b b))"
+]
+```
+As above, stitch input format is a json file containing a list of input programs, where each program is a string written in a lisp-like lambda calculus syntax. The first program in this example corresponds to the curried lambda calculus expression `(app foo (app (app a a) a))`.
 
-In less than a second this should produce an output like:
+The clear structure in these examples is that they all contain a subterm of the form `\x. (x x x)`. Lets see if stitch can pull that out:
 
 ```
+cargo run --release --bin=compress -- data/basic/ex1.json --max-arity=3 --iterations=1
+```
+
+(If you're having any trouble, check out other examples like `data/basic/simple1.json` to make sure you have the right format.)
+
+The output should look like:
+```
 =======Compression Summary=======
-Found 10 inventions
-Cost Improvement: (11.93x better) 1919558 -> 160946
+Found 1 inventions
+Cost Improvement: (1.33x better) 806 -> 604
+fn_0 (1.33x wrt orig): utility: 200 | final_cost: 604 | 1.33x | uses: 2 | body: [fn_0 arity=1: (#0 #0 #0)]
+Time: 0ms
+Wrote to "out/out.json"
+```
+
+Primer on the output format:
+- `Cost Improvement: (1.33x better) 806 -> 604`
+  - here we see that by the cost metric (which values terminals like `foo` and `a` as `100` and nonterminals like `app` and `lam` as `1`) our programs were rewritten to be 1.33x smaller. To see the actual rewritten programs you can include `--show-rewritten` in the command and the rewritten programs will appear a few lines above the compression summary:
+    - `(foo (fn_0 a))` and `(bar (fn_0 b))`
+- `fn_0`
+  - this is the name the new primitive was assigned
+- `(1.33x wrt orig)`
+  - this is a *cumulative* measure of compression (ie "with respect to original"), so if we were learning more than one abstraction it would represent the accumulated compression over all previous abstractions
+- `utility: 200`
+  - This is the utility, which corresponds to the difference in program cost before and after rewriting.
+- `final_cost: 604`
+  - final cost of programs after rewriting
+- `1.33x`
+  - compression gained from this abstraction - again, only relevant when learning more than one abstraction
+- `uses: 2`
+  - the abstraction is used twice in the set of programs
+- `body: [fn_0 arity=1: (#0 #0 #0)]`
+  - this is the abstraction itself! `(#0 #0 #0)` is equivalent to `\x. (x x x)` - the first abstraction variable is always `#0`, the second is `#1`, etc.
+  - Theres also a more complete output that is sent to `out/out.json` by default and can be consumed by other programs that are using stitch as a subroutine (if they arent using the Rust/Python bindings for it).
+
+Now let's take a look at the output of one of the benchmarks from the paper. This will be the `data/cogsci/nuts-bolts.json` file from the [Wong et al. 2022] dataset, feel free to open the file and take a look.
+
+Run it, using `--iterations=3` to get 3 abstractions:
+```
+cargo run --release --bin=compress -- data/cogsci/nuts-bolts.json --max-arity=3 --iterations=3
+```
+
+The output should end with the following compression summary:
+```
+=======Compression Summary=======
+Found 3 inventions
+Cost Improvement: (6.06x better) 1919558 -> 316890
 fn_0 (1.78x wrt orig): utility: 837792 | final_cost: 1079238 | 1.78x | uses: 320 | body: [fn_0 arity=2: (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #1))))) #1 (M 1 (/ (* 2 pi) #1) 0 0)) (M #0 0 0 0))]
 fn_1 (3.81x wrt orig): utility: 572767 | final_cost: 503538 | 2.14x | uses: 190 | body: [fn_1 arity=3: (repeat (T (T #2 (M 0.5 0 0 0)) (M 1 0 (* #1 (cos (/ pi 4))) (* #1 (sin (/ pi 4))))) #0 (M 1 (/ (* 2 pi) #0) 0 0))]
 fn_2 (6.06x wrt orig): utility: 185436 | final_cost: 316890 | 1.59x | uses: 168 | body: [fn_2 arity=1: (T (T c (M 2 0 0 0)) (M #0 0 0 0))]
-fn_3 (7.18x wrt orig): utility: 48984 | final_cost: 267198 | 1.19x | uses: 82 | body: [fn_3 arity=2: (C #1 (T r (M #0 0 0 0)))]
-fn_4 (8.29x wrt orig): utility: 35046 | final_cost: 231646 | 1.15x | uses: 88 | body: [fn_4 arity=2: (C (fn_0 4 #1) (fn_0 #0 6))]
-fn_5 (9.04x wrt orig): utility: 18885 | final_cost: 212456 | 1.09x | uses: 95 | body: [fn_5 arity=3: (C #2 (fn_1 #1 1.5 #0))]
-fn_6 (9.93x wrt orig): utility: 18885 | final_cost: 193266 | 1.10x | uses: 95 | body: [fn_6 arity=3: (C #2 (fn_1 #1 3 #0))]
-fn_7 (10.53x wrt orig): utility: 10604 | final_cost: 182358 | 1.06x | uses: 54 | body: [fn_7 arity=2: (C #1 (fn_0 #0 6))]
-fn_8 (11.20x wrt orig): utility: 10503 | final_cost: 171450 | 1.06x | uses: 36 | body: [fn_8 arity=2: (C (fn_0 4 #1) (fn_2 #0))]
-fn_9 (11.93x wrt orig): utility: 10202 | final_cost: 160946 | 1.07x | uses: 52 | body: [fn_9 arity=0: (fn_4 4.25 6)]
-Time: 227ms
+Time: 120ms
+Wrote to "out/out.json"
 ```
 
-Brief guide to reading this:
+These are written in a low-level graphics DSL, and the first function (which yields 1.78x compression) is the function for rendering a scaled n-sided polygon, which is used 320 times in the dataset.
 
-- `fn_0` is the autogenerated name of the abstraction
-- `(1.78x wrt orig)` means the resulting compressed programs using `inv0` were 1.78x smaller than the original programs, while later on in the line the other `1.78x` is the compression relative to the previous step (for the first step they are the same).
-- `utility: 836528` this is a measure of how many much smaller the program got after rewriting it in terms of the new primitives (divide by 100 to get the approximate number of primitives that were removed)
-- `uses: 320` the abstraction was useful in 320 places in the set of programs
-- Note that in these abstraction `#i` is used for abstraction variables and `$i` for original program variables.
+Primer on input format:
+- Variables should be written as *de Bruijn* indices (i.e. `$i` refers to the variable bound by the `i`th lambda above it) so `\x. \y. x y` is written `(lam (lam ($1 $0)))`
+- Lambdas need explicit parentheses around their body so `(lam + 3 2)` should instead be written `(lam (+ 3 2))`. The parser outputs an error message explaining this if you make this mistake.
+- There should be parentheses around the whole program at the outermost level so `lam (+ 3 2)` should instead be written `(lam (+ 3 2))` and `+ foo bar` should be written `(+ foo bar)`. The parser will otherwise output an error about `unrecognized post-s-expression data`.
+- Be sure to balance your parentheses or you'll get an error about `unexpected eof` or `unrecognized post-s-expression data`.
+- You don't need to pre-define a DSL or anything to work with stitch. Any space-separated series of tokens that isn't reserved for something else is treated as a DSL primitive, like `foo` and `a` in the earlier example or any of the primitive likes `T` or `-0.5` in the second example.
+- check out other examples in `data/basic` and `data/cogsci`
 
 ## Common command-line arguments
 
@@ -176,59 +222,23 @@ OPTIONS:
             prints every worklist item as it is processed (will slow things down a ton due to
             rendering out expressins)
 ```
-## Disabling optimizations
-
-`cargo run --release --bin=compress -- data/cogsci/nuts-bolts.json --no-opt`
-
-Or see the other commandline arguments beginning with `--no-opt-` to disable specific optimizations
 
 ## Python Bindings
 
-Currently initial Python bindings are offered.
-- Build the bindings by running `./gen_bindings_osx.sh` or `./gen_bindings_linux.sh` depending on your OS (they will be added to `bindings/`)
-  - Tell me or open an issue if this command doesn't work! It may vary by OS and the current commands may be overfit to my computers.
-- Add the `stitch/bindings/` folder to your `$PYTHONPATH`, for example by adding `export PYTHONPATH="$PYTHONPATH:path/to/stitch/bindings/"` to your  `~/.bashrc` or however you do it with your particular shell / venv. This will mean the `stitch.so` file is in your python path which will let you import it.
-- Launch `python` and try to `import stitch` (nothing should be printed if this works)
-- As a simple example run the Python code `import stitch,json; result = json.loads(stitch.compression(["(a a a)", "(b b b)"], iterations=1, max_arity=2)); print("Result:", result)` and it should find the `(#0 #0 #0)` abstraction.
-- Note that currently it outputs a large python dictionary similar to the usual out/out.json output of stitch.
-- There are a lot more keyword arguments available (full list in `examples/stitch.rs` which is where the bindings live since keeping things in `examples/` is a workaround for having a project generate a cdylib for Python bindings in addition to normal Rust/). Basically everything that you would find in  `cargo run --release --bin=compress -- --help` is included.
+Currently initial Python bindings are offered in the [stitch_bindings repo](https://github.com/mlb2251/stitch_bindings).
 
+## Generating a flamegraph
 
-<!--
-## Benchmarking
+Installation:
 
-* `cargo bench` runs the benchmarks. Running it twice in a row (e.g. from different branches) will do a comparison
-
-Comparing your feature before merging it:
-
-```bash
-git checkout main
-cargo bench
-git checkout feature
-cargo bench
+```
+cargo install flamegraph
 ```
 
-<!-- ```bash
-git checkout main
-cargo bench --bench=compress_bench -- --save-baseline=main
-git checkout feature
-cargo bench --bench=compress_bench -- --save-baseline=feature
-cargo bench -- --load-baseline=feature --baseline=master
-``` -->
-
-Details:
-
-- `--save-baseline=main` saves a named baseline (comparing against a past version of it if it exists, then overwriting it)
-- `--load-baseline=feature` means *don't run any benchmarks* just load the file as if it's a result that you just produced
-- `--baseline=master` overrides which benchmark we're going to compare against
-- `--bench=compress_bench` avoids the "unrecognized option" error detailed [here](https://bheisler.github.io/criterion.rs/book/faq.html#cargo-bench-gives-unrecognized-option-errors-for-valid-command-line-options)
-
--->
-
-## Flamegraph
-
-install if you havent: `cargo install flamegraph`
-`cargo flamegraph --root --open --deterministic --output=out/flamegraph.svg --bin=compress -- data/cogsci/nuts-bolts.json`
+Running:
+```
+cargo flamegraph --root --open --deterministic --output=out/flamegraph.svg --bin=compress -- data/cogsci/nuts-bolts.json
+```
 
 ## Acknowledgement
 
