@@ -1394,14 +1394,15 @@ fn compressive_utility_upper_bound(
 /// other_utility() that any completed offspring of this partial invention could have.
 //#[inline(never)]
 fn noncompressive_utility_upper_bound(
-    body_utility_lower_bound: i32,
-    cfg: &CompressionStepConfig,
+    _body_utility_lower_bound: i32,
+    _cfg: &CompressionStepConfig,
 ) -> i32 {
-    if cfg.no_other_util { return 0; }
+    0
+    // if cfg.no_other_util { return 0; }
+    // - body_utility_lower_bound
     // safe bound: since structure_penalty is negative an upper bound is anything less negative or exact. Since
     // left_utility < body_utility we know that this will be a less negative bound.
     
-    - body_utility_lower_bound
 }
 
 //#[inline(never)]
