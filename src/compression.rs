@@ -980,7 +980,7 @@ fn stitch_search(
                 }
 
                 if !shared.cfg.no_stats { shared.stats.lock().calc_unargcap += 1; };
-                inverse_argument_capture(&mut finished_pattern);
+                inverse_argument_capture(&mut finished_pattern, &shared.cfg, &shared.zip_of_zid, &shared.node_of_id, &shared.cost_of_node_once, &shared.arg_of_zid_node, &shared.extensions_of_zid, &shared.egraph);
 
                 if finished_pattern.utility <= weak_utility_pruning_cutoff {
                     continue 'expansion // todo could add a tracked{} printing thing here
@@ -1527,9 +1527,136 @@ pub struct UtilityCalculation {
     pub corrected_utils: FxHashMap<Id,bool>, // whether to accept
 }
 
-pub fn inverse_argument_capture(finished: &mut FinishedPattern) {
-
+pub fn inverse_delta(cost_once: i32, usages: i32, arg_uses: usize) -> (i32, i32, i32) {
+    let compressive_delta = - (cost_once + COST_NONTERMINAL) * usages;
+    let noncompressive_delta = arg_uses as i32 * (cost_once - COST_TERMINAL) ;
+    (compressive_delta,noncompressive_delta, compressive_delta+noncompressive_delta)
 }
+
+pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &CompressionStepConfig, zip_of_zid: &[Zip], node_of_id: &[Lambda], cost_of_node_once: &[i32], arg_of_zid_node: &[FxHashMap<Id,Arg>], extensions_of_zid: &[ZIdExtension], egraph: &EGraph) {
+    // return;
+    while finished.arity < cfg.max_arity {
+        let counts = use_counts(&finished.pattern, node_of_id, zip_of_zid, arg_of_zid_node, extensions_of_zid, egraph);
+        let best = counts.iter()
+            .filter(|(arg_id,(cost,zids))| zids.len() > finished.usages as usize)
+            .max_by_key(|(arg_id,(cost,zids))|{
+                inverse_delta(*cost, finished.usages, zids.len()).2
+            });
+        if let Some((arg_id, (cost,zids))) = best {
+
+            let (compressive_delta,
+                 noncompressive_delta,
+                 delta) = inverse_delta(*cost, finished.usages, zids.len());
+            
+            if delta < 0 {
+                return
+            }
+            let ivar = finished.arity;
+            finished.pattern.arg_choices.extend(zids.iter().map(|&zid| LabelledZId { zid, ivar }));
+            finished.pattern.first_zid_of_ivar.push(zids[0]);
+            finished.compressive_utility += compressive_delta;
+            finished.util_calc.util += compressive_delta;
+            finished.utility += delta;
+            finished.arity +=1;
+            println!("UNARG")
+        } else {
+            return
+        }
+    }
+}
+
+fn use_counts(pattern: &Pattern, node_of_id: &[Lambda], zip_of_zid: &[Zip], arg_of_zid_node: &[FxHashMap<Id,Arg>], extensions_of_zid: &[ZIdExtension], egraph: &EGraph) -> FxHashMap<Id,(i32,Vec<ZId>)> {
+    let mut curr_zip: Zip = vec![];
+    let curr_zid: ZId = EMPTY_ZID;
+    let zids = &pattern.arg_choices[..];
+
+    // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
+    let zips: Vec<Zip> = zids.iter()
+        .map(|labelled_zid| zip_of_zid[labelled_zid.zid].clone()).collect();
+
+    let mut counts: FxHashMap<Id,(i32,Vec<ZId>)> = Default::default();
+
+    fn helper(curr_node: Id, match_loc: Id, curr_zip: &mut Zip, curr_zid: ZId, zips: &[Zip], zids: &[LabelledZId], node_of_id: &[Lambda], arg_of_zid_node: &[FxHashMap<Id,Arg>], extensions_of_zid: &[ZIdExtension], egraph: &EGraph,  counts: &mut FxHashMap<Id,(i32,Vec<ZId>)>) {
+        if zids.iter().any(|labelled| labelled.zid == curr_zid){
+            return // current zip matches an arg
+        }
+        // if curr_zip is not a prefix of any arg zipper, then increment its count
+        if zips.iter().all(|zip| !zip.starts_with(curr_zip)) {
+            // also make sure its valid ie doesnt have any free ivars as ew do during normal checks
+            let arg = arg_of_zid_node[curr_zid].get(&match_loc).unwrap();
+            if egraph[arg.shifted_id].data.free_ivars.is_empty() {
+                counts.entry(arg.shifted_id)
+                    .or_insert_with(||(arg.cost, vec![]))
+                    .1.push(curr_zid);
+            }
+        }
+        match &node_of_id[usize::from(curr_node)] {
+            Lambda::Prim(_) => {},
+            Lambda::Var(_) => {},
+            Lambda::Lam([b]) => {
+                curr_zip.push(ZNode::Body);
+                let new_zid = extensions_of_zid[curr_zid].body.unwrap();
+                helper(*b, match_loc, curr_zip, new_zid, zips, zids, node_of_id, arg_of_zid_node, extensions_of_zid, egraph, counts);
+                curr_zip.pop();
+            }
+            Lambda::App([f,x]) => {
+                curr_zip.push(ZNode::Func);
+                let new_zid = extensions_of_zid[curr_zid].func.unwrap();
+                helper(*f, match_loc, curr_zip, new_zid, zips, zids, node_of_id, arg_of_zid_node, extensions_of_zid, egraph, counts);
+                curr_zip.pop();
+                curr_zip.push(ZNode::Arg);
+                let new_zid = extensions_of_zid[curr_zid].arg.unwrap();
+                helper(*x, match_loc, curr_zip, new_zid, zips, zids, node_of_id, arg_of_zid_node, extensions_of_zid, egraph, counts);
+                curr_zip.pop();
+            }
+            _ => unreachable!(),
+        }
+    }
+    // we can pick any match location
+    helper(pattern.match_locations[0], pattern.match_locations[0], &mut curr_zip, curr_zid, &zips, zids, node_of_id, arg_of_zid_node, extensions_of_zid, egraph, &mut counts);
+    counts
+}
+
+
+// fn use_counts(pattern: &Pattern, node_of_id: &[Lambda], zip_of_zid: &[Zip]) -> FxHashMap<Id,usize> {
+//     let mut curr_zip: Zip = vec![];
+//     // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
+//     let zips: Vec<Zip> = pattern.arg_choices.iter()
+//         .map(|labelled_zid| zip_of_zid[labelled_zid.zid].clone()).collect();
+
+//     let mut counts: FxHashMap<Id,usize> = Default::default();
+
+//     fn helper(curr_node: Id, curr_zip: &mut Zip, zips: &[Zip], node_of_id: &[Lambda], counts: &mut FxHashMap<Id,usize>) {
+//         if zips.iter().contains(curr_zip){
+//             return // current zip matches an arg
+//         }
+//         // if curr_zip is not a prefix of any arg zipper, then increment its count
+//         if zips.iter().all(|zip| !zip.starts_with(curr_zip)) {
+//             *counts.entry(arg_of_zid_node[cur]).or_default() += 1;
+//         }
+//         match &node_of_id[usize::from(curr_node)] {
+//             Lambda::Prim(_) => {},
+//             Lambda::Var(_) => {},
+//             Lambda::Lam([b]) => {
+//                 curr_zip.push(ZNode::Body);
+//                 helper(*b, curr_zip, zips, node_of_id, counts);
+//                 curr_zip.pop();
+//             }
+//             Lambda::App([f,x]) => {
+//                 curr_zip.push(ZNode::Func);
+//                 helper(*f, curr_zip, zips, node_of_id, counts);
+//                 curr_zip.pop();
+//                 curr_zip.push(ZNode::Arg);
+//                 helper(*x, curr_zip, zips, node_of_id, counts);
+//                 curr_zip.pop();
+//             }
+//             _ => unreachable!(),
+//         }
+//     }
+//     // we can pick any match location
+//     helper(pattern.match_locations[0], &mut curr_zip, &zips, node_of_id, &mut counts);
+//     counts
+// }
 
 
 /// Multistep compression. See `compression_step` if you'd just like to do a single step of compression.
@@ -1773,7 +1900,7 @@ pub fn compression_step(
                 usages: num_paths_to_node[usize::from(*node)]
             };
 
-            inverse_argument_capture(&mut finished_pattern);
+            inverse_argument_capture(&mut finished_pattern, &cfg, &zip_of_zid, &node_of_id, &cost_of_node_once, &arg_of_zid_node, &extensions_of_zid, &egraph);
             if !cfg.no_stats { stats.azero_calc_unargcap += 1; };
 
             if finished_pattern.utility <= azero_pruning_cutoff {
