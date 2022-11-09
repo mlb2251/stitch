@@ -579,6 +579,10 @@ pub struct Stats {
     worklist_steps: usize,
     finished: usize,
     calc_final_utility: usize,
+    calc_unargcap: usize,
+    donelist_push: usize,
+    azero_calc_util: usize,
+    azero_calc_unargcap: usize,
     upper_bound_fired: usize,
     // conflict_upper_bound_fired: usize,
     free_vars_fired: usize,
@@ -971,6 +975,18 @@ fn stitch_search(
 
                 if !shared.cfg.no_stats { shared.stats.lock().calc_final_utility += 1; };
 
+                if finished_pattern.compressive_utility <= weak_utility_pruning_cutoff {
+                    continue 'expansion // todo could add a tracked{} printing thing here
+                }
+
+                if !shared.cfg.no_stats { shared.stats.lock().calc_unargcap += 1; };
+
+                if finished_pattern.utility <= weak_utility_pruning_cutoff {
+                    continue 'expansion // todo could add a tracked{} printing thing here
+                }
+
+                if !shared.cfg.no_stats { shared.stats.lock().donelist_push += 1; };
+
                 if shared.cfg.rewrite_check {
                     // run rewriting just to make sure the assert in it passes
                     rewrite_fast(&finished_pattern, &shared, "fake_inv", &shared.cost_fn);
@@ -979,6 +995,7 @@ fn stitch_search(
                 if tracked {
                     println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);
                 }
+
                 if shared.cfg.inv_candidates == 1 && finished_pattern.utility > weak_utility_pruning_cutoff {
                     // if we're only looking for one invention, we can directly update our cutoff here
                     weak_utility_pruning_cutoff = finished_pattern.utility;
@@ -1353,6 +1370,7 @@ fn noncompressive_utility(
     if cfg.no_other_util { return 0; }
     // this is a bit like the structure penalty from dreamcoder except that
     // that penalty uses inlined versions of nested inventions.
+    // 0
     - body_utility
 }
 
@@ -1394,12 +1412,12 @@ fn compressive_utility_upper_bound(
 /// other_utility() that any completed offspring of this partial invention could have.
 //#[inline(never)]
 fn noncompressive_utility_upper_bound(
-    _body_utility_lower_bound: i32,
-    _cfg: &CompressionStepConfig,
+    body_utility_lower_bound: i32,
+    cfg: &CompressionStepConfig,
 ) -> i32 {
-    0
-    // if cfg.no_other_util { return 0; }
-    // - body_utility_lower_bound
+    // 0
+    if cfg.no_other_util { return 0; }
+    - body_utility_lower_bound
     // safe bound: since structure_penalty is negative an upper bound is anything less negative or exact. Since
     // left_utility < body_utility we know that this will be a less negative bound.
     
@@ -1419,6 +1437,8 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     let compressive_utility: i32 = shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
         root_idxs.iter().map(|idx| shared.init_cost_by_root_idx[*idx] - cumulative_utility_of_node[usize::from(shared.roots[*idx])]).min().unwrap()
     ).sum::<i32>();
+
+    // pattern.match_locations.
 
     UtilityCalculation { util: compressive_utility, corrected_utils }
 }
@@ -1686,6 +1706,8 @@ pub fn compression_step(
     // define all the important data structures for compression
     let mut donelist: Vec<FinishedPattern> = Default::default(); // completed inventions will go here    
 
+    let mut azero_pruning_cutoff = 0;
+
     // arity 0 inventions
     if !cfg.no_opt_arity_zero {
         for node in treenodes.iter() {
@@ -1718,7 +1740,24 @@ pub fn compression_step(
             
             // let compressive_utility = cost_of_node_all[usize::from(*node)] - num_paths_to_node[usize::from(*node)] * COST_TERMINAL;
             let utility = compressive_utility + noncompressive_utility(body_utility, cfg);
+
+            if !cfg.no_stats { stats.azero_calc_util += 1; };
+
+            if compressive_utility <= azero_pruning_cutoff {
+                continue // upper bound pruning
+            }
+
+            if !cfg.no_stats { stats.azero_calc_unargcap += 1; };
+
             if utility <= 0 { continue; }
+
+            if cfg.inv_candidates == 1 && utility > azero_pruning_cutoff {
+                // if we're only looking for one invention, we can directly update our cutoff here
+                azero_pruning_cutoff = utility
+            }
+
+
+
 
             let pattern = Pattern {
                 holes: vec![],
