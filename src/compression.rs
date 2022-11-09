@@ -84,6 +84,10 @@ pub struct CompressionStepConfig {
     #[clap(long,short='r')]
     pub show_rewritten: bool,
 
+    /// disables the edge case handling where argument capture needs to be inverted for optimality
+    #[clap(long,short='r')]
+    pub no_inv_arg_cap: bool,
+
     /// disable the free variable pruning optimization
     #[clap(long)]
     pub no_opt_free_vars: bool,
@@ -1534,7 +1538,9 @@ pub fn inverse_delta(cost_once: i32, usages: i32, arg_uses: usize) -> (i32, i32,
 }
 
 pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &CompressionStepConfig, zip_of_zid: &[Zip], node_of_id: &[Lambda], cost_of_node_once: &[i32], arg_of_zid_node: &[FxHashMap<Id,Arg>], extensions_of_zid: &[ZIdExtension], egraph: &EGraph) {
-    // return;
+    if cfg.no_inv_arg_cap {
+        return
+    }
     while finished.arity < cfg.max_arity {
         let counts = use_counts(&finished.pattern, node_of_id, zip_of_zid, arg_of_zid_node, extensions_of_zid, egraph);
         let best = counts.iter()
