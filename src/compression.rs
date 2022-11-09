@@ -486,6 +486,7 @@ pub struct SharedData {
     pub free_vars_of_node: Vec<FxHashSet<i32>>,
     pub init_cost: i32,
     pub init_cost_by_root_idx: Vec<i32>,
+    pub first_train_cost: i32,
     pub stats: Mutex<Stats>,
     pub cfg: CompressionStepConfig,
     pub tracking: Option<Tracking>,
@@ -690,7 +691,11 @@ fn get_worklist_item(
     crit.update(&shared.cfg); // this also updates utility_pruning_cutoff
 
     if shared.cfg.verbose_best && crit.donelist.first().map(|x|x.utility).unwrap_or(0) > old_best_utility {
-        println!("{} @ step={} util={} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, crit.donelist.first().unwrap().utility, crit.donelist.first().unwrap().info(shared));
+
+        let new_expected_cost = shared.first_train_cost - crit.donelist.first().unwrap().compressive_utility + crit.donelist.first().unwrap().to_expr(&shared).cost(&shared.cost_fn);
+        let trainratio = shared.first_train_cost as f64 / new_expected_cost as f64;
+        // println!("{} @ step={} util={} trainratio={:.2} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, shared.first_train_cost as f64/ new_expected_cost as f64, crit.donelist.first().unwrap().info(shared));
+        println!("{} @ step={} util={} trainratio={:.2} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, crit.donelist.first().unwrap().utility, trainratio, crit.donelist.first().unwrap().info(shared));
     }
 
     // pull out the newer version of this now that its been updated, since we're returning it at the end
@@ -1753,6 +1758,8 @@ pub fn compression_step(
     let programs_node = egraph.add_expr(programs_expr.into());
     egraph.rebuild();
 
+    let first_train_cost = egraph[programs_node].data.inventionless_cost; // This is used for --verbose-print
+
     println!("set up egraph: {:?}ms", tstart.elapsed().as_millis());
     tstart = std::time::Instant::now();
 
@@ -1951,6 +1958,7 @@ pub fn compression_step(
         free_vars_of_node,
         init_cost,
         init_cost_by_root_idx,
+        first_train_cost,
         stats: Mutex::new(stats),
         cfg: cfg.clone(),
         tracking,
@@ -1964,7 +1972,9 @@ pub fn compression_step(
         if !crit.deref_mut().donelist.is_empty() {
             let best_util = crit.deref_mut().donelist.first().unwrap().utility;
             let best_expr: String = crit.deref_mut().donelist.first().unwrap().info(&shared);
-            println!("{} @ step=0 util={} for {}", "[new best utility]".blue(), best_util, best_expr);
+            let new_expected_cost = first_train_cost - crit.donelist.first().unwrap().compressive_utility + crit.donelist.first().unwrap().to_expr(&shared).cost(&shared.cost_fn);
+            let trainratio = first_train_cost as f64/new_expected_cost as f64;
+            println!("{} @ step=0 util={} trainratio={:.2} for {}", "[new best utility]".blue(), best_util, trainratio, best_expr);
         }
     }
 
