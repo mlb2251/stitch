@@ -971,7 +971,7 @@ fn stitch_search(
             if new_pattern.holes.is_empty() {
                 // it's a finished pattern
 
-                let finished_pattern = FinishedPattern::new(new_pattern, &shared);
+                let mut finished_pattern = FinishedPattern::new(new_pattern, &shared);
 
                 if !shared.cfg.no_stats { shared.stats.lock().calc_final_utility += 1; };
 
@@ -980,6 +980,7 @@ fn stitch_search(
                 }
 
                 if !shared.cfg.no_stats { shared.stats.lock().calc_unargcap += 1; };
+                inverse_argument_capture(&mut finished_pattern);
 
                 if finished_pattern.utility <= weak_utility_pruning_cutoff {
                     continue 'expansion // todo could add a tracked{} printing thing here
@@ -1526,6 +1527,11 @@ pub struct UtilityCalculation {
     pub corrected_utils: FxHashMap<Id,bool>, // whether to accept
 }
 
+pub fn inverse_argument_capture(finished: &mut FinishedPattern) {
+
+}
+
+
 /// Multistep compression. See `compression_step` if you'd just like to do a single step of compression.
 pub fn compression(
     train_programs_expr: &Expr,
@@ -1740,24 +1746,14 @@ pub fn compression_step(
             
             // let compressive_utility = cost_of_node_all[usize::from(*node)] - num_paths_to_node[usize::from(*node)] * COST_TERMINAL;
             let utility = compressive_utility + noncompressive_utility(body_utility, cfg);
+            if utility <= 0 { continue; }
+
 
             if !cfg.no_stats { stats.azero_calc_util += 1; };
 
             if compressive_utility <= azero_pruning_cutoff {
                 continue // upper bound pruning
             }
-
-            if !cfg.no_stats { stats.azero_calc_unargcap += 1; };
-
-            if utility <= 0 { continue; }
-
-            if cfg.inv_candidates == 1 && utility > azero_pruning_cutoff {
-                // if we're only looking for one invention, we can directly update our cutoff here
-                azero_pruning_cutoff = utility
-            }
-
-
-
 
             let pattern = Pattern {
                 holes: vec![],
@@ -1768,7 +1764,7 @@ pub fn compression_step(
                 body_utility,
                 tracked: false,
             };
-            let finished_pattern = FinishedPattern {
+            let mut finished_pattern = FinishedPattern {
                 pattern,
                 utility,
                 compressive_utility,
@@ -1776,6 +1772,18 @@ pub fn compression_step(
                 arity: 0,
                 usages: num_paths_to_node[usize::from(*node)]
             };
+
+            inverse_argument_capture(&mut finished_pattern);
+            if !cfg.no_stats { stats.azero_calc_unargcap += 1; };
+
+            if finished_pattern.utility <= azero_pruning_cutoff {
+                continue // upper bound pruning
+            }
+
+            if cfg.inv_candidates == 1 && finished_pattern.utility > azero_pruning_cutoff {
+                // if we're only looking for one invention, we can directly update our cutoff here
+                azero_pruning_cutoff = finished_pattern.utility
+            }
             donelist.push(finished_pattern);
         }
     }
