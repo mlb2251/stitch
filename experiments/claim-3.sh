@@ -29,7 +29,7 @@ echo -n "Current git commit: " > $OUT_DIR/readme.md
 git log -n 1 >> $OUT_DIR/readme.md
 echo -n "Current git branch: " >> $OUT_DIR/readme.md
 git rev-parse --abbrev-ref HEAD >> $OUT_DIR/readme.md
-STITCH_FLAGS="--verbose-best --hole-choice=depth-first --fmt=programs-list --max-arity=3 --iterations=1"
+STITCH_FLAGS="--verbose-best --fmt=programs-list --max-arity=3 --iterations=1"
 echo -n "Stitch hyperparameter settings:" >> $OUT_DIR/readme.md
 echo $STITCH_FLAGS >> $OUT_DIR/readme.md
 

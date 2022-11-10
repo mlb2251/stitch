@@ -29,17 +29,23 @@ clean-dreamcoder:
 
 # CLAIM 2
 
-claim-2:
+claim-2: def-num-seeds
 	rm -rf claim-2-out-${NUM_SEEDS}
+	rm -rf claim-2-data
 	STITCH_DIR=.. ./claim-2.sh ${NUM_SEEDS} claim-2-out-${NUM_SEEDS}
 	python3 plot.py claim-2 claim-2-out-${NUM_SEEDS} ${NUM_SEEDS}
 
-claim-2-viz:
+claim-2-viz: def-num-seeds
 	python3 plot.py claim-2 claim-2-out-${NUM_SEEDS} ${NUM_SEEDS}
 
 clean-2:
 	echo "Cleaning outputs..."
 	rm -rf claim-2-out-*
+
+def-num-seeds:
+ifndef NUM_SEEDS
+	$(error usage: set the environment variable NUM_SEEDS=3 or NUM_SEEDS=50 etc)
+endif
 
 # CLAIM 3
 
