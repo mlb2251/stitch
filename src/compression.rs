@@ -989,7 +989,7 @@ fn stitch_search(
                 }
 
                 if !shared.cfg.no_stats { shared.stats.lock().calc_unargcap += 1; };
-                inverse_argument_capture(&mut finished_pattern, &shared.cfg, &shared.zip_of_zid, &shared.node_of_id, &shared.cost_of_node_once, &shared.arg_of_zid_node, &shared.extensions_of_zid, &shared.egraph);
+                inverse_argument_capture(&mut finished_pattern, &shared.cfg, &shared.zip_of_zid, &shared.node_of_id, &shared.arg_of_zid_node, &shared.extensions_of_zid, &shared.egraph);
 
                 if finished_pattern.utility <= weak_utility_pruning_cutoff {
                     continue 'expansion // todo could add a tracked{} printing thing here
@@ -1542,21 +1542,21 @@ pub fn inverse_delta(cost_once: i32, usages: i32, arg_uses: usize) -> (i32, i32,
     (compressive_delta,noncompressive_delta, compressive_delta+noncompressive_delta)
 }
 
-pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &CompressionStepConfig, zip_of_zid: &[Zip], node_of_id: &[Lambda], cost_of_node_once: &[i32], arg_of_zid_node: &[FxHashMap<Id,Arg>], extensions_of_zid: &[ZIdExtension], egraph: &EGraph) {
+pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &CompressionStepConfig, zip_of_zid: &[Zip], node_of_id: &[Lambda], arg_of_zid_node: &[FxHashMap<Id,Arg>], extensions_of_zid: &[ZIdExtension], egraph: &EGraph) {
     if cfg.no_inv_arg_cap {
         return
     }
     while finished.arity < cfg.max_arity {
         let counts = use_counts(&finished.pattern, node_of_id, zip_of_zid, arg_of_zid_node, extensions_of_zid, egraph);
-        let best = counts.iter()
-            .filter(|(arg_id,(cost,zids))| zids.len() > finished.usages as usize)
-            .max_by_key(|(arg_id,(cost,zids))|{
+        let best = counts.values()
+            .filter(|(_,zids)| zids.len() > finished.usages as usize)
+            .max_by_key(|(cost,zids)|{
                 inverse_delta(*cost, finished.usages, zids.len()).2
             });
-        if let Some((arg_id, (cost,zids))) = best {
+        if let Some((cost,zids)) = best {
 
             let (compressive_delta,
-                 noncompressive_delta,
+                 _noncompressive_delta,
                  delta) = inverse_delta(*cost, finished.usages, zids.len());
             
             if delta < 0 {
@@ -1913,7 +1913,7 @@ pub fn compression_step(
                 usages: num_paths_to_node[usize::from(*node)]
             };
 
-            inverse_argument_capture(&mut finished_pattern, &cfg, &zip_of_zid, &node_of_id, &cost_of_node_once, &arg_of_zid_node, &extensions_of_zid, &egraph);
+            inverse_argument_capture(&mut finished_pattern, &cfg, &zip_of_zid, &node_of_id, &arg_of_zid_node, &extensions_of_zid, &egraph);
             if !cfg.no_stats { stats.azero_calc_unargcap += 1; };
 
             if finished_pattern.utility <= azero_pruning_cutoff {
