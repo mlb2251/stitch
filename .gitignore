@@ -27,3 +27,4 @@ experiments/plots/
 experiments/claim-3.pdf
 experiments/claim-4-out/
 experiments/*.json
+experiments/compression_benchmark
