@@ -88,10 +88,6 @@ pub struct CompressionStepConfig {
     #[clap(long,short='r')]
     pub no_inv_arg_cap: bool,
 
-    /// disable the free variable pruning optimization
-    #[clap(long)]
-    pub no_opt_free_vars: bool,
-
     /// disable the single structurally hashed subtree match pruning
     #[clap(long)]
     pub no_opt_single_use: bool,
@@ -139,7 +135,6 @@ pub struct CompressionStepConfig {
 
 impl CompressionStepConfig {
     pub fn no_opt(&mut self) {
-        self.no_opt_free_vars = true;
         self.no_opt_single_task = true;
         self.no_opt_upper_bound = true;
         self.no_opt_force_multiuse = true;
@@ -749,35 +744,6 @@ fn get_worklist_item(
     // * MULTITHREADING: CRITICAL SECTION END *
 }
 
-// pub fn blackbox1<T>(dummy: T) -> T {
-//     unsafe {
-//         let ret = std::ptr::read_volatile(&dummy);
-//         std::mem::forget(dummy);
-//         ret
-//     }
-// }
-// pub fn blackbox2<T>(dummy: T) -> T {
-//     unsafe {
-//         let ret = std::ptr::read_volatile(&dummy);
-//         std::mem::forget(dummy);
-//         ret
-//     }
-// }
-// pub fn blackbox3<T>(dummy: T) -> T {
-//     unsafe {
-//         let ret = std::ptr::read_volatile(&dummy);
-//         std::mem::forget(dummy);
-//         ret
-//     }
-// }
-// pub fn blackbox<T>(dummy: T) -> T {
-//     unsafe {
-//         let ret = std::ptr::read_volatile(&dummy);
-//         std::mem::forget(dummy);
-//         ret
-//     }
-// }
-
 /// The core top down branch and bound search
 fn stitch_search(
     shared: Arc<SharedData>,
@@ -812,7 +778,7 @@ fn stitch_search(
             // choose which hole we're going to expand
             let hole_idx: usize = shared.cfg.hole_choice.choose_hole(&original_pattern, &shared);
 
-            // pop that hole form the list of holes
+            // pop that hole from the list of holes
             let mut holes_after_pop: Vec<ZId> = original_pattern.holes.clone();
             let hole_zid: ZId = holes_after_pop.remove(hole_idx);
 
@@ -842,7 +808,7 @@ fn stitch_search(
                 if shared.cfg.follow_track && !tracked { continue 'expansion; }
 
 
-                // prune inventions that only match at a single unique (structurally hashed) subtree. This only applies if we
+                // Pruning (SINGLE USE): prune inventions that only match at a single unique (structurally hashed) subtree. This only applies if we
                 // also are priming with arity 0 inventions. Basically if something only matches at one subtree then the best you can
                 // do is the arity zero invention which is the whole subtree, and since we already primed with arity 0 inventions we can
                 // prune here. The exception is when there are free variables so arity 0 wouldn't have applied.
@@ -853,7 +819,7 @@ fn stitch_search(
                     continue 'expansion;
                 }
 
-                // prune inventions specific to one single task
+                // Pruning (SINGLE TASK): prune inventions that are only used in one task
                 if !shared.cfg.no_opt_single_task
                         && locs.iter().all(|node| shared.tasks_of_node[usize::from(*node)].len() == 1)
                         && locs.iter().all(|node| shared.tasks_of_node[usize::from(locs[0])].iter().next() == shared.tasks_of_node[usize::from(*node)].iter().next()) {
@@ -862,21 +828,20 @@ fn stitch_search(
                     continue 'expansion;
                 }
 
-                // check for free variables: if an invention has free variables in the body then it's not a real function and we can discard it
+                // Pruning (FREE VARS): if an invention has free variables in the body then it's not a real function and we can discard it
                 // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
-                if true {  // TODO: condition should be "!shared.cfg.no_opt_free_vars" once this is no longer unsound
-                    if let ExpandsTo::Var(i) = expands_to {
-                        if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
-                            if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
-                            if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
-                            continue 'expansion; // free var
-                        }
+                if let ExpandsTo::Var(i) = expands_to {
+                    if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
+                        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
+                        if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+                        continue 'expansion; // free var
                     }
                 }
 
-                // check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
-                // because subsetting of match_locations can turn previously useful abstractions into useless ones.
+                // Pruning (ARGUMENT CAPTURE): check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
+                // because subsetting of match_locations can turn previously useful abstractions into useless ones. In the paper this is referred to as "argument capture"
                 if !shared.cfg.no_opt_useless_abstract {
+                    // note I believe it'd be save to iterate over first_zid_of_ivar instead
                     for argchoice in original_pattern.arg_choices.iter(){
                         // if its the same arg in every place
                         if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
@@ -885,7 +850,6 @@ fn stitch_search(
                             continue 'expansion; // useless abstraction
                         }
                     }
-
                 }
 
 
@@ -895,11 +859,12 @@ fn stitch_search(
                     ExpandsTo::Var(_) | ExpandsTo::Prim(_) => COST_TERMINAL,
                     ExpandsTo::IVar(_) => 0,
                 };
+
                 // update the upper bound
                 let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
                 assert!(util_upper_bound <= original_pattern.utility_upper_bound);
 
-                // branch and bound: if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
+                // Pruning (UPPER BOUND): if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
                 if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
                     if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
@@ -926,6 +891,7 @@ fn stitch_search(
                     _ => {}
                 }
 
+                // update arg_choices and possibly first_zid_of_ivar if a new ivar was added
                 let mut arg_choices = original_pattern.arg_choices.clone();
                 let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
                 if let ExpandsTo::IVar(i) = expands_to {
@@ -935,9 +901,10 @@ fn stitch_search(
                     }
                 }
 
-                // if two different ivars #i and #j have the same arg at every location, then we can prune this pattern
+                // PRUNING (REDUNDANT ARGUMENT) if two different ivars #i and #j have the same arg at every location, then we can prune this pattern
                 // because there must exist another pattern where theyre just both the same ivar. Note that this pruning
-                // happens here and not just at the ivar creation point because new subsetting can happen
+                // happens here and not just at the ivar creation point because new subsetting can happen. In this paper this is referred to as
+                // "redundant argument elimination".
                 if !shared.cfg.no_opt_force_multiuse {
                     // for all pairs of ivars #i and #j, get the first zipper and compare the arg value across all locations
                     for (i,ivar_zid_1) in first_zid_of_ivar.iter().enumerate() {
@@ -955,63 +922,65 @@ fn stitch_search(
                     }
                 }
 
-            // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
-            // from the old pattern.
-            let new_pattern = Pattern {
-                holes,
-                arg_choices,
-                first_zid_of_ivar,
-                match_locations: locs,
-                utility_upper_bound: util_upper_bound,
-                body_utility,
-                tracked
-            };
+                // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
+                // from the old pattern.
+                let new_pattern = Pattern {
+                    holes,
+                    arg_choices,
+                    first_zid_of_ivar,
+                    match_locations: locs,
+                    utility_upper_bound: util_upper_bound,
+                    body_utility,
+                    tracked
+                };
 
-            // new_pattern.utility_upper_bound = utility_upper_bound_with_conflicts(&new_pattern, body_utility_no_refinement + refinement_body_utility, &shared);
-            // // branch and bound again
-            // if !shared.cfg.no_opt_upper_bound && new_pattern.utility_upper_bound <= weak_utility_pruning_cutoff {
-            //     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().conflict_upper_bound_fired += 1; };
-            //     if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
-            //     continue 'expansion; // too low utility
-            // }
+                // new_pattern.utility_upper_bound = utility_upper_bound_with_conflicts(&new_pattern, body_utility_no_refinement + refinement_body_utility, &shared);
+                // // branch and bound again
+                // if !shared.cfg.no_opt_upper_bound && new_pattern.utility_upper_bound <= weak_utility_pruning_cutoff {
+                //     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().conflict_upper_bound_fired += 1; };
+                //     if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+                //     continue 'expansion; // too low utility
+                // }
 
+                if new_pattern.holes.is_empty() {
+                    // it's a finished pattern
 
+                    let mut finished_pattern = FinishedPattern::new(new_pattern, &shared);
 
-            if new_pattern.holes.is_empty() {
-                // it's a finished pattern
+                    if !shared.cfg.no_stats { shared.stats.lock().calc_final_utility += 1; };
 
-                let mut finished_pattern = FinishedPattern::new(new_pattern, &shared);
+                    // Pruning (UPPER BOUND): here we use just compressive_utility to prune before calling the expensive
+                    // inverse_argument_capture(). Note that this pruning is okay because compressive utility itself is an upper bound
+                    // on total utility.
+                    if finished_pattern.compressive_utility <= weak_utility_pruning_cutoff {
+                        continue 'expansion // todo could add a tracked{} printing thing here
+                    }
 
-                if !shared.cfg.no_stats { shared.stats.lock().calc_final_utility += 1; };
+                    if !shared.cfg.no_stats { shared.stats.lock().calc_unargcap += 1; };
+                    inverse_argument_capture(&mut finished_pattern, &shared.cfg, &shared.zip_of_zid, &shared.node_of_id, &shared.arg_of_zid_node, &shared.extensions_of_zid, &shared.egraph);
 
-                if finished_pattern.compressive_utility <= weak_utility_pruning_cutoff {
-                    continue 'expansion // todo could add a tracked{} printing thing here
-                }
+                    // Pruning (UPPER BOUND)
+                    if finished_pattern.utility <= weak_utility_pruning_cutoff {
+                        continue 'expansion // todo could add a tracked{} printing thing here
+                    }
 
-                if !shared.cfg.no_stats { shared.stats.lock().calc_unargcap += 1; };
-                inverse_argument_capture(&mut finished_pattern, &shared.cfg, &shared.zip_of_zid, &shared.node_of_id, &shared.arg_of_zid_node, &shared.extensions_of_zid, &shared.egraph);
+                    if !shared.cfg.no_stats { shared.stats.lock().donelist_push += 1; };
 
-                if finished_pattern.utility <= weak_utility_pruning_cutoff {
-                    continue 'expansion // todo could add a tracked{} printing thing here
-                }
+                    if shared.cfg.rewrite_check {
+                        // run rewriting just to make sure the assert in it passes
+                        rewrite_fast(&finished_pattern, &shared, "fake_inv", &shared.cost_fn);
+                    }
 
-                if !shared.cfg.no_stats { shared.stats.lock().donelist_push += 1; };
+                    if tracked {
+                        println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);
+                    }
 
-                if shared.cfg.rewrite_check {
-                    // run rewriting just to make sure the assert in it passes
-                    rewrite_fast(&finished_pattern, &shared, "fake_inv", &shared.cost_fn);
-                }
+                    if shared.cfg.inv_candidates == 1 && finished_pattern.utility > weak_utility_pruning_cutoff {
+                        // if we're only looking for one invention, we can directly update our cutoff here
+                        weak_utility_pruning_cutoff = finished_pattern.utility;
+                    }
 
-                if tracked {
-                    println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);
-                }
-
-                if shared.cfg.inv_candidates == 1 && finished_pattern.utility > weak_utility_pruning_cutoff {
-                    // if we're only looking for one invention, we can directly update our cutoff here
-                    weak_utility_pruning_cutoff = finished_pattern.utility;
-                }
-
-                donelist_buf.push(finished_pattern);
+                    donelist_buf.push(finished_pattern);
 
                 } else {
                     // it's a partial pattern so just add it to the worklist
@@ -1720,8 +1689,7 @@ pub fn compression(
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
     if cfg.follow_track && !(
-        cfg.no_opt_free_vars
-        && cfg.no_opt_single_task
+        cfg.no_opt_single_task
         && cfg.no_opt_upper_bound
         && cfg.no_opt_force_multiuse
         && cfg.no_opt_useless_abstract
@@ -1858,39 +1826,42 @@ pub fn compression_step(
     if !cfg.no_opt_arity_zero {
         for node in treenodes.iter() {
 
-            // check for free vars: inventions with free vars in the body are not well-defined functions
+            // Pruning (FREE VARS): inventions with free vars in the body are not well-defined functions
             // and should thus be discarded
-            if !cfg.no_opt_free_vars && !egraph[*node].data.free_vars.is_empty() {
+            if !egraph[*node].data.free_vars.is_empty() {
                 if !cfg.no_stats { stats.free_vars_fired += 1; };
                 continue;
             }
 
-            // check whether this invention is useful in > 1 task
+            // Pruning (SINGLE TASK): prune if used in only one task
             if !cfg.no_opt_single_task && tasks_of_node[usize::from(*node)].len() < 2 {
                 if !cfg.no_stats { stats.single_task_fired += 1; };
                 continue;
             }
+
             // Note that "single use" pruning is intentionally not done here,
             // since any invention specific to a node will by definition only
             // be useful at that node
 
             let match_locations = vec![*node];
             let body_utility = cost_of_node_once[usize::from(*node)];
-            // compressive_utility for arity-0 is cost_of_node_all[node] minus the penalty of using the new prim
 
+            // compressive_utility for arity-0 is cost_of_node_all[node] minus the penalty of using the new prim
             let compressive_utility: i32 = init_cost - root_idxs_of_task.iter().map(|root_idxs|
                 root_idxs.iter().map(|idx| init_cost_by_root_idx[*idx] - num_paths_to_node_by_root_idx[*idx][usize::from(*node)] * (cost_of_node_once[usize::from(*node)] - COST_TERMINAL))
                     .min().unwrap()
             ).sum::<i32>();
-            // println!("utility: {}", compressive_utility);
             
-            // let compressive_utility = cost_of_node_all[usize::from(*node)] - num_paths_to_node[usize::from(*node)] * COST_TERMINAL;
             let utility = compressive_utility + noncompressive_utility(body_utility, cfg);
             if utility <= 0 { continue; }
 
 
             if !cfg.no_stats { stats.azero_calc_util += 1; };
 
+            // Pruning (UPPER BOUND): Here we use compressive_utility which itself is an upper bound on total utility
+            // so it is sound to prune based on it, as if we pruned based on compressive_utility then we would definitely
+            // prune based on total utility. The pruning here before total utility is done because inverse_argument_capture()
+            // is expensive.
             if compressive_utility <= azero_pruning_cutoff {
                 continue // upper bound pruning
             }
@@ -1913,13 +1884,16 @@ pub fn compression_step(
                 usages: num_paths_to_node[usize::from(*node)]
             };
 
+            // This handle the case covered by Appendix B in the paper
             inverse_argument_capture(&mut finished_pattern, &cfg, &zip_of_zid, &node_of_id, &arg_of_zid_node, &extensions_of_zid, &egraph);
             if !cfg.no_stats { stats.azero_calc_unargcap += 1; };
 
+            // Pruning (UPPER BOUND): This is the full upper bound pruning
             if finished_pattern.utility <= azero_pruning_cutoff {
                 continue // upper bound pruning
             }
-
+            // Pruning (UPPER BOUND): Here we update the upper bound (only in the inv_candidates=1 case for now but would
+            // be good to handle other cases more generally by pushing to donelist and doing donelist.update())
             if cfg.inv_candidates == 1 && finished_pattern.utility > azero_pruning_cutoff {
                 // if we're only looking for one invention, we can directly update our cutoff here
                 azero_pruning_cutoff = finished_pattern.utility
@@ -1985,7 +1959,6 @@ pub fn compression_step(
     // *****************
     // * STITCH SEARCH *
     // *****************
-    // (this is finding all the higher-arity multi-use inventions through stitching)
     if cfg.threads == 1 {
         // Single threaded
         stitch_search(Arc::clone(&shared));
@@ -2046,7 +2019,7 @@ pub fn compression_step(
         }
         results.push(res);
     }
-    println!("post stuff: {:?}ms", tstart.elapsed().as_millis());
+    println!("post processing: {:?}ms", tstart.elapsed().as_millis());
 
     results
 }
