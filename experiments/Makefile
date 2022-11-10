@@ -30,17 +30,17 @@ clean-dreamcoder:
 # CLAIM 2
 
 claim-2: def-num-seeds
-	rm -rf claim-2-out-${NUM_SEEDS}
-	rm -rf claim-2-data
-	STITCH_DIR=.. ./claim-2.sh ${NUM_SEEDS} claim-2-out-${NUM_SEEDS}
-	python3 plot.py claim-2 claim-2-out-${NUM_SEEDS} ${NUM_SEEDS}
+	rm -rf out/claim-2-out-${NUM_SEEDS}
+	rm -rf out/claim-2-data
+	STITCH_DIR=.. ./claim-2.sh ${NUM_SEEDS} out/claim-2-out-${NUM_SEEDS}
+	python3 plot.py claim-2 out/claim-2-out-${NUM_SEEDS} ${NUM_SEEDS}
 
 claim-2-viz: def-num-seeds
-	python3 plot.py claim-2 claim-2-out-${NUM_SEEDS} ${NUM_SEEDS}
+	python3 plot.py claim-2 out/claim-2-out-${NUM_SEEDS} ${NUM_SEEDS}
 
 clean-2:
 	echo "Cleaning outputs..."
-	rm -rf claim-2-out-*
+	rm -rf out/claim-2-out-*
 
 def-num-seeds:
 ifndef NUM_SEEDS
@@ -50,29 +50,29 @@ endif
 # CLAIM 3
 
 claim-3: clean-3
-	STITCH_DIR=.. ./claim-3.sh claim-3-out
-	python3 plot.py claim-3 claim-3-out
+	STITCH_DIR=.. ./claim-3.sh out/claim-3-out
+	python3 plot.py claim-3 out/claim-3-out
 
 claim-3-viz:
-	python3 plot.py claim-3 claim-3-out
+	python3 plot.py claim-3 out/claim-3-out
 
 clean-3:
 	echo "Cleaning outputs..."
-	rm -rf claim-3-out
+	rm -rf out/claim-3-out
 
 # CLAIM 4
 
 claim-4: clean-4
-	STITCH_DIR=.. ./claim-4.sh claim-4-out
-	python3 plot.py ablation claim-4-out
+	STITCH_DIR=.. ./claim-4.sh out/claim-4-out
+	python3 plot.py ablation out/claim-4-out
 
 claim-4-quick: clean-4
-	STITCH_DIR=.. TIMEOUT=60m NO_NO_OPT=1 ./claim-4.sh claim-4-out
-	NO_NO_OPT=1 python3 plot.py ablation claim-4-out
+	STITCH_DIR=.. TIMEOUT=60m NO_NO_OPT=1 ./claim-4.sh out/claim-4-out
+	NO_NO_OPT=1 python3 plot.py ablation out/claim-4-out
 
 claim-4-viz:
-	python3 plot.py ablation claim-4-out
+	python3 plot.py ablation out/claim-4-out
 
 clean-4:
 	echo "Cleaning outputs..."
-	rm -rf claim-4-out
+	rm -rf out/claim-4-out

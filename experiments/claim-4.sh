@@ -9,7 +9,7 @@ fi
 
 if [ -z $1 ]
 then
-    OUT_DIR="ablation-results/$(TZ='America/New_York' date '+%Y-%m-%d_%H-%M-%S')"
+    OUT_DIR="out/ablation-results/$(TZ='America/New_York' date '+%Y-%m-%d_%H-%M-%S')"
 else
     OUT_DIR=$1
 fi
