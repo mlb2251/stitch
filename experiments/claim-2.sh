@@ -54,9 +54,8 @@ for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
         echo "[claim-2.sh] Starting workload $WL, seed $SEED"
         python3 split_data.py $SEED $WL_PATH "claim-2-data/$WL-$SEED-split.json"
         echo "[claim-2.sh] Split data; seed used was $SEED, train test % was 80%"
-        echo "Running Stitch"
+        echo "Running Stitch with stderr: $OUT_DIR/$WL/$SEED.stderrandout"
         echo "$STITCH_DIR/target/release/compress claim-2-data/$WL-$SEED-split.json $STITCH_FLAGS"
-
         $GTIME -v $STITCH_DIR/target/release/compress "claim-2-data/$WL-$SEED-split.json" $STITCH_FLAGS --out=$OUT_DIR/$WL/$SEED.json > $OUT_DIR/$WL/$SEED.stderrandout 2>&1
     done
     rm -v claim-2-data/*-split.json

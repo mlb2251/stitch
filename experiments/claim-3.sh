@@ -43,7 +43,8 @@ for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
     WL=$(basename -s .json $WL_PATH)
     OUTF=$OUT_DIR/$WL/
     mkdir -p $OUTF
-    echo "[claim-3.sh] Starting workload $WL"
+    echo "[claim-3.sh] Starting workload $WL with stderr: $OUTF/1.stderrandout"
+    echo "$STITCH_DIR/target/release/compress $WL_PATH $STITCH_FLAGS"
     $GTIME -v $STITCH_DIR/target/release/compress $WL_PATH $STITCH_FLAGS --out=$OUTF/1.json > $OUTF/1.stderrandout 2>&1
 done
 

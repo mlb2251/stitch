@@ -67,7 +67,8 @@ for WL_PATH in $STITCH_DIR/data/cogsci/*.json; do
     # In the lingo of the paper, "--no-opt-useless-abstract" is "no-arg-capture";
     # "--no-opt-force-multiuse" is "no-redundant-args".
     for OPTIM in "" "--no-opt-upper-bound" "--no-opt-force-multiuse" "--no-opt-useless-abstract" "$NO_OPT" ; do
-        echo "Running with OPTIM=$OPTIM"
+        echo "Running with OPTIM=$OPTIM "
+        echo "$STITCH_DIR/target/release/compress $WL_PATH $OPTIM $STITCH_FLAGS"
         $GTIMEOUT $TIMEOUT $GTIME -v $STITCH_DIR/target/release/compress $WL_PATH $OPTIM $STITCH_FLAGS --out=$OUT_DIR/raw/${WL}${OPTIM}.json > $OUT_DIR/stdout/${WL}${OPTIM}.stdout 2>&1 || true #&
     done
 done
