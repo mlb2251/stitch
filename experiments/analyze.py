@@ -962,6 +962,12 @@ if __name__ == '__main__':
             print(f"Found {domain} data: {done}/{total}; zero: {zero}; skipped:")
             for skipped in data['skipped']:
                 print(f"\n{skipped}")
+            if domain == 'text':
+                print("Note: We expect the following to be skipped as DreamCoder produces zero abstractions for them:")
+                print("\ttext_text_ellisk_2019-01-24T21.58.02/bench010_it12.json")
+                print("\ttext_text_ellisk_2019-01-25T20.19.06/bench006_it6.json")
+
+            
 
 
         num_x_ticks = len(domains)

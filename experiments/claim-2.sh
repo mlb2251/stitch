@@ -1,6 +1,5 @@
 #!/bin/bash
 set -e
-#ulimit -v 50000000  # attempt to limit children to 50GB=50,000,000KB of virtual memory
 
 if [ -z $STITCH_DIR ]
 then

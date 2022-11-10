@@ -1,6 +1,5 @@
 #!/bin/bash
 set -e
-ulimit -v 50000000  # limit children to 50GB=50,000,000KB of virtual memory
 
 if [ -z $STITCH_DIR ]
 then
@@ -19,10 +18,14 @@ if [[ $OSTYPE == 'darwin'* ]]
 then
     GTIME="gtime"
     GTIMEOUT="gtimeout"
+    echo "WARNING: On OS X `ulimit` doesn't work so you can't run these experiments with a memory limit. You could run them with a short time limit instead if desired using TIMEOUT=30m or something similar"
 else
     GTIME="/usr/bin/time"
     GTIMEOUT="timeout"
 fi
+
+ulimit -v 50000000  # limit children to 50GB=50,000,000KB of virtual memory
+
 
 if [ -z $NO_NO_OPT ]
 then
