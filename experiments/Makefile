@@ -2,18 +2,22 @@
 
 # CLAIM 1
 
+clean: clean-1 clean-2 clean-3 clean-4 clean-benchmark
+	rm -f out/out.json
+	echo "cleaned all outputs"
+
 claim-1: compression_benchmark clean-1
 	STITCH_DIR=.. ./bench_stitch_all_latest.sh compression_benchmark/benches
 	./process_all.sh compression_benchmark/benches
+	make claim-1-viz
+
+claim-1-viz: compression_benchmark clean-1-viz
 	python3 analyze.py graph_all compression_benchmark/benches
 
-claim-1-viz: compression_benchmark
-	python3 analyze.py graph_all compression_benchmark/benches
-
-clean-1:
-	echo "Cleaning outputs... Do NOT run this while either claim-1 or claim-2 is running as it will corrupt their outputs"
-	rm -rf plots/*
+clean-1: clean-1-viz
 	rm -rf compression_benchmark/benches/*/out/stitch
+clean-1-viz:
+	rm -rf plots/benches_*
 
 compression_benchmark:
 	git clone -b popl23_camera_ready https://github.com/mlb2251/compression_benchmark.git compression_benchmark
@@ -33,14 +37,14 @@ claim-2: def-num-seeds
 	rm -rf out/claim-2-out-${NUM_SEEDS}
 	rm -rf out/claim-2-data
 	STITCH_DIR=.. ./claim-2.sh ${NUM_SEEDS} out/claim-2-out-${NUM_SEEDS}
-	python3 plot.py claim-2 out/claim-2-out-${NUM_SEEDS} ${NUM_SEEDS}
+	make claim-2-viz
 
 claim-2-viz: def-num-seeds
 	python3 plot.py claim-2 out/claim-2-out-${NUM_SEEDS} ${NUM_SEEDS}
 
 clean-2:
-	echo "Cleaning outputs..."
 	rm -rf out/claim-2-out-*
+	rm -rf out/claim-2-data
 
 def-num-seeds:
 ifndef NUM_SEEDS
@@ -51,14 +55,17 @@ endif
 
 claim-3: clean-3
 	STITCH_DIR=.. ./claim-3.sh out/claim-3-out
+	make claim-3-viz
+
+claim-3-viz: clean-3-viz
+	rm -f plots/claim-3.pdf
 	python3 plot.py claim-3 out/claim-3-out
 
-claim-3-viz:
-	python3 plot.py claim-3 out/claim-3-out
-
-clean-3:
-	echo "Cleaning outputs..."
+clean-3: clean-3-viz
 	rm -rf out/claim-3-out
+clean-3-viz:
+	rm -f plots/claim-3.pdf
+	rm -f plots/claim-3.png
 
 # CLAIM 4
 
@@ -67,12 +74,16 @@ claim-4: clean-4
 	python3 plot.py ablation out/claim-4-out
 
 claim-4-quick: clean-4
-	STITCH_DIR=.. TIMEOUT=60m NO_NO_OPT=1 ./claim-4.sh out/claim-4-out
+	STITCH_DIR=.. TIMEOUT=30m NO_NO_OPT=1 ./claim-4.sh out/claim-4-out
 	NO_NO_OPT=1 python3 plot.py ablation out/claim-4-out
 
 claim-4-viz:
 	python3 plot.py ablation out/claim-4-out
 
 clean-4:
-	echo "Cleaning outputs..."
 	rm -rf out/claim-4-out
+
+# it can be finicky to kill the ablation study - this does it for you
+claim-4-kill:
+	pkill -u ${USER} --full "./claim-4.sh"
+	pkill -u ${USER} --full "../target/release/compress"
