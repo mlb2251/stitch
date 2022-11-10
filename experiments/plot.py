@@ -71,7 +71,9 @@ def get_data(path, mode):
             base_steps = int(re.search(r'.*worklist_steps: ([^,]*),.*', s).group(1))
 
         results = {}
-        opts = ("--no-opt-useless-abstract", "--no-opt-force-multiuse", "--no-opt-upper-bound", "--no-opt")
+        opts = ["--no-opt-useless-abstract", "--no-opt-force-multiuse", "--no-opt-upper-bound", "--no-opt"]
+        if "NO_NO_OPT" in os.environ:
+            opts = opts[:-1]
         for opt in opts:
             with open(path + opt + '.stdout', 'r') as f:
                 s = f.read()

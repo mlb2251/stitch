@@ -47,7 +47,7 @@ claim-4: clean-4
 
 claim-4-quick: clean-4
 	STITCH_DIR=.. TIMEOUT=60m NO_NO_OPT=1 ./claim-4.sh claim-4-out
-	python3 plot.py ablation claim-4-out
+	NO_NO_OPT=1 python3 plot.py ablation claim-4-out
 
 
 claim-4-viz:
