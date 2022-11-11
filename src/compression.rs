@@ -843,8 +843,9 @@ fn stitch_search(
                 if !shared.cfg.no_opt_useless_abstract {
                     // note I believe it'd be save to iterate over first_zid_of_ivar instead
                     for argchoice in original_pattern.arg_choices.iter(){
-                        // if its the same arg in every place
+                        // if its the same arg in every place, and doesnt have any free vars (ie it's safe to inline)
                         if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
+                            && shared.egraph[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].data.free_vars.is_empty()
                         {
                             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
                             continue 'expansion; // useless abstraction
