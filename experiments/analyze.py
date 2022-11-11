@@ -1055,8 +1055,8 @@ if __name__ == '__main__':
             else:
                 plt.ylabel(
                     {
-                        'time_per_inv_with_rewrite': 'Time per invention (seconds)',
-                        'time_per_inv_no_rewrite': 'Time per invention (s) (no rewriting)',
+                        'time_per_inv_with_rewrite': 'Time per abstraction (seconds)',
+                        'time_per_inv_no_rewrite': 'Time per abstraction (s) (no rewriting)',
                         'mem_peak_kb': 'Peak memory use (KB)',
                     }[metric])
             # plt.ylabel(f'{metric}')
