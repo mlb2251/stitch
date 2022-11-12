@@ -1514,7 +1514,7 @@ pub fn inverse_delta(cost_once: i32, usages: i32, arg_uses: usize) -> (i32, i32,
 }
 
 pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &CompressionStepConfig, zip_of_zid: &[Zip], node_of_id: &[Lambda], arg_of_zid_node: &[FxHashMap<Id,Arg>], extensions_of_zid: &[ZIdExtension], egraph: &EGraph) {
-    if cfg.no_inv_arg_cap {
+    if cfg.no_inv_arg_cap || cfg.no_other_util {
         return
     }
     while finished.arity < cfg.max_arity {
@@ -1540,7 +1540,7 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
             finished.util_calc.util += compressive_delta;
             finished.utility += delta;
             finished.arity +=1;
-            println!("UNARG")
+            // println!("UNARG")
         } else {
             return
         }
