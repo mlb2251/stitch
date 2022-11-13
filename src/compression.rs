@@ -1519,20 +1519,26 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
     }
     while finished.arity < cfg.max_arity {
         let counts = use_counts(&finished.pattern, node_of_id, zip_of_zid, arg_of_zid_node, extensions_of_zid, egraph);
-        let best = counts.values()
+        let possible_to_uninline = counts.values()
+            // can only have a positive delta to compression if used more times within the abstraction than
+            // there are usages of the abstraction in the corpus
             .filter(|(_,zids)| zids.len() > finished.usages as usize)
-            .max_by_key(|(cost,zids)|{
-                inverse_delta(*cost, finished.usages, zids.len()).2
+            // argument must be larger than the cost of adding the terminal for the new abstraction variable
+            .filter(|(cost,_zids)| *cost > COST_TERMINAL)
+            .filter_map(|(cost,zids)| {
+                let (compressive_delta,noncompressive_delta, delta) = inverse_delta(*cost, finished.usages, zids.len());
+                if delta > 0 {
+                    Some((delta, compressive_delta, noncompressive_delta, *cost, zids))
+                } else {
+                    None
+                }
             });
-        if let Some((cost,zids)) = best {
-
-            let (compressive_delta,
-                 _noncompressive_delta,
-                 delta) = inverse_delta(*cost, finished.usages, zids.len());
-            
-            if delta < 0 {
-                return
-            }
+            // .max_by_key(|(delta,compressive_delta,noncomprcost,zids)|{
+                // inverse_delta(*cost, finished.usages, zids.len()).2
+            // });
+        let best = possible_to_uninline.max_by_key(|(delta, _compressive_delta, _noncompressive_delta, _cost, _zids)| *delta);
+        
+        if let Some((delta, compressive_delta, _noncompressive_delta, _cost, zids)) = best {
             let ivar = finished.arity;
             finished.pattern.arg_choices.extend(zids.iter().map(|&zid| LabelledZId { zid, ivar }));
             finished.pattern.first_zid_of_ivar.push(zids[0]);
