@@ -1517,6 +1517,11 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
     if cfg.no_inv_arg_cap || cfg.no_other_util {
         return
     }
+    if finished.arity >= cfg.max_arity {
+        return
+    }
+    let _max_num_to_add = cfg.max_arity - finished.arity;
+
     while finished.arity < cfg.max_arity {
         let counts = use_counts(&finished.pattern, node_of_id, zip_of_zid, arg_of_zid_node, extensions_of_zid, egraph);
         let possible_to_uninline = counts.values()
@@ -1536,6 +1541,8 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
             // .max_by_key(|(delta,compressive_delta,noncomprcost,zids)|{
                 // inverse_delta(*cost, finished.usages, zids.len()).2
             // });
+
+        
         let best = possible_to_uninline.max_by_key(|(delta, _compressive_delta, _noncompressive_delta, _cost, _zids)| *delta);
         
         if let Some((delta, compressive_delta, _noncompressive_delta, _cost, zids)) = best {
