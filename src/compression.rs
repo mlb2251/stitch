@@ -86,7 +86,7 @@ pub struct CompressionStepConfig {
 
     /// disables the edge case handling where argument capture needs to be inverted for optimality
     #[clap(long,short='r')]
-    pub no_inv_arg_cap: bool,
+    pub inv_arg_cap: bool,
 
     /// disable the single structurally hashed subtree match pruning
     #[clap(long)]
@@ -1514,50 +1514,52 @@ pub fn inverse_delta(cost_once: i32, usages: i32, arg_uses: usize) -> (i32, i32,
 }
 
 pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &CompressionStepConfig, zip_of_zid: &[Zip], node_of_id: &[Lambda], arg_of_zid_node: &[FxHashMap<Id,Arg>], extensions_of_zid: &[ZIdExtension], egraph: &EGraph) {
-    if cfg.no_inv_arg_cap || cfg.no_other_util {
+    if !cfg.inv_arg_cap || cfg.no_other_util {
         return
     }
+    panic!("inverse_argument_capture is disabled");
     if finished.arity >= cfg.max_arity {
         return
     }
     let _max_num_to_add = cfg.max_arity - finished.arity;
 
     while finished.arity < cfg.max_arity {
-        let counts = use_counts(&finished.pattern, node_of_id, zip_of_zid, arg_of_zid_node, extensions_of_zid, egraph);
-        let possible_to_uninline = counts.values()
-            // can only have a positive delta to compression if used more times within the abstraction than
-            // there are usages of the abstraction in the corpus
-            .filter(|(_,zids)| zids.len() > finished.usages as usize)
-            // argument must be larger than the cost of adding the terminal for the new abstraction variable
-            .filter(|(cost,_zids)| *cost > COST_TERMINAL)
-            .filter_map(|(cost,zids)| {
-                let (compressive_delta,noncompressive_delta, delta) = inverse_delta(*cost, finished.usages, zids.len());
-                if delta > 0 {
-                    Some((delta, compressive_delta, noncompressive_delta, *cost, zids))
-                } else {
-                    None
-                }
-            });
-            // .max_by_key(|(delta,compressive_delta,noncomprcost,zids)|{
-                // inverse_delta(*cost, finished.usages, zids.len()).2
-            // });
-
-        
-        let best = possible_to_uninline.max_by_key(|(delta, _compressive_delta, _noncompressive_delta, _cost, _zids)| *delta);
-        
-        if let Some((delta, compressive_delta, _noncompressive_delta, _cost, zids)) = best {
-            let ivar = finished.arity;
-            finished.pattern.arg_choices.extend(zids.iter().map(|&zid| LabelledZId { zid, ivar }));
-            finished.pattern.first_zid_of_ivar.push(zids[0]);
-            finished.compressive_utility += compressive_delta;
-            finished.util_calc.util += compressive_delta;
-            finished.utility += delta;
-            finished.arity +=1;
-            // println!("UNARG")
-        } else {
-            return
-        }
+    let counts = use_counts(&finished.pattern, node_of_id, zip_of_zid, arg_of_zid_node, extensions_of_zid, egraph);
+    let possible_to_uninline = possible_to_uninline(counts, finished.usages);
+    
+    let best = possible_to_uninline.into_iter().max_by_key(|(delta, _compressive_delta, _noncompressive_delta, _cost, _zids)| *delta);
+    
+    if let Some((delta, compressive_delta, _noncompressive_delta, _cost, zids)) = best {
+        let ivar = finished.arity;
+        finished.pattern.arg_choices.extend(zids.iter().map(|&zid| LabelledZId { zid, ivar }));
+        finished.pattern.first_zid_of_ivar.push(zids[0]);
+        finished.compressive_utility += compressive_delta;
+        finished.util_calc.util += compressive_delta;
+        finished.utility += delta;
+        finished.arity +=1;
+        // println!("UNARG")
+    } else {
+        return
     }
+    }
+}
+
+fn possible_to_uninline(counts: FxHashMap<Id, (i32, Vec<usize>)>, finished_usages: i32) -> Vec<(i32,i32,i32,i32,Vec<ZId>)> {
+    let possible_to_uninline = counts.values()
+    // can only have a positive delta to compression if used more times within the abstraction than
+    // there are usages of the abstraction in the corpus
+    .filter(|(_,zids)| zids.len() > finished_usages as usize)
+    // argument must be larger than the cost of adding the terminal for the new abstraction variable
+    .filter(|(cost,_zids)| *cost > COST_TERMINAL)
+    .filter_map(|(cost,zids)| {
+        let (compressive_delta,noncompressive_delta, delta) = inverse_delta(*cost, finished_usages, zids.len());
+        if delta > 0 {
+            Some((delta, compressive_delta, noncompressive_delta, *cost, zids.clone()))
+        } else {
+            None
+        }
+    });
+    possible_to_uninline.collect()
 }
 
 fn use_counts(pattern: &Pattern, node_of_id: &[Lambda], zip_of_zid: &[Zip], arg_of_zid_node: &[FxHashMap<Id,Arg>], extensions_of_zid: &[ZIdExtension], egraph: &EGraph) -> FxHashMap<Id,(i32,Vec<ZId>)> {
