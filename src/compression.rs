@@ -1513,6 +1513,8 @@ pub fn inverse_delta(cost_once: i32, usages: i32, arg_uses: usize) -> (i32, i32,
     (compressive_delta,noncompressive_delta, compressive_delta+noncompressive_delta)
 }
 
+#[allow(unreachable_code)]
+#[allow(unused_variables)]
 pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &CompressionStepConfig, zip_of_zid: &[Zip], node_of_id: &[Lambda], arg_of_zid_node: &[FxHashMap<Id,Arg>], extensions_of_zid: &[ZIdExtension], egraph: &EGraph) {
     if !cfg.inv_arg_cap || cfg.no_other_util {
         return
