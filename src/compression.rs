@@ -85,7 +85,7 @@ pub struct CompressionStepConfig {
     pub show_rewritten: bool,
 
     /// disables the edge case handling where argument capture needs to be inverted for optimality
-    #[clap(long,short='r')]
+    #[clap(long)]
     pub inv_arg_cap: bool,
 
     /// disable the single structurally hashed subtree match pruning
@@ -1519,7 +1519,7 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
     if !cfg.inv_arg_cap || cfg.no_other_util {
         return
     }
-    panic!("inverse_argument_capture is disabled");
+    // panic!("inverse_argument_capture is disabled");
     if finished.arity >= cfg.max_arity {
         return
     }

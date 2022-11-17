@@ -57,8 +57,8 @@ for BENCH_PATH in $BENCH_DIR/bench*.json; do
         ITERATIONS=10 # whatever
     fi
     echo "[bench_stitch.sh] Running Stitch on: $BENCH"
-    echo "$STITCH_DIR/target/release/compress $BENCH_PATH --iterations=$ITERATIONS $STITCH_FLAGS"
-    $GTIME -v $STITCH_DIR/target/release/compress $BENCH_PATH --iterations=$ITERATIONS $STITCH_FLAGS --out=$OUT_DIR/raw/$BENCH.json 2>&1 &> $OUT_DIR/stderr/$BENCH.stderr
+    echo "$STITCH_DIR/target/release/compress $BENCH_PATH --iterations=$ITERATIONS $STITCH_FLAGS $EXTRA_STITCH_FLAGS"
+    $GTIME -v $STITCH_DIR/target/release/compress $BENCH_PATH --iterations=$ITERATIONS $STITCH_FLAGS $EXTRA_STITCH_FLAGS --out=$OUT_DIR/raw/$BENCH.json 2>&1 &> $OUT_DIR/stderr/$BENCH.stderr
 done
 
 python3 analyze.py process stitch $OUT_DIR

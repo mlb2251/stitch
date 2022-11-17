@@ -704,6 +704,10 @@ if __name__ == '__main__':
         and alternatively use "line" instead of "bar"
         """
         import matplotlib.pyplot as plt
+        import matplotlib
+        matplotlib.rcParams['pdf.fonttype'] = 42
+        matplotlib.rcParams['ps.fonttype'] = 42
+
 
 
 
@@ -841,6 +845,10 @@ if __name__ == '__main__':
         python3 analyze.py graph_all benches/
         """
         import matplotlib.pyplot as plt
+        import matplotlib
+        matplotlib.rcParams['pdf.fonttype'] = 42
+        matplotlib.rcParams['ps.fonttype'] = 42
+
         import numpy as np
         # plt.style.use('ggplot') 
         import seaborn as sns

@@ -3,6 +3,10 @@ import os
 import re
 
 import matplotlib.pyplot as plt 
+import matplotlib
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
 import numpy as np
 from prettytable import PrettyTable
 

@@ -38,7 +38,7 @@ fi
 
 if [ -z $TIMEOUT ]
 then
-   $TIMEOUT="90m"
+   TIMEOUT="90m"
 fi
 
 echo "[claim-4.sh] using a timeout of $TIMEOUT"
