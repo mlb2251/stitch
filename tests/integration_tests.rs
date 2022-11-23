@@ -1,23 +1,25 @@
-use stitch_core::{compression, CompressionStepConfig, InputFormat, Input, Expr, CompressionStepResult, timestamp, ProgramCost};
+use stitch_core::*;
 use clap::Parser;
 use serde_json::{json,Value};
-use std::collections::HashMap;
-// use stitch_core::format
 
 
-fn load_programs(file: &str, input_format: InputFormat) -> (Input,Expr) {
+fn load_programs(file: &str, input_format: InputFormat) -> (Input,Vec<ExprOwned>) {
     let input_file = std::path::Path::new(file);
     let input = input_format.load_programs_and_tasks(input_file).unwrap();
-    let train_programs: Vec<Expr> = input.train_programs.iter().map(|p| p.parse().unwrap()).collect();
-    (input,Expr::programs(train_programs))
+    let train_programs: Vec<ExprOwned> = input.train_programs.iter().map(|p|{
+        let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+        let idx = set.parse_extend(p).unwrap();
+        ExprOwned::new(set,idx)
+    }).collect();
+    (input,train_programs)
 }
 
-fn out_json(train_programs: &Expr, step_results: &Vec<CompressionStepResult>, cost_fn: &ProgramCost) -> serde_json::Value {
+fn out_json(train_programs: &[ExprOwned], step_results: &Vec<CompressionStepResult>, cost_fn: &ExprCost) -> serde_json::Value {
     json!({
         "cmd": Value::Null,
         "args": Value::Null,
-        "original_cost": train_programs.cost(cost_fn),
-        "original": train_programs.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+        "original_cost": train_programs.iter().map(|p|p.cost(cost_fn)).sum::<i32>(),
+        "original": train_programs.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
         "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
     })
 }
@@ -34,7 +36,7 @@ fn write_json_for_diff(out: &Value, expected_out_path: &str) {
     println!("Wrote test output to {:?} diff with expected out path {:?}", out_path, expected_out_path);
 }
 
-fn run_compression(train_programs: &Expr, input: &Input, iterations: usize, args: &str, cost_fn: &ProgramCost) -> Vec<CompressionStepResult> {
+fn run_compression(train_programs: &[ExprOwned], input: &Input, iterations: usize, args: &str, cost_fn: &ExprCost) -> Vec<CompressionStepResult> {
     compression(
         train_programs,
         &None,
@@ -47,7 +49,7 @@ fn run_compression(train_programs: &Expr, input: &Input, iterations: usize, args
 
 fn compare_out_jsons(file: &str, expected_out_file: &str, args: &str, iterations: usize, input_format: InputFormat) {
     let (input,train_programs) = load_programs(file, input_format);
-    let cost_fn = ProgramCost::new(1, 1, 100, 100, HashMap::new(),  100);
+    let cost_fn = ExprCost::dreamcoder();
 
     let step_results = run_compression(&train_programs, &input, iterations, args, &cost_fn);
 

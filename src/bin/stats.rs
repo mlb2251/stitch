@@ -3,7 +3,6 @@ use stitch_core::*;
 use clap::Parser;
 use serde::Serialize;
 use std::path::PathBuf;
-use std::collections::HashMap;
 
 
 
@@ -33,14 +32,19 @@ fn main() {
 
     let args = Args::parse();
     let programs = args.fmt.load_programs_and_tasks(&args.file).unwrap().train_programs;
-    let programs: Vec<Expr> = programs.iter().map(|p| p.parse().unwrap()).collect();
 
-    let cost_fn = ProgramCost::new(1, 1, 100, 100, HashMap::new(),  100);
-    let length_fn = ProgramCost::new(0, 0, 1, 1, HashMap::new(),  1);
+    let programs: Vec<ExprOwned> = programs.iter().map(|p|{
+        let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+        let idx = set.parse_extend(p).unwrap();
+        ExprOwned::new(set,idx)
+    }).collect();
+
+    let cost_fn = ExprCost::dreamcoder();
+    let length_fn = ExprCost::num_terminals();
 
     let costs = programs.iter().map(|p| p.cost(&cost_fn)).collect::<Vec<i32>>();
     let lengths = programs.iter().map(|p| p.cost(&length_fn)).collect::<Vec<i32>>();
-    let depths = programs.iter().map(|p| p.depth()).collect::<Vec<i32>>();
+    let depths = programs.iter().map(|p| p.depth() as i32).collect::<Vec<i32>>();
 
     let (mean_cost, std_cost) = get_stats(&costs);
     let (mean_length, std_length) = get_stats(&lengths);

@@ -6,7 +6,6 @@ pub mod util;
 pub mod formats;
 
 pub use {
-    egg::*,
     compression::*,
     rewriting::*,
     egraphs::*,

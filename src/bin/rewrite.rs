@@ -60,7 +60,7 @@ pub struct RewriteArgs {
 fn main() {
     let args = RewriteArgs::parse();
 
-    let cost_fn = ProgramCost::new(1, 1, 100, 100, HashMap::new(),  100);
+    let cost_fn = ExprCost::dreamcoder();
 
     // Read in the programs and any previous inventions from the DSL.
     let mut input = args
@@ -84,7 +84,11 @@ fn main() {
     let inventions: Vec<Invention> = inventions
         .iter()
         .map(|invention| Invention {
-            body: invention["body"].as_str().unwrap().parse().unwrap(),
+            body: {
+                let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+                let idx = set.parse_extend(invention["body"].as_str().unwrap()).unwrap();
+                ExprOwned::new(set, idx)
+            },
             arity: invention["arity"].as_u64().unwrap() as usize,
             name: invention["name"].as_str().unwrap().parse().unwrap(),
         })
@@ -93,11 +97,15 @@ fn main() {
 
     let mut rewritten_frontiers: HashMap<String, Vec<String>> = HashMap::new();
 
-    let programs: Vec<Expr> = input.train_programs.iter().map(|p| p.parse().unwrap()).collect();
+    let programs: Vec<ExprOwned> = input.train_programs.iter().map(|p|{
+        let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+        let idx = set.parse_extend(p).unwrap();
+        ExprOwned::new(set,idx)
+    }).collect();
     programs_info(&programs, &cost_fn);
 
-    let programs: Expr = Expr::programs(programs);
-    let rewritten = rewrite_with_inventions(programs, &inventions[..], &cost_fn);
+    panic!("rewriting is disabled as it is currently a no-op");
+    let rewritten: Vec<ExprOwned> = programs.iter().map(|p| rewrite_with_inventions(p, &inventions[..], &cost_fn)).collect();
 
     match args.fmt {
         InputFormat::Dreamcoder => {
@@ -113,7 +121,7 @@ fn main() {
             }
 
             // Rewrite back the lambda and optionally rewrite back the DC invention format.
-            for (i, pretty_program) in rewritten.split_programs().iter().enumerate() {
+            for (i, pretty_program) in rewritten.iter().enumerate() {
                 let task_name = input.tasks[i].clone();
                 let mut pretty_program = pretty_program.to_string();
                 if args.dreamcoder_output {
@@ -156,7 +164,7 @@ fn main() {
             std::fs::write(&args.out, serde_json::to_string_pretty(&json).unwrap()).unwrap();
         },
         InputFormat::ProgramsList => {
-            let json: serde_json::Value = json!({ "rewritten": rewritten.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>() });
+            let json: serde_json::Value = json!({ "rewritten": rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>() });
             std::fs::write(&args.out, serde_json::to_string_pretty(&json).unwrap()).unwrap();
         },
         InputFormat::SplitProgramsList => {
