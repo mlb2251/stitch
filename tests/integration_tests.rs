@@ -39,7 +39,6 @@ fn write_json_for_diff(out: &Value, expected_out_path: &str) {
 fn run_compression(train_programs: &[ExprOwned], input: &Input, iterations: usize, args: &str, cost_fn: &ExprCost) -> Vec<CompressionStepResult> {
     compression(
         train_programs,
-        &None,
         iterations,
         &CompressionStepConfig::parse_from(format!("compress {}",args).split_whitespace()),
         &input.tasks,

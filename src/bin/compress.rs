@@ -117,13 +117,20 @@ fn main() {
 
     let step_results = compression(
         &train_programs, 
-        &test_programs, 
         args.iterations, 
         &args.step, 
         &input.tasks, 
         &input.prev_dc_inv_to_inv_strs, 
         &cost_fn
     );
+
+    if let Some(test_programs) = test_programs {
+        let invs: Vec<Invention> = step_results.iter().map(|r| r.inv.clone()).collect();
+        let rewritten: Vec<ExprOwned> = test_programs.iter().map(|p| rewrite_with_inventions(p, &invs, &cost_fn) ).collect();
+        let init_cost = test_programs.iter().map(|p| p.cost(&cost_fn)).sum::<i32>();
+        let rewritten_cost = rewritten.iter().map(|p| p.cost(&cost_fn)).sum::<i32>();
+        println!("Test set compression with all inventions applied: {}", compression_factor(init_cost,rewritten_cost));
+    }
 
     // write everything to json
     let out = json!({

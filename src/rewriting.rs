@@ -123,7 +123,13 @@ pub fn rewrite_fast(
     rewritten_exprs
 }
 
+// pub fn rewrite_with_inventions(
+//     programs: &[ExprOwned],
+//     invs: &[Invention],
+//     cost_fn: &ExprCost,
+// ) -> Vec<ExprOwned> {
 
+// }
 
 
 
