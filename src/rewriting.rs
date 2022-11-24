@@ -136,5 +136,11 @@ pub fn rewrite_with_inventions(
     // programs.to_vec()
     let follow = Some(invs.to_vec());
     let step_results = compression(programs, invs.len(), cfg, None, &[], follow);
+
+    // make sure we found all the same abstractions
+    assert_eq!(step_results.len(), invs.len());
+    for (i,inv) in invs.iter().enumerate() {
+        assert_eq!(step_results[i].inv.to_string(), inv.to_string());
+    }
     step_results.last().unwrap().rewritten.clone()
 }
