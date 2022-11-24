@@ -102,7 +102,7 @@ fn main() {
         ExprOwned::new(set,idx)
     }).collect());
 
-    let cost_fn = args.step.cost.cost_fn();
+    let cost_fn = args.step.cost.cost_fn(&args.step);
 
     println!("{}","**********".blue().bold());
     println!("{}","* Stitch *".blue().bold());
