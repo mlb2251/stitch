@@ -216,14 +216,14 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>
 impl Pattern {
     /// create a single hole pattern `??`
     //#[inline(never)]
-    fn single_hole(corpus_span: &Span, cost_of_node_all: &[i32], num_paths_to_node: &[i32], set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
+    fn single_hole(corpus_span: &Span, cost_of_node_all: &[i32], num_paths_to_node: &[i32], set: &ExprSet, cost_fn: &ExprCost, cfg: &CompressionStepConfig) -> Self {
         let body_utility = 0;
         let mut match_locations: Vec<Idx> = corpus_span.clone().collect();
         match_locations.sort(); // we assume match_locations is always sorted
         if cfg.no_top_lambda {
             match_locations.retain(|node| expands_to_of_node(&set[*node]) != ExpandsTo::Lam);
         }
-        let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cfg);
+        let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cost_fn, cfg);
         Pattern {
             holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
             arg_choices: vec![],
@@ -470,10 +470,10 @@ pub struct Tracking {
 impl CriticalMultithreadData {
     /// Create a new mutable multithread data struct with
     /// a worklist that just has a single hole on it
-    fn new(donelist: Vec<FinishedPattern>, corpus_span: &Span, cost_of_node_all: &[i32], num_paths_to_node: &[i32], set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
+    fn new(donelist: Vec<FinishedPattern>, corpus_span: &Span, cost_of_node_all: &[i32], num_paths_to_node: &[i32], set: &ExprSet, cost_fn: &ExprCost, cfg: &CompressionStepConfig) -> Self {
         // push an empty hole onto a new worklist
         let mut worklist = BinaryHeap::new();
-        worklist.push(HeapItem::new(Pattern::single_hole(corpus_span, cost_of_node_all, num_paths_to_node, set, cfg)));
+        worklist.push(HeapItem::new(Pattern::single_hole(corpus_span, cost_of_node_all, num_paths_to_node, set, cost_fn, cfg)));
         
         let mut res = CriticalMultithreadData {
             donelist,
@@ -812,14 +812,16 @@ fn stitch_search(
 
 
                 // update the body utility
-                let body_utility = original_pattern.body_utility +  match expands_to {
-                    ExpandsTo::Lam | ExpandsTo::App => COST_NONTERMINAL,
-                    ExpandsTo::Var(_) | ExpandsTo::Prim(_) => COST_TERMINAL,
+                let body_utility = original_pattern.body_utility +  match &expands_to {
+                    ExpandsTo::Lam => shared.cost_fn.cost_lam,
+                    ExpandsTo::App => shared.cost_fn.cost_app,
+                    ExpandsTo::Var(_) => shared.cost_fn.cost_var,
+                    ExpandsTo::Prim(p) => *shared.cost_fn.cost_prim.get(p).unwrap_or(&shared.cost_fn.cost_prim_default),
                     ExpandsTo::IVar(_) => 0,
                 };
 
                 // update the upper bound
-                let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
+                let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cost_fn, &shared.cfg);
                 assert!(util_upper_bound <= original_pattern.utility_upper_bound);
 
                 // Pruning (UPPER BOUND): if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
@@ -915,7 +917,7 @@ fn stitch_search(
                     }
 
                     if !shared.cfg.no_stats { shared.stats.lock().calc_unargcap += 1; };
-                    inverse_argument_capture(&mut finished_pattern, &shared.cfg, &shared.zip_of_zid, &shared.arg_of_zid_node, &shared.extensions_of_zid, &shared.set, &shared.analyzed_ivars);
+                    inverse_argument_capture(&mut finished_pattern, &shared.cfg, &shared.zip_of_zid, &shared.arg_of_zid_node, &shared.extensions_of_zid, &shared.set, &shared.analyzed_ivars, &shared.cost_fn);
 
                     // Pruning (UPPER BOUND)
                     if finished_pattern.utility <= weak_utility_pruning_cutoff {
@@ -1292,9 +1294,10 @@ fn utility_upper_bound(
     body_utility_lower_bound: i32,
     cost_of_node_all: &[i32],
     num_paths_to_node: &[i32],
+    cost_fn: &ExprCost,
     cfg: &CompressionStepConfig,
 ) -> i32 {
-    compressive_utility_upper_bound(match_locations, cost_of_node_all, num_paths_to_node)
+    compressive_utility_upper_bound(match_locations, cost_of_node_all, num_paths_to_node, cost_fn)
         + noncompressive_utility_upper_bound(body_utility_lower_bound, cfg)
 }
 
@@ -1319,10 +1322,11 @@ fn compressive_utility_upper_bound(
     match_locations: &[Idx],
     cost_of_node_all: &[i32],
     num_paths_to_node: &[i32],
+    cost_fn: &ExprCost,
 ) -> i32 {
     match_locations.iter().map(|node|
         cost_of_node_all[*node] 
-        - num_paths_to_node[*node] * COST_TERMINAL).sum::<i32>()
+        - num_paths_to_node[*node] * cost_fn.cost_prim_default).sum::<i32>()
     
     // shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
     //     root_idxs.iter().map(|idx| shared.init_cost_by_root_idx[*idx] - adjusted_util_by_root_idx[*idx]).min().unwrap()
@@ -1371,7 +1375,7 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
     // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
     // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
     // Also an extra COST_NONTERMINAL for each argument that is refined (for the lambda).
-    let app_penalty = - (COST_TERMINAL + COST_NONTERMINAL * pattern.first_zid_of_ivar.len() as i32);
+    let app_penalty = - (shared.cost_fn.cost_prim_default + shared.cost_fn.cost_app * pattern.first_zid_of_ivar.len() as i32);
 
     // get a list of (ivar,usages-1) filtering out things that are only used once, this will come in handy for adding multi-use utility later
     let ivar_multiuses: Vec<(usize,i32)> = pattern.arg_choices.iter().map(|labelled|labelled.ivar).counts()
@@ -1449,15 +1453,15 @@ pub struct UtilityCalculation {
     pub corrected_utils: FxHashMap<Idx,bool>, // whether to accept
 }
 
-pub fn inverse_delta(cost_once: i32, usages: i32, arg_uses: usize) -> (i32, i32, i32) {
-    let compressive_delta = - (cost_once + COST_NONTERMINAL) * usages;
-    let noncompressive_delta = arg_uses as i32 * (cost_once - COST_TERMINAL) ;
+pub fn inverse_delta(cost_once: i32, usages: i32, arg_uses: usize, cost_fn: &ExprCost) -> (i32, i32, i32) {
+    let compressive_delta = - (cost_once + cost_fn.cost_app) * usages;
+    let noncompressive_delta = arg_uses as i32 * (cost_once - cost_fn.cost_prim_default) ;
     (compressive_delta,noncompressive_delta, compressive_delta+noncompressive_delta)
 }
 
 #[allow(unreachable_code)]
 #[allow(unused_variables)]
-pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &CompressionStepConfig, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>) {
+pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &CompressionStepConfig, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>, cost_fn: &ExprCost) {
     if !cfg.inv_arg_cap || cfg.no_other_util {
         return
     }
@@ -1469,7 +1473,7 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
 
     while finished.arity < cfg.max_arity {
     let counts = use_counts(&finished.pattern, zip_of_zid, arg_of_zid_node, extensions_of_zid, set, analyzed_ivars);
-    let possible_to_uninline = possible_to_uninline(counts, finished.usages);
+    let possible_to_uninline = possible_to_uninline(counts, finished.usages, cost_fn);
     
     let best = possible_to_uninline.into_iter().max_by_key(|(delta, _compressive_delta, _noncompressive_delta, _cost, _zids)| *delta);
     
@@ -1488,15 +1492,15 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
     }
 }
 
-fn possible_to_uninline(counts: FxHashMap<Idx, (i32, Vec<usize>)>, finished_usages: i32) -> Vec<(i32,i32,i32,i32,Vec<ZId>)> {
+fn possible_to_uninline(counts: FxHashMap<Idx, (i32, Vec<usize>)>, finished_usages: i32, cost_fn: &ExprCost) -> Vec<(i32,i32,i32,i32,Vec<ZId>)> {
     let possible_to_uninline = counts.values()
     // can only have a positive delta to compression if used more times within the abstraction than
     // there are usages of the abstraction in the corpus
     .filter(|(_,zids)| zids.len() > finished_usages as usize)
     // argument must be larger than the cost of adding the terminal for the new abstraction variable
-    .filter(|(cost,_zids)| *cost > COST_TERMINAL)
+    .filter(|(cost,_zids)| *cost > cost_fn.cost_prim_default)
     .filter_map(|(cost,zids)| {
-        let (compressive_delta,noncompressive_delta, delta) = inverse_delta(*cost, finished_usages, zids.len());
+        let (compressive_delta,noncompressive_delta, delta) = inverse_delta(*cost, finished_usages, zids.len(), cost_fn);
         if delta > 0 {
             Some((delta, compressive_delta, noncompressive_delta, *cost, zids.clone()))
         } else {
@@ -1778,7 +1782,7 @@ pub fn compression_step(
 
             // compressive_utility for arity-0 is cost_of_node_all[node] minus the penalty of using the new prim
             let compressive_utility: i32 = init_cost - root_idxs_of_task.iter().map(|root_idxs|
-                root_idxs.iter().map(|idx| init_cost_by_root_idx[*idx] - num_paths_to_node_by_root_idx[*idx][node] * (analyzed_cost[node] - COST_TERMINAL))
+                root_idxs.iter().map(|idx| init_cost_by_root_idx[*idx] - num_paths_to_node_by_root_idx[*idx][node] * (analyzed_cost[node] - cost_fn.cost_prim_default))
                     .min().unwrap()
             ).sum::<i32>();
             
@@ -1815,7 +1819,7 @@ pub fn compression_step(
             };
 
             // This handle the case covered by Appendix B in the paper
-            inverse_argument_capture(&mut finished_pattern, cfg, &zip_of_zid, &arg_of_zid_node, &extensions_of_zid, &set, &analyzed_ivars);
+            inverse_argument_capture(&mut finished_pattern, cfg, &zip_of_zid, &arg_of_zid_node, &extensions_of_zid, &set, &analyzed_ivars, &cost_fn);
             if !cfg.no_stats { stats.azero_calc_unargcap += 1; };
 
             // Pruning (UPPER BOUND): This is the full upper bound pruning
@@ -1837,7 +1841,7 @@ pub fn compression_step(
 
     println!("got {} arity zero inventions", donelist.len());
 
-    let crit = CriticalMultithreadData::new(donelist, &corpus_span, &cost_of_node_all, &num_paths_to_node, &set, cfg);
+    let crit = CriticalMultithreadData::new(donelist, &corpus_span, &cost_of_node_all, &num_paths_to_node, &set, cost_fn, cfg);
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
         programs: programs.to_vec(),
