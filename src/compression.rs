@@ -1619,14 +1619,12 @@ pub fn compression(
             rewritten = res.rewritten.clone();
             println!("Chose Invention {}: {}", res.inv.name, res);
             step_results.push(res);
+        } else if follow.is_some() {
+            // if `follow` was given then we will keep going for the full set of iterations
+            println!("Invention not found: {}", cfg.follow.as_ref().unwrap() )
         } else {
-            if follow.is_some() {
-                // if `follow` was given then we will keep going for the full set of iterations
-                println!("Invention not found: {}", cfg.follow.as_ref().unwrap() )
-            } else {
-                println!("No inventions found at iteration {}",i);
-                break;    
-            }
+            println!("No inventions found at iteration {}",i);
+            break;    
         }
     }
 
