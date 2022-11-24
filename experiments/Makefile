@@ -1,4 +1,4 @@
-.PHONY: claim-2 claim-2-viz claim-3 claim-3-viz clean claim-1 claim-1-viz clean-1 clean-2 clean-3 claim-4 claim-4-viz clean-4
+.PHONY: claim-2 claim-2-3 claim-2-50 claim-2-viz claim-3 claim-3-viz clean claim-1 claim-1-viz clean-1 clean-2 clean-3 claim-4 claim-4-viz clean-4
 
 # CLAIM 1
 
@@ -38,6 +38,12 @@ claim-2: def-num-seeds
 	rm -rf out/claim-2-data
 	STITCH_DIR=.. ./claim-2.sh ${NUM_SEEDS} out/claim-2-out-${NUM_SEEDS}
 	make claim-2-viz
+
+claim-2-3:
+	NUM_SEEDS=3 make claim-2
+
+claim-2-50:
+	NUM_SEEDS=50 make claim-2
 
 claim-2-viz: def-num-seeds
 	python3 plot.py claim-2 out/claim-2-out-${NUM_SEEDS} ${NUM_SEEDS}

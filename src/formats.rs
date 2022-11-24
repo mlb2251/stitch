@@ -15,7 +15,7 @@ pub enum InputFormat {
 pub struct Input {
     pub train_programs: Vec<String>, // Program strings. 
     pub test_programs: Option<Vec<String>>, // Program strings. 
-    pub tasks: Vec<String>, // Task names for each corresponding string.
+    pub tasks: Option<Vec<String>>, // Task names for each corresponding string.
     pub prev_dc_inv_to_inv_strs: Vec<(String, String)>, // Vec of [#Dreamcoder invention, fn_i] tuples for any existing inventions in the DSL.
 }
 
@@ -53,17 +53,13 @@ impl InputFormat {
                 let input = Input {
                     train_programs: programs,
                     test_programs: None,
-                    tasks,
+                    tasks: Some(tasks),
                     prev_dc_inv_to_inv_strs: inv_dc_strs,
                 };
                 Ok(input)
             }
             InputFormat::ProgramsList => {
                 let programs: Vec<String> = from_reader(File::open(path).map_err(|e| format!("file not found, error code {:?}", e))?).map_err(|e| format!("json parser error, are you sure you wanted format {:?}? Error code was {:?}", self, e))?;
-                let mut tasks: Vec<String> = Vec::with_capacity(programs.len());
-                for (task_num, _) in programs.iter().enumerate() {
-                    tasks.push(task_num.to_string());
-                }
                 let mut  num_prior_inventions = 0;
                 while programs.iter().any(|p| p.contains(&format!("fn_{}", num_prior_inventions))) {
                     num_prior_inventions += 1;
@@ -71,7 +67,7 @@ impl InputFormat {
                 let input = Input {
                     train_programs: programs,
                     test_programs: None,
-                    tasks,
+                    tasks: None,
                     prev_dc_inv_to_inv_strs: Vec::new(),
                 };
                 Ok(input)
@@ -81,10 +77,6 @@ impl InputFormat {
                 assert_eq!(programs.len(), 2);
                 let train_programs = programs.get(0).unwrap().clone();
                 let test_programs = programs.get(1).unwrap().clone();
-                let mut tasks: Vec<String> = Vec::with_capacity(train_programs.len());
-                for (task_num, _) in train_programs.iter().enumerate() {
-                    tasks.push(task_num.to_string());
-                }
                 let mut  num_prior_inventions = 0;
                 while train_programs.iter().chain(test_programs.iter()).any(|p| p.contains(&format!("fn_{}", num_prior_inventions))) {
                     num_prior_inventions += 1;
@@ -92,7 +84,7 @@ impl InputFormat {
                 let input = Input {
                     train_programs,
                     test_programs: Some(test_programs),
-                    tasks,
+                    tasks: None,
                     prev_dc_inv_to_inv_strs: Vec::new(),
                 };
                 Ok(input)

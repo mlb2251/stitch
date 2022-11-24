@@ -6,7 +6,6 @@ use serde::Serialize;
 use std::path::PathBuf;
 use serde_json::json;
 use itertools::Itertools;
-use std::collections::HashMap;
 
 
 
@@ -91,41 +90,54 @@ fn main() {
     }
     
     // parse the program strings into expressions
-    let train_programs: Vec<Expr> = input.train_programs.iter().map(|p| p.parse().unwrap()).collect();
-    let test_programs: Option<Vec<Expr>> = input.test_programs.map(|ps| ps.iter().map(|p| p.parse().unwrap()).collect());
+    let train_programs: Vec<ExprOwned> = input.train_programs.iter().map(|p|{
+        let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+        let idx = set.parse_extend(p).unwrap();
+        ExprOwned::new(set,idx)
+    }).collect();
 
-    let cost_fn = ProgramCost::new(1, 1, 100, 100, HashMap::new(),  100);
+    let test_programs: Option<Vec<ExprOwned>> = input.test_programs.map(|test_programs| test_programs.iter().map(|p|{
+        let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+        let idx = set.parse_extend(p).unwrap();
+        ExprOwned::new(set,idx)
+    }).collect());
 
-    // for prog in programs.iter() {
-    //     println!("{}", prog);
-    // }
+    let cost_fn = args.step.cost.cost_fn();
+
     println!("{}","**********".blue().bold());
     println!("{}","* Stitch *".blue().bold());
     println!("{}","**********".blue().bold());
+
     programs_info(&train_programs, &cost_fn);
-    if let Some(ps) = &test_programs {
+
+    if let Some(test_programs) = &test_programs {
         println!("> Running with train/test split active");
-        programs_info(ps, &cost_fn);
+        programs_info(test_programs, &cost_fn);
     }
 
-    // build a single `Expr::Programs` node from these programs. Stitch uses these because often we want to treat
-    // different parts of the same programs the same way that we treat different parts of different programs, so
-    // treating everything as one big expression makes sense.
-    let train_programs: Expr = Expr::programs(train_programs);
-    let test_programs: Option<Expr> = test_programs.map(Expr::programs);
+    let step_results = compression(
+        &train_programs, 
+        args.iterations, 
+        &args.step, 
+        input.tasks.clone(), 
+        &input.prev_dc_inv_to_inv_strs, 
+        None,
+    );
 
-    if train_programs.to_string_curried(None).contains("(app (lam") {
-        println!("Normal dreamcoder programs never have unapplied lambdas in them! Who knows what might happen if you run this. Probably it will be fine");
+    if let Some(test_programs) = test_programs {
+        let invs: Vec<Invention> = step_results.iter().map(|r| r.inv.clone()).collect();
+        let rewritten: Vec<ExprOwned> = rewrite_with_inventions(&test_programs, &invs, &args.step);
+        let init_cost = test_programs.iter().map(|p| p.cost(&cost_fn)).sum::<i32>();
+        let rewritten_cost = rewritten.iter().map(|p| p.cost(&cost_fn)).sum::<i32>();
+        println!("Test set compression with all inventions applied: {}", compression_factor(init_cost,rewritten_cost));
     }
-
-    let step_results = compression(&train_programs, &test_programs, args.iterations, &args.step, &input.tasks, &input.prev_dc_inv_to_inv_strs, &cost_fn);
 
     // write everything to json
     let out = json!({
         "cmd": std::env::args().join(" "),
         "args": args,
-        "original_cost": train_programs.cost(&cost_fn),
-        "original": train_programs.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+        "original_cost": train_programs.iter().map(|p|p.cost(&cost_fn)).sum::<i32>(),
+        "original": train_programs.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
         "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
     });
 
@@ -140,7 +152,7 @@ fn main() {
 
     if let Some(out_path) = args.save_rewritten {
         println!("Wrote to {:?}", out_path);
-        std::fs::write(&out_path, serde_json::to_string_pretty(&step_results.iter().last().unwrap().rewritten.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>()).unwrap()).unwrap();
+        std::fs::write(&out_path, serde_json::to_string_pretty(&step_results.iter().last().unwrap().rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>()).unwrap()).unwrap();
     }
 
 }
