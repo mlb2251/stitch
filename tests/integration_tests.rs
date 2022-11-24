@@ -36,21 +36,21 @@ fn write_json_for_diff(out: &Value, expected_out_path: &str) {
     println!("Wrote test output to {:?} diff with expected out path {:?}", out_path, expected_out_path);
 }
 
-fn run_compression(train_programs: &[ExprOwned], input: &Input, iterations: usize, args: &str, cost_fn: &ExprCost) -> Vec<CompressionStepResult> {
+fn run_compression(train_programs: &[ExprOwned], input: &Input, iterations: usize, args: &str) -> Vec<CompressionStepResult> {
     compression(
         train_programs,
         iterations,
         &CompressionStepConfig::parse_from(format!("compress {}",args).split_whitespace()),
         &input.tasks,
         &input.prev_dc_inv_to_inv_strs,
-        cost_fn)
+        )
 }
 
 fn compare_out_jsons(file: &str, expected_out_file: &str, args: &str, iterations: usize, input_format: InputFormat) {
     let (input,train_programs) = load_programs(file, input_format);
     let cost_fn = ExprCost::dreamcoder();
 
-    let step_results = run_compression(&train_programs, &input, iterations, args, &cost_fn);
+    let step_results = run_compression(&train_programs, &input, iterations, args);
 
     let output: Value = out_json(&train_programs, &step_results, &cost_fn);
     let expected_output: Value = serde_json::from_str(&std::fs::read_to_string(std::path::Path::new(expected_out_file)).unwrap()).unwrap();

@@ -49,6 +49,11 @@ pub struct CompressionStepConfig {
     #[clap(long, arg_enum, default_value = "depth-first")]
     pub hole_choice: HoleChoice,
 
+    /// Cost function to use
+    #[clap(long, arg_enum, default_value = "dreamcoder")]
+    pub cost: CostFnChoice,
+    
+
     /// disables the safety check for the utility being correct; you only want
     /// to do this if you truly dont mind unsoundness for a minute
     #[clap(long)]
@@ -349,13 +354,7 @@ pub struct Arg {
 fn expands_to_of_node(node: &Node) -> ExpandsTo {
     match node {
         Node::Var(i) => ExpandsTo::Var(*i),
-        Node::Prim(p) => {
-            if *p == Symbol::from("?#") {
-                panic!("I still need to handle this") // todo
-            } else {
-                ExpandsTo::Prim(p.clone())
-            }
-        },
+        Node::Prim(p) => ExpandsTo::Prim(p.clone()),
         Node::Lam(_) => ExpandsTo::Lam,
         Node::App(_,_) => ExpandsTo::App,
         Node::IVar(i) => ExpandsTo::IVar(*i),
@@ -539,6 +538,21 @@ pub struct Stats {
     force_multiuse_fired: usize,
 }
 
+
+/// a strategy for choosing which hole to expand next in a partial pattern
+#[derive(Debug, Clone, clap::ArgEnum, Serialize)]
+pub enum CostFnChoice {
+    Dreamcoder,
+}
+
+impl CostFnChoice {
+    pub fn cost_fn(&self) -> ExprCost {
+        match self {
+            CostFnChoice::Dreamcoder => ExprCost::dreamcoder(),
+        }
+    }
+}
+
 /// a strategy for choosing which hole to expand next in a partial pattern
 #[derive(Debug, Clone, clap::ArgEnum, Serialize)]
 pub enum HoleChoice {
@@ -628,7 +642,7 @@ fn get_worklist_item(
 
     if shared.cfg.verbose_best && crit.donelist.first().map(|x|x.utility).unwrap_or(0) > old_best_utility {
 
-        let new_expected_cost = shared.first_train_cost - crit.donelist.first().unwrap().compressive_utility + crit.donelist.first().unwrap().to_expr(&shared).cost(&shared.cost_fn);
+        let new_expected_cost = shared.first_train_cost - crit.donelist.first().unwrap().compressive_utility + crit.donelist.first().unwrap().to_expr(shared).cost(&shared.cost_fn);
         let trainratio = shared.first_train_cost as f64 / new_expected_cost as f64;
         // println!("{} @ step={} util={} trainratio={:.2} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, shared.first_train_cost as f64/ new_expected_cost as f64, crit.donelist.first().unwrap().info(shared));
         println!("{} @ step={} util={} trainratio={:.2} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, crit.donelist.first().unwrap().utility, trainratio, crit.donelist.first().unwrap().info(shared));
@@ -1545,12 +1559,12 @@ pub fn compression(
     cfg: &CompressionStepConfig,
     tasks: &[String],
     prev_dc_inv_to_inv_strs: &[(String, String)],
-    cost_fn: &ExprCost,
 ) -> Vec<CompressionStepResult> {
     let num_prior_inventions = prev_dc_inv_to_inv_strs.len();
 
     let mut rewritten: Vec<ExprOwned> = train_programs.to_vec();
     let mut step_results: Vec<CompressionStepResult> = Default::default();
+    let cost_fn = &cfg.cost.cost_fn();
 
     let tstart = std::time::Instant::now();
 
@@ -1566,7 +1580,7 @@ pub fn compression(
             &step_results,
             tasks,
             prev_dc_inv_to_inv_strs,
-            cost_fn);
+            );
 
         if !res.is_empty() {
             // rewrite with the invention
@@ -1613,8 +1627,9 @@ pub fn compression_step(
     past_invs: &[CompressionStepResult], // past inventions we've found
     task_name_of_root_idx: &[String],
     prev_dc_inv_to_inv_strs: &[(String, String)],
-    cost_fn: &ExprCost,
 ) -> Vec<CompressionStepResult> {
+
+    let cost_fn = &cfg.cost.cost_fn();
 
     let tstart_total = std::time::Instant::now();
     let tstart_prep = std::time::Instant::now();
@@ -1773,7 +1788,7 @@ pub fn compression_step(
             };
 
             // This handle the case covered by Appendix B in the paper
-            inverse_argument_capture(&mut finished_pattern, &cfg, &zip_of_zid, &arg_of_zid_node, &extensions_of_zid, &set, &analyzed_ivars);
+            inverse_argument_capture(&mut finished_pattern, cfg, &zip_of_zid, &arg_of_zid_node, &extensions_of_zid, &set, &analyzed_ivars);
             if !cfg.no_stats { stats.azero_calc_unargcap += 1; };
 
             // Pruning (UPPER BOUND): This is the full upper bound pruning

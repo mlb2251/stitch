@@ -102,7 +102,7 @@ fn main() {
         ExprOwned::new(set,idx)
     }).collect());
 
-    let cost_fn = ExprCost::dreamcoder();
+    let cost_fn = args.step.cost.cost_fn();
 
     println!("{}","**********".blue().bold());
     println!("{}","* Stitch *".blue().bold());
@@ -112,7 +112,7 @@ fn main() {
 
     if let Some(test_programs) = &test_programs {
         println!("> Running with train/test split active");
-        programs_info(&test_programs, &cost_fn);
+        programs_info(test_programs, &cost_fn);
     }
 
     let step_results = compression(
@@ -121,7 +121,6 @@ fn main() {
         &args.step, 
         &input.tasks, 
         &input.prev_dc_inv_to_inv_strs, 
-        &cost_fn
     );
 
     if let Some(test_programs) = test_programs {
