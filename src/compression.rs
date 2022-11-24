@@ -52,7 +52,6 @@ pub struct CompressionStepConfig {
     /// Cost function to use
     #[clap(long, arg_enum, default_value = "dreamcoder")]
     pub cost: CostFnChoice,
-    
 
     /// disables the safety check for the utility being correct; you only want
     /// to do this if you truly dont mind unsoundness for a minute
@@ -63,13 +62,15 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_top_lambda: bool,
 
-    /// for debugging: pattern or abstraction to track
+    /// pattern or abstraction to follow. if `follow_prune=True` we will aggressively prune to
+    /// only follow this pattern, otherwise we will just verbosely print when ancestors of this pattern
+    /// are encountered.
     #[clap(long)]
-    pub track: Option<String>,
+    pub follow: Option<String>,
 
-    /// for debugging: prunes all branches except the one that leads to the `--track` abstraction
+    /// for use with `--follow`, enables aggressive pruning
     #[clap(long)]
-    pub follow_track: bool,
+    pub follow_prune: bool,
 
     /// prints every worklist item as it is processed (will slow things down a ton due to rendering out expressins)
     #[clap(long)]
@@ -230,7 +231,7 @@ impl Pattern {
             match_locations, // single hole matches everywhere
             utility_upper_bound,
             body_utility, // 0 body utility
-            tracked: cfg.track.is_some(),
+            tracked: cfg.follow.is_some(),
         }
     }
     /// convert pattern to an Expr with `??` in place of holes and `?#` in place of argchoices. Recursive top down
@@ -431,6 +432,7 @@ pub struct CriticalMultithreadData {
 #[derive(Debug)]
 pub struct SharedData {
     pub crit: Mutex<CriticalMultithreadData>,
+    pub programs: Vec<ExprOwned>,
     pub arg_of_zid_node: Vec<FxHashMap<Idx,Arg>>,
     pub cost_fn: ExprCost,
     pub analyzed_free_vars: AnalyzedExpr<FreeVarAnalysis>,
@@ -760,7 +762,7 @@ fn stitch_search(
                 // for debugging
                 let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, hole_zid, &shared);
                 if tracked { found_tracked = true; }
-                if shared.cfg.follow_track && !tracked { continue 'expansion; }
+                if shared.cfg.follow_prune && !tracked { continue 'expansion; }
 
 
                 // Pruning (SINGLE USE): prune inventions that only match at a single unique (structurally hashed) subtree. This only applies if we
@@ -924,7 +926,11 @@ fn stitch_search(
 
                     if shared.cfg.rewrite_check {
                         // run rewriting just to make sure the assert in it passes
-                        rewrite_fast(&finished_pattern, &shared, &Node::Prim("fake_inv".into()), &shared.cost_fn);
+                        let rw_fast = rewrite_fast(&finished_pattern, &shared, &Node::Prim("fake_inv".into()), &shared.cost_fn);
+                        let rw_slow = rewrite_with_inventions(&shared.programs, &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.cfg);
+                        for (fast,slow) in rw_fast.iter().zip(rw_slow.iter()) {
+                            assert_eq!(fast.to_string(), slow.to_string());
+                        }
                     }
 
                     if tracked {
@@ -1557,8 +1563,9 @@ pub fn compression(
     train_programs: &[ExprOwned],
     iterations: usize,
     cfg: &CompressionStepConfig,
-    tasks: &[String],
+    tasks: Option<Vec<String>>,
     prev_dc_inv_to_inv_strs: &[(String, String)],
+    follow: Option<Vec<Invention>>
 ) -> Vec<CompressionStepResult> {
     let num_prior_inventions = prev_dc_inv_to_inv_strs.len();
 
@@ -1568,17 +1575,37 @@ pub fn compression(
 
     let tstart = std::time::Instant::now();
 
+    let mut cfg = cfg.clone();
+
+    if let Some(follow) = &follow {
+        assert_eq!(follow.len(), iterations);
+        cfg.follow_prune = true;
+        cfg.rewrite_check = false; // this will cause a loop
+        cfg.no_opt();
+    }
+
+    let tasks = tasks.unwrap_or_else(|| {
+        (0..train_programs.len())
+            .map(|i| i.to_string())
+            .collect()
+    });
+
     for i in 0..iterations {
         println!("{}",format!("\n=======Iteration {}=======",i).blue().bold());
-        let inv_name = format!("fn_{}", num_prior_inventions + step_results.len());
+        let inv_name = if let Some(follow) = &follow {
+            cfg.follow = Some(follow[i].body.to_string());
+            follow[i].name.clone()
+        } else {
+            format!("fn_{}", num_prior_inventions + step_results.len())
+        };
 
         // call actual compression
         let res: Vec<CompressionStepResult> = compression_step(
             &rewritten,
             &inv_name,
-            cfg,
+            &cfg,
             &step_results,
-            tasks,
+            &tasks,
             prev_dc_inv_to_inv_strs,
             );
 
@@ -1604,7 +1631,7 @@ pub fn compression(
         println!("{} ({:.2}x wrt orig): {}" , res.inv.name.clone().blue(), compression_factor(init_cost, rewritten_cost), res);
     }
     println!("Time: {}ms", tstart.elapsed().as_millis());
-    if cfg.follow_track && !(
+    if cfg.follow_prune && !(
         cfg.no_opt_single_task
         && cfg.no_opt_upper_bound
         && cfg.no_opt_force_multiuse
@@ -1697,7 +1724,7 @@ pub fn compression_step(
     println!("arg_of_zid_node size: {}", arg_of_zid_node.len());
 
     // set up tracking if any
-    let tracking: Option<Tracking> = cfg.track.as_ref().map(|s|{
+    let tracking: Option<Tracking> = cfg.follow.as_ref().map(|s|{
         let mut set = ExprSet::empty(Order::ChildFirst, false, false);
         let idx = set.parse_extend(s).unwrap();
         let expr = ExprOwned::new(set,idx);
@@ -1813,6 +1840,7 @@ pub fn compression_step(
     let crit = CriticalMultithreadData::new(donelist, &corpus_span, &cost_of_node_all, &num_paths_to_node, &set, cfg);
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
+        programs: programs.to_vec(),
         arg_of_zid_node,
         cost_fn: cost_fn.clone(),
         analyzed_free_vars,

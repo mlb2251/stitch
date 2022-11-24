@@ -104,8 +104,8 @@ fn main() {
     }).collect();
     programs_info(&programs, &cost_fn);
 
-    panic!("rewriting is disabled as it is currently a no-op");
-    let rewritten: Vec<ExprOwned> = programs.iter().map(|p| rewrite_with_inventions(p, &inventions[..], &cost_fn)).collect();
+    let cfg = CompressionStepConfig::parse_from(format!("compress ").split_whitespace());
+    let rewritten: Vec<ExprOwned> = rewrite_with_inventions(&programs, &inventions[..], &cfg);
 
     match args.fmt {
         InputFormat::Dreamcoder => {
@@ -122,7 +122,7 @@ fn main() {
 
             // Rewrite back the lambda and optionally rewrite back the DC invention format.
             for (i, pretty_program) in rewritten.iter().enumerate() {
-                let task_name = input.tasks[i].clone();
+                let task_name = input.tasks.clone().map(|tasks| tasks[i].clone()).unwrap_or(i.to_string());
                 let mut pretty_program = pretty_program.to_string();
                 if args.dreamcoder_output {
                     for (name, dc_translation) in dreamcoder_translation.iter().rev() {

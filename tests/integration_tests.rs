@@ -41,8 +41,9 @@ fn run_compression(train_programs: &[ExprOwned], input: &Input, iterations: usiz
         train_programs,
         iterations,
         &CompressionStepConfig::parse_from(format!("compress {}",args).split_whitespace()),
-        &input.tasks,
+        input.tasks.clone(),
         &input.prev_dc_inv_to_inv_strs,
+        None,
         )
 }
 
@@ -127,70 +128,70 @@ fn check_eq(actual: &Value, expected: &Value, path: Vec<String>, out: &Value, ex
 
 #[test]
 fn simple1_a1_i1() {
-    compare_out_jsons("data/basic/simple1.json", "data/expected_outputs/simple1-a1-i1.json", "-a1", 1, InputFormat::ProgramsList);
+    compare_out_jsons("data/basic/simple1.json", "data/expected_outputs/simple1-a1-i1.json", "-a1 --rewrite-check", 1, InputFormat::ProgramsList);
 }
 
 #[test]
 fn simple2_a1_i1() {
-    compare_out_jsons("data/basic/simple2.json", "data/expected_outputs/simple2-a1-i1.json", "-a1", 1, InputFormat::ProgramsList);
+    compare_out_jsons("data/basic/simple2.json", "data/expected_outputs/simple2-a1-i1.json", "-a1 --rewrite-check", 1, InputFormat::ProgramsList);
 }
 
 #[test]
 fn nuts_bolts_a3_i10() {
-    compare_out_jsons("data/cogsci/nuts-bolts.json", "data/expected_outputs/nuts-bolts-a3-i10.json", "-a3", 10, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/nuts-bolts.json", "data/expected_outputs/nuts-bolts-a3-i10.json", "-a3 --rewrite-check", 10, InputFormat::ProgramsList);
 }
 #[test]
 fn furniture_a2_i10() {
-    compare_out_jsons("data/cogsci/furniture.json", "data/expected_outputs/furniture-a2-i10.json", "-a2", 10, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/furniture.json", "data/expected_outputs/furniture-a2-i10.json", "-a2 --rewrite-check", 10, InputFormat::ProgramsList);
 }
 #[test]
 fn wheels_a2_i10() {
-    compare_out_jsons("data/cogsci/wheels.json", "data/expected_outputs/wheels-a2-i10.json", "-a2", 10, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/wheels.json", "data/expected_outputs/wheels-a2-i10.json", "-a2 --rewrite-check", 10, InputFormat::ProgramsList);
 }
 
 #[test]
 fn dials_a2_i10() {
-    compare_out_jsons("data/cogsci/dials.json", "data/expected_outputs/dials-a2-i10.json", "-a2", 10, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/dials.json", "data/expected_outputs/dials-a2-i10.json", "-a2 --rewrite-check", 10, InputFormat::ProgramsList);
 }
 
 #[test]
 fn city_a1_i1() {
-    compare_out_jsons("data/cogsci/city.json", "data/expected_outputs/city-a1-i1.json", "-a1", 1, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/city.json", "data/expected_outputs/city-a1-i1.json", "-a1 --rewrite-check", 1, InputFormat::ProgramsList);
 }
 
 #[test]
 fn bridge_a2_i10() {
-    compare_out_jsons("data/cogsci/bridge.json", "data/expected_outputs/bridge-a2-i10.json", "-a2", 10, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/bridge.json", "data/expected_outputs/bridge-a2-i10.json", "-a2 --rewrite-check", 10, InputFormat::ProgramsList);
 }
 
 #[test]
 fn castle_a1_i1() {
-    compare_out_jsons("data/cogsci/castle.json", "data/expected_outputs/castle-a1-i1.json", "-a1", 1, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/castle.json", "data/expected_outputs/castle-a1-i1.json", "-a1 --rewrite-check", 1, InputFormat::ProgramsList);
 }
 
 #[test]
 fn house_a1_i1() {
-    compare_out_jsons("data/cogsci/house.json", "data/expected_outputs/house-a1-i1.json", "-a1", 1, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/house.json", "data/expected_outputs/house-a1-i1.json", "-a1 --rewrite-check", 1, InputFormat::ProgramsList);
 }
 
 #[test]
 fn logo_iteration_1_a3_i10() {
-    compare_out_jsons("data/dc/logo_iteration_1.json", "data/expected_outputs/logo_iteration_1-a3-i10.json", "-a3", 10, InputFormat::Dreamcoder);
+    compare_out_jsons("data/dc/logo_iteration_1.json", "data/expected_outputs/logo_iteration_1-a3-i10.json", "-a3 --rewrite-check", 10, InputFormat::Dreamcoder);
 }
 
 #[test]
 fn origami_0_a3_i10() {
-    compare_out_jsons("data/dc/origami/iteration_0_3.json", "data/expected_outputs/origami_0-a3-i10.json", "-a3", 10, InputFormat::Dreamcoder);
+    compare_out_jsons("data/dc/origami/iteration_0_3.json", "data/expected_outputs/origami_0-a3-i10.json", "-a3 --rewrite-check", 10, InputFormat::Dreamcoder);
 }
 
 #[test]
 fn origami_1_a3_i10() {
-    compare_out_jsons("data/dc/origami/iteration_1_6.json", "data/expected_outputs/origami_1-a3-i10.json", "-a3", 10, InputFormat::Dreamcoder);
+    compare_out_jsons("data/dc/origami/iteration_1_6.json", "data/expected_outputs/origami_1-a3-i10.json", "-a3 --rewrite-check", 10, InputFormat::Dreamcoder);
 }
 
 #[test]
 fn origami_2_a3_i10() {
-    compare_out_jsons("data/dc/origami/iteration_2_1.json", "data/expected_outputs/origami_2-a3-i10.json", "-a3", 10, InputFormat::Dreamcoder);
+    compare_out_jsons("data/dc/origami/iteration_2_1.json", "data/expected_outputs/origami_2-a3-i10.json", "-a3 --rewrite-check", 10, InputFormat::Dreamcoder);
 }
 
 // todo disabled bc nondeterminism with 2 equal things on the first invention (usually threading prevents that, but here for some reason you always get the same result when running from commandline and a diff result when running from test)

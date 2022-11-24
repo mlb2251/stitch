@@ -152,15 +152,17 @@ pub fn rewrite_fast(
 
 // /// Same as `rewrite_with_invention` but for multiple inventions, rewriting with one after another in order, compounding on each other
 pub fn rewrite_with_inventions(
-    e: &ExprOwned,
-    _invs: &[Invention],
-    _cost_fn: &ExprCost,
-) -> ExprOwned {
-    println!("{}", "CRITICAL WARNING: using the no-op version of rewrite_with_inventions()".bold().red());
-    e.clone()
-//     let mut egraph = EGraph::default();
-//     let root = egraph.add_expr(&e.into());
-//     rewrite_with_inventions_egraph(root, invs, &mut egraph, cost_fn)
+    programs: &[ExprOwned],
+    invs: &[Invention],
+    cfg: &CompressionStepConfig,
+) -> Vec<ExprOwned> {
+    if invs.is_empty() {
+        return programs.to_vec()
+    }
+    // programs.to_vec()
+    let follow = Some(invs.to_vec());
+    let step_results = compression(programs, invs.len(), cfg, None, &[], follow);
+    step_results.last().unwrap().rewritten.clone()
 }
 
 // /// Rewrite `root` using an invention `inv`. This will use inventions everywhere
