@@ -104,7 +104,7 @@ fn main() {
     }).collect();
     programs_info(&programs, &cost_fn);
 
-    let cfg = CompressionStepConfig::parse_from(format!("compress ").split_whitespace());
+    let cfg = CompressionStepConfig::parse_from("compress".split_whitespace());
     let rewritten: Vec<ExprOwned> = rewrite_with_inventions(&programs, &inventions[..], &cfg);
 
     match args.fmt {
@@ -122,7 +122,7 @@ fn main() {
 
             // Rewrite back the lambda and optionally rewrite back the DC invention format.
             for (i, pretty_program) in rewritten.iter().enumerate() {
-                let task_name = input.tasks.clone().map(|tasks| tasks[i].clone()).unwrap_or(i.to_string());
+                let task_name = input.tasks.clone().map(|tasks| tasks[i].clone()).unwrap_or_else(||i.to_string());
                 let mut pretty_program = pretty_program.to_string();
                 if args.dreamcoder_output {
                     for (name, dc_translation) in dreamcoder_translation.iter().rev() {

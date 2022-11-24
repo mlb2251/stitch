@@ -1459,8 +1459,7 @@ pub fn inverse_delta(cost_once: i32, usages: i32, arg_uses: usize, cost_fn: &Exp
     (compressive_delta,noncompressive_delta, compressive_delta+noncompressive_delta)
 }
 
-#[allow(unreachable_code)]
-#[allow(unused_variables)]
+#[allow(clippy::too_many_arguments)]
 pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &CompressionStepConfig, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>, cost_fn: &ExprCost) {
     if !cfg.inv_arg_cap || cfg.no_other_util {
         return
@@ -1521,6 +1520,7 @@ fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[F
 
     let mut counts: FxHashMap<Idx,(i32,Vec<ZId>)> = Default::default();
 
+    #[allow(clippy::too_many_arguments)]
     fn helper(curr_node: Idx, match_loc: Idx, curr_zip: &mut Vec<ZNode>, curr_zid: ZId, zips: &[Vec<ZNode>], zids: &[LabelledZId], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet,  counts: &mut FxHashMap<Idx,(i32,Vec<ZId>)>, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>) {
         if zids.iter().any(|labelled| labelled.zid == curr_zid){
             return // current zip matches an arg
@@ -1819,7 +1819,7 @@ pub fn compression_step(
             };
 
             // This handle the case covered by Appendix B in the paper
-            inverse_argument_capture(&mut finished_pattern, cfg, &zip_of_zid, &arg_of_zid_node, &extensions_of_zid, &set, &analyzed_ivars, &cost_fn);
+            inverse_argument_capture(&mut finished_pattern, cfg, &zip_of_zid, &arg_of_zid_node, &extensions_of_zid, &set, &analyzed_ivars, cost_fn);
             if !cfg.no_stats { stats.azero_calc_unargcap += 1; };
 
             // Pruning (UPPER BOUND): This is the full upper bound pruning

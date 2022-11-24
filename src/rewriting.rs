@@ -19,6 +19,7 @@ pub fn rewrite_fast(
 ) -> Vec<ExprOwned>
 {
     // println!("rewriting with {}", pattern.info(&shared));
+    #[allow(clippy::too_many_arguments)]
     fn helper(
         owned_set: &mut ExprSet,
         pattern: &FinishedPattern,
