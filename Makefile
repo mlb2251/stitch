@@ -4,4 +4,4 @@ build:
 test:
 	cargo test --release
 
-.PHONY: build test bindings-linux bindings-osx
+.PHONY: build test
