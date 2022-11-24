@@ -93,7 +93,7 @@ fn main() {
             name: invention["name"].as_str().unwrap().parse().unwrap(),
         })
         .collect();
-    println!("Number of inventions: {}", inventions.len());
+     println!("Number of inventions: {}", inventions.len());
 
     let mut rewritten_frontiers: HashMap<String, Vec<String>> = HashMap::new();
 

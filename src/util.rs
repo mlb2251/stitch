@@ -8,7 +8,7 @@ pub fn programs_info(programs: &[ExprOwned], cost_fn: &ExprCost) {
     println!("Programs:");
     println!("\t num: {}",programs.len());
     println!("\t max cost: {}",max_cost);
-    println!("\t max depth: {}",max_depth);
+    println!("\t max depth: {}",max_depth); 
 }
 
 /// provides a timestamp as a string in a format you can use for file/folder names: YYYY-MM-DD_HH-MM-SS

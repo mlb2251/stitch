@@ -134,6 +134,10 @@ pub struct CompressionStepConfig {
     /// anything related to running a dreamcoder comparison
     #[clap(long)]
     pub dreamcoder_comparison: bool,
+
+    /// silence all printing
+    #[clap(long)]
+    pub silent: bool,
     
 }
 
@@ -646,8 +650,7 @@ fn get_worklist_item(
 
         let new_expected_cost = shared.first_train_cost - crit.donelist.first().unwrap().compressive_utility + crit.donelist.first().unwrap().to_expr(shared).cost(&shared.cost_fn);
         let trainratio = shared.first_train_cost as f64 / new_expected_cost as f64;
-        // println!("{} @ step={} util={} trainratio={:.2} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, shared.first_train_cost as f64/ new_expected_cost as f64, crit.donelist.first().unwrap().info(shared));
-        println!("{} @ step={} util={} trainratio={:.2} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, crit.donelist.first().unwrap().utility, trainratio, crit.donelist.first().unwrap().info(shared));
+        if !shared.cfg.silent { println!("{} @ step={} util={} trainratio={:.2} for {}", "[new best utility]".blue(), shared.stats.lock().deref_mut().worklist_steps, crit.donelist.first().unwrap().utility, trainratio, crit.donelist.first().unwrap().info(shared)) }
     }
 
     // pull out the newer version of this now that its been updated, since we're returning it at the end
@@ -664,7 +667,7 @@ fn get_worklist_item(
 
     // try to get a new worklist item
     crit.active_threads.remove(&thread::current().id()); // remove ourself from the active threads
-    // println!("worklist len: {}", crit.worklist.len());
+    // if !shared.cfg.silent { println!("worklist len: {}", crit.worklist.len()) }
 
     loop {
         // with dynamic batch size, take worklist_size/num_threads items from the worklist
@@ -726,10 +729,10 @@ fn stitch_search(
         for original_pattern in patterns {
 
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
-            if !shared.cfg.no_stats && shared.cfg.print_stats > 0 &&  shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 { println!("{:?} \n\t@ [bound={}; uses={}] chose: {}",shared.stats.lock().deref_mut(),   original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum::<i32>(), original_pattern.to_expr(&shared)); };
+            if !shared.cfg.no_stats && shared.cfg.print_stats > 0 &&  shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 { if !shared.cfg.silent { println!("{:?} \n\t@ [bound={}; uses={}] chose: {}",shared.stats.lock().deref_mut(),   original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum::<i32>(), original_pattern.to_expr(&shared)) } };
 
             if shared.cfg.verbose_worklist {
-                println!("[bound={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum::<i32>(), original_pattern.to_expr(&shared));
+                if !shared.cfg.silent { println!("[bound={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum::<i32>(), original_pattern.to_expr(&shared)) }
             }
 
             // choose which hole we're going to expand
@@ -781,7 +784,7 @@ fn stitch_search(
                         && locs.iter().all(|node| shared.tasks_of_node[*node].len() == 1)
                         && locs.iter().all(|node| shared.tasks_of_node[locs[0]].iter().next() == shared.tasks_of_node[*node].iter().next()) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
-                    if tracked { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], Node::Prim(format!("<{}>",expands_to).into()))); }
+                    if tracked { if !shared.cfg.silent { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], Node::Prim(format!("<{}>",expands_to).into()))) } }
                     continue 'expansion;
                 }
 
@@ -790,7 +793,7 @@ fn stitch_search(
                 if let ExpandsTo::Var(i) = expands_to {
                     if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
                         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
-                        if tracked { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+                        if tracked { if !shared.cfg.silent { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) } }
                         continue 'expansion; // free var
                     }
                 }
@@ -827,7 +830,7 @@ fn stitch_search(
                 // Pruning (UPPER BOUND): if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
                 if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-                    if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+                    if tracked { if !shared.cfg.silent { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) } }
                     continue 'expansion; // too low utility
                 }
 
@@ -875,7 +878,7 @@ fn stitch_search(
                                 arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
                             {
                                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().force_multiuse_fired += 1; };
-                                if tracked { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+                                if tracked { if !shared.cfg.silent { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) } }
                                 continue 'expansion;
                             }
                         }
@@ -898,7 +901,7 @@ fn stitch_search(
                 // // branch and bound again
                 // if !shared.cfg.no_opt_upper_bound && new_pattern.utility_upper_bound <= weak_utility_pruning_cutoff {
                 //     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().conflict_upper_bound_fired += 1; };
-                //     if tracked { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)); }
+                //     if tracked { if !shared.cfg.silent { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) } }
                 //     continue 'expansion; // too low utility
                 // }
 
@@ -936,7 +939,7 @@ fn stitch_search(
                     }
 
                     if tracked {
-                        println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility);
+                        if !shared.cfg.silent { println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility) }
                     }
 
                     if shared.cfg.inv_candidates == 1 && finished_pattern.utility > weak_utility_pruning_cutoff {
@@ -948,7 +951,7 @@ fn stitch_search(
 
                 } else {
                     // it's a partial pattern so just add it to the worklist
-                    if tracked { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(hole_zid, &shared), new_pattern.utility_upper_bound); }
+                    if tracked { if !shared.cfg.silent { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(hole_zid, &shared), new_pattern.utility_upper_bound) } }
                     worklist_buf.push(HeapItem::new(new_pattern))
                 }
             }
@@ -957,7 +960,7 @@ fn stitch_search(
                 // let new = format!("<{}>",tracked_expands_to(&original_pattern, hole_zid, &shared));
                 // let mut s = original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &new ).to_string();
                 // s = s.replace(&new, &new.clone().magenta().bold().to_string());
-            println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared));
+            if !shared.cfg.silent { println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
             }
         
         }
@@ -1070,7 +1073,7 @@ fn get_zippers(
     
     // loop over all nodes in all programs in bottom up order
     for idx in corpus_span.clone() {
-        // println!("processing Idx={}: {}", treenode, extract(*treenode, egraph) );
+        // if !shared.cfg.silent { println!("processing Idx={}: {}", treenode, extract(*treenode, egraph) ) }
 
         
         // any node can become the identity function (the empty zipper with itself as the arg)
@@ -1141,12 +1144,12 @@ fn get_zippers(
                     let mut arg: Arg = arg_of_zid_node[*b_zid][&b].clone();
 
                     if !analyzed_free_vars.analyze_get(set.get(arg.shifted_id)).is_empty() {
-                        // println!("stepping from child: {}", extract(b, egraph));
-                        // println!("stepping to parent : {}", extract(*treenode, egraph));
-                        // println!("b_zid: {}; b_zip: {:?}", b_zid, zip_of_zid[*b_zid]);
-                        // println!("shift from: {}", extract(arg.Idx, egraph));
-                        // println!("shift to:   {}", extract(arg.Idx, egraph));
-                        // println!("total shift: {}", arg.shift);
+                        // if !shared.cfg.silent { println!("stepping from child: {}", extract(b, egraph)) }
+                        // if !shared.cfg.silent { println!("stepping to parent : {}", extract(*treenode, egraph)) }
+                        // if !shared.cfg.silent { println!("b_zid: {}; b_zip: {:?}", b_zid, zip_of_zid[*b_zid]) }
+                        // if !shared.cfg.silent { println!("shift from: {}", extract(arg.Idx, egraph)) }
+                        // if !shared.cfg.silent { println!("shift to:   {}", extract(arg.Idx, egraph)) }
+                        // if !shared.cfg.silent { println!("total shift: {}", arg.shift) }
                         if analyzed_free_vars[arg.shifted_id].contains(&0) {
                             // we  go one less than the depth from the root to the arg. That way $0 when we're hopping
                             // the only  lambda in existence will map to depth_root_to_arg-1 = 1-1 = 0 -> #0 which will then
@@ -1219,7 +1222,7 @@ impl CompressionStepResult {
             root_idxs.iter().map(|idx| rewritten[*idx].cost(&shared.cost_fn)).min().unwrap()
         ).sum::<i32>();
         if expected_cost != final_cost {
-            println!("*** expected cost {} != final cost {}", expected_cost, final_cost);
+            if !shared.cfg.silent { println!("*** expected cost {} != final cost {}", expected_cost, final_cost) }
         }
         let multiplier = shared.init_cost as f64 / final_cost as f64;
         let multiplier_wrt_orig = very_first_cost as f64 / final_cost as f64;
@@ -1391,10 +1394,10 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
             }
         }
 
-        // println!("calculating util of {}", extract(*loc, &shared.egraph));
+        // if !shared.cfg.silent { println!("calculating util of {}", extract(*loc, &shared.egraph)) }
         // compressivity of body (no refinement) minus slight penalty from the application
         let base_utility = pattern.body_utility + app_penalty;
-        // println!("base {}", base_utility);
+        // if !shared.cfg.silent { println!("base {}", base_utility) }
 
         // for each extra usage of an argument, we gain the cost of that argument as
         // extra utility. Note we use `first_zid_of_ivar` since it doesn't matter which
@@ -1402,7 +1405,7 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
         let multiuse_utility = ivar_multiuses.iter().map(|(ivar,count)|
             count * shared.arg_of_zid_node[pattern.first_zid_of_ivar[*ivar]][loc].cost
         ).sum::<i32>();
-        // println!("multiuse {}", multiuse_utility);
+        // if !shared.cfg.silent { println!("multiuse {}", multiuse_utility) }
 
         base_utility + multiuse_utility
     }).collect()
@@ -1595,7 +1598,7 @@ pub fn compression(
     });
 
     for i in 0..iterations {
-        println!("{}",format!("\n=======Iteration {}=======",i).blue().bold());
+        if !cfg.silent { println!("{}",format!("\n=======Iteration {}=======",i).blue().bold()) }
         let inv_name = if let Some(follow) = &follow {
             cfg.follow = Some(follow[i].body.to_string());
             follow[i].name.clone()
@@ -1617,27 +1620,27 @@ pub fn compression(
             // rewrite with the invention
             let res: CompressionStepResult = res[0].clone();
             rewritten = res.rewritten.clone();
-            println!("Chose Invention {}: {}", res.inv.name, res);
+            if !cfg.silent { println!("Chose Invention {}: {}", res.inv.name, res) }
             step_results.push(res);
         } else if follow.is_some() {
             // if `follow` was given then we will keep going for the full set of iterations
             println!("Invention not found: {}", cfg.follow.as_ref().unwrap() )
         } else {
-            println!("No inventions found at iteration {}",i);
+            if !cfg.silent { println!("No inventions found at iteration {}",i) }
             break;    
         }
     }
 
-    println!("{}","\n=======Compression Summary=======".blue().bold());
-    println!("Found {} inventions", step_results.len());
+    if !cfg.silent { println!("{}","\n=======Compression Summary=======".blue().bold()) }
+    if !cfg.silent { println!("Found {} inventions", step_results.len()) }
     let init_cost = train_programs.iter().map(|p| p.cost(cost_fn)).sum::<i32>();
     let rewritten_cost = rewritten.iter().map(|p| p.cost(cost_fn)).sum::<i32>();
-    println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(init_cost, rewritten_cost), init_cost, rewritten_cost);
+    if !cfg.silent { println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(init_cost, rewritten_cost), init_cost, rewritten_cost) }
     for res in step_results.iter() {
         let rewritten_cost = res.rewritten.iter().map(|p| p.cost(cost_fn)).sum::<i32>();
-        println!("{} ({:.2}x wrt orig): {}" , res.inv.name.clone().blue(), compression_factor(init_cost, rewritten_cost), res);
+        if !cfg.silent { println!("{} ({:.2}x wrt orig): {}" , res.inv.name.clone().blue(), compression_factor(init_cost, rewritten_cost), res) }
     }
-    println!("Time: {}ms", tstart.elapsed().as_millis());
+    if !cfg.silent { println!("Time: {}ms", tstart.elapsed().as_millis()) }
     if cfg.follow_prune && !(
         cfg.no_opt_single_task
         && cfg.no_opt_upper_bound
@@ -1645,7 +1648,7 @@ pub fn compression(
         && cfg.no_opt_useless_abstract
         && cfg.no_opt_arity_zero)
     {
-        println!("{} you often want to run --follow-track with --no-opt otherwise your target may get pruned", "[WARNING]".yellow());
+        if !cfg.silent { println!("{} you often want to run --follow-track with --no-opt otherwise your target may get pruned", "[WARNING]".yellow()) }
     }
 
     step_results
@@ -1681,7 +1684,7 @@ pub fn compression_step(
     // a node participates in (ie multiple uses within a single program or among programs)
     let (num_paths_to_node, num_paths_to_node_by_root_idx) : (Vec<i32>, Vec<Vec<i32>>) = num_paths_to_node(&roots, &corpus_span, &set);
 
-    println!("num_paths_to_node(): {:?}ms", tstart.elapsed().as_millis());
+    if !cfg.silent { println!("num_paths_to_node(): {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
 
     let mut task_name_of_task: Vec<String> = vec![];
@@ -1705,9 +1708,9 @@ pub fn compression_step(
     ).sum();
     let first_train_cost = roots.iter().map(|idx| analyzed_cost[*idx]).sum(); // This is used for --verbose-print
 
-    println!("associate_tasks() and other task stuff: {:?}ms", tstart.elapsed().as_millis());
-    println!("num unique tasks: {}", task_name_of_task.len());
-    println!("num unique programs: {}", roots.len());
+    if !cfg.silent { println!("associate_tasks() and other task stuff: {:?}ms", tstart.elapsed().as_millis()) }
+    if !cfg.silent { println!("num unique tasks: {}", task_name_of_task.len()) }
+    if !cfg.silent { println!("num unique programs: {}", roots.len()) }
     tstart = std::time::Instant::now();
     
     // cost of a single usage times number of paths to node
@@ -1715,7 +1718,7 @@ pub fn compression_step(
 
     let mut analyzed_free_vars = AnalyzedExpr::new(FreeVarAnalysis);
 
-    println!("cost_of_node structs: {:?}ms", tstart.elapsed().as_millis());
+    if !cfg.silent { println!("cost_of_node structs: {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
 
     let (zid_of_zip,
@@ -1724,11 +1727,11 @@ pub fn compression_step(
         zids_of_node,
         extensions_of_zid) = get_zippers(&corpus_span, &analyzed_cost, &mut set, &mut analyzed_free_vars);
     
-    println!("get_zippers(): {:?}ms", tstart.elapsed().as_millis());
+    if !cfg.silent { println!("get_zippers(): {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
     
-    println!("{} zips", zip_of_zid.len());
-    println!("arg_of_zid_node size: {}", arg_of_zid_node.len());
+    if !cfg.silent { println!("{} zips", zip_of_zid.len()) }
+    if !cfg.silent { println!("arg_of_zid_node size: {}", arg_of_zid_node.len()) }
 
     // set up tracking if any
     let tracking: Option<Tracking> = cfg.follow.as_ref().map(|s|{
@@ -1739,7 +1742,7 @@ pub fn compression_step(
         Tracking { expr, zids_of_ivar }
     });
 
-    println!("Tracking setup: {:?}ms", tstart.elapsed().as_millis());
+    if !cfg.silent { println!("Tracking setup: {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
 
     let mut analyzed_ivars = AnalyzedExpr::new(IVarAnalysis);
@@ -1748,7 +1751,7 @@ pub fn compression_step(
     analyzed_ivars.analyze(&set);
 
 
-    println!("ran analyses: {:?}ms", tstart.elapsed().as_millis());
+    if !cfg.silent { println!("ran analyses: {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
 
 
@@ -1839,10 +1842,10 @@ pub fn compression_step(
         }
     }
 
-    println!("arity 0: {:?}ms", tstart.elapsed().as_millis());
+    if !cfg.silent { println!("arity 0: {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
 
-    println!("got {} arity zero inventions", donelist.len());
+    if !cfg.silent { println!("got {} arity zero inventions", donelist.len()) }
 
     let crit = CriticalMultithreadData::new(donelist, &corpus_span, &cost_of_node_all, &num_paths_to_node, &set, cost_fn, cfg);
     let shared = Arc::new(SharedData {
@@ -1875,7 +1878,7 @@ pub fn compression_step(
         tracking,
     });
 
-    println!("built SharedData: {:?}ms", tstart.elapsed().as_millis());
+    if !shared.cfg.silent { println!("built SharedData: {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
 
     if cfg.verbose_best {
@@ -1885,13 +1888,13 @@ pub fn compression_step(
             let best_expr: String = crit.deref_mut().donelist.first().unwrap().info(&shared);
             let new_expected_cost = first_train_cost - crit.donelist.first().unwrap().compressive_utility + crit.donelist.first().unwrap().to_expr(&shared).cost(&shared.cost_fn);
             let trainratio = first_train_cost as f64/new_expected_cost as f64;
-            println!("{} @ step=0 util={} trainratio={:.2} for {}", "[new best utility]".blue(), best_util, trainratio, best_expr);
+            if !shared.cfg.silent { println!("{} @ step=0 util={} trainratio={:.2} for {}", "[new best utility]".blue(), best_util, trainratio, best_expr) }
         }
     }
 
-    println!("TOTAL PREP: {:?}ms", tstart_prep.elapsed().as_millis());
+    if !shared.cfg.silent { println!("TOTAL PREP: {:?}ms", tstart_prep.elapsed().as_millis()) }
 
-    println!("running pattern search...");
+    if !shared.cfg.silent { println!("running pattern search...") }
 
     // *****************
     // * STITCH SEARCH *
@@ -1917,8 +1920,8 @@ pub fn compression_step(
         }
     }
 
-    println!("TOTAL SEARCH: {:?}ms", tstart.elapsed().as_millis());
-    println!("TOTAL PREP + SEARCH: {:?}ms", tstart_total.elapsed().as_millis());
+    if !shared.cfg.silent { println!("TOTAL SEARCH: {:?}ms", tstart.elapsed().as_millis()) }
+    if !shared.cfg.silent { println!("TOTAL PREP + SEARCH: {:?}ms", tstart_total.elapsed().as_millis()) }
 
 
     tstart = std::time::Instant::now();
@@ -1929,30 +1932,30 @@ pub fn compression_step(
     // one last .update()
     shared.crit.lock().deref_mut().update(cfg);
 
-    println!("{:?}", shared.stats.lock().deref_mut());
+    if !shared.cfg.silent { println!("{:?}", shared.stats.lock().deref_mut()) }
     assert!(shared.crit.lock().deref_mut().worklist.is_empty());
 
     let donelist: Vec<FinishedPattern> = shared.crit.lock().deref_mut().donelist.clone();
 
     if cfg.dreamcoder_comparison {
-        println!("Timing point 1 (from the start of compression_step to final donelist): {:?}ms", tstart_total.elapsed().as_millis());
-        println!("Timing Comparison Point A (search) (millis): {}", tstart_total.elapsed().as_millis());
+        if !shared.cfg.silent { println!("Timing point 1 (from the start of compression_step to final donelist): {:?}ms", tstart_total.elapsed().as_millis()) }
+        if !shared.cfg.silent { println!("Timing Comparison Point A (search) (millis): {}", tstart_total.elapsed().as_millis()) }
         let tstart_rewrite = std::time::Instant::now();
         rewrite_fast(&donelist[0], &shared, &Node::Prim(new_inv_name.into()), cost_fn);
-        println!("Timing point 2 (rewriting the candidate): {:?}ms", tstart_rewrite.elapsed().as_millis());
-        println!("Timing Comparison Point B (search+rewrite) (millis): {}", tstart_total.elapsed().as_millis());
+        if !shared.cfg.silent { println!("Timing point 2 (rewriting the candidate): {:?}ms", tstart_rewrite.elapsed().as_millis()) }
+        if !shared.cfg.silent { println!("Timing Comparison Point B (search+rewrite) (millis): {}", tstart_total.elapsed().as_millis()) }
     }
 
     let mut results: Vec<CompressionStepResult> = vec![];
 
     // construct CompressionStepResults and print some info about them)
-    println!("Cost before: {}", shared.init_cost);
+    if !shared.cfg.silent { println!("Cost before: {}", shared.init_cost) }
     for (i,done) in donelist.iter().enumerate() {
         let res = CompressionStepResult::new(done.clone(), new_inv_name, &mut shared, past_invs, prev_dc_inv_to_inv_strs);
 
-        println!("{}: {}", i, res);
+        if !shared.cfg.silent { println!("{}: {}", i, res) }
         if cfg.show_rewritten {
-            println!("rewritten:\n{}", res.rewritten.iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"));
+            if !shared.cfg.silent { println!("rewritten:\n{}", res.rewritten.iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n")) }
         }
         results.push(res);
     }
@@ -1963,7 +1966,7 @@ pub fn compression_step(
         }
     }
 
-    println!("post processing: {:?}ms", tstart.elapsed().as_millis());
+    if !shared.cfg.silent { println!("post processing: {:?}ms", tstart.elapsed().as_millis()) }
 
     results
 }
