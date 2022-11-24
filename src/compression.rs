@@ -1620,8 +1620,13 @@ pub fn compression(
             println!("Chose Invention {}: {}", res.inv.name, res);
             step_results.push(res);
         } else {
-            println!("No inventions found at iteration {}",i);
-            break;
+            if follow.is_some() {
+                // if `follow` was given then we will keep going for the full set of iterations
+                println!("Invention not found: {}", cfg.follow.as_ref().unwrap() )
+            } else {
+                println!("No inventions found at iteration {}",i);
+                break;    
+            }
         }
     }
 
@@ -1953,6 +1958,13 @@ pub fn compression_step(
         }
         results.push(res);
     }
+
+    if cfg.follow_prune && !results.is_empty() {
+        if let Some(follow) = &cfg.follow {
+            assert_eq!(follow, &results[0].inv.body.to_string(), "found something other than the followed abstraction somehow");
+        }
+    }
+
     println!("post processing: {:?}ms", tstart.elapsed().as_millis());
 
     results

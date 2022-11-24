@@ -124,7 +124,7 @@ pub fn rewrite_fast(
     rewritten_exprs
 }
 
-// /// Same as `rewrite_with_invention` but for multiple inventions, rewriting with one after another in order, compounding on each other
+// /// Rewrite with the given abstractions
 pub fn rewrite_with_inventions(
     programs: &[ExprOwned],
     invs: &[Invention],
@@ -137,10 +137,8 @@ pub fn rewrite_with_inventions(
     let follow = Some(invs.to_vec());
     let step_results = compression(programs, invs.len(), cfg, None, &[], follow);
 
-    // make sure we found all the same abstractions
-    assert_eq!(step_results.len(), invs.len());
-    for (i,inv) in invs.iter().enumerate() {
-        assert_eq!(step_results[i].inv.to_string(), inv.to_string());
-    }
-    step_results.last().unwrap().rewritten.clone()
+    // return the last one - note that if an abstraction wasn't used anywhere it will not be included in the step_results so this
+    // may be shorter than invs.len(), however we do ensure that we continue searching for the rest of the abstractions if this happens
+    // anyways.
+    step_results.last().map(|res|res.rewritten.clone()).unwrap_or_else(||programs.to_vec())
 }
