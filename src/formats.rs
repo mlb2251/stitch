@@ -40,7 +40,7 @@ impl InputFormat {
                 for (i,frontier) in frontiers.iter().enumerate() {
                     let programs_in_frontier: Vec<String> = frontier["programs"].as_array().unwrap().iter().map(|p|p["program"].as_str().unwrap().to_string())
                         .map(|p| inv_dc_strs.iter().rev().fold(p, |p, s| p.replace(&s.1, &s.0))) // replace #(lambda ...) with fn_2 etc. Start with highest numbered fn to avoid mangling bodies of other fns.
-                        .map(|p| p.replace("(lambda ","(lam ")).collect();
+                        .collect();
                     assert!(!programs_in_frontier.iter().any(|p| p.contains('#')));
                     let task: String = match frontier["task"].as_str(){
                         Some(name) => name.to_string(),
