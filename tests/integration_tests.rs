@@ -14,13 +14,13 @@ fn load_programs(file: &str, input_format: InputFormat) -> (Input,Vec<ExprOwned>
     (input,train_programs)
 }
 
-fn out_json(train_programs: &[ExprOwned], step_results: &Vec<CompressionStepResult>, cost_fn: &ExprCost) -> serde_json::Value {
+fn out_json(train_programs: &[ExprOwned], step_results: &Vec<CompressionStepResult>, cost_fn: &ExprCost, cfg: &CompressionStepConfig) -> serde_json::Value {
     json!({
         "cmd": Value::Null,
         "args": Value::Null,
         "original_cost": train_programs.iter().map(|p|p.cost(cost_fn)).sum::<i32>(),
         "original": train_programs.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
-        "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
+        "invs": step_results.iter().map(|inv| inv.json(cfg)).collect::<Vec<serde_json::Value>>(),
     })
 }
 
@@ -36,11 +36,11 @@ fn write_json_for_diff(out: &Value, expected_out_path: &str) {
     println!("Wrote test output to {:?} diff with expected out path {:?}", out_path, expected_out_path);
 }
 
-fn run_compression(train_programs: &[ExprOwned], input: &Input, iterations: usize, args: &str) -> Vec<CompressionStepResult> {
+fn run_compression(train_programs: &[ExprOwned], input: &Input, iterations: usize, cfg: &CompressionStepConfig) -> Vec<CompressionStepResult> {
     compression(
         train_programs,
         iterations,
-        &CompressionStepConfig::parse_from(format!("compress {}",args).split_whitespace()),
+        cfg,
         input.tasks.clone(),
         &input.prev_dc_inv_to_inv_strs,
         None,
@@ -51,9 +51,11 @@ fn compare_out_jsons(file: &str, expected_out_file: &str, args: &str, iterations
     let (input,train_programs) = load_programs(file, input_format);
     let cost_fn = ExprCost::dreamcoder();
 
-    let step_results = run_compression(&train_programs, &input, iterations, args);
+    let cfg = &CompressionStepConfig::parse_from(format!("compress {}",args).split_whitespace());
 
-    let output: Value = out_json(&train_programs, &step_results, &cost_fn);
+    let step_results = run_compression(&train_programs, &input, iterations, cfg);
+
+    let output: Value = out_json(&train_programs, &step_results, &cost_fn, cfg);
     let expected_output: Value = serde_json::from_str(&std::fs::read_to_string(std::path::Path::new(expected_out_file)).unwrap()).unwrap();
 
     check_eq(&output["original"], &expected_output["original"], vec!["original".into()], &output, expected_out_file);

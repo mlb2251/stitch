@@ -108,6 +108,16 @@ pub struct CompressionStepConfig {
     #[clap(long,short='r')]
     pub show_rewritten: bool,
 
+    /// include `rewritten_dreamcoder` in the output json
+    #[clap(long)]
+    pub rewritten_dreamcoder: bool,
+
+    /// include `rewritten` from each intermediate rewritten result in the output json
+    /// after each invention
+    #[clap(long)]
+    pub rewritten_intermediates: bool,
+    
+
     /// disables the edge case handling where argument capture needs to be inverted for optimality
     #[clap(long)]
     pub inv_arg_cap: bool,
@@ -1230,7 +1240,7 @@ pub struct CompressionStepResult {
     pub set: ExprSet,
     pub inv: Invention,
     pub rewritten: Vec<ExprOwned>,
-    pub rewritten_dreamcoder: Vec<String>,
+    pub rewritten_dreamcoder: Option<Vec<String>>,
     pub done: FinishedPattern,
     pub expected_cost: i32,
     pub final_cost: i32,
@@ -1279,8 +1289,9 @@ impl CompressionStepResult {
         // Rewrite to dreamcoder syntax with all past invention
         // we rewrite "inv1)" and "inv1 " instead of just "inv1" because we dont want to match on "inv10"
 
-        let rewritten_dreamcoder: Vec<String> = rewritten.iter().map(|p|{
-            let mut res: String = p.immut().to_string();
+        let rewritten_dreamcoder: Option<Vec<String>> = if !shared.cfg.rewritten_dreamcoder { None } else {
+            Some(rewritten.iter().map(|p|{
+            let mut res: String = p.to_string();
             for (prev_inv_name, prev_dc_inv_str) in prev_dc_inv_to_inv_strs {
                 res = replace_prim_with(&res, prev_inv_name, prev_dc_inv_str);
             }
@@ -1289,28 +1300,32 @@ impl CompressionStepResult {
             res = replace_prim_with(&res, inv_name, &dc_inv_str);
             res = res.replace("(lam ","(lambda ");
             res
-        }).collect();
+        }).collect())};
 
         CompressionStepResult { set: shared.set.clone(), inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost: shared.init_cost }
     }
-    pub fn json(&self) -> serde_json::Value {        
-        let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| self.set.get(*expr).to_string()).collect();
-        let use_args: Vec<String> = self.use_args.iter().map(|args| format!("{} {}", self.inv.name, args.iter().map(|expr| self.set.get(*expr).to_string()).collect::<Vec<String>>().join(" "))).collect();
-        let all_uses: Vec<serde_json::Value> = use_exprs.iter().zip(use_args.iter()).sorted().map(|(expr,args)| json!({args: expr})).collect();
+    pub fn json(&self, cfg: &CompressionStepConfig) -> serde_json::Value {        
+        let all_uses: Vec<serde_json::Value> = {
+            let use_exprs: Vec<String> = self.use_exprs.iter().map(|expr| self.set.get(*expr).to_string()).collect();
+            let use_args: Vec<String> = self.use_args.iter().map(|args| format!("{} {}", self.inv.name, args.iter().map(|expr| self.set.get(*expr).to_string()).collect::<Vec<String>>().join(" "))).collect();
+            use_exprs.iter().zip(use_args.iter()).sorted().map(|(expr,args)| json!({args: expr})).collect()
+        };
+
+        let rewritten = if !cfg.rewritten_intermediates { None } else { Some(self.rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>()) };
 
         json!({            
             "body": self.inv.body.to_string(),
             "dreamcoder": self.dc_inv_str,
             "arity": self.inv.arity,
             "name": self.inv.name,
-            "rewritten": self.rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
-            "rewritten_dreamcoder": self.rewritten_dreamcoder,
             "utility": self.done.utility,
             "expected_cost": self.expected_cost,
             "final_cost": self.final_cost,
             "multiplier": self.multiplier,
             "multiplier_wrt_orig": self.multiplier_wrt_orig,
             "num_uses": self.uses,
+            "rewritten": rewritten,
+            "rewritten_dreamcoder": self.rewritten_dreamcoder,
             "uses": all_uses,
         })
     }
@@ -1667,6 +1682,10 @@ pub fn compression(
         }
     }
 
+    if cfg.show_rewritten {
+        println!("rewritten:\n{}", rewritten.iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"));
+    }
+
     if !cfg.silent { println!("{}","\n=======Compression Summary=======".blue().bold()) }
     if !cfg.silent { println!("Found {} inventions", step_results.len()) }
     let init_cost = train_programs.iter().map(|p| p.cost(cost_fn)).sum::<i32>();
@@ -1988,11 +2007,7 @@ pub fn compression_step(
     if !shared.cfg.silent { println!("Cost before: {}", shared.init_cost) }
     for (i,done) in donelist.iter().enumerate() {
         let res = CompressionStepResult::new(done.clone(), new_inv_name, &mut shared, past_invs, prev_dc_inv_to_inv_strs);
-
         if !shared.cfg.silent { println!("{}: {}", i, res) }
-        if cfg.show_rewritten {
-            if !shared.cfg.silent { println!("rewritten:\n{}", res.rewritten.iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n")) }
-        }
         results.push(res);
     }
 

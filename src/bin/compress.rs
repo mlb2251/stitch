@@ -132,13 +132,17 @@ fn main() {
         println!("Test set compression with all inventions applied: {}", compression_factor(init_cost,rewritten_cost));
     }
 
+    let rewritten = step_results.iter().last().map(|res| &res.rewritten).unwrap_or(&train_programs).iter().map(|p| p.to_string()).collect::<Vec<String>>();
+
     // write everything to json
     let out = json!({
         "cmd": std::env::args().join(" "),
         "args": args,
         "original_cost": train_programs.iter().map(|p|p.cost(&cost_fn)).sum::<i32>(),
         "original": train_programs.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
-        "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
+        "num_invs": step_results.len(),
+        "invs": step_results.iter().map(|inv| inv.json(&args.step)).collect::<Vec<serde_json::Value>>(),
+        "rewritten": rewritten,
     });
 
     let out_path = &args.out;
