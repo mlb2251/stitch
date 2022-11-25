@@ -841,22 +841,6 @@ fn stitch_search(
                     }
                 }
 
-                // Pruning (ARGUMENT CAPTURE): check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
-                // because subsetting of match_locations can turn previously useful abstractions into useless ones. In the paper this is referred to as "argument capture"
-                if !shared.cfg.no_opt_useless_abstract {
-                    // note I believe it'd be save to iterate over first_zid_of_ivar instead
-                    for argchoice in original_pattern.arg_choices.iter(){
-                        // if its the same arg in every place, and doesnt have any free vars (ie it's safe to inline)
-                        if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
-                            && shared.analyzed_free_vars[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].is_empty()
-                        {
-                            if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
-                            continue 'expansion; // useless abstraction
-                        }
-                    }
-                }
-
-
                 // update the body utility
                 let body_utility = original_pattern.body_utility +  match &expands_to {
                     ExpandsTo::Lam => shared.cost_fn.cost_lam,
@@ -904,6 +888,21 @@ fn stitch_search(
                     arg_choices.push(LabelledZId::new(hole_zid, i as usize));
                     if i as usize == original_pattern.first_zid_of_ivar.len() {
                         first_zid_of_ivar.push(hole_zid);
+                    }
+                }
+
+                // Pruning (ARGUMENT CAPTURE): check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
+                // because subsetting of match_locations can turn previously useful abstractions into useless ones. In the paper this is referred to as "argument capture"
+                if !shared.cfg.no_opt_useless_abstract {
+                    // note I believe it'd be save to iterate over first_zid_of_ivar instead
+                    for argchoice in original_pattern.arg_choices.iter(){
+                        // if its the same arg in every place, and doesnt have any free vars (ie it's safe to inline)
+                        if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
+                            && shared.analyzed_free_vars[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].is_empty()
+                        {
+                            if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
+                            continue 'expansion; // useless abstraction
+                        }
                     }
                 }
 
