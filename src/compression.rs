@@ -126,9 +126,9 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_opt_single_use: bool,
 
-    /// disable the single task pruning optimization
+    /// allow for abstractions that are only useful in a single task
     #[clap(long)]
-    pub no_opt_single_task: bool,
+    pub allow_single_task: bool,
 
     /// disable the upper bound pruning optimization
     #[clap(long)]
@@ -173,7 +173,6 @@ pub struct CompressionStepConfig {
 
 impl CompressionStepConfig {
     pub fn no_opt(&mut self) {
-        self.no_opt_single_task = true;
         self.no_opt_upper_bound = true;
         self.no_opt_force_multiuse = true;
         self.no_opt_useless_abstract = true;
@@ -824,7 +823,7 @@ fn stitch_search(
                 }
 
                 // Pruning (SINGLE TASK): prune inventions that are only used in one task
-                if !shared.cfg.no_opt_single_task
+                if !shared.cfg.allow_single_task
                         && locs.iter().all(|node| shared.tasks_of_node[*node].len() == 1)
                         && locs.iter().all(|node| shared.tasks_of_node[locs[0]].iter().next() == shared.tasks_of_node[*node].iter().next()) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
@@ -1692,8 +1691,7 @@ pub fn compression(
     }
     if !cfg.silent { println!("Time: {}ms", tstart.elapsed().as_millis()) }
     if cfg.follow_prune && !(
-        cfg.no_opt_single_task
-        && cfg.no_opt_upper_bound
+        cfg.no_opt_upper_bound
         && cfg.no_opt_force_multiuse
         && cfg.no_opt_useless_abstract
         && cfg.no_opt_arity_zero) && !cfg.silent { println!("{} you often want to run --follow-track with --no-opt otherwise your target may get pruned", "[WARNING]".yellow()) }
@@ -1821,7 +1819,7 @@ pub fn compression_step(
             }
 
             // Pruning (SINGLE TASK): prune if used in only one task
-            if !cfg.no_opt_single_task && tasks_of_node[node].len() < 2 {
+            if !cfg.allow_single_task && tasks_of_node[node].len() < 2 {
                 if !cfg.no_stats { stats.single_task_fired += 1; };
                 continue;
             }
