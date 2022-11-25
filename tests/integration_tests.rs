@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use stitch_core::*;
 use clap::Parser;
 use serde_json::{json,Value};
@@ -15,17 +17,20 @@ fn load_programs(file: &str, input_format: InputFormat) -> (Input,Vec<ExprOwned>
 }
 
 fn out_json(train_programs: &[ExprOwned], step_results: &Vec<CompressionStepResult>, cost_fn: &ExprCost, cfg: &CompressionStepConfig) -> serde_json::Value {
+    let rewritten = step_results.iter().last().map(|res| res.rewritten.as_slice()).unwrap_or(train_programs).iter().map(|p| p.to_string()).collect::<Vec<String>>();
     json!({
         "cmd": Value::Null,
         "args": Value::Null,
         "original_cost": train_programs.iter().map(|p|p.cost(cost_fn)).sum::<i32>(),
         "original": train_programs.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+        "num_invs": step_results.len(),
         "invs": step_results.iter().map(|inv| inv.json(cfg)).collect::<Vec<serde_json::Value>>(),
+        "rewritten": rewritten,
     })
 }
 
 fn write_json_for_diff(out: &Value, expected_out_path: &str) {
-    let path = format!("out/test_outputs/{}.json",timestamp());
+    let path = format!("out/test_outputs/{}_{}.json",timestamp(), Path::new(expected_out_path).file_stem().unwrap().to_str().unwrap());
     let out_path = std::path::Path::new(&path);
     if let Some(out_path_dir) = out_path.parent() {
         if !out_path_dir.exists() {
@@ -34,6 +39,8 @@ fn write_json_for_diff(out: &Value, expected_out_path: &str) {
     }
     std::fs::write(out_path, serde_json::to_string_pretty(&out).unwrap()).unwrap();
     println!("Wrote test output to {:?} diff with expected out path {:?}", out_path, expected_out_path);
+    println!("Command to replace:");
+    println!("cp {:?} {:?}", out_path, expected_out_path);
 }
 
 fn run_compression(train_programs: &[ExprOwned], input: &Input, iterations: usize, cfg: &CompressionStepConfig) -> Vec<CompressionStepResult> {
@@ -61,6 +68,7 @@ fn compare_out_jsons(file: &str, expected_out_file: &str, args: &str, iterations
     check_eq(&output["original"], &expected_output["original"], vec!["original".into()], &output, expected_out_file);
     check_eq(&output["original_cost"], &expected_output["original_cost"], vec!["original_cost".into()], &output, expected_out_file);
     check_eq(&output["invs"], &expected_output["invs"], vec!["invs".into()], &output, expected_out_file);
+    check_eq(&output["rewritten"], &expected_output["rewritten"], vec!["rewritten".into()], &output, expected_out_file);
 
 }
 

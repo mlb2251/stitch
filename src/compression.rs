@@ -1639,6 +1639,7 @@ pub fn compression(
         assert_eq!(follow.len(), iterations);
         cfg.follow_prune = true;
         cfg.rewrite_check = false; // this will cause a loop
+        cfg.silent = true;
         cfg.no_opt();
     }
 
