@@ -775,11 +775,9 @@ fn stitch_search(
         for original_pattern in patterns {
 
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
-            if !shared.cfg.no_stats && shared.cfg.print_stats > 0 &&  shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 { if !shared.cfg.silent { println!("{:?} \n\t@ [bound={}; uses={}] chose: {}",shared.stats.lock().deref_mut(),   original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum::<i32>(), original_pattern.to_expr(&shared)) } };
+            if !shared.cfg.no_stats && shared.cfg.print_stats > 0 && shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 && !shared.cfg.silent { println!("{:?} \n\t@ [bound={}; uses={}] chose: {}",shared.stats.lock().deref_mut(),   original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum::<i32>(), original_pattern.to_expr(&shared)) };
 
-            if shared.cfg.verbose_worklist {
-                if !shared.cfg.silent { println!("[bound={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum::<i32>(), original_pattern.to_expr(&shared)) }
-            }
+            if shared.cfg.verbose_worklist && !shared.cfg.silent { println!("[bound={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum::<i32>(), original_pattern.to_expr(&shared)) }
 
             // choose which hole we're going to expand
             let hole_idx: usize = shared.cfg.hole_choice.choose_hole(&original_pattern, &shared);
@@ -830,7 +828,7 @@ fn stitch_search(
                         && locs.iter().all(|node| shared.tasks_of_node[*node].len() == 1)
                         && locs.iter().all(|node| shared.tasks_of_node[locs[0]].iter().next() == shared.tasks_of_node[*node].iter().next()) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
-                    if tracked { if !shared.cfg.silent { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], Node::Prim(format!("<{}>",expands_to).into()))) } }
+                    if tracked && !shared.cfg.silent { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], Node::Prim(format!("<{}>",expands_to).into()))) }
                     continue 'expansion;
                 }
 
@@ -839,7 +837,7 @@ fn stitch_search(
                 if let ExpandsTo::Var(i) = expands_to {
                     if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
                         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
-                        if tracked { if !shared.cfg.silent { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) } }
+                        if tracked && !shared.cfg.silent { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
                         continue 'expansion; // free var
                     }
                 }
@@ -876,7 +874,7 @@ fn stitch_search(
                 // Pruning (UPPER BOUND): if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
                 if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-                    if tracked { if !shared.cfg.silent { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) } }
+                    if tracked && !shared.cfg.silent { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
                     continue 'expansion; // too low utility
                 }
 
@@ -924,7 +922,7 @@ fn stitch_search(
                                 arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
                             {
                                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().force_multiuse_fired += 1; };
-                                if tracked { if !shared.cfg.silent { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) } }
+                                if tracked && !shared.cfg.silent { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
                                 continue 'expansion;
                             }
                         }
@@ -984,9 +982,7 @@ fn stitch_search(
                         }
                     }
 
-                    if tracked {
-                        if !shared.cfg.silent { println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility) }
-                    }
+                    if tracked && !shared.cfg.silent { println!("{} pushed {} to donelist (util: {})", "[TRACK:DONE]".green().bold(), finished_pattern.to_expr(&shared), finished_pattern.utility) }
 
                     if shared.cfg.inv_candidates == 1 && finished_pattern.utility > weak_utility_pruning_cutoff {
                         // if we're only looking for one invention, we can directly update our cutoff here
@@ -997,7 +993,7 @@ fn stitch_search(
 
                 } else {
                     // it's a partial pattern so just add it to the worklist
-                    if tracked { if !shared.cfg.silent { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(hole_zid, &shared), new_pattern.utility_upper_bound) } }
+                    if tracked && !shared.cfg.silent { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(hole_zid, &shared), new_pattern.utility_upper_bound) }
                     worklist_buf.push(HeapItem::new(new_pattern))
                 }
             }
@@ -1267,9 +1263,7 @@ impl CompressionStepResult {
         let final_cost = shared.root_idxs_of_task.iter().map(|root_idxs|
             root_idxs.iter().map(|idx| rewritten[*idx].cost(&shared.cost_fn)).min().unwrap()
         ).sum::<i32>();
-        if expected_cost != final_cost {
-            if !shared.cfg.silent { println!("*** expected cost {} != final cost {}", expected_cost, final_cost) }
-        }
+        if expected_cost != final_cost && !shared.cfg.silent { println!("*** expected cost {} != final cost {}", expected_cost, final_cost) }
         let multiplier = shared.init_cost as f64 / final_cost as f64;
         let multiplier_wrt_orig = very_first_cost as f64 / final_cost as f64;
         let uses = done.usages;
@@ -1702,10 +1696,7 @@ pub fn compression(
         && cfg.no_opt_upper_bound
         && cfg.no_opt_force_multiuse
         && cfg.no_opt_useless_abstract
-        && cfg.no_opt_arity_zero)
-    {
-        if !cfg.silent { println!("{} you often want to run --follow-track with --no-opt otherwise your target may get pruned", "[WARNING]".yellow()) }
-    }
+        && cfg.no_opt_arity_zero) && !cfg.silent { println!("{} you often want to run --follow-track with --no-opt otherwise your target may get pruned", "[WARNING]".yellow()) }
 
     step_results
 }
