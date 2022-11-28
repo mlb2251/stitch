@@ -4,7 +4,7 @@ build:
 test:
 	cargo test --release
 
-update-tests:
+test-update:
 	make test | grep "cp \"out/"
 
-.PHONY: build test update-tests
+.PHONY: build test test-update
