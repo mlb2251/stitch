@@ -115,8 +115,7 @@ pub struct CompressionStepConfig {
     /// include `rewritten` from each intermediate rewritten result in the output json
     /// after each invention
     #[clap(long)]
-    pub rewritten_intermediates: bool,
-    
+    pub rewritten_intermediates: bool,    
 
     /// disables the edge case handling where argument capture needs to be inverted for optimality
     #[clap(long)]
@@ -1304,6 +1303,7 @@ impl CompressionStepResult {
         };
 
         let rewritten = if !cfg.rewritten_intermediates { None } else { Some(self.rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>()) };
+        let rewritten_dreamcoder = if !cfg.rewritten_intermediates { &None } else { &self.rewritten_dreamcoder };
 
         json!({            
             "body": self.inv.body.to_string(),
@@ -1311,13 +1311,12 @@ impl CompressionStepResult {
             "arity": self.inv.arity,
             "name": self.inv.name,
             "utility": self.done.utility,
-            "expected_cost": self.expected_cost,
             "final_cost": self.final_cost,
-            "multiplier": self.multiplier,
-            "multiplier_wrt_orig": self.multiplier_wrt_orig,
+            "compression_ratio": self.multiplier,
+            "cumulative_compression_ratio": self.multiplier_wrt_orig,
             "num_uses": self.uses,
             "rewritten": rewritten,
-            "rewritten_dreamcoder": self.rewritten_dreamcoder,
+            "rewritten_dreamcoder": rewritten_dreamcoder,
             "uses": all_uses,
         })
     }

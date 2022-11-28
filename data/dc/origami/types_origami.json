@@ -1,0 +1,15 @@
+{
+    "cons" : "t0 -> list t0 -> list t0",
+    "+" : "int -> int -> int",
+    "-" : "int -> int -> int",
+    ">" : "int -> int -> bool",
+    "if" : "bool -> t0 -> t0 -> t0",
+    "==" : "t0 -> t0 -> bool",
+    "is_empty": "list t0 -> bool",
+    "head": "list t0 -> t0",
+    "tail": "list t0 -> list t0",
+    "fix": "t0 -> ((t0 -> t1) -> t0 -> t1) -> t1",
+    "0": "int",
+    "1": "int",
+    "[]": "list t0"
+}

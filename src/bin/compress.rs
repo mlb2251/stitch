@@ -124,25 +124,43 @@ fn main() {
         None,
     );
 
-    if let Some(test_programs) = test_programs {
+    let test_output_json = test_programs.map(|test_programs| {
         let invs: Vec<Invention> = step_results.iter().map(|r| r.inv.clone()).collect();
         let rewritten: Vec<ExprOwned> = rewrite_with_inventions(&test_programs, &invs, &args.step);
-        let init_cost = test_programs.iter().map(|p| p.cost(&cost_fn)).sum::<i32>();
-        let rewritten_cost = rewritten.iter().map(|p| p.cost(&cost_fn)).sum::<i32>();
-        println!("Test set compression with all inventions applied: {}", compression_factor(init_cost,rewritten_cost));
-    }
+        let original_cost = test_programs.iter().map(|p| p.cost(&cost_fn)).sum::<i32>();
+        let final_cost = rewritten.iter().map(|p| p.cost(&cost_fn)).sum::<i32>();
+        println!("Test set compression with all inventions applied: {}", compression_factor(original_cost,final_cost));
+        json!({
+            "original_cost": original_cost,
+            "final_cost": final_cost,
+            "compression_ratio": compression_factor(original_cost,final_cost),    
+            "original": test_programs.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+            "rewritten": rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+        })
+    });
 
+    let rewritten: &Vec<ExprOwned> = step_results.iter().last().map(|res| &res.rewritten).unwrap_or(&train_programs);
+    let original_cost = train_programs.iter().map(|p|p.cost(&cost_fn)).sum::<i32>();
+    let final_cost = rewritten.iter().map(|p|p.cost(&cost_fn)).sum::<i32>();
     let rewritten = step_results.iter().last().map(|res| &res.rewritten).unwrap_or(&train_programs).iter().map(|p| p.to_string()).collect::<Vec<String>>();
-
+    let rewritten_dreamcoder = if !args.step.rewritten_dreamcoder { None } else {
+        let rewritten_dreamcoder = step_results.iter().last().map(|res| res.rewritten_dreamcoder.clone().unwrap()).unwrap_or(train_programs.iter().map(|p| p.to_string().replace("(lam ", "(lambda ")).collect::<Vec<String>>());
+        Some(rewritten_dreamcoder)
+    };
+    
     // write everything to json
     let out = json!({
         "cmd": std::env::args().join(" "),
         "args": args,
-        "original_cost": train_programs.iter().map(|p|p.cost(&cost_fn)).sum::<i32>(),
+        "original_cost": original_cost,
+        "final_cost": final_cost,
+        "compression_ratio": compression_factor(original_cost,final_cost),
+        "num_abstractions": step_results.len(),
         "original": train_programs.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
-        "num_invs": step_results.len(),
-        "invs": step_results.iter().map(|inv| inv.json(&args.step)).collect::<Vec<serde_json::Value>>(),
-        "rewritten": rewritten,
+        "rewritten": rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+        "rewritten_dreamcoder": rewritten_dreamcoder,
+        "test_output": test_output_json,
+        "abstractions": step_results.iter().map(|inv| inv.json(&args.step)).collect::<Vec<serde_json::Value>>(),
     });
 
     let out_path = &args.out;
