@@ -1,9 +1,14 @@
 
 This is the official repo for the tool `stitch` presented in the POPL 2023 paper "Top-Down Synthesis For Library Learning". A pre-print of Stitch is available [here](https://mlb2251.github.io/stitch.pdf).
 
-Tutorial coming soon!
-
 # Stitch
+
+## Installation & Testing
+
+- Install `rust` from [here](https://www.rust-lang.org/tools/install)
+- Clone this repo
+- ensure that `cargo run --release --bin=compress -- data/cogsci/nuts-bolts.json` runs without crashing
+- For a more thorough test, run `make test`
 
 ## Quickstart
 
@@ -77,11 +82,10 @@ These are written in a low-level graphics DSL, and the first function (which yie
 
 Primer on input format:
 - Variables should be written as *de Bruijn* indices (i.e. `$i` refers to the variable bound by the `i`th lambda above it) so `\x. \y. x y` is written `(lam (lam ($1 $0)))`
-- Lambdas need explicit parentheses around their body so `(lam + 3 2)` should instead be written `(lam (+ 3 2))`. The parser outputs an error message explaining this if you make this mistake.
-- There should be parentheses around the whole program at the outermost level so `lam (+ 3 2)` should instead be written `(lam (+ 3 2))` and `+ foo bar` should be written `(+ foo bar)`. The parser will otherwise output an error about `unrecognized post-s-expression data`.
-- Be sure to balance your parentheses or you'll get an error about `unexpected eof` or `unrecognized post-s-expression data`.
-- You don't need to pre-define a DSL or anything to work with stitch. Any space-separated series of tokens that isn't reserved for something else is treated as a DSL primitive, like `foo` and `a` in the earlier example or any of the primitive likes `T` or `-0.5` in the second example.
-- check out other examples in `data/basic` and `data/cogsci`
+- Lambdas need explicit parentheses around their body so `(lam + 3 2)` should instead be written `(lam (+ 3 2))`. The parser outputs an error message explaining this if you make this mistake. Lambdas can also be written with `lambda` instead of `lam` but the output of stitch will always be normalized to use `lam`.
+- Be sure to balance your parentheses.
+- You don't need to pre-define a DSL or anything to work with `stitch`. Any space-separated series of tokens that isn't reserved for something else is treated as a DSL primitive, like `foo` and `a` in the earlier example or any of the primitive likes `T` or `-0.5` in the second example.
+- check out other examples in `data/basic/` and `data/cogsci/`
 
 ## Common command-line arguments
 
@@ -93,6 +97,9 @@ Primer on input format:
 ## All command-line arguments
 From `cargo run --release --bin=compress -- --help`
 ```
+USAGE:
+    compress [OPTIONS] <FILE>
+
 ARGS:
     <FILE>    json file to read compression input programs from
 
@@ -100,6 +107,9 @@ OPTIONS:
     -a, --max-arity <MAX_ARITY>
             max arity of abstractions to find (will find all from 0 to this number inclusive)
             [default: 2]
+
+        --allow-single-task
+            allow for abstractions that are only useful in a single task
 
         --args-from-json
             extracts argument values from the json; specifically assumes a key value pair like
@@ -109,6 +119,24 @@ OPTIONS:
 
     -b, --batch <BATCH>
             how many worklist items a thread will take at once [default: 1]
+
+        --cost <COST>
+            Cost function to use [default: dreamcoder] [possible values: dreamcoder]
+
+        --cost-app <COST_APP>
+            Override `cost` with a custom application cost
+
+        --cost-ivar <COST_IVAR>
+            Override `cost` with a custom abstraction variable cost
+
+        --cost-lam <COST_LAM>
+            Override `cost` with a custom lambda cost
+
+        --cost-prim-default <COST_PRIM_DEFAULT>
+            Override `cost` with a custom default primitive cost
+
+        --cost-var <COST_VAR>
+            Override `cost` with a custom $i variable cost
 
         --dreamcoder-comparison
             anything related to running a dreamcoder comparison
@@ -122,9 +150,13 @@ OPTIONS:
             See [formats.rs] for options or to add new ones [default: programs-list] [possible
             values: dreamcoder, programs-list, split-programs-list]
 
-        --follow-track
-            for debugging: prunes all branches except the one that leads to the `--track`
-            abstraction
+        --follow <FOLLOW>
+            pattern or abstraction to follow. if `follow_prune=True` we will aggressively prune to
+            only follow this pattern, otherwise we will just verbosely print when ancestors of this
+            pattern are encountered
+
+        --follow-prune
+            for use with `--follow`, enables aggressive pruning
 
     -h, --help
             Print help information
@@ -137,10 +169,14 @@ OPTIONS:
     -i, --iterations <ITERATIONS>
             Number of iterations to run compression for (number of inventions to find) [default: 3]
 
+        --inv-arg-cap
+            disables the edge case handling where argument capture needs to be inverted for
+            optimality
+
     -n, --inv-candidates <INV_CANDIDATES>
             Number of invention candidates compression_step should return in a *single* step. Note
-            that these will be the top n optimal candidates modulo subsumption pruning (and the top-
-            1  is guaranteed to be globally optimal) [default: 1]
+            that these will be the top n optimal candidates modulo subsumption pruning (and the
+            top-1  is guaranteed to be globally optimal) [default: 1]
 
         --no-mismatch-check
             disables the safety check for the utility being correct; you only want to do this if you
@@ -154,12 +190,6 @@ OPTIONS:
 
         --no-opt-force-multiuse
             disable the force multiuse pruning optimization
-
-        --no-opt-free-vars
-            disable the free variable pruning optimization
-
-        --no-opt-single-task
-            disable the single task pruning optimization
 
         --no-opt-single-use
             disable the single structurally hashed subtree match pruning
@@ -195,17 +225,24 @@ OPTIONS:
             whenever you finish an invention do a full rewrite to check that rewriting doesnt raise
             a cost mismatch exception
 
+        --rewritten-dreamcoder
+            include `rewritten_dreamcoder` in the output json
+
+        --rewritten-intermediates
+            include `rewritten` from each intermediate rewritten result in the output json after
+            each invention
+
         --save-rewritten <SAVE_REWRITTEN>
             saves the rewritten frontiers in an input-readable format
 
         --shuffle
             shuffle order of set of inventions
 
+        --silent
+            silence all printing
+
     -t, --threads <THREADS>
             number of threads (no parallelism if set to 1) [default: 1]
-
-        --track <TRACK>
-            for debugging: pattern or abstraction to track
 
         --truncate <TRUNCATE>
             truncate set of inventions to include only this many (happens after shuffle if shuffle
