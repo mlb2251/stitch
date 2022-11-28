@@ -269,7 +269,7 @@ impl Pattern {
     /// convert pattern to an Expr with `??` in place of holes and `?#` in place of argchoices. Recursive top down
     /// approach, not particularly efficient.
     fn to_expr(&self, shared: &SharedData) -> ExprOwned {
-        let mut set = ExprSet::empty(Order::ParentFirst, false, false);
+        let mut set = ExprSet::empty(Order::ChildFirst, false, false);
 
         let mut curr_zip: Vec<ZNode> = vec![];
         // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
