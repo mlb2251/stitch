@@ -2,6 +2,9 @@
   "cmd": null,
   "args": null,
   "original_cost": 76666,
+  "final_cost": 64469,
+  "compression_ratio": 1.1891917045401665,
+  "num_abstractions": 10,
   "original": [
     "(lam (prev_dc_inv_0 $0 (lam (lam (+ $1 1))) 0))",
     "(lam (prev_dc_inv_0 $0 (lam (lam (+ 1 $1))) 0))",
@@ -84,313 +87,6 @@
     "(lam (prev_dc_inv_2 $0 (lam (- 1 (+ $0 1)))))",
     "(lam (prev_dc_inv_2 $0 (lam (- 1 (+ 1 $0)))))"
   ],
-  "num_invs": 10,
-  "invs": [
-    {
-      "body": "(prev_dc_inv_1 #2 (lam (#1 $0 1)) (lam $0) (lam (eq? $0 #0)))",
-      "dreamcoder": "#(lambda (lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 (lambda ($2 $0 1)) (lambda $0) (lambda (eq? $0 $3))))))",
-      "arity": 3,
-      "name": "fn_3",
-      "utility": 1219,
-      "expected_cost": 11437,
-      "final_cost": 11437,
-      "multiplier": 1.1600069948413045,
-      "multiplier_wrt_orig": 1.1600069948413045,
-      "num_uses": 6,
-      "rewritten": null,
-      "rewritten_dreamcoder": null,
-      "uses": [
-        {
-          "fn_3 1 - (+ $0 1)": "(prev_dc_inv_1 (+ $0 1) (lam (- $0 1)) (lam $0) (lam (eq? $0 1)))"
-        },
-        {
-          "fn_3 1 - (+ 1 $0)": "(prev_dc_inv_1 (+ 1 $0) (lam (- $0 1)) (lam $0) (lam (eq? $0 1)))"
-        },
-        {
-          "fn_3 $0 + (- $0 $0)": "(prev_dc_inv_1 (- $0 $0) (lam (+ $0 1)) (lam $0) (lam (eq? $0 $1)))"
-        },
-        {
-          "fn_3 0 - (- 0 $0)": "(prev_dc_inv_1 (- 0 $0) (lam (- $0 1)) (lam $0) (lam (eq? $0 0)))"
-        },
-        {
-          "fn_3 $0 + 0": "(prev_dc_inv_1 0 (lam (+ $0 1)) (lam $0) (lam (eq? $0 $1)))"
-        },
-        {
-          "fn_3 (+ $0 1) + 0": "(prev_dc_inv_1 0 (lam (+ $0 1)) (lam $0) (lam (eq? $0 (+ $1 1))))"
-        }
-      ]
-    },
-    {
-      "body": "(lam (prev_dc_inv_0 $0 (lam (lam (if (#1 $0 #0) $1 (cons $0 $1)))) empty))",
-      "dreamcoder": "#(lambda (lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (if ($3 $0 $4) $1 (cons $0 $1)))) empty))))",
-      "arity": 2,
-      "name": "fn_4",
-      "utility": 709,
-      "expected_cost": 9815,
-      "final_cost": 9815,
-      "multiplier": 1.1652572592969943,
-      "multiplier_wrt_orig": 1.3517065715741212,
-      "num_uses": 2,
-      "rewritten": null,
-      "rewritten_dreamcoder": null,
-      "uses": [
-        {
-          "fn_4 0 eq?": "(lam (prev_dc_inv_0 $0 (lam (lam (if (eq? $0 0) $1 (cons $0 $1)))) empty))"
-        },
-        {
-          "fn_4 1 gt?": "(lam (prev_dc_inv_0 $0 (lam (lam (if (gt? $0 1) $1 (cons $0 $1)))) empty))"
-        }
-      ]
-    },
-    {
-      "body": "(lam (prev_dc_inv_0 $0 (lam (lam (+ $1 1))) 0))",
-      "dreamcoder": "#(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (+ $1 1))) 0))",
-      "arity": 0,
-      "name": "fn_5",
-      "utility": 408,
-      "expected_cost": 8799,
-      "final_cost": 8799,
-      "multiplier": 1.1154676667803158,
-      "multiplier_wrt_orig": 1.5077849755654051,
-      "num_uses": 2,
-      "rewritten": null,
-      "rewritten_dreamcoder": null,
-      "uses": [
-        {
-          "fn_5 ": "(lam (prev_dc_inv_0 $0 (lam (lam (+ $1 1))) 0))"
-        }
-      ]
-    },
-    {
-      "body": "(lam (fn_3 #0 - (#1 #0 $0)))",
-      "dreamcoder": "#(lambda (lambda (lambda (#(lambda (lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 (lambda ($2 $0 1)) (lambda $0) (lambda (eq? $0 $3)))))) $2 - ($1 $2 $0)))))",
-      "arity": 2,
-      "name": "fn_6",
-      "utility": 302,
-      "expected_cost": 8191,
-      "final_cost": 8191,
-      "multiplier": 1.0742278110120864,
-      "multiplier_wrt_orig": 1.6197045537785375,
-      "num_uses": 2,
-      "rewritten": null,
-      "rewritten_dreamcoder": null,
-      "uses": [
-        {
-          "fn_6 0 -": "(lam (fn_3 0 - (- 0 $0)))"
-        },
-        {
-          "fn_6 1 +": "(lam (fn_3 1 - (+ 1 $0)))"
-        }
-      ]
-    },
-    {
-      "body": "(lam (prev_dc_inv_2 $0 #0))",
-      "dreamcoder": "#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 $1)))",
-      "arity": 1,
-      "name": "fn_7",
-      "utility": 205,
-      "expected_cost": 7783,
-      "final_cost": 7783,
-      "multiplier": 1.0524219452653218,
-      "multiplier_wrt_orig": 1.7046126172427085,
-      "num_uses": 17,
-      "rewritten": null,
-      "rewritten_dreamcoder": null,
-      "uses": [
-        {
-          "fn_7 (lam (+ $0 $0))": "(lam (prev_dc_inv_2 $0 (lam (+ $0 $0))))"
-        },
-        {
-          "fn_7 (lam (+ $0 (prev_dc_inv_0 empty (lam (lam 0)) $0)))": "(lam (prev_dc_inv_2 $0 (lam (+ $0 (prev_dc_inv_0 empty (lam (lam 0)) $0)))))"
-        },
-        {
-          "fn_7 (lam (+ $0 1))": "(lam (prev_dc_inv_2 $0 (lam (+ $0 1))))"
-        },
-        {
-          "fn_7 (lam (+ 1 $0))": "(lam (prev_dc_inv_2 $0 (lam (+ 1 $0))))"
-        },
-        {
-          "fn_7 (lam (- $0 (+ $0 $0)))": "(lam (prev_dc_inv_2 $0 (lam (- $0 (+ $0 $0)))))"
-        },
-        {
-          "fn_7 (lam (- $0 (- 0 $0)))": "(lam (prev_dc_inv_2 $0 (lam (- $0 (- 0 $0)))))"
-        },
-        {
-          "fn_7 (lam (- $0 (- 0 1)))": "(lam (prev_dc_inv_2 $0 (lam (- $0 (- 0 1)))))"
-        },
-        {
-          "fn_7 (lam (- (- $0 $0) $0))": "(lam (prev_dc_inv_2 $0 (lam (- (- $0 $0) $0))))"
-        },
-        {
-          "fn_7 (lam (- 0 $0))": "(lam (prev_dc_inv_2 $0 (lam (- 0 $0))))"
-        },
-        {
-          "fn_7 (lam (- 0 (prev_dc_inv_0 $0 (lam (lam (- $1 1))) 0)))": "(lam (prev_dc_inv_2 $0 (lam (- 0 (prev_dc_inv_0 $0 (lam (lam (- $1 1))) 0)))))"
-        },
-        {
-          "fn_7 (lam (- 1 (+ $0 1)))": "(lam (prev_dc_inv_2 $0 (lam (- 1 (+ $0 1)))))"
-        },
-        {
-          "fn_7 (lam (- 1 (+ 1 $0)))": "(lam (prev_dc_inv_2 $0 (lam (- 1 (+ 1 $0)))))"
-        },
-        {
-          "fn_7 (lam (- 1 (- 0 $0)))": "(lam (prev_dc_inv_2 $0 (lam (- 1 (- 0 $0)))))"
-        },
-        {
-          "fn_7 (lam (prev_dc_inv_0 $0 (lam (lam (+ 1 $1))) 0))": "(lam (prev_dc_inv_2 $0 (lam (prev_dc_inv_0 $0 (lam (lam (+ 1 $1))) 0))))"
-        },
-        {
-          "fn_7 (lam (prev_dc_inv_0 (cdr $0) (lam (lam (+ $1 1))) 1))": "(lam (prev_dc_inv_2 $0 (lam (prev_dc_inv_0 (cdr $0) (lam (lam (+ $1 1))) 1))))"
-        },
-        {
-          "fn_7 (lam (prev_dc_inv_0 (cdr $0) (lam (lam (+ 1 $1))) 1))": "(lam (prev_dc_inv_2 $0 (lam (prev_dc_inv_0 (cdr $0) (lam (lam (+ 1 $1))) 1))))"
-        },
-        {
-          "fn_7 fn_5": "(lam (prev_dc_inv_2 $0 fn_5))"
-        }
-      ]
-    },
-    {
-      "body": "(lam (prev_dc_inv_0 $0 (lam (lam (#1 $0 $1))) #0))",
-      "dreamcoder": "#(lambda (lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda ($3 $0 $1))) $2))))",
-      "arity": 2,
-      "name": "fn_8",
-      "utility": 204,
-      "expected_cost": 7171,
-      "final_cost": 7171,
-      "multiplier": 1.08534374564217,
-      "multiplier_wrt_orig": 1.8500906428671036,
-      "num_uses": 6,
-      "rewritten": null,
-      "rewritten_dreamcoder": null,
-      "uses": [
-        {
-          "fn_8 0 +": "(lam (prev_dc_inv_0 $0 (lam (lam (+ $0 $1))) 0))"
-        },
-        {
-          "fn_8 (cons (- 1 1) empty) cons": "(lam (prev_dc_inv_0 $0 (lam (lam (cons $0 $1))) (cons (- 1 1) empty)))"
-        },
-        {
-          "fn_8 (cons 0 (prev_dc_inv_2 empty (lam $0))) cons": "(lam (prev_dc_inv_0 $0 (lam (lam (cons $0 $1))) (cons 0 (prev_dc_inv_2 empty (lam $0)))))"
-        },
-        {
-          "fn_8 (cons 0 (prev_dc_inv_2 empty (lam 0))) cons": "(lam (prev_dc_inv_0 $0 (lam (lam (cons $0 $1))) (cons 0 (prev_dc_inv_2 empty (lam 0)))))"
-        },
-        {
-          "fn_8 (cons 0 (prev_dc_inv_2 empty (lam 1))) cons": "(lam (prev_dc_inv_0 $0 (lam (lam (cons $0 $1))) (cons 0 (prev_dc_inv_2 empty (lam 1)))))"
-        },
-        {
-          "fn_8 (cons 0 empty) cons": "(lam (prev_dc_inv_0 $0 (lam (lam (cons $0 $1))) (cons 0 empty)))"
-        }
-      ]
-    },
-    {
-      "body": "(lam (prev_dc_inv_1 $0 #1 (lam (car $0)) #0))",
-      "dreamcoder": "#(lambda (lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 $1 (lambda (car $0)) $2))))",
-      "arity": 2,
-      "name": "fn_9",
-      "utility": 203,
-      "expected_cost": 6561,
-      "final_cost": 6561,
-      "multiplier": 1.0929736320682824,
-      "multiplier_wrt_orig": 2.0221002895900013,
-      "num_uses": 4,
-      "rewritten": null,
-      "rewritten_dreamcoder": null,
-      "uses": [
-        {
-          "fn_9 (lam (empty? (cdr $0))) (lam (cdr $0))": "(lam (prev_dc_inv_1 $0 (lam (cdr $0)) (lam (car $0)) (lam (empty? (cdr $0)))))"
-        },
-        {
-          "fn_9 (lam (empty? $0)) (lam (cdr (cdr $0)))": "(lam (prev_dc_inv_1 $0 (lam (cdr (cdr $0))) (lam (car $0)) (lam (empty? $0))))"
-        },
-        {
-          "fn_9 (lam (empty? (cdr $0))) (lam (cdr (prev_dc_inv_2 $0 (lam $0))))": "(lam (prev_dc_inv_1 $0 (lam (cdr (prev_dc_inv_2 $0 (lam $0)))) (lam (car $0)) (lam (empty? (cdr $0)))))"
-        },
-        {
-          "fn_9 (lam (empty? (cdr $0))) (lam (prev_dc_inv_2 (cdr $0) (lam $0)))": "(lam (prev_dc_inv_1 $0 (lam (prev_dc_inv_2 (cdr $0) (lam $0))) (lam (car $0)) (lam (empty? (cdr $0)))))"
-        }
-      ]
-    },
-    {
-      "body": "(fn_3 #0 + 0)",
-      "dreamcoder": "#(lambda (#(lambda (lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 (lambda ($2 $0 1)) (lambda $0) (lambda (eq? $0 $3)))))) $0 + 0))",
-      "arity": 1,
-      "name": "fn_10",
-      "utility": 101,
-      "expected_cost": 6157,
-      "final_cost": 6157,
-      "multiplier": 1.0656163716095501,
-      "multiplier_wrt_orig": 2.154783173623518,
-      "num_uses": 2,
-      "rewritten": null,
-      "rewritten_dreamcoder": null,
-      "uses": [
-        {
-          "fn_10 $0": "(fn_3 $0 + 0)"
-        },
-        {
-          "fn_10 (+ $0 1)": "(fn_3 (+ $0 1) + 0)"
-        }
-      ]
-    },
-    {
-      "body": "(#1 (#1 #0))",
-      "dreamcoder": "#(lambda (lambda ($0 ($0 $1))))",
-      "arity": 2,
-      "name": "fn_11",
-      "utility": 99,
-      "expected_cost": 6056,
-      "final_cost": 6056,
-      "multiplier": 1.016677675033025,
-      "multiplier_wrt_orig": 2.1907199471598413,
-      "num_uses": 10,
-      "rewritten": null,
-      "rewritten_dreamcoder": null,
-      "uses": [
-        {
-          "fn_11 $0 cdr": "(cdr (cdr $0))"
-        },
-        {
-          "fn_11 $2 cdr": "(cdr (cdr $2))"
-        },
-        {
-          "fn_11 $1 (cons $0)": "(cons $0 (cons $0 $1))"
-        },
-        {
-          "fn_11 (prev_dc_inv_2 $1 (lam $0)) (cons $0)": "(cons $0 (cons $0 (prev_dc_inv_2 $1 (lam $0))))"
-        }
-      ]
-    },
-    {
-      "body": "(fn_7 (lam (#0 $0)))",
-      "dreamcoder": "#(lambda (#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 $1))) (lambda ($1 $0))))",
-      "arity": 1,
-      "name": "fn_12",
-      "utility": 1,
-      "expected_cost": 5852,
-      "final_cost": 5852,
-      "multiplier": 1.03485987696514,
-      "multiplier_wrt_orig": 2.267088174982912,
-      "num_uses": 4,
-      "rewritten": null,
-      "rewritten_dreamcoder": null,
-      "uses": [
-        {
-          "fn_12 (+ #0)": "(fn_7 (lam (+ $0 $0)))"
-        },
-        {
-          "fn_12 (+ 1)": "(fn_7 (lam (+ 1 $0)))"
-        },
-        {
-          "fn_12 (- (- #0 #0))": "(fn_7 (lam (- (- $0 $0) $0)))"
-        },
-        {
-          "fn_12 (- 0)": "(fn_7 (lam (- 0 $0)))"
-        }
-      ]
-    }
-  ],
   "rewritten": [
     "fn_5",
     "(lam (prev_dc_inv_0 $0 (lam (lam (+ 1 $1))) 0))",
@@ -472,5 +168,303 @@
     "(fn_7 (lam (- (- $0 $0) $0)))",
     "(fn_7 (lam (- 1 (+ $0 1))))",
     "(fn_7 (lam (- 1 (+ 1 $0))))"
+  ],
+  "rewritten_dreamcoder": null,
+  "test_output": null,
+  "abstractions": [
+    {
+      "body": "(prev_dc_inv_1 #2 (lam (#1 $0 1)) (lam $0) (lam (eq? $0 #0)))",
+      "dreamcoder": "#(lambda (lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 (lambda ($2 $0 1)) (lambda $0) (lambda (eq? $0 $3))))))",
+      "arity": 3,
+      "name": "fn_3",
+      "utility": 1219,
+      "final_cost": 11437,
+      "compression_ratio": 1.1600069948413045,
+      "cumulative_compression_ratio": 1.1600069948413045,
+      "num_uses": 6,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_3 1 - (+ $0 1)": "(prev_dc_inv_1 (+ $0 1) (lam (- $0 1)) (lam $0) (lam (eq? $0 1)))"
+        },
+        {
+          "fn_3 1 - (+ 1 $0)": "(prev_dc_inv_1 (+ 1 $0) (lam (- $0 1)) (lam $0) (lam (eq? $0 1)))"
+        },
+        {
+          "fn_3 $0 + (- $0 $0)": "(prev_dc_inv_1 (- $0 $0) (lam (+ $0 1)) (lam $0) (lam (eq? $0 $1)))"
+        },
+        {
+          "fn_3 0 - (- 0 $0)": "(prev_dc_inv_1 (- 0 $0) (lam (- $0 1)) (lam $0) (lam (eq? $0 0)))"
+        },
+        {
+          "fn_3 $0 + 0": "(prev_dc_inv_1 0 (lam (+ $0 1)) (lam $0) (lam (eq? $0 $1)))"
+        },
+        {
+          "fn_3 (+ $0 1) + 0": "(prev_dc_inv_1 0 (lam (+ $0 1)) (lam $0) (lam (eq? $0 (+ $1 1))))"
+        }
+      ]
+    },
+    {
+      "body": "(lam (prev_dc_inv_0 $0 (lam (lam (if (#1 $0 #0) $1 (cons $0 $1)))) empty))",
+      "dreamcoder": "#(lambda (lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (if ($3 $0 $4) $1 (cons $0 $1)))) empty))))",
+      "arity": 2,
+      "name": "fn_4",
+      "utility": 709,
+      "final_cost": 9815,
+      "compression_ratio": 1.1652572592969943,
+      "cumulative_compression_ratio": 1.3517065715741212,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_4 0 eq?": "(lam (prev_dc_inv_0 $0 (lam (lam (if (eq? $0 0) $1 (cons $0 $1)))) empty))"
+        },
+        {
+          "fn_4 1 gt?": "(lam (prev_dc_inv_0 $0 (lam (lam (if (gt? $0 1) $1 (cons $0 $1)))) empty))"
+        }
+      ]
+    },
+    {
+      "body": "(lam (prev_dc_inv_0 $0 (lam (lam (+ $1 1))) 0))",
+      "dreamcoder": "#(lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda (+ $1 1))) 0))",
+      "arity": 0,
+      "name": "fn_5",
+      "utility": 408,
+      "final_cost": 8799,
+      "compression_ratio": 1.1154676667803158,
+      "cumulative_compression_ratio": 1.5077849755654051,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_5 ": "(lam (prev_dc_inv_0 $0 (lam (lam (+ $1 1))) 0))"
+        }
+      ]
+    },
+    {
+      "body": "(lam (fn_3 #0 - (#1 #0 $0)))",
+      "dreamcoder": "#(lambda (lambda (lambda (#(lambda (lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 (lambda ($2 $0 1)) (lambda $0) (lambda (eq? $0 $3)))))) $2 - ($1 $2 $0)))))",
+      "arity": 2,
+      "name": "fn_6",
+      "utility": 302,
+      "final_cost": 8191,
+      "compression_ratio": 1.0742278110120864,
+      "cumulative_compression_ratio": 1.6197045537785375,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_6 0 -": "(lam (fn_3 0 - (- 0 $0)))"
+        },
+        {
+          "fn_6 1 +": "(lam (fn_3 1 - (+ 1 $0)))"
+        }
+      ]
+    },
+    {
+      "body": "(lam (prev_dc_inv_2 $0 #0))",
+      "dreamcoder": "#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 $1)))",
+      "arity": 1,
+      "name": "fn_7",
+      "utility": 205,
+      "final_cost": 7783,
+      "compression_ratio": 1.0524219452653218,
+      "cumulative_compression_ratio": 1.7046126172427085,
+      "num_uses": 17,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_7 (lam (+ $0 $0))": "(lam (prev_dc_inv_2 $0 (lam (+ $0 $0))))"
+        },
+        {
+          "fn_7 (lam (+ $0 (prev_dc_inv_0 empty (lam (lam 0)) $0)))": "(lam (prev_dc_inv_2 $0 (lam (+ $0 (prev_dc_inv_0 empty (lam (lam 0)) $0)))))"
+        },
+        {
+          "fn_7 (lam (+ $0 1))": "(lam (prev_dc_inv_2 $0 (lam (+ $0 1))))"
+        },
+        {
+          "fn_7 (lam (+ 1 $0))": "(lam (prev_dc_inv_2 $0 (lam (+ 1 $0))))"
+        },
+        {
+          "fn_7 (lam (- $0 (+ $0 $0)))": "(lam (prev_dc_inv_2 $0 (lam (- $0 (+ $0 $0)))))"
+        },
+        {
+          "fn_7 (lam (- $0 (- 0 $0)))": "(lam (prev_dc_inv_2 $0 (lam (- $0 (- 0 $0)))))"
+        },
+        {
+          "fn_7 (lam (- $0 (- 0 1)))": "(lam (prev_dc_inv_2 $0 (lam (- $0 (- 0 1)))))"
+        },
+        {
+          "fn_7 (lam (- (- $0 $0) $0))": "(lam (prev_dc_inv_2 $0 (lam (- (- $0 $0) $0))))"
+        },
+        {
+          "fn_7 (lam (- 0 $0))": "(lam (prev_dc_inv_2 $0 (lam (- 0 $0))))"
+        },
+        {
+          "fn_7 (lam (- 0 (prev_dc_inv_0 $0 (lam (lam (- $1 1))) 0)))": "(lam (prev_dc_inv_2 $0 (lam (- 0 (prev_dc_inv_0 $0 (lam (lam (- $1 1))) 0)))))"
+        },
+        {
+          "fn_7 (lam (- 1 (+ $0 1)))": "(lam (prev_dc_inv_2 $0 (lam (- 1 (+ $0 1)))))"
+        },
+        {
+          "fn_7 (lam (- 1 (+ 1 $0)))": "(lam (prev_dc_inv_2 $0 (lam (- 1 (+ 1 $0)))))"
+        },
+        {
+          "fn_7 (lam (- 1 (- 0 $0)))": "(lam (prev_dc_inv_2 $0 (lam (- 1 (- 0 $0)))))"
+        },
+        {
+          "fn_7 (lam (prev_dc_inv_0 $0 (lam (lam (+ 1 $1))) 0))": "(lam (prev_dc_inv_2 $0 (lam (prev_dc_inv_0 $0 (lam (lam (+ 1 $1))) 0))))"
+        },
+        {
+          "fn_7 (lam (prev_dc_inv_0 (cdr $0) (lam (lam (+ $1 1))) 1))": "(lam (prev_dc_inv_2 $0 (lam (prev_dc_inv_0 (cdr $0) (lam (lam (+ $1 1))) 1))))"
+        },
+        {
+          "fn_7 (lam (prev_dc_inv_0 (cdr $0) (lam (lam (+ 1 $1))) 1))": "(lam (prev_dc_inv_2 $0 (lam (prev_dc_inv_0 (cdr $0) (lam (lam (+ 1 $1))) 1))))"
+        },
+        {
+          "fn_7 fn_5": "(lam (prev_dc_inv_2 $0 fn_5))"
+        }
+      ]
+    },
+    {
+      "body": "(lam (prev_dc_inv_0 $0 (lam (lam (#1 $0 $1))) #0))",
+      "dreamcoder": "#(lambda (lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $0 (lambda (lambda ($3 $0 $1))) $2))))",
+      "arity": 2,
+      "name": "fn_8",
+      "utility": 204,
+      "final_cost": 7171,
+      "compression_ratio": 1.08534374564217,
+      "cumulative_compression_ratio": 1.8500906428671036,
+      "num_uses": 6,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_8 0 +": "(lam (prev_dc_inv_0 $0 (lam (lam (+ $0 $1))) 0))"
+        },
+        {
+          "fn_8 (cons (- 1 1) empty) cons": "(lam (prev_dc_inv_0 $0 (lam (lam (cons $0 $1))) (cons (- 1 1) empty)))"
+        },
+        {
+          "fn_8 (cons 0 (prev_dc_inv_2 empty (lam $0))) cons": "(lam (prev_dc_inv_0 $0 (lam (lam (cons $0 $1))) (cons 0 (prev_dc_inv_2 empty (lam $0)))))"
+        },
+        {
+          "fn_8 (cons 0 (prev_dc_inv_2 empty (lam 0))) cons": "(lam (prev_dc_inv_0 $0 (lam (lam (cons $0 $1))) (cons 0 (prev_dc_inv_2 empty (lam 0)))))"
+        },
+        {
+          "fn_8 (cons 0 (prev_dc_inv_2 empty (lam 1))) cons": "(lam (prev_dc_inv_0 $0 (lam (lam (cons $0 $1))) (cons 0 (prev_dc_inv_2 empty (lam 1)))))"
+        },
+        {
+          "fn_8 (cons 0 empty) cons": "(lam (prev_dc_inv_0 $0 (lam (lam (cons $0 $1))) (cons 0 empty)))"
+        }
+      ]
+    },
+    {
+      "body": "(lam (prev_dc_inv_1 $0 #1 (lam (car $0)) #0))",
+      "dreamcoder": "#(lambda (lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 $1 (lambda (car $0)) $2))))",
+      "arity": 2,
+      "name": "fn_9",
+      "utility": 203,
+      "final_cost": 6561,
+      "compression_ratio": 1.0929736320682824,
+      "cumulative_compression_ratio": 2.0221002895900013,
+      "num_uses": 4,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_9 (lam (empty? (cdr $0))) (lam (cdr $0))": "(lam (prev_dc_inv_1 $0 (lam (cdr $0)) (lam (car $0)) (lam (empty? (cdr $0)))))"
+        },
+        {
+          "fn_9 (lam (empty? $0)) (lam (cdr (cdr $0)))": "(lam (prev_dc_inv_1 $0 (lam (cdr (cdr $0))) (lam (car $0)) (lam (empty? $0))))"
+        },
+        {
+          "fn_9 (lam (empty? (cdr $0))) (lam (cdr (prev_dc_inv_2 $0 (lam $0))))": "(lam (prev_dc_inv_1 $0 (lam (cdr (prev_dc_inv_2 $0 (lam $0)))) (lam (car $0)) (lam (empty? (cdr $0)))))"
+        },
+        {
+          "fn_9 (lam (empty? (cdr $0))) (lam (prev_dc_inv_2 (cdr $0) (lam $0)))": "(lam (prev_dc_inv_1 $0 (lam (prev_dc_inv_2 (cdr $0) (lam $0))) (lam (car $0)) (lam (empty? (cdr $0)))))"
+        }
+      ]
+    },
+    {
+      "body": "(fn_3 #0 + 0)",
+      "dreamcoder": "#(lambda (#(lambda (lambda (lambda (#(lambda (lambda (lambda (lambda (fix1 $3 (lambda (lambda (if ($2 $0) empty (cons ($3 $0) ($1 ($4 $0))))))))))) $0 (lambda ($2 $0 1)) (lambda $0) (lambda (eq? $0 $3)))))) $0 + 0))",
+      "arity": 1,
+      "name": "fn_10",
+      "utility": 101,
+      "final_cost": 6157,
+      "compression_ratio": 1.0656163716095501,
+      "cumulative_compression_ratio": 2.154783173623518,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_10 $0": "(fn_3 $0 + 0)"
+        },
+        {
+          "fn_10 (+ $0 1)": "(fn_3 (+ $0 1) + 0)"
+        }
+      ]
+    },
+    {
+      "body": "(#1 (#1 #0))",
+      "dreamcoder": "#(lambda (lambda ($0 ($0 $1))))",
+      "arity": 2,
+      "name": "fn_11",
+      "utility": 99,
+      "final_cost": 6056,
+      "compression_ratio": 1.016677675033025,
+      "cumulative_compression_ratio": 2.1907199471598413,
+      "num_uses": 10,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_11 $0 cdr": "(cdr (cdr $0))"
+        },
+        {
+          "fn_11 $2 cdr": "(cdr (cdr $2))"
+        },
+        {
+          "fn_11 $1 (cons $0)": "(cons $0 (cons $0 $1))"
+        },
+        {
+          "fn_11 (prev_dc_inv_2 $1 (lam $0)) (cons $0)": "(cons $0 (cons $0 (prev_dc_inv_2 $1 (lam $0))))"
+        }
+      ]
+    },
+    {
+      "body": "(fn_7 (lam (#0 $0)))",
+      "dreamcoder": "#(lambda (#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (lambda (fix1 $2 (lambda (lambda (if (empty? $0) $2 ($3 ($1 (cdr $0)) (car $0))))))))) $1 (lambda (lambda (cons ($2 $0) $1))) empty))) $0 $1))) (lambda ($1 $0))))",
+      "arity": 1,
+      "name": "fn_12",
+      "utility": 1,
+      "final_cost": 5852,
+      "compression_ratio": 1.03485987696514,
+      "cumulative_compression_ratio": 2.267088174982912,
+      "num_uses": 4,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_12 (+ #0)": "(fn_7 (lam (+ $0 $0)))"
+        },
+        {
+          "fn_12 (+ 1)": "(fn_7 (lam (+ 1 $0)))"
+        },
+        {
+          "fn_12 (- (- #0 #0))": "(fn_7 (lam (- (- $0 $0) $0)))"
+        },
+        {
+          "fn_12 (- 0)": "(fn_7 (lam (- 0 $0)))"
+        }
+      ]
+    }
   ]
 }
