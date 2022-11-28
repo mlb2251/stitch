@@ -21,11 +21,9 @@ colorful = "0.2.1"
 rustc-hash = "1.1.0"
 lambdas = "0.1.0"
 
-# [patch.crates-io]
-# lambdas = { path = "../lambdas"}
-
 [patch.crates-io]
-lambdas = { git = "https://github.com/mlb2251/lambdas", rev = "86a1d1a"}
+lambdas = { git = "https://github.com/mlb2251/lambdas", rev = "56bc9ee"}
+# lambdas = { path = "../lambdas"}
 
 
 [profile.release]
