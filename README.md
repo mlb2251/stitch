@@ -57,7 +57,8 @@ Primer on the output format:
   - the abstraction is used twice in the set of programs
 - `body: [fn_0 arity=1: (#0 #0 #0)]`
   - this is the abstraction itself! `(#0 #0 #0)` is equivalent to `\x. (x x x)` - the first abstraction variable is always `#0`, the second is `#1`, etc.
-  - Theres also a more complete output that is sent to `out/out.json` by default and can be consumed by other programs that are using stitch as a subroutine (if they arent using the Rust/Python bindings for it).
+
+Theres also a more complete output that is sent to `out/out.json` by default and can be consumed by other programs that are using stitch as a subroutine (if they arent using the Rust/Python bindings for it). A very important flag is `--rewritten-intermediates`, which includes the rewritten version in the output after *each* abstraction is found - this can be very helpful for understanding the abstractions you're learning.
 
 Now let's take a look at the output of one of the benchmarks from the paper. This will be the `data/cogsci/nuts-bolts.json` file from the [Wong et al. 2022] dataset, feel free to open the file and take a look.
 
