@@ -17,15 +17,26 @@ fn load_programs(file: &str, input_format: InputFormat) -> (Input,Vec<ExprOwned>
 }
 
 fn out_json(train_programs: &[ExprOwned], step_results: &Vec<CompressionStepResult>, cost_fn: &ExprCost, cfg: &CompressionStepConfig) -> serde_json::Value {
-    let rewritten = step_results.iter().last().map(|res| res.rewritten.as_slice()).unwrap_or(train_programs).iter().map(|p| p.to_string()).collect::<Vec<String>>();
+    let rewritten: &[ExprOwned] = step_results.iter().last().map(|res| res.rewritten.as_slice()).unwrap_or(train_programs);
+    let original_cost = train_programs.iter().map(|p|p.cost(&cost_fn)).sum::<i32>();
+    let final_cost = rewritten.iter().map(|p|p.cost(&cost_fn)).sum::<i32>();
+    let rewritten = step_results.iter().last().map(|res| res.rewritten.as_slice()).unwrap_or(&train_programs).iter().map(|p| p.to_string()).collect::<Vec<String>>();
+    let rewritten_dreamcoder = if !cfg.rewritten_dreamcoder { None } else {
+        let rewritten_dreamcoder = step_results.iter().last().map(|res| res.rewritten_dreamcoder.clone().unwrap()).unwrap_or(train_programs.iter().map(|p| p.to_string().replace("(lam ", "(lambda ")).collect::<Vec<String>>());
+        Some(rewritten_dreamcoder)
+    };
     json!({
         "cmd": Value::Null,
         "args": Value::Null,
-        "original_cost": train_programs.iter().map(|p|p.cost(cost_fn)).sum::<i32>(),
+        "original_cost": original_cost,
+        "final_cost": final_cost,
+        "compression_ratio": compression_factor(original_cost,final_cost),
+        "num_abstractions": step_results.len(),
         "original": train_programs.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
-        "num_invs": step_results.len(),
-        "invs": step_results.iter().map(|inv| inv.json(cfg)).collect::<Vec<serde_json::Value>>(),
-        "rewritten": rewritten,
+        "rewritten": rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
+        "rewritten_dreamcoder": rewritten_dreamcoder,
+        "test_output": Value::Null,
+        "abstractions": step_results.iter().map(|inv| inv.json(&cfg)).collect::<Vec<serde_json::Value>>(),
     })
 }
 
@@ -67,7 +78,10 @@ fn compare_out_jsons(file: &str, expected_out_file: &str, args: &str, iterations
 
     check_eq(&output["original"], &expected_output["original"], vec!["original".into()], &output, expected_out_file);
     check_eq(&output["original_cost"], &expected_output["original_cost"], vec!["original_cost".into()], &output, expected_out_file);
-    check_eq(&output["invs"], &expected_output["invs"], vec!["invs".into()], &output, expected_out_file);
+    check_eq(&output["final_cost"], &expected_output["final_cost"], vec!["final_cost".into()], &output, expected_out_file);
+    check_eq(&output["compression_ratio"], &expected_output["compression_ratio"], vec!["compression_ratio".into()], &output, expected_out_file);
+    check_eq(&output["num_abstractions"], &expected_output["num_abstractions"], vec!["num_abstractions".into()], &output, expected_out_file);
+    check_eq(&output["abstractions"], &expected_output["abstractions"], vec!["abstractions".into()], &output, expected_out_file);
     check_eq(&output["rewritten"], &expected_output["rewritten"], vec!["rewritten".into()], &output, expected_out_file);
 
 }
