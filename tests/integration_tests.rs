@@ -18,9 +18,9 @@ fn load_programs(file: &str, input_format: InputFormat) -> (Input,Vec<ExprOwned>
 
 fn out_json(train_programs: &[ExprOwned], step_results: &Vec<CompressionStepResult>, cost_fn: &ExprCost, cfg: &CompressionStepConfig) -> serde_json::Value {
     let rewritten: &[ExprOwned] = step_results.iter().last().map(|res| res.rewritten.as_slice()).unwrap_or(train_programs);
-    let original_cost = train_programs.iter().map(|p|p.cost(&cost_fn)).sum::<i32>();
-    let final_cost = rewritten.iter().map(|p|p.cost(&cost_fn)).sum::<i32>();
-    let rewritten = step_results.iter().last().map(|res| res.rewritten.as_slice()).unwrap_or(&train_programs).iter().map(|p| p.to_string()).collect::<Vec<String>>();
+    let original_cost = train_programs.iter().map(|p|p.cost(cost_fn)).sum::<i32>();
+    let final_cost = rewritten.iter().map(|p|p.cost(cost_fn)).sum::<i32>();
+    let rewritten = step_results.iter().last().map(|res| res.rewritten.as_slice()).unwrap_or(train_programs).iter().map(|p| p.to_string()).collect::<Vec<String>>();
     let rewritten_dreamcoder = if !cfg.rewritten_dreamcoder { None } else {
         let rewritten_dreamcoder = step_results.iter().last().map(|res| res.rewritten_dreamcoder.clone().unwrap()).unwrap_or(train_programs.iter().map(|p| p.to_string().replace("(lam ", "(lambda ")).collect::<Vec<String>>());
         Some(rewritten_dreamcoder)
@@ -36,7 +36,7 @@ fn out_json(train_programs: &[ExprOwned], step_results: &Vec<CompressionStepResu
         "rewritten": rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
         "rewritten_dreamcoder": rewritten_dreamcoder,
         "test_output": Value::Null,
-        "abstractions": step_results.iter().map(|inv| inv.json(&cfg)).collect::<Vec<serde_json::Value>>(),
+        "abstractions": step_results.iter().map(|inv| inv.json(cfg)).collect::<Vec<serde_json::Value>>(),
     })
 }
 
