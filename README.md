@@ -60,7 +60,7 @@ Primer on the output format:
 
 Theres also a more complete output that is sent to `out/out.json` by default and can be consumed by other programs that are using stitch as a subroutine (if they arent using the Rust/Python bindings for it). A very important flag is `--rewritten-intermediates`, which includes the rewritten version in the output after *each* abstraction is found - this can be very helpful for understanding the abstractions you're learning.
 
-Now let's take a look at the output of one of the benchmarks from the paper. This will be the `data/cogsci/nuts-bolts.json` file from the [Wong et al. 2022] dataset, feel free to open the file and take a look.
+Now let's take a look at the output of one of the benchmarks from the paper. This will be the `data/cogsci/nuts-bolts.json` file from the [Wong et al. 2022](https://arxiv.org/abs/2205.05666) dataset, feel free to open the file and take a look.
 
 Run it, using `--iterations=3` to get 3 abstractions:
 ```
@@ -90,10 +90,9 @@ Primer on input format:
 
 ## Common command-line arguments
 
-- `--max-arity=2` or `-a2` controls max arity of abstraction found (default is 2)
+- `--max-arity=2` or `-a2` controls max arity of abstraction found (default is 2). Try to keep the arity relatively low if you don't need high arity abstractions, as it can significantly increase runtime.
 - `--iterations=10` or `-i10` controls how many iterations of compression to run. Each iteration produces one abstraction (which can build on the previous ones)
 - `--threads=10` or `-t10` is a quick way to boost performance by multithreading (default is 1)
-
 
 ## All command-line arguments
 From `cargo run --release --bin=compress -- --help`
