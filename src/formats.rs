@@ -12,6 +12,7 @@ pub enum InputFormat {
     SplitProgramsList,
 }
 
+#[derive(Debug, Clone)]
 pub struct Input {
     pub train_programs: Vec<String>, // Program strings. 
     pub test_programs: Option<Vec<String>>, // Program strings. 
