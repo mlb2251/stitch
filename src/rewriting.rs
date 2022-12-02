@@ -18,7 +18,7 @@ pub fn rewrite_fast(
     cost_fn: &ExprCost
 ) -> Vec<ExprOwned>
 {
-    //  if !shared.cfg.silent { println!("rewriting with {}", pattern.info(&shared)) }
+    //  if !shared.cfg.quiet { println!("rewriting with {}", pattern.info(&shared)) }
     #[allow(clippy::too_many_arguments)]
     fn helper(
         owned_set: &mut ExprSet,
@@ -39,7 +39,7 @@ pub fn rewrite_fast(
         //    && !pattern.pattern.first_zid_of_ivar.iter().any(|zid| // and there are no negative vars anywhere in the arguments
         //         shared.egraph[shared.arg_of_zid_node[*zid][&unshifted_id].Idx].data.free_vars.iter().any(|var| *var < 0))
         {
-            //  if !shared.cfg.silent { println!("inv applies at unshifted={} with shift={}", extract(unshifted_id,&shared.egraph), shift) }
+            //  if !shared.cfg.quiet { println!("inv applies at unshifted={} with shift={}", extract(unshifted_id,&shared.egraph), shift) }
             let mut expr = owned_set.add(inv_name.clone());
             // wrap the prim in all the Apps to args
             for (_ivar,zid) in pattern.pattern.first_zid_of_ivar.iter().enumerate() {
@@ -56,11 +56,11 @@ pub fn rewrite_fast(
             }
             return expr
         }
-        //  if !shared.cfg.silent { println!("descending: {}", extract(unshifted_id,&shared.egraph)) }
+        //  if !shared.cfg.quiet { println!("descending: {}", extract(unshifted_id,&shared.egraph)) }
 
         if let Some((refinements,arg_depth)) = refinements.as_ref() {
             if let Some(idx) = refinements.iter().position(|r| *r == unshifted_id) {
-                //  if !shared.cfg.silent { println!("found refinement!!!") }
+                //  if !shared.cfg.quiet { println!("found refinement!!!") }
                 // todo should this be `idx` or `refinements.len()-1-idx`?
                 return owned_set.add(Node::Var(total_depth - arg_depth + idx as i32)); // if we didnt pass thru any lams on the way this would just be $0 and thus refer to the ExprOwned::lam() wrapping our helper() call
             }
