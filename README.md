@@ -1,5 +1,5 @@
 
-This is the official repo for the tool `stitch` presented in the POPL 2023 paper "Top-Down Synthesis For Library Learning". A pre-print of Stitch is available [here](https://mlb2251.github.io/stitch.pdf). The artifact for reproducing results from the paper can be found [here](https://github.com/mlb2251/stitch-artifact).
+This is the official repo for the tool *Stitch* presented in the POPL 2023 paper [Top-Down Synthesis For Library Learning](https://arxiv.org/abs/2211.16605). There are also [Python bindings](https://github.com/mlb2251/stitch_bindings) for Stitch and an [artifact](https://github.com/mlb2251/stitch-artifact) for reproducing results from the paper.
 
 # Stitch
 
@@ -87,6 +87,16 @@ Primer on input format:
 - Be sure to balance your parentheses.
 - You don't need to pre-define a DSL or anything to work with `stitch`. Any space-separated series of tokens that isn't reserved for something else is treated as a DSL primitive, like `foo` and `a` in the earlier example or any of the primitive likes `T` or `-0.5` in the second example.
 - check out other examples in `data/basic/` and `data/cogsci/`
+
+As an example involving lambdas, the the running example from Section 2 of the paper could be written with de bruijn indices like so:
+```json
+[
+    "(lam (+ 3 (* 0 (+ 2 4))))",
+    "(lam (map (lam (+ 3 (* 0 (+ 3 $0)))) $0))",
+    "(lam (* 2 (+ 3 (* 0 (+ $0 1)))))"
+]
+```
+
 
 ## Common command-line arguments
 
