@@ -1643,7 +1643,7 @@ pub fn compression(
     iterations: usize,
     cfg: &CompressionStepConfig,
     tasks: Option<Vec<String>>,
-    prev_dc_inv_to_inv_strs: &[(String, String)],
+    prev_dc_inv_to_inv_strs: &Option<Vec<(String, String)>>,
     follow: Option<Vec<Invention>>
 ) -> Vec<CompressionStepResult> {
     let num_prior_inventions = prev_dc_inv_to_inv_strs.len();
