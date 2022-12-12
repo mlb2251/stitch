@@ -114,7 +114,7 @@ def stitch_json_to_stitch_invs(stitch_json):
         'stitch_uncanonical': inv['body'],
         'stitch_canonical': canonicalize(inv['body']),
         'arity': inv['arity'],
-    } for inv in stitch_json['invs']]
+    } for inv in stitch_json['abstractions']]
 
 
 # pull out all the learned library fns
@@ -244,8 +244,8 @@ def stitch_to_invention_info(stitch_json):
     in_json = load(stitch_json['args']['file'])
     stitch_dsl_input = to_stitch_dsl(in_json)
 
-    assert len(stitch_json['invs']) == 1, "there seem to be more than one invention in this file"
-    inv = stitch_json['invs'][0]
+    assert len(stitch_json['abstractions']) == 1, "there seem to be more than one invention in this file"
+    inv = stitch_json['abstractions'][0]
 
     all_programs_in = [programs['program'] for f in in_json['frontiers'] for programs in f['programs']]
     stitch_programs_in = [to_stitch_program(p,stitch_dsl_input) for p in all_programs_in]
@@ -291,19 +291,8 @@ def process_dreamcoder_inventions(in_file, out_file):
     in_frontiers_stitch = [[to_stitch_program(p,in_invs_stitch) for p in ps] for ps in in_frontiers_dc]
     out_frontiers_stitch = [[to_stitch_program(p,out_invs_stitch) for p in ps] for ps in out_frontiers_dc]
     
-    in_programs_dc = [programs['program'] for f in in_json['frontiers'] for programs in f['programs']]
-    out_programs_dc = [programs['program'] for f in out_json['frontiers'] for programs in f['programs']]
-
-    in_programs_stitch = [to_stitch_program(p,in_invs_stitch) for p in in_programs_dc]
-    out_programs_stitch = [to_stitch_program(p,out_invs_stitch) for p in out_programs_dc]
-
-    in_size = sum([stitch_size(p) for p in in_programs_stitch])
-    out_size = sum([stitch_size(p) for p in out_programs_stitch])
-
     # todo add in invention size
     inv_size = sum([stitch_size(inv['stitch_canonical']) for inv in new_invs_stitch],0)
-    absolute_compression = in_size - (out_size + inv_size)
-    compression_ratio = in_size / (out_size + inv_size)
 
     compression_ratio_min = (sum([min([stitch_size(p) for p in ps]) for ps in in_frontiers_stitch])
     / (sum([min([stitch_size(p) for p in ps]) for ps in out_frontiers_stitch]) + inv_size))
@@ -311,8 +300,8 @@ def process_dreamcoder_inventions(in_file, out_file):
 
     return {
         'metrics': {
-            'absolute_compression': absolute_compression,
-            'compression_ratio': compression_ratio,
+            'absolute_compression': 0,
+            'compression_ratio': 0,
             'compression_ratio_min': compression_ratio_min,
         },
         'inventions': new_invs_stitch,
@@ -333,7 +322,7 @@ def process_stitch_inventions(in_file, out_file):
     in_programs_dc = [programs['program'] for f in in_json['frontiers'] for programs in f['programs']]
     in_programs_stitch = [to_stitch_program(p,in_invs_stitch) for p in in_programs_dc]
 
-    out_programs_stitch = out_json["invs"][-1]["rewritten"] if len(new_invs_stitch) > 0 else in_programs_stitch
+    out_programs_stitch = out_json["rewritten"]
     out_frontiers_stitch = []
     # todo assuming stitch maintains the order of input programs so we can reconstruct the frontiers as contiguous
     i = 0
@@ -344,62 +333,30 @@ def process_stitch_inventions(in_file, out_file):
             i += 1
     assert i == len(out_programs_stitch)
 
-    in_size = sum([stitch_size(p) for p in in_programs_stitch])
-    out_size = sum([stitch_size(p) for p in out_programs_stitch])
+    # in_size = sum([stitch_size(p) for p in in_programs_stitch])
+    # out_size = sum([stitch_size(p) for p in out_programs_stitch])
 
     # todo add in invention size
     inv_size = sum([stitch_size(inv['stitch_canonical']) for inv in new_invs_stitch],0)
-    absolute_compression = in_size - (out_size + inv_size)
-    compression_ratio = in_size / (out_size + inv_size)
+    # absolute_compression = in_size - (out_size + inv_size)
+    # compression_ratio = in_size / (out_size + inv_size)
 
     compression_ratio_min = (sum([min([stitch_size(p) for p in ps]) for ps in in_frontiers_stitch])
         / (sum([min([stitch_size(p) for p in ps]) for ps in out_frontiers_stitch]) + inv_size))
 
     # todo add checks to make sure these are all the same as whats inside out_json
 
-    assert in_size == out_json["original_cost"]
+    assert sum([min([stitch_size(p) for p in ps]) for ps in in_frontiers_stitch]) == out_json["original_cost"]
 
     return {
         'metrics': {
-            'absolute_compression': absolute_compression,
-            'compression_ratio': compression_ratio,
+            'absolute_compression': 0,
+            'compression_ratio': 0,
             'compression_ratio_min': compression_ratio_min,
         },
         'inventions': new_invs_stitch,
     }
 
-
-    invs = []
-    for inv in stitch_json['invs']:
-        invs.append({
-            'name': inv['name'],
-            'stitch_uncanonical': inv['body'],
-            'stitch_canonical': canonicalize(inv['body']),
-            'dreamcoder': inv['dreamcoder'],
-            'partial_pcfg_score': None,
-            'partial_compression_ratio': inv["multiplier"],
-            'partial_compression_utility': None,
-            'partial_stitch_utility': inv["utility"],
-            'num_usages': inv['num_uses'],
-        })
-    
-    if len(invs) != 0:
-        compression_utility = (stitch_programs_cost_in - stitch_json['invs'][-1]['final_cost'])
-        assert compression_utility ==  stitch_json["original_cost"] - stitch_json['invs'][-1]["final_cost"]
-        compression_ratio = stitch_json['invs'][-1]["multiplier_wrt_orig"]
-    else:
-        compression_utility = 0
-        compression_ratio = 1.
-    stitch_utility = None
-    pcfg_score = None
-    return {
-        'metrics': {
-            'compression_utility': compression_utility,
-            'compression_ratio': compression_ratio,
-            'stitch_utility': stitch_utility,
-        },
-        'inventions': invs,
-    }
 
 
 def usages(fn_name, stitch_programs):
@@ -861,9 +818,7 @@ if __name__ == '__main__':
 
         data_by_domain = {}
         domains = ['logo', 'list', 'towers', 'text', 'physics']
-        metrics = ["time_per_inv_with_rewrite", "time_per_inv_no_rewrite", "mem_peak_kb", "compression_ratio",
-        "compression_ratio_min"
-        ]
+        metrics = ["time_per_inv_with_rewrite", "time_per_inv_no_rewrite", "mem_peak_kb", "compression_ratio_min"]
 
 
         for domain in domains:
