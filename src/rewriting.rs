@@ -1,4 +1,5 @@
 use crate::*;
+use clap::Parser;
 use lambdas::*;
 use compression::*;
 
@@ -135,7 +136,10 @@ pub fn rewrite_with_inventions(
     }
     // programs.to_vec()
     let follow = Some(invs.to_vec());
-    let step_results = compression(programs, invs.len(), cfg, None, &[], follow);
+    let mut multistep_cfg = MultistepCompressionConfig::parse_from("compress".split_whitespace());
+    multistep_cfg.step = cfg.clone();
+    multistep_cfg.iterations = invs.len();
+    let step_results = multistep_compression_internal(programs, None, None, follow, &multistep_cfg);
 
     // return the last one - note that if an abstraction wasn't used anywhere it will not be included in the step_results so this
     // may be shorter than invs.len(), however we do ensure that we continue searching for the rest of the abstractions if this happens
