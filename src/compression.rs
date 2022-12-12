@@ -1674,6 +1674,8 @@ pub fn multistep_compression_internal(
         cfg.step.no_opt();
     }
 
+    let very_first_cost = min_cost(train_programs, &tasks, cost_fn);
+
     let tasks: Vec<String> = tasks.unwrap_or_else(|| {
         (0..train_programs.len())
             .map(|i| i.to_string())
@@ -1682,7 +1684,6 @@ pub fn multistep_compression_internal(
 
     let mut anonymous_to_named = anonymous_to_named.unwrap_or_default();
 
-    let very_first_cost = train_programs.iter().map(|p| p.cost(cost_fn)).sum::<i32>();
 
 
 
@@ -1727,10 +1728,10 @@ pub fn multistep_compression_internal(
 
     if !cfg.step.quiet { println!("{}","\n=======Compression Summary=======".blue().bold()) }
     if !cfg.step.quiet { println!("Found {} inventions", step_results.len()) }
-    let rewritten_cost = rewritten.iter().map(|p| p.cost(cost_fn)).sum::<i32>();
+    let rewritten_cost = min_cost(&rewritten, &Some(tasks.clone()), &cost_fn);
     if !cfg.step.quiet { println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(very_first_cost, rewritten_cost), very_first_cost, rewritten_cost) }
     for res in step_results.iter() {
-        let rewritten_cost = res.rewritten.iter().map(|p| p.cost(cost_fn)).sum::<i32>();
+        let rewritten_cost = min_cost(&res.rewritten, &Some(tasks.clone()), &cost_fn);
         if !cfg.step.quiet { println!("{} ({:.2}x wrt orig): {}" , res.inv.name.clone().blue(), compression_factor(very_first_cost, rewritten_cost), res) }
     }
     if !cfg.step.quiet { println!("Time: {}ms", tstart.elapsed().as_millis()) }
@@ -1750,7 +1751,7 @@ pub fn compression_step(
     programs: &[ExprOwned],
     new_inv_name: &str, // name of the new invention, like "inv4"
     cfg: &CompressionStepConfig,
-    task_name_of_root_idx: &[String],
+    tasks: &[String],
     very_first_cost: i32,
     anonymous_to_named: &[(String, String)],
 ) -> Vec<CompressionStepResult> {
@@ -1779,7 +1780,7 @@ pub fn compression_step(
     let mut task_name_of_task: Vec<String> = vec![];
     let mut task_of_root_idx: Vec<usize> = vec![];
     let mut root_idxs_of_task: Vec<Vec<usize>> = vec![];
-    for (root_idx,task_name) in task_name_of_root_idx.iter().enumerate() {
+    for (root_idx,task_name) in tasks.iter().enumerate() {
         let task = task_name_of_task.iter().position(|name| name == task_name)
             .unwrap_or_else(||{
                 task_name_of_task.push(task_name.clone());
@@ -2097,15 +2098,15 @@ pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, an
 
     let step_results = multistep_compression_internal(
         &train_programs, 
-        tasks, 
+        tasks.clone(), 
         anonymous_to_named, 
         None,
         &cfg, 
     );
 
     let rewritten: &Vec<ExprOwned> = step_results.iter().last().map(|res| &res.rewritten).unwrap_or(&train_programs);
-    let original_cost = train_programs.iter().map(|p|p.cost(&cost_fn)).sum::<i32>();
-    let final_cost = rewritten.iter().map(|p|p.cost(&cost_fn)).sum::<i32>();
+    let original_cost = min_cost(&train_programs, &tasks, &cost_fn);
+    let final_cost = min_cost(rewritten, &tasks, &cost_fn);
     let rewritten = step_results.iter().last().map(|res| &res.rewritten).unwrap_or(&train_programs).iter().map(|p| p.to_string()).collect::<Vec<String>>();
     let rewritten_dreamcoder = if !cfg.step.rewritten_dreamcoder { None } else {
         let rewritten_dreamcoder = step_results.iter().last().map(|res| res.rewritten_dreamcoder.clone().unwrap()).unwrap_or_else(||train_programs.iter().map(|p| p.to_string().replace("(lam ", "(lambda ")).collect::<Vec<String>>());

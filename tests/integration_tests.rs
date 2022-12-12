@@ -30,9 +30,11 @@ fn run_compression(inputs: &Input, cfg: &MultistepCompressionConfig) -> Value {
 fn compare_out_jsons(file: &str, expected_out_file: &str, args: &str, input_format: InputFormat) {
     let input = input_format.load_programs_and_tasks(std::path::Path::new(file)).unwrap();
 
-    let cfg = &MultistepCompressionConfig::parse_from(format!("compress {}",args).split_whitespace());
+    let mut cfg = MultistepCompressionConfig::parse_from(format!("compress {}",args).split_whitespace());
 
-    let output = run_compression(&input, cfg);
+    cfg.previous_abstractions = input.anonymous_to_named.clone().unwrap_or_default().len();
+
+    let output = run_compression(&input, &cfg);
 
     let expected_output: Value = serde_json::from_str(&std::fs::read_to_string(std::path::Path::new(expected_out_file)).unwrap()).unwrap();
 
