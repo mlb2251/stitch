@@ -1715,7 +1715,7 @@ pub fn multistep_compression_internal(
             step_results.push(res);
         } else if follow.is_some() {
             // if `follow` was given then we will keep going for the full set of iterations
-            println!("Invention not found: {}", cfg.step.follow.as_ref().unwrap() )
+            if !cfg.step.quiet { println!("Invention not found: {}", cfg.step.follow.as_ref().unwrap() ) }
         } else {
             if !cfg.step.quiet { println!("No inventions found at iteration {}",i) }
             break;    
