@@ -1313,7 +1313,7 @@ impl CompressionStepResult {
         
 
         // dreamcoder compatability
-        let dc_inv_str: String = dc_inv_str(&inv, &anonymous_to_named);
+        let dc_inv_str: String = dc_inv_str(&inv, anonymous_to_named);
         // Rewrite to dreamcoder syntax with all past invention
         // we rewrite "inv1)" and "inv1 " instead of just "inv1" because we dont want to match on "inv10"
 
@@ -1326,7 +1326,7 @@ impl CompressionStepResult {
             Some(rewritten.iter().map(|p|{
             let mut res: String = p.to_string();
             for (name, anonymous) in &anonymous_to_named {
-                res = replace_prim_with(&res, &name, &anonymous);
+                res = replace_prim_with(&res, name, anonymous);
             }
 
             // Now go ahead and replace the current invention.
@@ -1728,10 +1728,10 @@ pub fn multistep_compression_internal(
 
     if !cfg.step.quiet { println!("{}","\n=======Compression Summary=======".blue().bold()) }
     if !cfg.step.quiet { println!("Found {} inventions", step_results.len()) }
-    let rewritten_cost = min_cost(&rewritten, &Some(tasks.clone()), &cost_fn);
+    let rewritten_cost = min_cost(&rewritten, &Some(tasks.clone()), cost_fn);
     if !cfg.step.quiet { println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(very_first_cost, rewritten_cost), very_first_cost, rewritten_cost) }
     for res in step_results.iter() {
-        let rewritten_cost = min_cost(&res.rewritten, &Some(tasks.clone()), &cost_fn);
+        let rewritten_cost = min_cost(&res.rewritten, &Some(tasks.clone()), cost_fn);
         if !cfg.step.quiet { println!("{} ({:.2}x wrt orig): {}" , res.inv.name.clone().blue(), compression_factor(very_first_cost, rewritten_cost), res) }
     }
     if !cfg.step.quiet { println!("Time: {}ms", tstart.elapsed().as_millis()) }
