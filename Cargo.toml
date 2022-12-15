@@ -26,6 +26,7 @@ lambdas = { git = "https://github.com/mlb2251/lambdas", rev = "56bc9ee"}
 # lambdas = { path = "../lambdas"}
 
 
-[profile.release]
-debug = true # for flamegraphs
+# enable for flamegraphs
+# [profile.release]
+# debug = true
 
