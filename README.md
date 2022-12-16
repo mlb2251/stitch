@@ -1,16 +1,24 @@
 
-This is the official repo for the tool *Stitch* presented in the POPL 2023 paper [Top-Down Synthesis For Library Learning](https://arxiv.org/abs/2211.16605). There are also [Python bindings](https://github.com/mlb2251/stitch_bindings) for Stitch and an [artifact](https://github.com/mlb2251/stitch-artifact) for reproducing results from the paper.
+This is the official repo for the tool `stitch` presented in the POPL 2023 paper [Top-Down Synthesis For Library Learning](https://arxiv.org/abs/2211.16605). The artifact for reproducing results from the paper can be found [here](https://github.com/mlb2251/stitch-artifact).
 
 # Stitch
 
+## Start Here
+
+**Python is generally the easiest way to access the Stitch API.** See the [Documentation](https://stitch-bindings.readthedocs.io/en/stable/) for installing and using the Python bindings for Stitch.
+
+The rest of this ReadMe is not relevant to the Python API, but instead focuses on the alternative Rust commandline approach.
+
 ## Installation & Testing
+
+(unnecessary if using the [Python Bindings](https://stitch-bindings.readthedocs.io/))
 
 - Install `rust` from [here](https://www.rust-lang.org/tools/install)
 - Clone this repo
 - ensure that `cargo run --release --bin=compress -- data/cogsci/nuts-bolts.json` runs without crashing
 - For a more thorough test, run `make test`
 
-## Quickstart
+## Quickstart (non-Python)
 
 Lets take a look at some simple examples of the `stitch` input format. Put the following in a new file `data/basic/ex1.json`:
 ```json
