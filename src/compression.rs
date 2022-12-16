@@ -90,29 +90,9 @@ pub struct CompressionStepConfig {
     #[clap(long, arg_enum, default_value = "depth-first")]
     pub hole_choice: HoleChoice,
 
-    /// Cost function to use
-    #[clap(long, arg_enum, default_value = "dreamcoder")]
-    pub cost: CostFnChoice,
 
-    /// Override `cost` with a custom lambda cost
-    #[clap(long)]
-    pub cost_lam: Option<i32>,
-    
-    /// Override `cost` with a custom application cost
-    #[clap(long)]
-    pub cost_app: Option<i32>,
-
-    /// Override `cost` with a custom $i variable cost
-    #[clap(long)]
-    pub cost_var: Option<i32>,
-
-    /// Override `cost` with a custom abstraction variable cost
-    #[clap(long)]
-    pub cost_ivar: Option<i32>,
-
-    /// Override `cost` with a custom default primitive cost
-    #[clap(long)]
-    pub cost_prim_default: Option<i32>,
+    #[clap(flatten)]
+    pub cost: CostConfig,
 
     /// disables the safety check for the utility being correct; you only want
     /// to do this if you truly dont mind unsoundness for a minute
@@ -283,6 +263,45 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>
     helper(expr.immut(), &mut curr_zip, &mut zids_of_ivar, zid_of_zip);
 
     zids_of_ivar
+}
+
+
+/// Args for cost function used
+#[derive(Parser, Debug, Serialize, Clone)]
+#[clap(name = "Cost Config")]
+pub struct CostConfig {
+    /// Override `cost` with a custom lambda cost
+    #[clap(long, default_value = "1")]
+    pub cost_lam: i32,
+    
+    /// Override `cost` with a custom application cost
+    #[clap(long, default_value = "1")]
+    pub cost_app: i32,
+
+    /// Override `cost` with a custom $i variable cost
+    #[clap(long, default_value = "100")]
+    pub cost_var: i32,
+
+    /// Override `cost` with a custom abstraction variable cost
+    #[clap(long, default_value = "100")]
+    pub cost_ivar: i32,
+
+    /// Override `cost` with a custom default primitive cost
+    #[clap(long, default_value = "100")]
+    pub cost_prim_default: i32,
+}
+
+impl CostConfig {
+    pub fn expr_cost(&self) -> ExprCost {
+        ExprCost {
+            cost_lam: self.cost_lam,
+            cost_app: self.cost_app,
+            cost_var: self.cost_var,
+            cost_ivar: self.cost_ivar,
+            cost_prim_default: self.cost_prim_default,
+            cost_prim: Default::default(),
+        }
+    }
 }
 
 
@@ -614,37 +633,6 @@ pub struct Stats {
 }
 
 
-/// a strategy for choosing which hole to expand next in a partial pattern
-#[derive(Debug, Clone, clap::ArgEnum, Serialize)]
-pub enum CostFnChoice {
-    Dreamcoder,
-}
-
-impl CostFnChoice {
-    pub fn cost_fn(&self, cfg: Option<&CompressionStepConfig>) -> ExprCost {
-        let mut cost_fn = match self {
-            CostFnChoice::Dreamcoder => ExprCost::dreamcoder(),
-        };
-        if let Some(cfg) = cfg {
-            if let Some(cost_lam) = cfg.cost_lam {
-                cost_fn.cost_lam = cost_lam;
-            }
-            if let Some(cost_app) = cfg.cost_app {
-                cost_fn.cost_app = cost_app;
-            }
-            if let Some(cost_var) = cfg.cost_var {
-                cost_fn.cost_var = cost_var;
-            }
-            if let Some(cost_ivar) = cfg.cost_ivar {
-                cost_fn.cost_ivar = cost_ivar;
-            }
-            if let Some(cost_prim_default) = cfg.cost_prim_default {
-                cost_fn.cost_prim_default = cost_prim_default;
-            }
-        }
-        cost_fn
-    }
-}
 
 /// a strategy for choosing which hole to expand next in a partial pattern
 #[derive(Debug, Clone, clap::ArgEnum, Serialize)]
@@ -1660,7 +1648,7 @@ pub fn multistep_compression_internal(
 
     let mut rewritten: Vec<ExprOwned> = train_programs.to_vec();
     let mut step_results: Vec<CompressionStepResult> = Default::default();
-    let cost_fn = &cfg.step.cost.cost_fn(Some(&cfg.step));
+    let cost_fn = &cfg.step.cost.expr_cost();
 
     let tstart = std::time::Instant::now();
 
@@ -1756,7 +1744,7 @@ pub fn compression_step(
     anonymous_to_named: &[(String, String)],
 ) -> Vec<CompressionStepResult> {
 
-    let cost_fn = &cfg.cost.cost_fn(Some(cfg));
+    let cost_fn = &cfg.cost.expr_cost();
 
     let tstart_total = std::time::Instant::now();
     let tstart_prep = std::time::Instant::now();
@@ -2087,7 +2075,7 @@ pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, an
         ExprOwned::new(set,idx)
     }).collect();
 
-    let cost_fn = cfg.step.cost.cost_fn(Some(&cfg.step));
+    let cost_fn = cfg.step.cost.expr_cost();
 
     if !cfg.silent {
         println!("{}","**********".blue().bold());

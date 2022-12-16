@@ -43,9 +43,8 @@ pub struct RewriteArgs {
     #[clap(long, arg_enum, default_value = "programs-list")]
     pub fmt: InputFormat,
 
-    /// Cost function to use
-    #[clap(long, arg_enum, default_value = "dreamcoder")]
-    pub cost: CostFnChoice,
+    #[clap(flatten)]
+    pub cost: CostConfig,
 
     /// return the rewritten programs in dreamcoder (#(lambda)) format
     #[clap(long)]
@@ -65,7 +64,7 @@ pub struct DcFrontier {
 
 fn main() {
     let args = RewriteArgs::parse();
-    let cost_fn = args.cost.cost_fn(None);
+    let cost_fn = args.cost.expr_cost();
 
     // Read in the programs and any previous inventions from the DSL.
     let input = args
