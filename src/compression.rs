@@ -2,6 +2,7 @@ use crate::*;
 use lambdas::*;
 use rand::seq::SliceRandom;
 use rustc_hash::{FxHashMap,FxHashSet};
+use std::convert::TryInto;
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
@@ -272,33 +273,33 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>
 pub struct CostConfig {
     /// Override `cost` with a custom lambda cost
     #[clap(long, default_value = "1")]
-    pub cost_lam: i32,
+    pub cost_lam: usize,
     
     /// Override `cost` with a custom application cost
     #[clap(long, default_value = "1")]
-    pub cost_app: i32,
+    pub cost_app: usize,
 
     /// Override `cost` with a custom $i variable cost
     #[clap(long, default_value = "100")]
-    pub cost_var: i32,
+    pub cost_var: usize,
 
     /// Override `cost` with a custom abstraction variable cost
     #[clap(long, default_value = "100")]
-    pub cost_ivar: i32,
+    pub cost_ivar: usize,
 
     /// Override `cost` with a custom default primitive cost
     #[clap(long, default_value = "100")]
-    pub cost_prim_default: i32,
+    pub cost_prim_default: usize,
 }
 
 impl CostConfig {
     pub fn expr_cost(&self) -> ExprCost {
         ExprCost {
-            cost_lam: self.cost_lam,
-            cost_app: self.cost_app,
-            cost_var: self.cost_var,
-            cost_ivar: self.cost_ivar,
-            cost_prim_default: self.cost_prim_default,
+            cost_lam: self.cost_lam.try_into().unwrap(),
+            cost_app: self.cost_app.try_into().unwrap(),
+            cost_var: self.cost_var.try_into().unwrap(),
+            cost_ivar: self.cost_ivar.try_into().unwrap(),
+            cost_prim_default: self.cost_prim_default.try_into().unwrap(),
             cost_prim: Default::default(),
         }
     }
