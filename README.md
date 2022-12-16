@@ -1,5 +1,5 @@
 
-This is the official repo for the tool `stitch` presented in the POPL 2023 paper "Top-Down Synthesis For Library Learning". A pre-print of Stitch is available [here](https://mlb2251.github.io/stitch.pdf). The artifact for reproducing results from the paper can be found [here](https://github.com/mlb2251/stitch-artifact).
+This is the official repo for the tool `stitch` presented in the POPL 2023 paper [Top-Down Synthesis For Library Learning](https://arxiv.org/abs/2211.16605). The artifact for reproducing results from the paper can be found [here](https://github.com/mlb2251/stitch-artifact).
 
 # Stitch
 
