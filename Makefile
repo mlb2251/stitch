@@ -7,4 +7,17 @@ test:
 test-update:
 	make test | grep "cp \"out/"
 
-.PHONY: build test test-update
+claims: claim-1 claim-2 claim-3
+
+claim-1:
+	cd experiments && make claim-1
+
+SEEDS := 3
+
+claim-2:
+	cd experiments && make claim-2 SEEDS=${SEEDS}
+
+claim-3:
+	cd experiments && make claim-3
+
+.PHONY: build test test-update claim-1 claim-2 claim-3 claims
