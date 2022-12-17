@@ -21,11 +21,12 @@ use rand::Rng;
 #[clap(name = "Multistep Compression")]
 pub struct MultistepCompressionConfig {
 
-    /// Number of iterations to run compression for (number of inventions to find)
+    /// Maximum number of iterations to run compression for (number of inventions to find, though
+    /// stitch will stop early if no compressive abstraction exists)
     #[clap(short, long, default_value = "3")]
     pub iterations: usize,
 
-    /// prefix used to generate names of new abstractions, by default we will name our
+    /// Prefix used to generate names of new abstractions, by default we will name our
     /// abstractions fn_0, fn_1, fn_2, etc
     #[clap(long, default_value = "fn_")]
     pub abstraction_prefix: String,
@@ -36,19 +37,20 @@ pub struct MultistepCompressionConfig {
     #[clap(long, default_value = "0")]
     pub previous_abstractions: usize,
 
-    /// shuffle order of set of inventions 
+    /// Shuffles the order of the programs passed in
     #[clap(long)]
     pub shuffle: bool,
 
-    /// truncate set of inventions to include only this many (happens after shuffle if shuffle is also specified)
+    /// Truncate the list of programs (happens after shuffle if shuffle is also specified)
     #[clap(long)]
     pub truncate: Option<usize>,
 
-    /// disable all optimizations
+    /// Disable all optimizations
     #[clap(long)]
     pub no_opt: bool,
 
-    /// zero printouts at all except in the case of a panic. See also --quiet to just silence internal printouts during each compression step
+    /// Disables all prinouts except in the case of a panic. See also `quiet` to just silence internal printouts during each compression step
+    /// In Python this defaults to True.
     #[clap(long)]
     pub silent: bool,
 
@@ -60,11 +62,12 @@ pub struct MultistepCompressionConfig {
 #[derive(Parser, Debug, Serialize, Clone)]
 #[clap(name = "Stitch")]
 pub struct CompressionStepConfig {
-    /// max arity of abstractions to find (will find all from 0 to this number inclusive)
+    /// Max arity of abstractions to find (will find arities from 0 to this number inclusive).
+    /// Note that scaling with arity can be very expensive
     #[clap(short='a', long, default_value = "2")]
     pub max_arity: usize,
 
-    /// number of threads (no parallelism if set to 1)
+    /// Number of threads to use for compression (no parallelism if set to 1)
     #[clap(short='t', long, default_value = "1")]
     pub threads: usize,
 
@@ -73,120 +76,130 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_stats: bool,
 
-    /// how many worklist items a thread will take at once
+    /// How many worklist items a thread will take at once
     #[clap(short='b', long, default_value = "1")]
     pub batch: usize,
 
-    /// threads will autoadjust how large their batches are based on the worklist size
+    /// Threads will autoadjust how large their batches are based on the worklist size
     #[clap(long)]
     pub dynamic_batch: bool,
 
-    /// Number of invention candidates compression_step should return in a *single* step. Note that
-    /// these will be the top n optimal candidates modulo subsumption pruning (and the top-1  is guaranteed
+    /// [currently not used] Number of invention candidates compression_step should return in a *single* step. Note that
+    /// these will be the top n optimal candidates modulo subsumption pruning (and the top-1 is guaranteed
     /// to be globally optimal)
     #[clap(short='n', long, default_value = "1")]
     pub inv_candidates: usize,
 
-    /// Method for choosing hole to expand at each step, doesn't have a huge effect
+    /// Method for choosing hole to expand at each step. Doesn't have a huge effect.
     #[clap(long, arg_enum, default_value = "depth-first")]
     pub hole_choice: HoleChoice,
-
 
     #[clap(flatten)]
     pub cost: CostConfig,
 
-    /// disables the safety check for the utility being correct; you only want
+    /// Disables the safety check for the utility being correct; you only want
     /// to do this if you truly dont mind unsoundness for a minute
     #[clap(long)]
     pub no_mismatch_check: bool,
 
-    /// makes it so inventions cant start with a lambda at the top
+    /// Makes it so inventions cant start with a lambda at the top
     #[clap(long)]
     pub no_top_lambda: bool,
 
-    /// pattern or abstraction to follow. if `follow_prune=True` we will aggressively prune to
+    /// Pattern or abstraction to follow and give prinouts about. If `follow_prune=True` we will aggressively prune to
     /// only follow this pattern, otherwise we will just verbosely print when ancestors of this pattern
     /// are encountered.
     #[clap(long)]
     pub follow: Option<String>,
 
-    /// for use with `--follow`, enables aggressive pruning
+    /// For use with `follow`, enables aggressive pruning. Useful for ensuring that it is *possible* to find a particular
+    /// abstraction by guiding the search directly towards it.
     #[clap(long)]
     pub follow_prune: bool,
 
-    /// prints every worklist item as it is processed (will slow things down a ton due to rendering out expressins)
+    /// Prints every worklist item as it is processed (will slow things down a ton due to rendering out expressions).
     #[clap(long)]
     pub verbose_worklist: bool,
     
-    /// prints whenever a new best abstraction is found
+    /// Prints whenever a new best abstraction is found
     #[clap(long)]
     pub verbose_best: bool,
 
-    /// print stats this often (0 means never)
+    /// Print stats this often (0 means never)
     #[clap(long, default_value = "0")]
     pub print_stats: usize,
 
-    /// print out programs rewritten under abstraction
+    /// Print out programs rewritten under abstraction
     #[clap(long,short='r')]
     pub show_rewritten: bool,
 
-    /// include `rewritten_dreamcoder` in the output json
+    /// Include the dreamcoder-format rewritten programs in the output
     #[clap(long)]
     pub rewritten_dreamcoder: bool,
 
-    /// include `rewritten` from each intermediate rewritten result in the output json
-    /// after each invention
+    /// For each abstraction learned, includes the rewritten programs right after learning that
+    /// abstraction in the output. If `rewritten_dreamcoder` is also specified, then the rewritten
+    /// programs in dreamcoder format will also be included.
     #[clap(long)]
     pub rewritten_intermediates: bool,    
 
-    /// disables the edge case handling where argument capture needs to be inverted for optimality
+    /// Enables edge case handling where inverting the argument capture subsumption pruning is needed for optimality.
+    /// Generally not relevant just included for completeness, see the footnoted section
+    /// of Section 4.3 of the Stitch paper https://arxiv.org/abs/2211.16605
     #[clap(long)]
     pub inv_arg_cap: bool,
 
-    /// disable the single structurally hashed subtree match pruning
-    #[clap(long)]
-    pub no_opt_single_use: bool,
-
-    /// allow for abstractions that are only useful in a single task
+    /// Allow for abstractions that are only useful in a single task (defaults to False like DreamCoder)
     #[clap(long)]
     pub allow_single_task: bool,
 
-    /// disable the upper bound pruning optimization
+    /// Disable the single structurally hashed subtree match pruning. This is a very minor optimization that allows
+    /// discarding certain abstractions that only match at a single unique subtree as long as that subtree lacks free
+    /// variables, because arity zero abstractions are always superior in this case
+    #[clap(long)]
+    pub no_opt_single_use: bool,
+
+    /// Disable *upper bound* based pruning. Section 4.2 of Stitch paper https://arxiv.org/abs/2211.16605
+    /// This is an extremely important optimization (ablation study in Section 6.4 of Stitch paper)
     #[clap(long)]
     pub no_opt_upper_bound: bool,
 
-    /// disable the force multiuse pruning optimization
+    /// Disable *redundant argument elimination* pruning (aka "force multiuse"). Section 4.3 of Stitch paper https://arxiv.org/abs/2211.16605
+    /// This is a fairly important optimization (ablation study in Section 6.4 of Stitch paper)
     #[clap(long)]
     pub no_opt_force_multiuse: bool,
 
-    /// disable the useless abstraction pruning optimization 
+    /// Disable *argument capture* pruning (aka "useless abstraction pruning"). Section 4.3 of Stitch paper https://arxiv.org/abs/2211.16605
+    /// This is an extremely important optimization (ablation study in Section 6.4 of Stitch paper)
     #[clap(long)]
     pub no_opt_useless_abstract: bool,
 
-    /// disable the arity zero priming optimization
+    /// Disable the arity zero optimization, which searches first for the most compressive arity-zero abstraction since this
+    /// is extremely fast to find and provides a good starting point for our upper bound pruning. In practice this isn't a very
+    /// important optimization
     #[clap(long)]
     pub no_opt_arity_zero: bool,
 
-    /// makes it so utility is based purely on corpus size without adding
-    /// in the abstraction size
+    /// Switch to utility based purely on program size without adding
+    /// in the abstraction size (aka the "structure penalty" in DreamCoder)
     #[clap(long)]
     pub no_other_util: bool,
 
-    /// whenever you finish an invention do a full rewrite to check
-    /// that rewriting doesnt raise a cost mismatch exception
+    /// Used for soundness testing. Whenever you finish an invention do a full rewrite to check
+    /// that rewriting doesnt raise a cost mismatch exception. 
     #[clap(long)]
     pub rewrite_check: bool,
 
-    /// calculate utility exhaustively by performing a full rewrite;
-    /// mainly used when cost mismatches are happening and we need something slow but accurate
+    /// Calculate utility exhaustively by performing a full rewrite. Used for debugging when cost mismatch exceptions
+    /// are happening and we need something slow but accurate as a temporary solution.
     #[clap(long)]
     pub utility_by_rewrite: bool,
 
-    /// anything related to running a dreamcoder comparison
+    /// Extra printouts related to running a dreamcoder comparison. Section 6.1 of Stitch paper https://arxiv.org/abs/2211.16605
     #[clap(long)]
     pub dreamcoder_comparison: bool,
 
-    /// silence all printing within a compression step. See `--silent` to silence truly all outputs.
+    /// Silence all printing within a compression step. See `silent` to silence all outputs between compression steps as well.
     #[clap(long)]
     pub quiet: bool,
     
@@ -271,23 +284,23 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>
 #[derive(Parser, Debug, Serialize, Clone)]
 #[clap(name = "Cost Config")]
 pub struct CostConfig {
-    /// Override `cost` with a custom lambda cost
+    /// Sets cost for lambdas
     #[clap(long, default_value = "1")]
     pub cost_lam: usize,
     
-    /// Override `cost` with a custom application cost
+    /// Sets cost for applications in the lambda calculus
     #[clap(long, default_value = "1")]
     pub cost_app: usize,
 
-    /// Override `cost` with a custom $i variable cost
+    /// Sets cost for `$i` variables
     #[clap(long, default_value = "100")]
     pub cost_var: usize,
 
-    /// Override `cost` with a custom abstraction variable cost
+    /// Sets cost for `#i` abstraction variables
     #[clap(long, default_value = "100")]
     pub cost_ivar: usize,
 
-    /// Override `cost` with a custom default primitive cost
+    /// Sets cost for primitives like `+` and `*`
     #[clap(long, default_value = "100")]
     pub cost_prim_default: usize,
 }
