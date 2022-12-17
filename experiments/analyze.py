@@ -712,7 +712,7 @@ if __name__ == '__main__':
             'wheels': 'vehicles',
             'house': 'houses',
         }
-        domains = ['dials','nuts-bolts', 'furniture', 'wheels', 'bridge', 'city', 'castle', 'house']
+        domains = ['nuts-bolts', 'dials', 'furniture', 'wheels', 'bridge', 'city', 'castle', 'house']
 
         table = PrettyTable(['Domain', 'Training set C.R.', 'Test set C.R.', 'Runtime (s)', 'Peak mem. usage (MB)'])
 
