@@ -6,6 +6,7 @@ from typing import *
 from pathlib import Path
 import shutil
 from copy import deepcopy
+from stitch_core import *
 
 def load(file):
     with open(file,'rb') as f:
@@ -201,78 +202,6 @@ def stitch_size(stitch_program):
     return cost
 
 
-def dreamcoder_to_invention_info(in_file, out_file):
-    assert False, "unimplemented"
-    in_json = load(in_file)
-    out_json = load(out_file)
-    stitch_dsl_input = to_stitch_dsl(in_json)
-    stitch_dsl_output = to_stitch_dsl(out_json)
-    new_fn = diff(stitch_dsl_input,stitch_dsl_output)
-    assert len(new_fn) == 1, f"these inputs and outputs differ by {len(new_fn)} functions (must differ by 1 fn)"
-    new_fn = new_fn[0]
-    
-    all_programs_out = [programs['program'] for f in out_json['frontiers'] for programs in f['programs']]
-    stitch_programs_out = [to_stitch_program(p,stitch_dsl_output) for p in all_programs_out]
-    stitch_programs_cost_out = sum([stitch_cost(p) for p in stitch_programs_out])
-    
-    all_programs_in = [programs['program'] for f in in_json['frontiers'] for programs in f['programs']]
-    stitch_programs_in = [to_stitch_program(p,stitch_dsl_input) for p in all_programs_in]
-    stitch_programs_cost_in = sum([stitch_cost(p) for p in stitch_programs_in])
-    
-    compressive_utility = (stitch_programs_cost_in - stitch_programs_cost_out)
-    compressive_multiplier = stitch_programs_cost_in / stitch_programs_cost_out
-
-    return {
-        'in_file': str(in_file),
-        'out_file': str(out_file),
-        'name': new_fn['name'],
-        'stitch_uncanonical': new_fn['stitch_uncanonical'],
-        'stitch_canonical': new_fn['stitch_canonical'],
-        'dreamcoder': new_fn['dreamcoder'],
-        'dreamcoder_frontiers_score': None,
-        'stitch_programs_cost': stitch_programs_cost_out,
-        'compressive_utility': compressive_utility,
-        'compressive_multiplier': compressive_multiplier,
-        'stitch_utility': None,
-        'usages': usages(new_fn["name"], stitch_programs_out),
-        'stitch_programs': stitch_programs_out,
-        'dreamcoder_frontiers': out_json['frontiers'],
-    }
-
-def stitch_to_invention_info(stitch_json):
-    assert False, "unimplemented"
-    in_json = load(stitch_json['args']['file'])
-    stitch_dsl_input = to_stitch_dsl(in_json)
-
-    assert len(stitch_json['abstractions']) == 1, "there seem to be more than one invention in this file"
-    inv = stitch_json['abstractions'][0]
-
-    all_programs_in = [programs['program'] for f in in_json['frontiers'] for programs in f['programs']]
-    stitch_programs_in = [to_stitch_program(p,stitch_dsl_input) for p in all_programs_in]
-    stitch_programs_cost_in = sum([stitch_cost(p) for p in stitch_programs_in])
-    compressive_utility = (stitch_programs_cost_in - inv['final_cost'])
-
-    assert stitch_programs_cost_in == stitch_json["original_cost"]
-    assert compressive_utility ==  stitch_json["original_cost"] - inv["final_cost"]
-
-    return {
-            'in_file': stitch_json['args']['file'],
-            'out_file': stitch_json['args']['out'],
-            'name': inv['name'],
-            'stitch_uncanonical': inv['body'],
-            'stitch_canonical': inv['body'],
-            'dreamcoder': inv['dreamcoder'],
-            'dreamcoder_frontiers_score': None,
-            'stitch_programs_cost': inv['final_cost'],
-            'compressive_utility': stitch_json["original_cost"] - inv["final_cost"],
-            'compressive_multiplier': inv["multiplier"],
-            'stitch_utility': inv["utility"],
-            'usages': inv['num_uses'],
-            'stitch_programs': inv['rewritten'],
-            'dreamcoder_frontiers': None,
-        }
-
-
 def process_dreamcoder_inventions(in_file, out_file):
     # load dreamcoder files and diff
     in_json = load(in_file)
@@ -333,13 +262,8 @@ def process_stitch_inventions(in_file, out_file):
             i += 1
     assert i == len(out_programs_stitch)
 
-    # in_size = sum([stitch_size(p) for p in in_programs_stitch])
-    # out_size = sum([stitch_size(p) for p in out_programs_stitch])
-
     # todo add in invention size
     inv_size = sum([stitch_size(inv['stitch_canonical']) for inv in new_invs_stitch],0)
-    # absolute_compression = in_size - (out_size + inv_size)
-    # compression_ratio = in_size / (out_size + inv_size)
 
     compression_ratio_min = (sum([min([stitch_size(p) for p in ps]) for ps in in_frontiers_stitch])
         / (sum([min([stitch_size(p) for p in ps]) for ps in out_frontiers_stitch]) + inv_size))
@@ -362,8 +286,6 @@ def process_stitch_inventions(in_file, out_file):
 def usages(fn_name, stitch_programs):
     # we count name + closeparen or name + space so that fn_1 doesnt get counted for things like fn_10
     return sum([p.count(f'{fn_name})') + p.count(f'{fn_name} ') for p in stitch_programs])
-
-
 
 def diff_dreamcoder(in_invs,out_invs):
     """
@@ -396,46 +318,6 @@ def diff_stitch(input_dsl,output_dsl):
         assert input_dsl == output_dsl
         return []
 
-def run_info(dir):
-    runs = []
-    for file in os.listdir(dir):
-        m = re.match(r'iteration_(\d*)\.json',file)
-        if m is None:
-            print("skipping",file)
-            continue
-        iteration = int(m.group(1))
-        file = os.path.join(dir,file)
-        dc_json = load(file)
-        dsl = to_stitch_dsl(dc_json)
-        runs.append({
-            'iteration':iteration,
-            'file':file,
-            'dsl_len': len(dsl),
-            'num_tasks_solved': len(dc_json["frontiers"]),
-            'num_programs': len([p for f in dc_json["frontiers"] for p in f['programs']]),
-            })
-    runs.sort(key=lambda x: x['iteration'])
-    assert [x['iteration'] for x in runs] == list(range(len(runs)))
-    for i in range(len(runs)-1):
-        dsl = to_stitch_dsl(load(runs[i]['file']))
-        dsl_next = to_stitch_dsl(load(runs[i+1]['file']))
-        dsl_diff = diff(dsl,dsl_next)
-        runs[i]['num_expected_new_fns'] = len(dsl_diff)
-        runs[i]['expected_new_fns'] = dsl_diff
-    runs = runs[:-1] # ignore the last one that we couldn't diff on
-
-    num_expected_new_fns = [ x['num_expected_new_fns'] for x in runs ]
-    num_tasks_solved = [ x['num_tasks_solved'] for x in runs ]
-    num_programs = [ x['num_programs'] for x in runs ]
-    res = {
-        'num_expected_new_fns': num_expected_new_fns,
-        'total_new_fns': sum(num_expected_new_fns),
-        'num_tasks_solved': num_tasks_solved,
-        'num_programs': num_programs,
-        'iterations':runs,
-    }
-    return res
-
 def get_benches(bench_dir):
     # assert bench_dir.parent.name == 'benches'
     bench_names = [] # eg ["bench000_iteration_0", ...]
@@ -458,44 +340,6 @@ if __name__ == '__main__':
         difference = diff(input_dsl,output_dsl)
         print(f"{len(difference)} new dsl functions in diff")
         save(difference, sys.argv[4])
-
-    elif mode == 'run_info':
-        save(run_info(sys.argv[2]), os.path.join(sys.argv[2],'info.json'))
-        print("wrote", os.path.join(dir,'info.json'))
-
-    elif mode == 'all_run_info':
-        for domain,runs in RUNS.items():
-            for run in runs:
-                save(run_info(os.path.join('data',domain,run)), os.path.join('data',domain,run,'info.json'))
-    
-    elif mode == 'invention_info_dc':
-        in_file = sys.argv[2]
-        out_file = sys.argv[3]
-        out_path = Path(sys.argv[3]).with_suffix('.invention_info.json')
-        save(dreamcoder_to_invention_info(in_file,out_file), out_path)
-
-    elif mode == 'run_invention_info_dc':
-        data_path = Path(sys.argv[2])
-        out_path = Path(sys.argv[3])
-        save_dir = out_path / 'invention_info'
-        save_dir.mkdir(exist_ok=True)
-        input_run_info = load(data_path / 'info.json')
-
-        summary_json = []
-
-        for i in range(0,len(input_run_info['iterations'])):
-            inv = 0
-            curr_input = data_path / f'iteration_{i}.json'
-            for file in sorted(os.listdir(out_path / f'iteration_{i}_rerun_compressionMessages')):
-                output = out_path / f'iteration_{i}_rerun_compressionMessages' / file
-                inv_info = dreamcoder_to_invention_info(curr_input, output)
-                save(inv_info, save_dir / f'iteration_{i}_inv{inv}.json')
-                inv_info['dreamcoder_frontiers'] = None
-                inv_info['stitch_programs'] = None
-                summary_json.append(inv_info)
-                curr_input = output
-                inv += 1
-        save(summary_json, save_dir / f'info.json')
     
     elif mode == 'to_input_files':
         out_path = Path(sys.argv[2])
@@ -503,19 +347,6 @@ if __name__ == '__main__':
         for i,in_file in enumerate(in_files):
             print(in_file)
     
-    elif mode == 'run_invention_info_stitch':
-        out_path = Path(sys.argv[2])
-        save_dir = out_path / 'stitch' / 'invention_info'
-        save_dir.mkdir(exist_ok=True)
-        summary = []
-        for file in sorted([f for f in os.listdir(out_path / 'stitch') if f.endswith('.json')], key=lambda x: int(re.match(r'out_(\d*)',x).group(1))):
-            stitch_json = load(out_path / 'stitch' / file)
-            inv_info = stitch_to_invention_info(stitch_json)
-            save(inv_info, save_dir / f'{file}.json')
-            inv_info['dreamcoder_frontiers'] = None
-            inv_info['stitch_programs'] = None
-            summary.append(inv_info)
-        save(summary, save_dir / 'info.json')
 
     elif mode == 'compare':
         out_path = Path(sys.argv[2])
@@ -719,7 +550,6 @@ if __name__ == '__main__':
                 
                 xs = [j + i * bar_width for j in range(num_benches)]
                 
-                # print(f'plotted {run_dir.parent.name}')
                 ax.bar(xs, bar_heights, width = bar_width, label=f'{run_dir.parent.name}/{run_dir.name}')
 
             # set y axis to start at 1
@@ -807,7 +637,6 @@ if __name__ == '__main__':
         matplotlib.rcParams['ps.fonttype'] = 42
 
         import numpy as np
-        # plt.style.use('ggplot') 
         import seaborn as sns
         sns.set_theme(color_codes=True)
 
@@ -866,11 +695,6 @@ if __name__ == '__main__':
                     assert stitch_processed['num_inventions'] == dreamcoder_processed['num_inventions']
                     num_inventions = stitch_processed['num_inventions']
 
-                    # for inv in dreamcoder_processed['inventions']:
-                    #     if inv['arity'] > 3:
-                    #         a = inv['arity']
-                    #         print(f"dc found high arity ({domain}): {a}")
-
                     # we dont record metrics on runs that have no inventions
                     if num_inventions == 0:
                         done_benches += 1
@@ -887,22 +711,8 @@ if __name__ == '__main__':
                             stitch_data /= 1000
                             dreamcoder_data /= 1000
 
-                            # stitch_data = [stitch_data] * num_inventions
-                            # dreamcoder_data = [dreamcoder_data] * num_inventions
-
                         if metric in ('compression_ratio','compression_ratio_min'):
                             stitch_data, dreamcoder_data = stitch_data / dreamcoder_data, dreamcoder_data / stitch_data
-                            # stitch_data = stitch_data**(1/num_inventions)
-                            # dreamcoder_data = dreamcoder_data**(1/num_inventions)
-
-                            # stitch_data = [stitch_data] * num_inventions
-                            # dreamcoder_data = [dreamcoder_data] * num_inventions
-                        
-
-                        # if metric in ("time_per_inv_with_rewrite", "time_per_inv_no_rewrite", "compression_ratio"):
-                        #     stitch_metrics[metric].extend(stitch_data)
-                        #     dreamcoder_metrics[metric].extend(dreamcoder_data)
-                        # else:
                         stitch_metrics[metric].append(stitch_data)
                         dreamcoder_metrics[metric].append(dreamcoder_data)
                     done_benches += 1
@@ -930,9 +740,6 @@ if __name__ == '__main__':
                 print("\ttext_text_ellisk_2019-01-24T21.58.02/bench010_it12.json")
                 print("\ttext_text_ellisk_2019-01-25T20.19.06/bench006_it6.json")
 
-            
-
-
         num_x_ticks = len(domains)
         num_bars_per_tick = 2
         bar_width = (1/(num_bars_per_tick+1))
@@ -955,15 +762,8 @@ if __name__ == '__main__':
                             continue
                         ys.append(sum(ydata)/len(ydata))
                         y_errbars.append(np.std(ydata))
-                        # else:
-                        #     ys.append(None)
-                        #     y_errbars.append(None)
                         xs.append(j + i*bar_width)
                     
-                    # bottom = 0
-                    # if metric == 'compression_ratio':
-                    #     bottom = 1
-                    #     ys = [y-1 for y in ys]
                     label = {'stitch':'Stitch (1 cpu)','dreamcoder':'Dreamcoder (8 cpus)'}[name]
                     ax.bar(xs, ys, yerr=y_errbars, width = bar_width, bottom=0, label=label)
                 xs = [j + bar_width/2 for j in range(len(domains))]
