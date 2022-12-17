@@ -11,6 +11,8 @@ import glob
 from prettytable import PrettyTable
 import random
 import time
+from multiprocessing import Queue
+import resource
 
 
 def load(file):
@@ -354,7 +356,37 @@ def latest(mode_dir, benches_dir):
         res.append(runs[-1])
     return res
 
+def run_workload(seed, programs, q: Queue):
+    """
+    Runs a workload, can be run within a multiprocessing process
+    so that getrusage() will return the actual self usage not including the parent
+    (though unclear exactly if this will be the case with fork etc)
+    """
+    random.seed(seed)
+    random.shuffle(programs)
+    split = 200  # Test set size is fixed to 20% of programs
+    train,test = programs[:split], programs[split:]
 
+    # with open('tmp_train.json','w') as f:
+    #     json.dump(train,f,indent=4)
+    # with open('tmp_test.json','w') as f:
+    #     json.dump(test,f,indent=4)
+
+    tstart = time.time()
+    res = compress(train, max_arity=3, iterations=10)
+    rewritten = rewrite(test,res.abstractions, panic_loud=False, silent=False)
+    runtime = time.time() - tstart
+    mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 10**6 # MB of this process, at least with spawn() start method on mac
+
+    rewritten_train = rewrite(train,res.abstractions, panic_loud=False, silent=False, max_arity=3)
+    assert rewritten_train == res.rewritten
+
+    q.put([
+        corpus_size(train) / corpus_size(res.rewritten),
+        corpus_size(test) / corpus_size(rewritten),
+        runtime,
+        mem
+    ])
 
 if __name__ == '__main__':
     mode = sys.argv[1]
@@ -668,6 +700,8 @@ if __name__ == '__main__':
     elif mode == "claim-2":
         import numpy as np
 
+        from multiprocessing import Process, Queue
+
         file_to_human_readable = {
             'nuts-bolts': 'nuts & bolts',
             'bridge': 'bridges',
@@ -680,7 +714,7 @@ if __name__ == '__main__':
         }
         # domains = ['dials']
 
-        domains = ['nuts-bolts', 'dials', 'furniture', 'wheels', 'bridge', 'city', 'castle', 'house']
+        domains = ['nuts-bolts', 'dials',] # 'furniture', 'wheels', 'bridge', 'city', 'castle', 'house']
         table = PrettyTable(['Domain', 'Training set C.R.', 'Test set C.R.', 'Runtime (s)', 'Peak mem. usage (MB)'])
 
 
@@ -695,35 +729,24 @@ if __name__ == '__main__':
             train_compressions = []
             test_compressions = []
             runtimes = []
+            mems = []
             for seed in range(1,num_repetitions+1):
+                q = Queue()
+                p = Process(target=run_workload,args=(seed,original_programs[:],q))
+                p.start()
+                train_comp,test_comp,runtime,mem = q.get()
+                p.join()
+                train_compressions.append(train_comp)
+                test_compressions.append(test_comp)
+                runtimes.append(runtime)
+                mems.append(mem)
                 print(".",end="",flush=True)
-                programs = original_programs[:]
-                random.seed(seed)
-                random.shuffle(programs)
-                split = 200  # Test set size is fixed to 20% of programs
-                train,test = programs[:split], programs[split:]
-
-                # with open('tmp_train.json','w') as f:
-                #     json.dump(train,f,indent=4)
-                # with open('tmp_test.json','w') as f:
-                #     json.dump(test,f,indent=4)
-
-                tstart = time.time()
-                res = compress(train, max_arity=3, iterations=10)
-                rewritten = rewrite(test,res.abstractions, panic_loud=False, silent=False)
-                runtimes.append(time.time() - tstart)
-
-                rewritten_train = rewrite(train,res.abstractions, panic_loud=False, silent=False, max_arity=3)
-                assert rewritten_train == res.rewritten
-
-                train_compressions.append(corpus_size(train) / corpus_size(res.rewritten))
-                test_compressions.append(corpus_size(test) / corpus_size(rewritten))
             table.add_row([
                 file_to_human_readable[domain],
                 f'{np.mean(train_compressions):.2f} +- {np.std(train_compressions):.2f}',
                 f'{np.mean(test_compressions):.2f} +- {np.std(test_compressions):.2f}',
                 f'{np.mean(runtimes):.2f} +- {np.std(runtimes):.2f}',
-                'N/A'
+                f'{np.mean(mems):.2f} +- {np.std(mems):.2f}',
             ])
             print("")
         print(table)
