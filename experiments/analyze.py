@@ -329,6 +329,24 @@ def get_benches(bench_dir):
         assert bench.startswith(f'bench{i:03d}')
     return bench_names
 
+def latest(mode_dir, benches_dir):
+    benches_dir = Path(benches_dir)
+    benches = [b for b in benches_dir.iterdir() if b != 'old']
+    assert mode_dir in ('dreamcoder','stitch')
+    mode_dir = 'stitch' if mode_dir == 'stitch' else 'dc'
+    
+    res = []
+    for benchpath in benches:
+        target = benchpath / 'out' / mode_dir
+        if not target.exists() or len(list(target.iterdir())) == 0:
+            continue # skip if doesnt exist or empty
+        runs = [r for r in target.iterdir() if r.is_dir()]
+        runs.sort(key=lambda r: r.name) # so last one will be latest by time
+        res.append(runs[-1])
+    return res
+
+
+
 if __name__ == '__main__':
     mode = sys.argv[1]
     if mode == 'dsl':
@@ -607,25 +625,36 @@ if __name__ == '__main__':
             d = load(iteration_json)
             d['arity'] = 3
             save(d, bench_group_arity3 / f'bench{i:03d}_it{i}.json')
-
-
-
             
     elif mode == 'latest':
-        benches_dir = Path(sys.argv[3])
-        benches = [b for b in benches_dir.iterdir() if b != 'old']
-        assert sys.argv[2] in ('dreamcoder','stitch')
-        mode_dir = 'stitch' if sys.argv[2] == 'stitch' else 'dc'
 
-        for benchpath in benches:
-            target = benchpath / 'out' / mode_dir
-            if not target.exists() or len(list(target.iterdir())) == 0:
-                continue # skip if doesnt exist or empty
-            runs = [r for r in target.iterdir() if r.is_dir()]
-            runs.sort(key=lambda r: r.name) # so last one will be latest by time
-            latest = runs[-1]
-            print(str(latest))
-        # if sys.argv[2] == 'dreamcoder':
+        for l in latest(sys.argv[2],sys.argv[3]):
+            print(str(l))
+
+    # elif mode == 'claim-1':
+    #     benches_dir = sys.argv[2]
+    #     runs = latest('dreamcoder',benches_dir)
+    #     for run in runs:
+    #         run = run.parent.parent.parent
+    #         out_dir=f"{benches_dir}/out/stitch/$(TZ='America/New_York' date '+%Y-%m-%d_%H-%M-%S')"
+    #         mkdir -p $OUT_DIR/raw
+    #         mkdir -p $OUT_DIR/stderr
+    #         STITCH_FLAGS="--max-arity=3 --threads=1 --fmt=dreamcoder --dreamcoder-comparison"
+    #         for BENCH_PATH in $BENCH_DIR/bench*.json; do
+    #             BENCH=$(basename -s .json $BENCH_PATH)
+    #             ITERATIONS=$(python3 analyze.py iteration_budget $COMPARE_TO $BENCH_PATH)
+    #             if [ $ITERATIONS -eq 0 ]; then
+    #                 echo "skipping $BENCH_PATH since comparison is nonexistant or has zero iterations"
+    #                 continue
+    #             fi
+    #             echo "[bench_stitch.sh] Running Stitch on: $BENCH"
+    #             echo "$STITCH_DIR/target/release/compress $BENCH_PATH --iterations=$ITERATIONS $STITCH_FLAGS $EXTRA_STITCH_FLAGS"
+    #             $GTIME -v $STITCH_DIR/target/release/compress $BENCH_PATH --iterations=$ITERATIONS $STITCH_FLAGS $EXTRA_STITCH_FLAGS --out=$OUT_DIR/raw/$BENCH.json 2>&1 &> $OUT_DIR/stderr/$BENCH.stderr
+    #         done
+
+    #         python3 analyze.py process stitch $OUT_DIR
+
+    #         echo "Done: $OUT_DIR"
 
     elif mode == 'graph_all':
         """
