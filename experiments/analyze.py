@@ -687,7 +687,7 @@ if __name__ == '__main__':
         num_repetitions = int(sys.argv[2])
         results = []
         for domain in domains:
-            print(f"{domain}:",end="")
+            print(f"{domain}:",end="",flush=True)
             with open(f'../data/cogsci/{domain}.json', 'rb') as data:
                 original_programs = json.load(data)
             assert len(original_programs) == 250
@@ -696,7 +696,7 @@ if __name__ == '__main__':
             test_compressions = []
             runtimes = []
             for seed in range(1,num_repetitions+1):
-                print(".",end="")
+                print(".",end="",flush=True)
                 programs = original_programs[:]
                 random.seed(seed)
                 random.shuffle(programs)
