@@ -7,6 +7,11 @@ from pathlib import Path
 import shutil
 from copy import deepcopy
 from stitch_core import *
+import glob
+from prettytable import PrettyTable
+import random
+import time
+
 
 def load(file):
     with open(file,'rb') as f:
@@ -200,6 +205,10 @@ def stitch_size(stitch_program):
     # prim/var costs is the number of space separated things remaining
     cost += COST_TERMINAL * len([x for x in stitch_program.split(' ') if x != ''])
     return cost
+
+def corpus_size(stitch_programs):
+    return sum([stitch_size(p) for p in stitch_programs],0)
+
 
 
 def process_dreamcoder_inventions(in_file, out_file):
@@ -655,6 +664,71 @@ if __name__ == '__main__':
     #         python3 analyze.py process stitch $OUT_DIR
 
     #         echo "Done: $OUT_DIR"
+
+    elif mode == "claim-2":
+        import numpy as np
+
+        file_to_human_readable = {
+            'nuts-bolts': 'nuts & bolts',
+            'bridge': 'bridges',
+            'dials': 'gadgets',
+            'city': 'cities',
+            'furniture': 'furniture',
+            'castle': 'castles',
+            'wheels': 'vehicles',
+            'house': 'houses',
+        }
+        # domains = ['dials']
+
+        domains = ['nuts-bolts', 'dials', 'furniture', 'wheels', 'bridge', 'city', 'castle', 'house']
+        table = PrettyTable(['Domain', 'Training set C.R.', 'Test set C.R.', 'Runtime (s)', 'Peak mem. usage (MB)'])
+
+
+        num_repetitions = int(sys.argv[2])
+        results = []
+        for domain in domains:
+            print(f"{domain}:",end="")
+            with open(f'../data/cogsci/{domain}.json', 'rb') as data:
+                original_programs = json.load(data)
+            assert len(original_programs) == 250
+            
+            train_compressions = []
+            test_compressions = []
+            runtimes = []
+            for seed in range(1,num_repetitions+1):
+                print(".",end="")
+                programs = original_programs[:]
+                random.seed(seed)
+                random.shuffle(programs)
+                split = 200  # Test set size is fixed to 20% of programs
+                train,test = programs[:split], programs[split:]
+
+                # with open('tmp_train.json','w') as f:
+                #     json.dump(train,f,indent=4)
+                # with open('tmp_test.json','w') as f:
+                #     json.dump(test,f,indent=4)
+
+                tstart = time.time()
+                res = compress(train, max_arity=3, iterations=10)
+                rewritten = rewrite(test,res.abstractions, panic_loud=False, silent=False)
+                runtimes.append(time.time() - tstart)
+
+                rewritten_train = rewrite(train,res.abstractions, panic_loud=False, silent=False, max_arity=3)
+                assert rewritten_train == res.rewritten
+
+                train_compressions.append(corpus_size(train) / corpus_size(res.rewritten))
+                test_compressions.append(corpus_size(test) / corpus_size(rewritten))
+            table.add_row([
+                file_to_human_readable[domain],
+                f'{np.mean(train_compressions):.2f} +- {np.std(train_compressions):.2f}',
+                f'{np.mean(test_compressions):.2f} +- {np.std(test_compressions):.2f}',
+                f'{np.mean(runtimes):.2f} +- {np.std(runtimes):.2f}',
+                'N/A'
+            ])
+            print("")
+        print(table)
+
+
 
     elif mode == 'graph_all':
         """

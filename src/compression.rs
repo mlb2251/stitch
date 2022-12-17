@@ -235,7 +235,7 @@ pub struct Pattern {
 }
 
 /// returns the vec of zippers to each ivar
-fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>) -> Vec<Vec<ZId>> {
+fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>) -> Option<Vec<Vec<ZId>>> {
 
     // quickly determine arity
     let mut arity = 0;
@@ -250,33 +250,35 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>
     let mut curr_zip: Vec<ZNode> = vec![];
     let mut zids_of_ivar = vec![vec![]; arity as usize];
 
-    fn helper(expr: Expr, curr_zip: &mut Vec<ZNode>, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>) {
+    fn helper(expr: Expr, curr_zip: &mut Vec<ZNode>, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>) -> Result<(), ()> {
         match expr.node() {
             Node::Prim(_) => {},
             Node::Var(_) => {},
             Node::IVar(i) => {
-                zids_of_ivar[*i as usize].push(zid_of_zip[curr_zip]);
+                zids_of_ivar[*i as usize].push(zid_of_zip.get(curr_zip).cloned().ok_or(())?);
             },
             Node::Lam(b) => {
                 curr_zip.push(ZNode::Body);
-                helper(expr.get(*b), curr_zip, zids_of_ivar, zid_of_zip);
+                helper(expr.get(*b), curr_zip, zids_of_ivar, zid_of_zip)?;
                 curr_zip.pop();
             }
             Node::App(f,x) => {
                 curr_zip.push(ZNode::Func);
-                helper(expr.get(*f), curr_zip, zids_of_ivar, zid_of_zip);
+                helper(expr.get(*f), curr_zip, zids_of_ivar, zid_of_zip)?;
                 curr_zip.pop();
                 curr_zip.push(ZNode::Arg);
-                helper(expr.get(*x), curr_zip, zids_of_ivar, zid_of_zip);
+                helper(expr.get(*x), curr_zip, zids_of_ivar, zid_of_zip)?;
                 curr_zip.pop();
             }
         }
-        
+        Ok(())
     }
     // we can pick any match location
-    helper(expr.immut(), &mut curr_zip, &mut zids_of_ivar, zid_of_zip);
+    if helper(expr.immut(), &mut curr_zip, &mut zids_of_ivar, zid_of_zip).is_err() {
+        return None
+    };
 
-    zids_of_ivar
+    Some(zids_of_ivar)
 }
 
 
@@ -1826,13 +1828,23 @@ pub fn compression_step(
     if !cfg.quiet { println!("arg_of_zid_node size: {}", arg_of_zid_node.len()) }
 
     // set up tracking if any
-    let tracking: Option<Tracking> = cfg.follow.as_ref().map(|s|{
-        let mut set = ExprSet::empty(Order::ChildFirst, false, false);
-        let idx = set.parse_extend(s).unwrap();
-        let expr = ExprOwned::new(set,idx);
-        let zids_of_ivar = zids_of_ivar_of_expr(&expr, &zid_of_zip);
-        Tracking { expr, zids_of_ivar }
-    });
+    let tracking: Option<Tracking> = {
+        if let Some(s) = &cfg.follow {
+            let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+            let idx = set.parse_extend(s).unwrap();
+            let expr = ExprOwned::new(set,idx);
+            if let Some(zids_of_ivar) = zids_of_ivar_of_expr(&expr, &zid_of_zip) {
+                Some(Tracking { expr, zids_of_ivar })
+            } else {
+                if !cfg.quiet { println!("Tracking: can't possibly find a match for this in corpus because one if the necessary zippers ZIDs doesnt exist in corpus")}
+                return vec![];
+            }
+        } else {
+            None
+        }
+    };
+    
+
 
     if !cfg.quiet { println!("Tracking setup: {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();

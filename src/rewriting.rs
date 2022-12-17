@@ -131,14 +131,18 @@ pub fn rewrite_with_inventions(
     invs: &[Invention],
     cfg: &CompressionStepConfig,
 ) -> Vec<ExprOwned> {
+
     if invs.is_empty() {
         return programs.to_vec()
     }
+
     // programs.to_vec()
     let follow = Some(invs.to_vec());
     let mut multistep_cfg = MultistepCompressionConfig::parse_from("compress".split_whitespace());
     multistep_cfg.step = cfg.clone();
     multistep_cfg.iterations = invs.len();
+    multistep_cfg.step.max_arity = invs.iter().map(|inv| inv.arity).max().unwrap();
+
     let step_results = multistep_compression_internal(programs, None, None, follow, &multistep_cfg);
 
     // return the last one - note that if an abstraction wasn't used anywhere it will not be included in the step_results so this
