@@ -376,7 +376,7 @@ def run_workload(seed, programs, q: Queue):
     res = compress(train, max_arity=3, iterations=10)
     rewritten = rewrite(test,res.abstractions, panic_loud=False, silent=False)
     runtime = time.time() - tstart
-    mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 10**6 # MB of this process, at least with spawn() start method on mac
+    mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 10**6 # MB of this process, at least with spawn() start method on mac
 
     rewritten_train = rewrite(train,res.abstractions, panic_loud=False, silent=False, max_arity=3)
     assert rewritten_train == res.rewritten
