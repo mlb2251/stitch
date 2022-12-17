@@ -376,7 +376,14 @@ def run_workload(seed, programs, q: Queue):
     res = compress(train, max_arity=3, iterations=10)
     rewritten = rewrite(test,res.abstractions, panic_loud=False, silent=False)
     runtime = time.time() - tstart
-    mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 10**6 # MB of this process, at least with spawn() start method on mac
+    mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    if sys.platform == 'darwin':
+        mem /= 10**6 # on the M1 mac I tested on, it reports in bytes
+    elif sys.platform == 'linux' or sys.platform == 'linux2':
+        mem /= 10**3
+    else:
+        print(f"WARNING: unsure what rusage memory unit is on {sys.platform}, assuming kb")
+        mem /= 10**3
 
     rewritten_train = rewrite(train,res.abstractions, panic_loud=False, silent=False, max_arity=3)
     assert rewritten_train == res.rewritten
