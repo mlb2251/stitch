@@ -1,6 +1,20 @@
 use crate::*;
 use lambdas::*;
 
+
+pub fn min_cost(programs: &[ExprOwned], tasks: &Option<Vec<String>>, cost_fn: &ExprCost) -> i32 {
+    if let Some(tasks) = tasks {
+        let mut unique_tasks = tasks.to_vec();
+        unique_tasks.sort();
+        unique_tasks.dedup();
+        unique_tasks.iter().map(|task|
+            tasks.iter().zip(programs.iter()).filter_map(|(t,p)| if task == t { Some(p.cost(cost_fn)) } else { None }).min().unwrap()
+        ).sum::<i32>()
+    } else {
+        programs.iter().map(|e| e.cost(cost_fn)).sum::<i32>()
+    }
+}
+
 /// print some info about a Vec of programs
 pub fn programs_info(programs: &[ExprOwned], cost_fn: &ExprCost) {
     let max_cost = programs.iter().map(|e| e.cost(cost_fn)).max().unwrap();

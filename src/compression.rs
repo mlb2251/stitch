@@ -2,6 +2,7 @@ use crate::*;
 use lambdas::*;
 use rand::seq::SliceRandom;
 use rustc_hash::{FxHashMap,FxHashSet};
+use std::convert::TryInto;
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
@@ -11,7 +12,7 @@ use serde::Serialize;
 use std::thread;
 use std::sync::Arc;
 use parking_lot::Mutex;
-use std::ops::{DerefMut};
+use std::ops::DerefMut;
 use std::collections::BinaryHeap;
 use rand::Rng;
 
@@ -20,23 +21,36 @@ use rand::Rng;
 #[clap(name = "Multistep Compression")]
 pub struct MultistepCompressionConfig {
 
-    /// Number of iterations to run compression for (number of inventions to find)
+    /// Maximum number of iterations to run compression for (number of inventions to find, though
+    /// stitch will stop early if no compressive abstraction exists)
     #[clap(short, long, default_value = "3")]
     pub iterations: usize,
 
-    /// shuffle order of set of inventions 
+    /// Prefix used to generate names of new abstractions, by default we will name our
+    /// abstractions fn_0, fn_1, fn_2, etc
+    #[clap(long, default_value = "fn_")]
+    pub abstraction_prefix: String,
+
+    /// Number of previous abstractions that have been found before this round of compression - this
+    /// is used to calculate what the next abstraction name should be - for example if 2 abstractions have
+    /// been found previously then the next abstraction will be fn_2
+    #[clap(long, default_value = "0")]
+    pub previous_abstractions: usize,
+
+    /// Shuffles the order of the programs passed in
     #[clap(long)]
     pub shuffle: bool,
 
-    /// truncate set of inventions to include only this many (happens after shuffle if shuffle is also specified)
+    /// Truncate the list of programs (happens after shuffle if shuffle is also specified)
     #[clap(long)]
     pub truncate: Option<usize>,
 
-    /// disable all optimizations
+    /// Disable all optimizations
     #[clap(long)]
     pub no_opt: bool,
 
-    /// zero printouts at all except in the case of a panic. See also --quiet to just silence internal printouts during each compression step
+    /// Disables all prinouts except in the case of a panic. See also `quiet` to just silence internal printouts during each compression step
+    /// In Python this defaults to True.
     #[clap(long)]
     pub silent: bool,
 
@@ -48,11 +62,12 @@ pub struct MultistepCompressionConfig {
 #[derive(Parser, Debug, Serialize, Clone)]
 #[clap(name = "Stitch")]
 pub struct CompressionStepConfig {
-    /// max arity of abstractions to find (will find all from 0 to this number inclusive)
+    /// Max arity of abstractions to find (will find arities from 0 to this number inclusive).
+    /// Note that scaling with arity can be very expensive
     #[clap(short='a', long, default_value = "2")]
     pub max_arity: usize,
 
-    /// number of threads (no parallelism if set to 1)
+    /// Number of threads to use for compression (no parallelism if set to 1)
     #[clap(short='t', long, default_value = "1")]
     pub threads: usize,
 
@@ -61,140 +76,130 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_stats: bool,
 
-    /// how many worklist items a thread will take at once
+    /// How many worklist items a thread will take at once
     #[clap(short='b', long, default_value = "1")]
     pub batch: usize,
 
-    /// threads will autoadjust how large their batches are based on the worklist size
+    /// Threads will autoadjust how large their batches are based on the worklist size
     #[clap(long)]
     pub dynamic_batch: bool,
 
-    /// Number of invention candidates compression_step should return in a *single* step. Note that
-    /// these will be the top n optimal candidates modulo subsumption pruning (and the top-1  is guaranteed
+    /// [currently not used] Number of invention candidates compression_step should return in a *single* step. Note that
+    /// these will be the top n optimal candidates modulo subsumption pruning (and the top-1 is guaranteed
     /// to be globally optimal)
     #[clap(short='n', long, default_value = "1")]
     pub inv_candidates: usize,
 
-    /// Method for choosing hole to expand at each step, doesn't have a huge effect
+    /// Method for choosing hole to expand at each step. Doesn't have a huge effect.
     #[clap(long, arg_enum, default_value = "depth-first")]
     pub hole_choice: HoleChoice,
 
-    /// Cost function to use
-    #[clap(long, arg_enum, default_value = "dreamcoder")]
-    pub cost: CostFnChoice,
+    #[clap(flatten)]
+    pub cost: CostConfig,
 
-    /// Override `cost` with a custom lambda cost
-    #[clap(long)]
-    pub cost_lam: Option<i32>,
-    
-    /// Override `cost` with a custom application cost
-    #[clap(long)]
-    pub cost_app: Option<i32>,
-
-    /// Override `cost` with a custom $i variable cost
-    #[clap(long)]
-    pub cost_var: Option<i32>,
-
-    /// Override `cost` with a custom abstraction variable cost
-    #[clap(long)]
-    pub cost_ivar: Option<i32>,
-
-    /// Override `cost` with a custom default primitive cost
-    #[clap(long)]
-    pub cost_prim_default: Option<i32>,
-
-    /// disables the safety check for the utility being correct; you only want
+    /// Disables the safety check for the utility being correct; you only want
     /// to do this if you truly dont mind unsoundness for a minute
     #[clap(long)]
     pub no_mismatch_check: bool,
 
-    /// makes it so inventions cant start with a lambda at the top
+    /// Makes it so inventions cant start with a lambda at the top
     #[clap(long)]
     pub no_top_lambda: bool,
 
-    /// pattern or abstraction to follow. if `follow_prune=True` we will aggressively prune to
+    /// Pattern or abstraction to follow and give prinouts about. If `follow_prune=True` we will aggressively prune to
     /// only follow this pattern, otherwise we will just verbosely print when ancestors of this pattern
     /// are encountered.
     #[clap(long)]
     pub follow: Option<String>,
 
-    /// for use with `--follow`, enables aggressive pruning
+    /// For use with `follow`, enables aggressive pruning. Useful for ensuring that it is *possible* to find a particular
+    /// abstraction by guiding the search directly towards it.
     #[clap(long)]
     pub follow_prune: bool,
 
-    /// prints every worklist item as it is processed (will slow things down a ton due to rendering out expressins)
+    /// Prints every worklist item as it is processed (will slow things down a ton due to rendering out expressions).
     #[clap(long)]
     pub verbose_worklist: bool,
     
-    /// prints whenever a new best abstraction is found
+    /// Prints whenever a new best abstraction is found
     #[clap(long)]
     pub verbose_best: bool,
 
-    /// print stats this often (0 means never)
+    /// Print stats this often (0 means never)
     #[clap(long, default_value = "0")]
     pub print_stats: usize,
 
-    /// print out programs rewritten under abstraction
+    /// Print out programs rewritten under abstraction
     #[clap(long,short='r')]
     pub show_rewritten: bool,
 
-    /// include `rewritten_dreamcoder` in the output json
+    /// Include the dreamcoder-format rewritten programs in the output
     #[clap(long)]
     pub rewritten_dreamcoder: bool,
 
-    /// include `rewritten` from each intermediate rewritten result in the output json
-    /// after each invention
+    /// For each abstraction learned, includes the rewritten programs right after learning that
+    /// abstraction in the output. If `rewritten_dreamcoder` is also specified, then the rewritten
+    /// programs in dreamcoder format will also be included.
     #[clap(long)]
     pub rewritten_intermediates: bool,    
 
-    /// disables the edge case handling where argument capture needs to be inverted for optimality
+    /// Enables edge case handling where inverting the argument capture subsumption pruning is needed for optimality.
+    /// Generally not relevant just included for completeness, see the footnoted section
+    /// of Section 4.3 of the Stitch paper https://arxiv.org/abs/2211.16605
     #[clap(long)]
     pub inv_arg_cap: bool,
 
-    /// disable the single structurally hashed subtree match pruning
-    #[clap(long)]
-    pub no_opt_single_use: bool,
-
-    /// allow for abstractions that are only useful in a single task
+    /// Allow for abstractions that are only useful in a single task (defaults to False like DreamCoder)
     #[clap(long)]
     pub allow_single_task: bool,
 
-    /// disable the upper bound pruning optimization
+    /// Disable the single structurally hashed subtree match pruning. This is a very minor optimization that allows
+    /// discarding certain abstractions that only match at a single unique subtree as long as that subtree lacks free
+    /// variables, because arity zero abstractions are always superior in this case
+    #[clap(long)]
+    pub no_opt_single_use: bool,
+
+    /// Disable *upper bound* based pruning. Section 4.2 of Stitch paper https://arxiv.org/abs/2211.16605
+    /// This is an extremely important optimization (ablation study in Section 6.4 of Stitch paper)
     #[clap(long)]
     pub no_opt_upper_bound: bool,
 
-    /// disable the force multiuse pruning optimization
+    /// Disable *redundant argument elimination* pruning (aka "force multiuse"). Section 4.3 of Stitch paper https://arxiv.org/abs/2211.16605
+    /// This is a fairly important optimization (ablation study in Section 6.4 of Stitch paper)
     #[clap(long)]
     pub no_opt_force_multiuse: bool,
 
-    /// disable the useless abstraction pruning optimization 
+    /// Disable *argument capture* pruning (aka "useless abstraction pruning"). Section 4.3 of Stitch paper https://arxiv.org/abs/2211.16605
+    /// This is an extremely important optimization (ablation study in Section 6.4 of Stitch paper)
     #[clap(long)]
     pub no_opt_useless_abstract: bool,
 
-    /// disable the arity zero priming optimization
+    /// Disable the arity zero optimization, which searches first for the most compressive arity-zero abstraction since this
+    /// is extremely fast to find and provides a good starting point for our upper bound pruning. In practice this isn't a very
+    /// important optimization
     #[clap(long)]
     pub no_opt_arity_zero: bool,
 
-    /// makes it so utility is based purely on corpus size without adding
-    /// in the abstraction size
+    /// Switch to utility based purely on program size without adding
+    /// in the abstraction size (aka the "structure penalty" in DreamCoder)
     #[clap(long)]
     pub no_other_util: bool,
 
-    /// whenever you finish an invention do a full rewrite to check
-    /// that rewriting doesnt raise a cost mismatch exception
+    /// Used for soundness testing. Whenever you finish an invention do a full rewrite to check
+    /// that rewriting doesnt raise a cost mismatch exception. 
     #[clap(long)]
     pub rewrite_check: bool,
 
-    /// calculate utility exhaustively by performing a full rewrite;
-    /// mainly used when cost mismatches are happening and we need something slow but accurate
+    /// Calculate utility exhaustively by performing a full rewrite. Used for debugging when cost mismatch exceptions
+    /// are happening and we need something slow but accurate as a temporary solution.
     #[clap(long)]
     pub utility_by_rewrite: bool,
 
-    /// anything related to running a dreamcoder comparison
+    /// Extra printouts related to running a dreamcoder comparison. Section 6.1 of Stitch paper https://arxiv.org/abs/2211.16605
     #[clap(long)]
     pub dreamcoder_comparison: bool,
 
-    /// silence all printing within a compression step. See `--silent` to silence truly all outputs.
+    /// Silence all printing within a compression step. See `silent` to silence all outputs between compression steps as well.
     #[clap(long)]
     pub quiet: bool,
     
@@ -206,6 +211,27 @@ impl CompressionStepConfig {
         self.no_opt_force_multiuse = true;
         self.no_opt_useless_abstract = true;
         self.no_opt_arity_zero = true;
+    }
+    pub fn new() -> Self {
+        Self::parse_from("compress".split_whitespace())
+    }
+}
+impl MultistepCompressionConfig {
+    pub fn new() -> Self {
+        Self::parse_from("compress".split_whitespace())
+    }
+}
+
+// we use these manual implementations - deriving would set things to zero instead of
+// to their clap defaults i think
+impl Default for MultistepCompressionConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl Default for CompressionStepConfig {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -230,7 +256,7 @@ pub struct Pattern {
 }
 
 /// returns the vec of zippers to each ivar
-fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>) -> Vec<Vec<ZId>> {
+fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>) -> Option<Vec<Vec<ZId>>> {
 
     // quickly determine arity
     let mut arity = 0;
@@ -245,33 +271,74 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>
     let mut curr_zip: Vec<ZNode> = vec![];
     let mut zids_of_ivar = vec![vec![]; arity as usize];
 
-    fn helper(expr: Expr, curr_zip: &mut Vec<ZNode>, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>) {
+    fn helper(expr: Expr, curr_zip: &mut Vec<ZNode>, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>) -> Result<(), ()> {
         match expr.node() {
             Node::Prim(_) => {},
             Node::Var(_) => {},
             Node::IVar(i) => {
-                zids_of_ivar[*i as usize].push(zid_of_zip[curr_zip]);
+                zids_of_ivar[*i as usize].push(zid_of_zip.get(curr_zip).cloned().ok_or(())?);
             },
             Node::Lam(b) => {
                 curr_zip.push(ZNode::Body);
-                helper(expr.get(*b), curr_zip, zids_of_ivar, zid_of_zip);
+                helper(expr.get(*b), curr_zip, zids_of_ivar, zid_of_zip)?;
                 curr_zip.pop();
             }
             Node::App(f,x) => {
                 curr_zip.push(ZNode::Func);
-                helper(expr.get(*f), curr_zip, zids_of_ivar, zid_of_zip);
+                helper(expr.get(*f), curr_zip, zids_of_ivar, zid_of_zip)?;
                 curr_zip.pop();
                 curr_zip.push(ZNode::Arg);
-                helper(expr.get(*x), curr_zip, zids_of_ivar, zid_of_zip);
+                helper(expr.get(*x), curr_zip, zids_of_ivar, zid_of_zip)?;
                 curr_zip.pop();
             }
         }
-        
+        Ok(())
     }
     // we can pick any match location
-    helper(expr.immut(), &mut curr_zip, &mut zids_of_ivar, zid_of_zip);
+    if helper(expr.immut(), &mut curr_zip, &mut zids_of_ivar, zid_of_zip).is_err() {
+        return None
+    };
 
-    zids_of_ivar
+    Some(zids_of_ivar)
+}
+
+
+/// Args for cost function used
+#[derive(Parser, Debug, Serialize, Clone)]
+#[clap(name = "Cost Config")]
+pub struct CostConfig {
+    /// Sets cost for lambdas
+    #[clap(long, default_value = "1")]
+    pub cost_lam: usize,
+    
+    /// Sets cost for applications in the lambda calculus
+    #[clap(long, default_value = "1")]
+    pub cost_app: usize,
+
+    /// Sets cost for `$i` variables
+    #[clap(long, default_value = "100")]
+    pub cost_var: usize,
+
+    /// Sets cost for `#i` abstraction variables
+    #[clap(long, default_value = "100")]
+    pub cost_ivar: usize,
+
+    /// Sets cost for primitives like `+` and `*`
+    #[clap(long, default_value = "100")]
+    pub cost_prim_default: usize,
+}
+
+impl CostConfig {
+    pub fn expr_cost(&self) -> ExprCost {
+        ExprCost {
+            cost_lam: self.cost_lam.try_into().unwrap(),
+            cost_app: self.cost_app.try_into().unwrap(),
+            cost_var: self.cost_var.try_into().unwrap(),
+            cost_ivar: self.cost_ivar.try_into().unwrap(),
+            cost_prim_default: self.cost_prim_default.try_into().unwrap(),
+            cost_prim: Default::default(),
+        }
+    }
 }
 
 
@@ -603,35 +670,6 @@ pub struct Stats {
 }
 
 
-/// a strategy for choosing which hole to expand next in a partial pattern
-#[derive(Debug, Clone, clap::ArgEnum, Serialize)]
-pub enum CostFnChoice {
-    Dreamcoder,
-}
-
-impl CostFnChoice {
-    pub fn cost_fn(&self, cfg: &CompressionStepConfig) -> ExprCost {
-        let mut cost_fn = match self {
-            CostFnChoice::Dreamcoder => ExprCost::dreamcoder(),
-        };
-        if let Some(cost_lam) = cfg.cost_lam {
-            cost_fn.cost_lam = cost_lam;
-        }
-        if let Some(cost_app) = cfg.cost_app {
-            cost_fn.cost_app = cost_app;
-        }
-        if let Some(cost_var) = cfg.cost_var {
-            cost_fn.cost_var = cost_var;
-        }
-        if let Some(cost_ivar) = cfg.cost_ivar {
-            cost_fn.cost_ivar = cost_ivar;
-        }
-        if let Some(cost_prim_default) = cfg.cost_prim_default {
-            cost_fn.cost_prim_default = cost_prim_default;
-        }
-        cost_fn
-    }
-}
 
 /// a strategy for choosing which hole to expand next in a partial pattern
 #[derive(Debug, Clone, clap::ArgEnum, Serialize)]
@@ -1003,7 +1041,7 @@ fn stitch_search(
                     if shared.cfg.rewrite_check {
                         // run rewriting just to make sure the assert in it passes
                         let rw_fast = rewrite_fast(&finished_pattern, &shared, &Node::Prim("fake_inv".into()), &shared.cost_fn);
-                        let rw_slow = rewrite_with_inventions(&shared.programs, &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.cfg);
+                        let rw_slow = rewrite_with_inventions(&shared.programs, &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.cfg.cost);
                         for (fast,slow) in rw_fast.iter().zip(rw_slow.iter()) {
                             assert_eq!(fast.to_string(), slow.to_string());
                         }
@@ -1274,13 +1312,12 @@ pub struct CompressionStepResult {
     pub use_args: Vec<Vec<Idx>>,
     pub dc_inv_str: String,
     pub initial_cost: i32,
+    pub anonymous_to_named: Vec<(String,String)>,
+    pub dc_comparison_millis: Option<usize>,
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, past_invs: &[CompressionStepResult], prev_dc_inv_to_inv_strs: &[(String, String)]) -> Self {
-
-        // cost of the very first initial program before any inventions
-        let very_first_cost = if let Some(past_inv) = past_invs.first() { past_inv.initial_cost } else { shared.init_cost };
+    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, very_first_cost: i32, anonymous_to_named: &[(String,String)], dc_comparison_millis: Option<usize>) -> Self {
 
         let inv = done.to_invention(inv_name, shared);
         let rewritten = rewrite_fast(&done, shared, &Node::Prim(inv.name.clone().into()), &shared.cost_fn);
@@ -1300,21 +1337,22 @@ impl CompressionStepResult {
                 shared.arg_of_zid_node[*zid][node].shifted_id
             ).collect()).collect();
         
-        // Combine the past_invs with the existing dreamcoder inventions.
-        let mut dreamcoder_translations: Vec<(String, String)>  = past_invs.iter().map(|compression_step_result| (compression_step_result.inv.name.clone(), compression_step_result.dc_inv_str.clone())).collect();
-
-        dreamcoder_translations.extend(prev_dc_inv_to_inv_strs.iter().cloned());
 
         // dreamcoder compatability
-        let dc_inv_str: String = dc_inv_str(&inv, &dreamcoder_translations);
+        let dc_inv_str: String = dc_inv_str(&inv, anonymous_to_named);
         // Rewrite to dreamcoder syntax with all past invention
         // we rewrite "inv1)" and "inv1 " instead of just "inv1" because we dont want to match on "inv10"
+
+        // Combine the past_invs with the existing dreamcoder inventions.
+        let mut anonymous_to_named = anonymous_to_named.to_vec();
+        anonymous_to_named.push((inv.name.clone(), dc_inv_str.clone()));
+        
 
         let rewritten_dreamcoder: Option<Vec<String>> = if !shared.cfg.rewritten_dreamcoder { None } else {
             Some(rewritten.iter().map(|p|{
             let mut res: String = p.to_string();
-            for (prev_inv_name, prev_dc_inv_str) in prev_dc_inv_to_inv_strs {
-                res = replace_prim_with(&res, prev_inv_name, prev_dc_inv_str);
+            for (name, anonymous) in &anonymous_to_named {
+                res = replace_prim_with(&res, name, anonymous);
             }
 
             // Now go ahead and replace the current invention.
@@ -1323,7 +1361,7 @@ impl CompressionStepResult {
             res
         }).collect())};
 
-        CompressionStepResult { set: shared.set.clone(), inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost: shared.init_cost }
+        CompressionStepResult { set: shared.set.clone(), inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost: shared.init_cost, anonymous_to_named, dc_comparison_millis }
     }
     pub fn json(&self, cfg: &CompressionStepConfig) -> serde_json::Value {        
         let all_uses: Vec<serde_json::Value> = {
@@ -1348,6 +1386,7 @@ impl CompressionStepResult {
             "rewritten": rewritten,
             "rewritten_dreamcoder": rewritten_dreamcoder,
             "uses": all_uses,
+            "dc_comparison_millis": self.dc_comparison_millis
         })
     }
 }
@@ -1638,91 +1677,96 @@ fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[F
 }
 
 /// Multistep compression. See `compression_step` if you'd just like to do a single step of compression.
-pub fn compression(
+pub fn multistep_compression_internal(
     train_programs: &[ExprOwned],
-    iterations: usize,
-    cfg: &CompressionStepConfig,
     tasks: Option<Vec<String>>,
-    prev_dc_inv_to_inv_strs: &[(String, String)],
-    follow: Option<Vec<Invention>>
+    anonymous_to_named: Option<Vec<(String, String)>>,
+    follow: Option<Vec<Invention>>,
+    cfg: &MultistepCompressionConfig
 ) -> Vec<CompressionStepResult> {
-    let num_prior_inventions = prev_dc_inv_to_inv_strs.len();
 
     let mut rewritten: Vec<ExprOwned> = train_programs.to_vec();
     let mut step_results: Vec<CompressionStepResult> = Default::default();
-    let cost_fn = &cfg.cost.cost_fn(cfg);
+    let cost_fn = &cfg.step.cost.expr_cost();
 
     let tstart = std::time::Instant::now();
 
     let mut cfg = cfg.clone();
 
     if let Some(follow) = &follow {
-        assert_eq!(follow.len(), iterations);
-        cfg.follow_prune = true;
-        cfg.rewrite_check = false; // this will cause a loop
-        cfg.quiet = true;
-        cfg.no_opt();
+        assert_eq!(follow.len(), cfg.iterations);
+        cfg.step.follow_prune = true;
+        cfg.step.rewrite_check = false; // this will cause a loop
+        cfg.step.quiet = true;
+        cfg.step.no_opt();
     }
 
-    let tasks = tasks.unwrap_or_else(|| {
+    let very_first_cost = min_cost(train_programs, &tasks, cost_fn);
+
+    let tasks: Vec<String> = tasks.unwrap_or_else(|| {
         (0..train_programs.len())
             .map(|i| i.to_string())
             .collect()
     });
 
-    for i in 0..iterations {
-        if !cfg.quiet { println!("{}",format!("\n=======Iteration {}=======",i).blue().bold()) }
+    let mut anonymous_to_named = anonymous_to_named.unwrap_or_default();
+
+
+
+
+    for i in 0..cfg.iterations {
+        if !cfg.step.quiet { println!("{}",format!("\n=======Iteration {}=======",i).blue().bold()) }
         let inv_name = if let Some(follow) = &follow {
-            cfg.follow = Some(follow[i].body.to_string());
+            cfg.step.follow = Some(follow[i].body.to_string());
             follow[i].name.clone()
         } else {
-            format!("fn_{}", num_prior_inventions + step_results.len())
+            format!("fn_{}", cfg.previous_abstractions + step_results.len())
         };
 
         // call actual compression
         let res: Vec<CompressionStepResult> = compression_step(
             &rewritten,
             &inv_name,
-            &cfg,
-            &step_results,
+            &cfg.step,
             &tasks,
-            prev_dc_inv_to_inv_strs,
+            very_first_cost,
+            &anonymous_to_named,
             );
 
         if !res.is_empty() {
             // rewrite with the invention
             let res: CompressionStepResult = res[0].clone();
             rewritten = res.rewritten.clone();
-            if !cfg.quiet { println!("Chose Invention {}: {}", res.inv.name, res) }
+            anonymous_to_named = res.anonymous_to_named.clone();
+            if !cfg.step.quiet { println!("Chose Invention {}: {}", res.inv.name, res) }
             step_results.push(res);
         } else if follow.is_some() {
             // if `follow` was given then we will keep going for the full set of iterations
-            println!("Invention not found: {}", cfg.follow.as_ref().unwrap() )
+            if !cfg.step.quiet { println!("Invention not found: {}", cfg.step.follow.as_ref().unwrap() ) }
         } else {
-            if !cfg.quiet { println!("No inventions found at iteration {}",i) }
+            if !cfg.step.quiet { println!("No inventions found at iteration {}",i) }
             break;    
         }
     }
 
-    if cfg.show_rewritten {
+    if cfg.step.show_rewritten {
         println!("rewritten:\n{}", rewritten.iter().map(|p|p.to_string()).collect::<Vec<_>>().join("\n"));
     }
 
-    if !cfg.quiet { println!("{}","\n=======Compression Summary=======".blue().bold()) }
-    if !cfg.quiet { println!("Found {} inventions", step_results.len()) }
-    let init_cost = train_programs.iter().map(|p| p.cost(cost_fn)).sum::<i32>();
-    let rewritten_cost = rewritten.iter().map(|p| p.cost(cost_fn)).sum::<i32>();
-    if !cfg.quiet { println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(init_cost, rewritten_cost), init_cost, rewritten_cost) }
+    if !cfg.step.quiet { println!("{}","\n=======Compression Summary=======".blue().bold()) }
+    if !cfg.step.quiet { println!("Found {} inventions", step_results.len()) }
+    let rewritten_cost = min_cost(&rewritten, &Some(tasks.clone()), cost_fn);
+    if !cfg.step.quiet { println!("Cost Improvement: ({:.2}x better) {} -> {}", compression_factor(very_first_cost, rewritten_cost), very_first_cost, rewritten_cost) }
     for res in step_results.iter() {
-        let rewritten_cost = res.rewritten.iter().map(|p| p.cost(cost_fn)).sum::<i32>();
-        if !cfg.quiet { println!("{} ({:.2}x wrt orig): {}" , res.inv.name.clone().blue(), compression_factor(init_cost, rewritten_cost), res) }
+        let rewritten_cost = min_cost(&res.rewritten, &Some(tasks.clone()), cost_fn);
+        if !cfg.step.quiet { println!("{} ({:.2}x wrt orig): {}" , res.inv.name.clone().blue(), compression_factor(very_first_cost, rewritten_cost), res) }
     }
-    if !cfg.quiet { println!("Time: {}ms", tstart.elapsed().as_millis()) }
-    if cfg.follow_prune && !(
-        cfg.no_opt_upper_bound
-        && cfg.no_opt_force_multiuse
-        && cfg.no_opt_useless_abstract
-        && cfg.no_opt_arity_zero) && !cfg.quiet { println!("{} you often want to run --follow-track with --no-opt otherwise your target may get pruned", "[WARNING]".yellow()) }
+    if !cfg.step.quiet { println!("Time: {}ms", tstart.elapsed().as_millis()) }
+    if cfg.step.follow_prune && !(
+        cfg.step.no_opt_upper_bound
+        && cfg.step.no_opt_force_multiuse
+        && cfg.step.no_opt_useless_abstract
+        && cfg.step.no_opt_arity_zero) && !cfg.step.quiet { println!("{} you often want to run --follow-track with --no-opt otherwise your target may get pruned", "[WARNING]".yellow()) }
 
     step_results
 }
@@ -1734,12 +1778,12 @@ pub fn compression_step(
     programs: &[ExprOwned],
     new_inv_name: &str, // name of the new invention, like "inv4"
     cfg: &CompressionStepConfig,
-    past_invs: &[CompressionStepResult], // past inventions we've found
-    task_name_of_root_idx: &[String],
-    prev_dc_inv_to_inv_strs: &[(String, String)],
+    tasks: &[String],
+    very_first_cost: i32,
+    anonymous_to_named: &[(String, String)],
 ) -> Vec<CompressionStepResult> {
 
-    let cost_fn = &cfg.cost.cost_fn(cfg);
+    let cost_fn = &cfg.cost.expr_cost();
 
     let tstart_total = std::time::Instant::now();
     let tstart_prep = std::time::Instant::now();
@@ -1763,7 +1807,7 @@ pub fn compression_step(
     let mut task_name_of_task: Vec<String> = vec![];
     let mut task_of_root_idx: Vec<usize> = vec![];
     let mut root_idxs_of_task: Vec<Vec<usize>> = vec![];
-    for (root_idx,task_name) in task_name_of_root_idx.iter().enumerate() {
+    for (root_idx,task_name) in tasks.iter().enumerate() {
         let task = task_name_of_task.iter().position(|name| name == task_name)
             .unwrap_or_else(||{
                 task_name_of_task.push(task_name.clone());
@@ -1807,13 +1851,23 @@ pub fn compression_step(
     if !cfg.quiet { println!("arg_of_zid_node size: {}", arg_of_zid_node.len()) }
 
     // set up tracking if any
-    let tracking: Option<Tracking> = cfg.follow.as_ref().map(|s|{
-        let mut set = ExprSet::empty(Order::ChildFirst, false, false);
-        let idx = set.parse_extend(s).unwrap();
-        let expr = ExprOwned::new(set,idx);
-        let zids_of_ivar = zids_of_ivar_of_expr(&expr, &zid_of_zip);
-        Tracking { expr, zids_of_ivar }
-    });
+    let tracking: Option<Tracking> = {
+        if let Some(s) = &cfg.follow {
+            let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+            let idx = set.parse_extend(s).unwrap();
+            let expr = ExprOwned::new(set,idx);
+            if let Some(zids_of_ivar) = zids_of_ivar_of_expr(&expr, &zid_of_zip) {
+                Some(Tracking { expr, zids_of_ivar })
+            } else {
+                if !cfg.quiet { println!("Tracking: can't possibly find a match for this in corpus because one if the necessary zippers ZIDs doesnt exist in corpus")}
+                return vec![];
+            }
+        } else {
+            None
+        }
+    };
+    
+
 
     if !cfg.quiet { println!("Tracking setup: {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
@@ -2010,21 +2064,24 @@ pub fn compression_step(
 
     let donelist: Vec<FinishedPattern> = shared.crit.lock().deref_mut().donelist.clone();
 
-    if cfg.dreamcoder_comparison {
+    let dc_comparison_millis = if cfg.dreamcoder_comparison {
         if !shared.cfg.quiet { println!("Timing point 1 (from the start of compression_step to final donelist): {:?}ms", tstart_total.elapsed().as_millis()) }
         if !shared.cfg.quiet { println!("Timing Comparison Point A (search) (millis): {}", tstart_total.elapsed().as_millis()) }
         let tstart_rewrite = std::time::Instant::now();
         rewrite_fast(&donelist[0], &shared, &Node::Prim(new_inv_name.into()), cost_fn);
         if !shared.cfg.quiet { println!("Timing point 2 (rewriting the candidate): {:?}ms", tstart_rewrite.elapsed().as_millis()) }
         if !shared.cfg.quiet { println!("Timing Comparison Point B (search+rewrite) (millis): {}", tstart_total.elapsed().as_millis()) }
-    }
+        Some(tstart_total.elapsed().as_millis() as usize)
+    } else {
+        None
+    };
 
     let mut results: Vec<CompressionStepResult> = vec![];
 
     // construct CompressionStepResults and print some info about them)
     if !shared.cfg.quiet { println!("Cost before: {}", shared.init_cost) }
     for (i,done) in donelist.iter().enumerate() {
-        let res = CompressionStepResult::new(done.clone(), new_inv_name, &mut shared, past_invs, prev_dc_inv_to_inv_strs);
+        let res = CompressionStepResult::new(done.clone(), new_inv_name, &mut shared, very_first_cost, anonymous_to_named, dc_comparison_millis);
         if !shared.cfg.quiet { println!("{}: {}", i, res) }
         results.push(res);
     }
@@ -2040,10 +2097,13 @@ pub fn compression_step(
     results
 }
 
-
-pub fn multistep_compression(input: &Input, cfg: &MultistepCompressionConfig) -> (Vec<CompressionStepResult>, serde_json::Value) {
-    let mut input = input.clone();
+pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, anonymous_to_named: Option<Vec<(String,String)>>, cfg: &MultistepCompressionConfig) -> (Vec<CompressionStepResult>, serde_json::Value) {
+    let mut programs = programs.to_vec();
     let mut cfg = cfg.clone();
+
+    if let Some(tasks) = &tasks {
+        assert_eq!(tasks.len(), programs.len());
+    }
 
     if cfg.silent {
         cfg.step.quiet = true
@@ -2054,66 +2114,39 @@ pub fn multistep_compression(input: &Input, cfg: &MultistepCompressionConfig) ->
     }
     
     if cfg.shuffle {
-        input.train_programs.shuffle(&mut rand::thread_rng());
+        programs.shuffle(&mut rand::thread_rng());
     }
     if let Some(n) = cfg.truncate {
-        input.train_programs.truncate(n);
+        programs.truncate(n);
     }
     
     // parse the program strings into expressions
-    let train_programs: Vec<ExprOwned> = input.train_programs.iter().map(|p|{
+    let train_programs: Vec<ExprOwned> = programs.iter().map(|p|{
         let mut set = ExprSet::empty(Order::ChildFirst, false, false);
         let idx = set.parse_extend(p).unwrap();
         ExprOwned::new(set,idx)
     }).collect();
 
-    let test_programs: Option<Vec<ExprOwned>> = input.test_programs.map(|test_programs| test_programs.iter().map(|p|{
-        let mut set = ExprSet::empty(Order::ChildFirst, false, false);
-        let idx = set.parse_extend(p).unwrap();
-        ExprOwned::new(set,idx)
-    }).collect());
-
-    let cost_fn = cfg.step.cost.cost_fn(&cfg.step);
+    let cost_fn = cfg.step.cost.expr_cost();
 
     if !cfg.silent {
         println!("{}","**********".blue().bold());
         println!("{}","* Stitch *".blue().bold());
         println!("{}","**********".blue().bold());
         programs_info(&train_programs, &cost_fn);
-
-        if let Some(test_programs) = &test_programs {
-            println!("> Running with train/test split active");
-            programs_info(test_programs, &cost_fn);
-        }
     }
 
-    let step_results = compression(
+    let step_results = multistep_compression_internal(
         &train_programs, 
-        cfg.iterations, 
-        &cfg.step, 
-        input.tasks.clone(), 
-        &input.prev_dc_inv_to_inv_strs, 
+        tasks.clone(), 
+        anonymous_to_named, 
         None,
+        &cfg, 
     );
 
-    let test_output_json = test_programs.map(|test_programs| {
-        let invs: Vec<Invention> = step_results.iter().map(|r| r.inv.clone()).collect();
-        let rewritten: Vec<ExprOwned> = rewrite_with_inventions(&test_programs, &invs, &cfg.step);
-        let original_cost = test_programs.iter().map(|p| p.cost(&cost_fn)).sum::<i32>();
-        let final_cost = rewritten.iter().map(|p| p.cost(&cost_fn)).sum::<i32>();
-        if !cfg.silent { println!("Test set compression with all inventions applied: {}", compression_factor(original_cost,final_cost)) };
-        json!({
-            "original_cost": original_cost,
-            "final_cost": final_cost,
-            "compression_ratio": compression_factor(original_cost,final_cost),    
-            "original": test_programs.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
-            "rewritten": rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
-        })
-    });
-
     let rewritten: &Vec<ExprOwned> = step_results.iter().last().map(|res| &res.rewritten).unwrap_or(&train_programs);
-    let original_cost = train_programs.iter().map(|p|p.cost(&cost_fn)).sum::<i32>();
-    let final_cost = rewritten.iter().map(|p|p.cost(&cost_fn)).sum::<i32>();
+    let original_cost = min_cost(&train_programs, &tasks, &cost_fn);
+    let final_cost = min_cost(rewritten, &tasks, &cost_fn);
     let rewritten = step_results.iter().last().map(|res| &res.rewritten).unwrap_or(&train_programs).iter().map(|p| p.to_string()).collect::<Vec<String>>();
     let rewritten_dreamcoder = if !cfg.step.rewritten_dreamcoder { None } else {
         let rewritten_dreamcoder = step_results.iter().last().map(|res| res.rewritten_dreamcoder.clone().unwrap()).unwrap_or_else(||train_programs.iter().map(|p| p.to_string().replace("(lam ", "(lambda ")).collect::<Vec<String>>());
@@ -2131,7 +2164,6 @@ pub fn multistep_compression(input: &Input, cfg: &MultistepCompressionConfig) ->
         "original": train_programs.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
         "rewritten": rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
         "rewritten_dreamcoder": rewritten_dreamcoder,
-        "test_output": test_output_json,
         "abstractions": step_results.iter().map(|inv| inv.json(&cfg.step)).collect::<Vec<serde_json::Value>>(),
     });
 

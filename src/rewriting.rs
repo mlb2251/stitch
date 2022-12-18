@@ -128,14 +128,21 @@ pub fn rewrite_fast(
 pub fn rewrite_with_inventions(
     programs: &[ExprOwned],
     invs: &[Invention],
-    cfg: &CompressionStepConfig,
+    cfg: &CostConfig,
 ) -> Vec<ExprOwned> {
+
     if invs.is_empty() {
         return programs.to_vec()
     }
+
     // programs.to_vec()
     let follow = Some(invs.to_vec());
-    let step_results = compression(programs, invs.len(), cfg, None, &[], follow);
+    let mut multistep_cfg = MultistepCompressionConfig::new();
+    multistep_cfg.step.cost = cfg.clone();
+    multistep_cfg.iterations = invs.len();
+    multistep_cfg.step.max_arity = invs.iter().map(|inv| inv.arity).max().unwrap();
+
+    let step_results = multistep_compression_internal(programs, None, None, follow, &multistep_cfg);
 
     // return the last one - note that if an abstraction wasn't used anywhere it will not be included in the step_results so this
     // may be shorter than invs.len(), however we do ensure that we continue searching for the rest of the abstractions if this happens

@@ -1,9 +1,54 @@
 {
-  "cmd": null,
-  "args": null,
-  "original_cost": 414088,
-  "final_cost": 325799,
-  "compression_ratio": 1.270992237545235,
+  "cmd": "/Users/matthewbowers/proj/rust/stitch/target/release/deps/integration_tests-38d27ecd504c7478",
+  "args": {
+    "iterations": 10,
+    "abstraction_prefix": "fn_",
+    "previous_abstractions": 9,
+    "shuffle": false,
+    "truncate": null,
+    "no_opt": false,
+    "silent": false,
+    "step": {
+      "max_arity": 3,
+      "threads": 1,
+      "no_stats": false,
+      "batch": 1,
+      "dynamic_batch": false,
+      "inv_candidates": 1,
+      "hole_choice": "DepthFirst",
+      "cost": "Dreamcoder",
+      "cost_lam": null,
+      "cost_app": null,
+      "cost_var": null,
+      "cost_ivar": null,
+      "cost_prim_default": null,
+      "no_mismatch_check": false,
+      "no_top_lambda": false,
+      "follow": null,
+      "follow_prune": false,
+      "verbose_worklist": false,
+      "verbose_best": false,
+      "print_stats": 0,
+      "show_rewritten": false,
+      "rewritten_dreamcoder": false,
+      "rewritten_intermediates": false,
+      "inv_arg_cap": false,
+      "no_opt_single_use": false,
+      "allow_single_task": false,
+      "no_opt_upper_bound": false,
+      "no_opt_force_multiuse": false,
+      "no_opt_useless_abstract": false,
+      "no_opt_arity_zero": false,
+      "no_other_util": false,
+      "rewrite_check": true,
+      "utility_by_rewrite": false,
+      "dreamcoder_comparison": false,
+      "quiet": false
+    }
+  },
+  "original_cost": 71510,
+  "final_cost": 44435,
+  "compression_ratio": 1.6093169798582199,
   "num_abstractions": 10,
   "original": [
     "(lam (logo_forLoop 3 (lam (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_MULA (logo_DIVA logo_UA 3) 4) $0))) $0))",
@@ -136,256 +181,256 @@
     "(lam (logo_forLoop 7 (lam (lam (logo_forLoop 4 (lam (lam (logo_FWRT (logo_MULL logo_UL $3) (logo_DIVA logo_UA 4) $0))) $0))) $0))",
     "(lam (logo_forLoop 7 (lam (lam (logo_forLoop 4 (lam (lam (logo_FWRT (logo_MULL logo_UL $3) (logo_SUBA (logo_DIVA logo_UA 4) logo_UA) $0))) $0))) $0))",
     "(lam (logo_forLoop 7 (lam (lam (logo_forLoop 4 (lam (lam (logo_FWRT (logo_MULL logo_UL $3) (logo_MULA (logo_DIVA logo_UA 4) 9) $0))) $0))) $0))",
-    "(lam (prev_dc_inv_1 5 logo_epsA logo_ZL (prev_dc_inv_5 3 logo_UL $0)))",
-    "(lam (prev_dc_inv_5 4 (logo_MULL logo_UL 3) $0))",
-    "(lam (prev_dc_inv_1 4 prev_dc_inv_0 (logo_MULL logo_UL 3) $0))",
-    "(lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL 1) 3) $0))",
-    "(lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL 3) 1) $0))",
-    "(lam (prev_dc_inv_5 4 (logo_MULL (logo_DIVL logo_UL 3) 9) $0))",
-    "(lam (prev_dc_inv_5 5 logo_UL $0))",
-    "(lam (prev_dc_inv_1 5 (logo_MULA logo_epsA 8) logo_UL $0))",
-    "(lam (logo_GETSET (lam $0) (prev_dc_inv_1 5 (logo_MULA logo_epsA 8) logo_UL $0)))",
-    "(lam (logo_GETSET (lam (prev_dc_inv_5 5 logo_UL $0)) $0))",
-    "(lam (logo_GETSET (lam (prev_dc_inv_1 5 (logo_MULA logo_epsA 8) logo_UL $0)) $0))",
-    "(lam (prev_dc_inv_1 8 logo_epsA logo_ZL (prev_dc_inv_5 6 (logo_MULL logo_UL 2) $0)))",
-    "(lam (prev_dc_inv_2 logo_ZL logo_epsA 8 (prev_dc_inv_5 6 (logo_MULL logo_UL 2) $0)))",
-    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 5) (prev_dc_inv_5 6 (logo_MULL logo_UL 2) $0)))",
-    "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 5) (prev_dc_inv_5 6 (logo_MULL logo_UL 2) $0)))",
-    "(lam (logo_FWRT logo_epsL (logo_MULA logo_epsA 8) (prev_dc_inv_5 6 (logo_MULL logo_UL 2) $0)))",
-    "(lam (prev_dc_inv_5 7 logo_UL $0))",
-    "(lam (prev_dc_inv_5 7 (logo_MULL logo_UL 1) $0))",
-    "(lam (prev_dc_inv_5 7 (logo_DIVL logo_UL 1) $0))",
-    "(lam (prev_dc_inv_5 7 logo_UL (prev_dc_inv_3 logo_ZL $0)))",
-    "(lam (prev_dc_inv_5 7 logo_UL (prev_dc_inv_4 logo_ZL $0)))",
-    "(lam (prev_dc_inv_5 8 (logo_DIVL logo_UL 2) $0))",
-    "(lam (prev_dc_inv_1 8 (logo_MULA logo_epsA 5) (logo_DIVL logo_UL 2) $0))",
-    "(lam (prev_dc_inv_5 8 (logo_DIVL logo_UL 2) (logo_GETSET (lam $0) $0)))",
-    "(lam (prev_dc_inv_5 8 (logo_DIVL logo_UL 2) (logo_PT (lam $0) $0)))",
+    "(lam (dreamcoder_abstraction_1 5 logo_epsA logo_ZL (dreamcoder_abstraction_5 3 logo_UL $0)))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL logo_UL 3) $0))",
+    "(lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 (logo_MULL logo_UL 3) $0))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL 1) 3) $0))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL 3) 1) $0))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_DIVL logo_UL 3) 9) $0))",
+    "(lam (dreamcoder_abstraction_5 5 logo_UL $0))",
+    "(lam (dreamcoder_abstraction_1 5 (logo_MULA logo_epsA 8) logo_UL $0))",
+    "(lam (logo_GETSET (lam $0) (dreamcoder_abstraction_1 5 (logo_MULA logo_epsA 8) logo_UL $0)))",
+    "(lam (logo_GETSET (lam (dreamcoder_abstraction_5 5 logo_UL $0)) $0))",
+    "(lam (logo_GETSET (lam (dreamcoder_abstraction_1 5 (logo_MULA logo_epsA 8) logo_UL $0)) $0))",
+    "(lam (dreamcoder_abstraction_1 8 logo_epsA logo_ZL (dreamcoder_abstraction_5 6 (logo_MULL logo_UL 2) $0)))",
+    "(lam (dreamcoder_abstraction_2 logo_ZL logo_epsA 8 (dreamcoder_abstraction_5 6 (logo_MULL logo_UL 2) $0)))",
+    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 5) (dreamcoder_abstraction_5 6 (logo_MULL logo_UL 2) $0)))",
+    "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 5) (dreamcoder_abstraction_5 6 (logo_MULL logo_UL 2) $0)))",
+    "(lam (logo_FWRT logo_epsL (logo_MULA logo_epsA 8) (dreamcoder_abstraction_5 6 (logo_MULL logo_UL 2) $0)))",
+    "(lam (dreamcoder_abstraction_5 7 logo_UL $0))",
+    "(lam (dreamcoder_abstraction_5 7 (logo_MULL logo_UL 1) $0))",
+    "(lam (dreamcoder_abstraction_5 7 (logo_DIVL logo_UL 1) $0))",
+    "(lam (dreamcoder_abstraction_5 7 logo_UL (dreamcoder_abstraction_3 logo_ZL $0)))",
+    "(lam (dreamcoder_abstraction_5 7 logo_UL (dreamcoder_abstraction_4 logo_ZL $0)))",
+    "(lam (dreamcoder_abstraction_5 8 (logo_DIVL logo_UL 2) $0))",
+    "(lam (dreamcoder_abstraction_1 8 (logo_MULA logo_epsA 5) (logo_DIVL logo_UL 2) $0))",
+    "(lam (dreamcoder_abstraction_5 8 (logo_DIVL logo_UL 2) (logo_GETSET (lam $0) $0)))",
+    "(lam (dreamcoder_abstraction_5 8 (logo_DIVL logo_UL 2) (logo_PT (lam $0) $0)))",
     "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_DIVL logo_UL 2) (logo_DIVA logo_UA 8) (logo_PT (lam $0) $0)))) $0))",
-    "(lam (prev_dc_inv_2 logo_UL prev_dc_inv_0 2 $0))",
-    "(lam (logo_FWRT logo_ZL prev_dc_inv_0 (logo_FWRT logo_UL prev_dc_inv_0 $0)))",
-    "(lam (logo_FWRT logo_ZL prev_dc_inv_0 (logo_FWRT logo_UL logo_UA $0)))",
-    "(lam (logo_FWRT logo_ZL prev_dc_inv_0 (logo_FWRT logo_UL logo_epsA $0)))",
-    "(lam (logo_FWRT logo_ZL prev_dc_inv_0 (logo_FWRT logo_UL logo_ZA $0)))",
-    "(lam (logo_FWRT (logo_MULL logo_UL 2) prev_dc_inv_0 (logo_FWRT logo_UL logo_UA $0)))",
-    "(lam (logo_FWRT (logo_MULL logo_UL 2) prev_dc_inv_0 (logo_FWRT logo_UL logo_ZA $0)))",
-    "(lam (logo_FWRT (logo_MULL logo_UL 2) prev_dc_inv_0 (logo_FWRT logo_UL logo_epsA $0)))",
+    "(lam (dreamcoder_abstraction_2 logo_UL dreamcoder_abstraction_0 2 $0))",
+    "(lam (logo_FWRT logo_ZL dreamcoder_abstraction_0 (logo_FWRT logo_UL dreamcoder_abstraction_0 $0)))",
+    "(lam (logo_FWRT logo_ZL dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_UA $0)))",
+    "(lam (logo_FWRT logo_ZL dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_epsA $0)))",
+    "(lam (logo_FWRT logo_ZL dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_ZA $0)))",
+    "(lam (logo_FWRT (logo_MULL logo_UL 2) dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_UA $0)))",
+    "(lam (logo_FWRT (logo_MULL logo_UL 2) dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_ZA $0)))",
+    "(lam (logo_FWRT (logo_MULL logo_UL 2) dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_epsA $0)))",
     "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_UL (logo_DIVA (logo_MULA logo_UA $1) 4) $0))) $0))",
-    "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_UL (logo_MULA prev_dc_inv_0 $1) $0))) $0))",
-    "(lam (prev_dc_inv_1 2 prev_dc_inv_0 logo_epsL $0))",
-    "(lam (logo_FWRT logo_epsL prev_dc_inv_0 (logo_FWRT logo_epsL prev_dc_inv_0 $0)))",
-    "(lam (logo_FWRT logo_epsL prev_dc_inv_0 (logo_FWRT logo_epsL logo_UA $0)))",
-    "(lam (logo_FWRT logo_epsL prev_dc_inv_0 (logo_FWRT logo_epsL logo_epsA $0)))",
-    "(lam (logo_FWRT logo_epsL prev_dc_inv_0 (logo_FWRT logo_epsL logo_ZA $0)))",
+    "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_UL (logo_MULA dreamcoder_abstraction_0 $1) $0))) $0))",
+    "(lam (dreamcoder_abstraction_1 2 dreamcoder_abstraction_0 logo_epsL $0))",
+    "(lam (logo_FWRT logo_epsL dreamcoder_abstraction_0 (logo_FWRT logo_epsL dreamcoder_abstraction_0 $0)))",
+    "(lam (logo_FWRT logo_epsL dreamcoder_abstraction_0 (logo_FWRT logo_epsL logo_UA $0)))",
+    "(lam (logo_FWRT logo_epsL dreamcoder_abstraction_0 (logo_FWRT logo_epsL logo_epsA $0)))",
+    "(lam (logo_FWRT logo_epsL dreamcoder_abstraction_0 (logo_FWRT logo_epsL logo_ZA $0)))",
     "(lam (logo_FWRT logo_UL logo_UA $0))",
     "(lam (logo_FWRT logo_UL logo_ZA $0))",
     "(lam (logo_FWRT logo_UL logo_epsA $0))",
     "(lam (logo_FWRT logo_UL logo_ZA (logo_GETSET (lam $0) $0)))",
     "(lam (logo_FWRT logo_UL logo_epsA (logo_GETSET (lam $0) $0)))",
-    "(lam (logo_FWRT logo_ZL (logo_DIVA prev_dc_inv_0 3) (prev_dc_inv_5 4 logo_UL $0)))",
-    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 3) (prev_dc_inv_5 4 logo_UL $0)))",
-    "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (prev_dc_inv_5 4 logo_UL $0)))",
-    "(lam (logo_FWRT logo_ZL (logo_DIVA prev_dc_inv_0 3) (prev_dc_inv_1 4 prev_dc_inv_0 logo_UL $0)))",
-    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 3) (prev_dc_inv_1 4 prev_dc_inv_0 logo_UL $0)))",
-    "(lam (prev_dc_inv_1 7 logo_epsA logo_ZL (prev_dc_inv_8 4 $0)))",
-    "(lam (prev_dc_inv_2 logo_ZL logo_epsA 7 (prev_dc_inv_8 4 $0)))",
-    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 7) (prev_dc_inv_8 4 $0)))",
-    "(lam (prev_dc_inv_1 8 logo_epsA logo_ZL (prev_dc_inv_3 (logo_DIVL logo_UL 5) $0)))",
-    "(lam (prev_dc_inv_2 logo_ZL logo_epsA 8 (prev_dc_inv_3 (logo_DIVL logo_UL 5) $0)))",
-    "(lam (prev_dc_inv_2 (logo_MULL logo_UL 3) (logo_DIVA prev_dc_inv_0 2) 2 $0))",
-    "(lam (prev_dc_inv_2 (logo_MULL logo_UL 3) (logo_MULA logo_epsA 5) 2 $0))",
-    "(lam (prev_dc_inv_2 (logo_MULL logo_UL 3) (logo_DIVA logo_UA 8) 2 $0))",
-    "(lam (prev_dc_inv_1 5 logo_epsA logo_ZL (logo_FWRT (logo_MULL logo_UL 3) prev_dc_inv_0 $0)))",
-    "(lam (prev_dc_inv_2 logo_ZL logo_epsA 5 (logo_FWRT (logo_MULL logo_UL 3) prev_dc_inv_0 $0)))",
-    "(lam (prev_dc_inv_2 logo_UL prev_dc_inv_0 7 $0))",
-    "(lam (prev_dc_inv_2 (logo_MULL logo_UL 1) prev_dc_inv_0 7 $0))",
-    "(lam (prev_dc_inv_2 logo_UL (logo_SUBA prev_dc_inv_0 logo_UA) 7 $0))",
-    "(lam (prev_dc_inv_2 logo_UL (logo_ADDA prev_dc_inv_0 logo_UA) 7 $0))",
-    "(lam (prev_dc_inv_2 logo_UL (logo_ADDA logo_UA prev_dc_inv_0) 7 $0))",
-    "(lam (prev_dc_inv_2 logo_UL prev_dc_inv_0 8 $0))",
-    "(lam (prev_dc_inv_2 logo_UL prev_dc_inv_0 8 (logo_GETSET (lam $0) $0)))",
-    "(lam (prev_dc_inv_2 logo_UL prev_dc_inv_0 8 (logo_PT (lam $0) $0)))",
-    "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) prev_dc_inv_0 (logo_GETSET (lam $0) $0)))) $0))",
-    "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) prev_dc_inv_0 (logo_PT (lam $0) $0)))) $0))",
-    "(lam (prev_dc_inv_2 logo_epsL (logo_MULA logo_epsA 3) logo_IFTY $0))",
-    "(lam (prev_dc_inv_2 (logo_DIVL logo_UL logo_IFTY) (logo_MULA logo_epsA 3) logo_IFTY $0))",
-    "(lam (prev_dc_inv_2 logo_epsL (logo_ADDA (logo_ADDA logo_epsA logo_epsA) logo_epsA) logo_IFTY $0))",
-    "(lam (prev_dc_inv_2 logo_epsL (logo_ADDA logo_epsA (logo_ADDA logo_epsA logo_epsA)) logo_IFTY $0))",
-    "(lam (prev_dc_inv_2 logo_epsL (logo_DIVA (logo_SUBA prev_dc_inv_0 logo_epsA) 3) logo_IFTY $0))",
-    "(lam (prev_dc_inv_2 logo_epsL (logo_DIVA logo_UA 8) logo_IFTY $0))",
-    "(lam (prev_dc_inv_2 logo_epsL (logo_MULA logo_epsA 5) logo_IFTY $0))",
-    "(lam (logo_GETSET (lam $0) (prev_dc_inv_2 logo_epsL (logo_MULA logo_epsA 5) logo_IFTY $0)))",
-    "(lam (logo_GETSET (lam (prev_dc_inv_2 logo_epsL (logo_DIVA logo_UA 8) logo_IFTY $0)) $0))",
-    "(lam (logo_GETSET (lam (prev_dc_inv_2 logo_epsL (logo_MULA logo_epsA 5) logo_IFTY $0)) $0))",
-    "(lam (prev_dc_inv_1 5 (logo_DIVA (logo_ADDA logo_UA logo_UA) 5) (logo_MULL logo_UL 4) $0))",
-    "(lam (prev_dc_inv_1 5 (logo_ADDA prev_dc_inv_0 (logo_MULA logo_epsA 6)) (logo_MULL logo_UL 4) $0))",
-    "(lam (prev_dc_inv_1 5 (logo_ADDA (logo_MULA logo_epsA 6) prev_dc_inv_0) (logo_MULL logo_UL 4) $0))",
-    "(lam (prev_dc_inv_1 5 (logo_MULA (logo_MULA logo_epsA 4) 4) (logo_MULL logo_UL 4) $0))",
-    "(lam (prev_dc_inv_1 5 (logo_MULA (logo_ADDA logo_epsA logo_epsA) 8) (logo_MULL logo_UL 4) $0))",
-    "(lam (prev_dc_inv_1 9 (logo_DIVA (logo_MULA logo_UA 4) 9) (logo_MULL logo_UL 4) $0))",
-    "(lam (prev_dc_inv_1 9 (logo_MULA (logo_DIVA logo_UA 9) 4) (logo_MULL logo_UL 4) $0))",
-    "(lam (prev_dc_inv_1 9 (logo_MULA (logo_ADDA (logo_DIVA logo_UA 9) logo_UA) 4) (logo_MULL logo_UL 4) $0))",
-    "(lam (prev_dc_inv_1 9 (logo_MULA (logo_SUBA (logo_DIVA logo_UA 9) logo_UA) 4) (logo_MULL logo_UL 4) $0))",
-    "(lam (prev_dc_inv_1 9 (logo_SUBA (logo_MULA (logo_DIVA logo_UA 9) 4) logo_UA) (logo_MULL logo_UL 4) $0))",
-    "(lam (prev_dc_inv_6 $0))",
-    "(lam (prev_dc_inv_6 (prev_dc_inv_3 logo_ZL $0)))",
-    "(lam (prev_dc_inv_6 (prev_dc_inv_4 logo_ZL $0)))",
-    "(lam (prev_dc_inv_4 logo_ZL (prev_dc_inv_6 $0)))",
-    "(lam (logo_PT (lam $0) (prev_dc_inv_6 $0)))",
-    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 2) (prev_dc_inv_6 $0)))",
-    "(lam (prev_dc_inv_3 logo_ZL (prev_dc_inv_6 $0)))",
+    "(lam (logo_FWRT logo_ZL (logo_DIVA dreamcoder_abstraction_0 3) (dreamcoder_abstraction_5 4 logo_UL $0)))",
+    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 3) (dreamcoder_abstraction_5 4 logo_UL $0)))",
+    "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (dreamcoder_abstraction_5 4 logo_UL $0)))",
+    "(lam (logo_FWRT logo_ZL (logo_DIVA dreamcoder_abstraction_0 3) (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 logo_UL $0)))",
+    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 3) (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 logo_UL $0)))",
+    "(lam (dreamcoder_abstraction_1 7 logo_epsA logo_ZL (dreamcoder_abstraction_8 4 $0)))",
+    "(lam (dreamcoder_abstraction_2 logo_ZL logo_epsA 7 (dreamcoder_abstraction_8 4 $0)))",
+    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 7) (dreamcoder_abstraction_8 4 $0)))",
+    "(lam (dreamcoder_abstraction_1 8 logo_epsA logo_ZL (dreamcoder_abstraction_3 (logo_DIVL logo_UL 5) $0)))",
+    "(lam (dreamcoder_abstraction_2 logo_ZL logo_epsA 8 (dreamcoder_abstraction_3 (logo_DIVL logo_UL 5) $0)))",
+    "(lam (dreamcoder_abstraction_2 (logo_MULL logo_UL 3) (logo_DIVA dreamcoder_abstraction_0 2) 2 $0))",
+    "(lam (dreamcoder_abstraction_2 (logo_MULL logo_UL 3) (logo_MULA logo_epsA 5) 2 $0))",
+    "(lam (dreamcoder_abstraction_2 (logo_MULL logo_UL 3) (logo_DIVA logo_UA 8) 2 $0))",
+    "(lam (dreamcoder_abstraction_1 5 logo_epsA logo_ZL (logo_FWRT (logo_MULL logo_UL 3) dreamcoder_abstraction_0 $0)))",
+    "(lam (dreamcoder_abstraction_2 logo_ZL logo_epsA 5 (logo_FWRT (logo_MULL logo_UL 3) dreamcoder_abstraction_0 $0)))",
+    "(lam (dreamcoder_abstraction_2 logo_UL dreamcoder_abstraction_0 7 $0))",
+    "(lam (dreamcoder_abstraction_2 (logo_MULL logo_UL 1) dreamcoder_abstraction_0 7 $0))",
+    "(lam (dreamcoder_abstraction_2 logo_UL (logo_SUBA dreamcoder_abstraction_0 logo_UA) 7 $0))",
+    "(lam (dreamcoder_abstraction_2 logo_UL (logo_ADDA dreamcoder_abstraction_0 logo_UA) 7 $0))",
+    "(lam (dreamcoder_abstraction_2 logo_UL (logo_ADDA logo_UA dreamcoder_abstraction_0) 7 $0))",
+    "(lam (dreamcoder_abstraction_2 logo_UL dreamcoder_abstraction_0 8 $0))",
+    "(lam (dreamcoder_abstraction_2 logo_UL dreamcoder_abstraction_0 8 (logo_GETSET (lam $0) $0)))",
+    "(lam (dreamcoder_abstraction_2 logo_UL dreamcoder_abstraction_0 8 (logo_PT (lam $0) $0)))",
+    "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) dreamcoder_abstraction_0 (logo_GETSET (lam $0) $0)))) $0))",
+    "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) dreamcoder_abstraction_0 (logo_PT (lam $0) $0)))) $0))",
+    "(lam (dreamcoder_abstraction_2 logo_epsL (logo_MULA logo_epsA 3) logo_IFTY $0))",
+    "(lam (dreamcoder_abstraction_2 (logo_DIVL logo_UL logo_IFTY) (logo_MULA logo_epsA 3) logo_IFTY $0))",
+    "(lam (dreamcoder_abstraction_2 logo_epsL (logo_ADDA (logo_ADDA logo_epsA logo_epsA) logo_epsA) logo_IFTY $0))",
+    "(lam (dreamcoder_abstraction_2 logo_epsL (logo_ADDA logo_epsA (logo_ADDA logo_epsA logo_epsA)) logo_IFTY $0))",
+    "(lam (dreamcoder_abstraction_2 logo_epsL (logo_DIVA (logo_SUBA dreamcoder_abstraction_0 logo_epsA) 3) logo_IFTY $0))",
+    "(lam (dreamcoder_abstraction_2 logo_epsL (logo_DIVA logo_UA 8) logo_IFTY $0))",
+    "(lam (dreamcoder_abstraction_2 logo_epsL (logo_MULA logo_epsA 5) logo_IFTY $0))",
+    "(lam (logo_GETSET (lam $0) (dreamcoder_abstraction_2 logo_epsL (logo_MULA logo_epsA 5) logo_IFTY $0)))",
+    "(lam (logo_GETSET (lam (dreamcoder_abstraction_2 logo_epsL (logo_DIVA logo_UA 8) logo_IFTY $0)) $0))",
+    "(lam (logo_GETSET (lam (dreamcoder_abstraction_2 logo_epsL (logo_MULA logo_epsA 5) logo_IFTY $0)) $0))",
+    "(lam (dreamcoder_abstraction_1 5 (logo_DIVA (logo_ADDA logo_UA logo_UA) 5) (logo_MULL logo_UL 4) $0))",
+    "(lam (dreamcoder_abstraction_1 5 (logo_ADDA dreamcoder_abstraction_0 (logo_MULA logo_epsA 6)) (logo_MULL logo_UL 4) $0))",
+    "(lam (dreamcoder_abstraction_1 5 (logo_ADDA (logo_MULA logo_epsA 6) dreamcoder_abstraction_0) (logo_MULL logo_UL 4) $0))",
+    "(lam (dreamcoder_abstraction_1 5 (logo_MULA (logo_MULA logo_epsA 4) 4) (logo_MULL logo_UL 4) $0))",
+    "(lam (dreamcoder_abstraction_1 5 (logo_MULA (logo_ADDA logo_epsA logo_epsA) 8) (logo_MULL logo_UL 4) $0))",
+    "(lam (dreamcoder_abstraction_1 9 (logo_DIVA (logo_MULA logo_UA 4) 9) (logo_MULL logo_UL 4) $0))",
+    "(lam (dreamcoder_abstraction_1 9 (logo_MULA (logo_DIVA logo_UA 9) 4) (logo_MULL logo_UL 4) $0))",
+    "(lam (dreamcoder_abstraction_1 9 (logo_MULA (logo_ADDA (logo_DIVA logo_UA 9) logo_UA) 4) (logo_MULL logo_UL 4) $0))",
+    "(lam (dreamcoder_abstraction_1 9 (logo_MULA (logo_SUBA (logo_DIVA logo_UA 9) logo_UA) 4) (logo_MULL logo_UL 4) $0))",
+    "(lam (dreamcoder_abstraction_1 9 (logo_SUBA (logo_MULA (logo_DIVA logo_UA 9) 4) logo_UA) (logo_MULL logo_UL 4) $0))",
+    "(lam (dreamcoder_abstraction_6 $0))",
+    "(lam (dreamcoder_abstraction_6 (dreamcoder_abstraction_3 logo_ZL $0)))",
+    "(lam (dreamcoder_abstraction_6 (dreamcoder_abstraction_4 logo_ZL $0)))",
+    "(lam (dreamcoder_abstraction_4 logo_ZL (dreamcoder_abstraction_6 $0)))",
+    "(lam (logo_PT (lam $0) (dreamcoder_abstraction_6 $0)))",
+    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 2) (dreamcoder_abstraction_6 $0)))",
+    "(lam (dreamcoder_abstraction_3 logo_ZL (dreamcoder_abstraction_6 $0)))",
     "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 2) (logo_FWRT logo_epsL (logo_DIVA (logo_ADDA logo_UA logo_epsA) 2) $0)))) $0))",
     "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 2) (logo_FWRT logo_epsL (logo_DIVA (logo_SUBA logo_epsA logo_UA) 2) $0)))) $0))",
-    "(lam (prev_dc_inv_1 logo_IFTY (logo_MULA logo_epsA 9) logo_ZL (prev_dc_inv_6 $0)))",
-    "(lam (prev_dc_inv_6 (logo_FWRT logo_ZL prev_dc_inv_0 (prev_dc_inv_6 $0))))",
-    "(lam (prev_dc_inv_6 (prev_dc_inv_2 logo_UL prev_dc_inv_0 1 (prev_dc_inv_6 $0))))",
-    "(lam (prev_dc_inv_6 (prev_dc_inv_1 5 prev_dc_inv_0 logo_ZL (prev_dc_inv_6 $0))))",
-    "(lam (prev_dc_inv_6 (prev_dc_inv_2 logo_ZL prev_dc_inv_0 5 (prev_dc_inv_6 $0))))",
-    "(lam (prev_dc_inv_6 (prev_dc_inv_1 9 prev_dc_inv_0 logo_ZL (prev_dc_inv_6 $0))))",
-    "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_SUBA logo_UA prev_dc_inv_0) $0)))) $0))",
-    "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_SUBA logo_ZA prev_dc_inv_0) $0)))) $0))",
-    "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_MULA prev_dc_inv_0 3) $0)))) $0))",
-    "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_MULA prev_dc_inv_0 7) $0)))) $0))",
-    "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_MULA (logo_DIVA logo_UA 8) 6) $0)))) $0))",
-    "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 8) (prev_dc_inv_3 logo_epsL $0)))",
-    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 5) (prev_dc_inv_3 logo_epsL $0)))",
-    "(lam (prev_dc_inv_1 5 logo_epsA logo_ZL (prev_dc_inv_3 logo_epsL $0)))",
-    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 5) (logo_GETSET (lam $0) (prev_dc_inv_3 logo_epsL $0))))",
-    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 5) (logo_PT (lam $0) (prev_dc_inv_3 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_1 logo_IFTY (logo_MULA logo_epsA 9) logo_ZL (dreamcoder_abstraction_6 $0)))",
+    "(lam (dreamcoder_abstraction_6 (logo_FWRT logo_ZL dreamcoder_abstraction_0 (dreamcoder_abstraction_6 $0))))",
+    "(lam (dreamcoder_abstraction_6 (dreamcoder_abstraction_2 logo_UL dreamcoder_abstraction_0 1 (dreamcoder_abstraction_6 $0))))",
+    "(lam (dreamcoder_abstraction_6 (dreamcoder_abstraction_1 5 dreamcoder_abstraction_0 logo_ZL (dreamcoder_abstraction_6 $0))))",
+    "(lam (dreamcoder_abstraction_6 (dreamcoder_abstraction_2 logo_ZL dreamcoder_abstraction_0 5 (dreamcoder_abstraction_6 $0))))",
+    "(lam (dreamcoder_abstraction_6 (dreamcoder_abstraction_1 9 dreamcoder_abstraction_0 logo_ZL (dreamcoder_abstraction_6 $0))))",
+    "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_SUBA logo_UA dreamcoder_abstraction_0) $0)))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_SUBA logo_ZA dreamcoder_abstraction_0) $0)))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_MULA dreamcoder_abstraction_0 3) $0)))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_MULA dreamcoder_abstraction_0 7) $0)))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_MULA (logo_DIVA logo_UA 8) 6) $0)))) $0))",
+    "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 8) (dreamcoder_abstraction_3 logo_epsL $0)))",
+    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 5) (dreamcoder_abstraction_3 logo_epsL $0)))",
+    "(lam (dreamcoder_abstraction_1 5 logo_epsA logo_ZL (dreamcoder_abstraction_3 logo_epsL $0)))",
+    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 5) (logo_GETSET (lam $0) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 5) (logo_PT (lam $0) (dreamcoder_abstraction_3 logo_epsL $0))))",
     "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT logo_epsL logo_epsA (logo_FWRT logo_epsL logo_epsA $0)))) $0))",
-    "(lam (prev_dc_inv_4 logo_epsL $0))",
-    "(lam (logo_forLoop 6 (lam (lam (prev_dc_inv_1 7 logo_epsA logo_epsL $0))) $0))",
-    "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA logo_epsL $0))) $0))",
-    "(lam (logo_forLoop logo_IFTY (lam (lam (prev_dc_inv_1 2 logo_epsA logo_epsL $0))) $0))",
-    "(lam (prev_dc_inv_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL 2) $0))",
-    "(lam (prev_dc_inv_8 2 $0))",
-    "(lam (logo_FWRT logo_ZL logo_epsA (prev_dc_inv_3 (logo_MULL logo_epsL 2) $0)))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL $0))",
+    "(lam (logo_forLoop 6 (lam (lam (dreamcoder_abstraction_1 7 logo_epsA logo_epsL $0))) $0))",
+    "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA logo_epsL $0))) $0))",
+    "(lam (logo_forLoop logo_IFTY (lam (lam (dreamcoder_abstraction_1 2 logo_epsA logo_epsL $0))) $0))",
+    "(lam (dreamcoder_abstraction_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL 2) $0))",
+    "(lam (dreamcoder_abstraction_8 2 $0))",
+    "(lam (logo_FWRT logo_ZL logo_epsA (dreamcoder_abstraction_3 (logo_MULL logo_epsL 2) $0)))",
     "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT logo_ZL logo_epsA (logo_FWRT (logo_MULL logo_epsL 2) logo_UA $0)))) $0))",
     "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT logo_ZL logo_epsA (logo_FWRT (logo_MULL logo_epsL 2) logo_ZA $0)))) $0))",
-    "(lam (prev_dc_inv_3 (logo_MULL logo_epsL 3) $0))",
-    "(lam (logo_GETSET (lam $0) (prev_dc_inv_3 (logo_MULL logo_epsL 3) $0)))",
-    "(lam (logo_GETSET (lam (prev_dc_inv_3 (logo_MULL logo_epsL 3) $0)) $0))",
+    "(lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 3) $0))",
+    "(lam (logo_GETSET (lam $0) (dreamcoder_abstraction_3 (logo_MULL logo_epsL 3) $0)))",
+    "(lam (logo_GETSET (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 3) $0)) $0))",
     "(lam (logo_forLoop logo_IFTY (lam (lam (logo_GETSET (lam $0) (logo_FWRT (logo_MULL logo_epsL 3) logo_epsA $0)))) $0))",
     "(lam (logo_forLoop logo_IFTY (lam (lam (logo_PT (lam $0) (logo_FWRT (logo_MULL logo_epsL 3) logo_epsA $0)))) $0))",
-    "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 3) $0))) $0))",
-    "(lam (prev_dc_inv_7 3 $0))",
-    "(lam (logo_forLoop 7 (lam (lam (prev_dc_inv_1 6 logo_epsA (logo_MULL logo_epsL 3) $0))) $0))",
-    "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 3) $0))) $0))",
-    "(lam (logo_forLoop logo_IFTY (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_MULL logo_epsL 3) $0))) $0))",
-    "(lam (prev_dc_inv_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_DIVL logo_UL 5) $0))",
-    "(lam (prev_dc_inv_1 logo_IFTY (logo_SUBA logo_ZA logo_epsA) (logo_DIVL logo_UL 5) $0))",
-    "(lam (prev_dc_inv_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL 4) $0))",
-    "(lam (prev_dc_inv_8 4 $0))",
-    "(lam (logo_FWRT logo_ZL logo_epsA (prev_dc_inv_3 (logo_DIVL logo_UL 5) $0)))",
-    "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 4) $0))) $0))",
-    "(lam (prev_dc_inv_7 4 $0))",
-    "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_DIVL logo_UL 5) $0))) $0))",
-    "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 4) $0))) $0))",
-    "(lam (logo_forLoop logo_IFTY (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_DIVL logo_UL 5) $0))) $0))",
-    "(lam (prev_dc_inv_3 (logo_DIVL logo_UL 4) $0))",
-    "(lam (prev_dc_inv_3 (logo_MULL logo_epsL 5) $0))",
+    "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 3) $0))) $0))",
+    "(lam (dreamcoder_abstraction_7 3 $0))",
+    "(lam (logo_forLoop 7 (lam (lam (dreamcoder_abstraction_1 6 logo_epsA (logo_MULL logo_epsL 3) $0))) $0))",
+    "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 3) $0))) $0))",
+    "(lam (logo_forLoop logo_IFTY (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_MULL logo_epsL 3) $0))) $0))",
+    "(lam (dreamcoder_abstraction_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_DIVL logo_UL 5) $0))",
+    "(lam (dreamcoder_abstraction_1 logo_IFTY (logo_SUBA logo_ZA logo_epsA) (logo_DIVL logo_UL 5) $0))",
+    "(lam (dreamcoder_abstraction_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL 4) $0))",
+    "(lam (dreamcoder_abstraction_8 4 $0))",
+    "(lam (logo_FWRT logo_ZL logo_epsA (dreamcoder_abstraction_3 (logo_DIVL logo_UL 5) $0)))",
+    "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 4) $0))) $0))",
+    "(lam (dreamcoder_abstraction_7 4 $0))",
+    "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_DIVL logo_UL 5) $0))) $0))",
+    "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 4) $0))) $0))",
+    "(lam (logo_forLoop logo_IFTY (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_DIVL logo_UL 5) $0))) $0))",
+    "(lam (dreamcoder_abstraction_3 (logo_DIVL logo_UL 4) $0))",
+    "(lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 5) $0))",
     "(lam (logo_forLoop logo_IFTY (lam (lam (logo_GETSET (lam $0) (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0)))) $0))",
     "(lam (logo_forLoop logo_IFTY (lam (lam (logo_PT (lam $0) (logo_FWRT (logo_DIVL logo_UL 4) logo_epsA $0)))) $0))",
     "(lam (logo_forLoop logo_IFTY (lam (lam (logo_PT (lam $0) (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0)))) $0))",
-    "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 5) $0))) $0))",
-    "(lam (prev_dc_inv_4 (logo_DIVL logo_UL 4) $0))",
-    "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_DIVL logo_UL 4) $0))) $0))",
-    "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 5) $0))) $0))",
-    "(lam (logo_forLoop logo_IFTY (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_DIVL logo_UL 4) $0))) $0))",
-    "(lam (prev_dc_inv_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL 6) $0))",
-    "(lam (prev_dc_inv_8 6 $0))",
-    "(lam (logo_FWRT logo_ZL logo_epsA (prev_dc_inv_3 (logo_MULL logo_epsL 6) $0)))",
+    "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 5) $0))) $0))",
+    "(lam (dreamcoder_abstraction_4 (logo_DIVL logo_UL 4) $0))",
+    "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_DIVL logo_UL 4) $0))) $0))",
+    "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 5) $0))) $0))",
+    "(lam (logo_forLoop logo_IFTY (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_DIVL logo_UL 4) $0))) $0))",
+    "(lam (dreamcoder_abstraction_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL 6) $0))",
+    "(lam (dreamcoder_abstraction_8 6 $0))",
+    "(lam (logo_FWRT logo_ZL logo_epsA (dreamcoder_abstraction_3 (logo_MULL logo_epsL 6) $0)))",
     "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT logo_ZL logo_epsA (logo_FWRT (logo_MULL logo_epsL 6) logo_UA $0)))) $0))",
     "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT logo_ZL logo_epsA (logo_FWRT (logo_MULL logo_epsL 6) logo_ZA $0)))) $0))",
-    "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 6) $0))) $0))",
-    "(lam (prev_dc_inv_7 6 $0))",
-    "(lam (logo_forLoop 7 (lam (lam (prev_dc_inv_1 6 logo_epsA (logo_MULL logo_epsL 6) $0))) $0))",
-    "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 6) $0))) $0))",
-    "(lam (logo_forLoop logo_IFTY (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_MULL logo_epsL 6) $0))) $0))",
-    "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_7 $1 $0))) $0))",
-    "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL $3) $0))) $0))) $0))",
-    "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 5 (lam (lam (prev_dc_inv_1 8 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) $0))",
-    "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 5 (lam (lam (prev_dc_inv_1 8 (logo_SUBA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) $0))",
-    "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) $0))",
-    "(lam (logo_forLoop 3 (lam (lam (prev_dc_inv_4 logo_epsL (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)))) $0))",
-    "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (prev_dc_inv_4 logo_epsL $0)))) $0))",
-    "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_ZL (logo_MULA (logo_DIVA logo_UA 3) 4) (prev_dc_inv_4 logo_epsL $0)))) $0))",
-    "(lam (logo_forLoop 3 (lam (lam (logo_PT (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)) (prev_dc_inv_4 logo_epsL $0)))) $0))",
-    "(lam (logo_forLoop 3 (lam (lam (logo_PT (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (prev_dc_inv_4 logo_epsL $0))) (prev_dc_inv_4 logo_epsL $0)))) $0))",
-    "(lam (logo_forLoop 3 (lam (lam (prev_dc_inv_3 logo_epsL (prev_dc_inv_8 1 $0)))) $0))",
-    "(lam (logo_forLoop 3 (lam (lam (prev_dc_inv_3 (logo_DIVL logo_UL logo_IFTY) (prev_dc_inv_8 1 $0)))) $0))",
-    "(lam (logo_forLoop 3 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 1) (prev_dc_inv_8 1 $0)))) $0))",
-    "(lam (logo_forLoop 3 (lam (lam (prev_dc_inv_3 (logo_DIVL logo_epsL 1) (prev_dc_inv_8 1 $0)))) $0))",
-    "(lam (logo_forLoop 3 (lam (lam (prev_dc_inv_3 logo_epsL (prev_dc_inv_8 1 $0)))) (prev_dc_inv_3 logo_ZL $0)))",
-    "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 2) (prev_dc_inv_8 2 $0)))) $0))",
-    "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 (logo_DIVL (logo_DIVL logo_UL 2) 5) (prev_dc_inv_8 2 $0)))) $0))",
-    "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 (logo_DIVL (logo_DIVL logo_UL 5) 2) (prev_dc_inv_8 2 $0)))) $0))",
-    "(lam (prev_dc_inv_3 (logo_MULL logo_epsL 3) (prev_dc_inv_8 3 $0)))",
-    "(lam (prev_dc_inv_3 (logo_DIVL (logo_MULL logo_UL 3) logo_IFTY) (prev_dc_inv_8 3 $0)))",
-    "(lam (prev_dc_inv_3 (logo_MULL (logo_DIVL logo_UL logo_IFTY) 3) (prev_dc_inv_8 3 $0)))",
-    "(lam (prev_dc_inv_3 (logo_MULL (logo_MULL logo_epsL 1) 3) (prev_dc_inv_8 3 $0)))",
-    "(lam (prev_dc_inv_3 (logo_MULL (logo_MULL logo_epsL 3) 1) (prev_dc_inv_8 3 $0)))",
-    "(lam (prev_dc_inv_4 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (prev_dc_inv_4 logo_epsL $0))))",
-    "(lam (prev_dc_inv_4 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (prev_dc_inv_4 logo_epsL $0))))",
-    "(lam (prev_dc_inv_4 logo_epsL (logo_PT (lam (prev_dc_inv_5 1 logo_UL $0)) (prev_dc_inv_4 logo_epsL $0))))",
-    "(lam (prev_dc_inv_4 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (prev_dc_inv_7 1 $0))))",
-    "(lam (prev_dc_inv_7 1 (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (prev_dc_inv_4 logo_epsL $0))))",
-    "(lam (logo_FWRT logo_UL logo_UA (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (logo_FWRT logo_UL prev_dc_inv_0 $0))))",
-    "(lam (logo_FWRT logo_UL logo_UA (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (logo_FWRT logo_UL prev_dc_inv_0 $0))))",
-    "(lam (logo_FWRT logo_UL logo_ZA (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (logo_FWRT logo_UL prev_dc_inv_0 $0))))",
+    "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 6) $0))) $0))",
+    "(lam (dreamcoder_abstraction_7 6 $0))",
+    "(lam (logo_forLoop 7 (lam (lam (dreamcoder_abstraction_1 6 logo_epsA (logo_MULL logo_epsL 6) $0))) $0))",
+    "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 6) $0))) $0))",
+    "(lam (logo_forLoop logo_IFTY (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_MULL logo_epsL 6) $0))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_7 $1 $0))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL $3) $0))) $0))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_1 8 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_1 8 (logo_SUBA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) $0))",
+    "(lam (logo_forLoop 3 (lam (lam (dreamcoder_abstraction_4 logo_epsL (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)))) $0))",
+    "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (dreamcoder_abstraction_4 logo_epsL $0)))) $0))",
+    "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_ZL (logo_MULA (logo_DIVA logo_UA 3) 4) (dreamcoder_abstraction_4 logo_epsL $0)))) $0))",
+    "(lam (logo_forLoop 3 (lam (lam (logo_PT (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)) (dreamcoder_abstraction_4 logo_epsL $0)))) $0))",
+    "(lam (logo_forLoop 3 (lam (lam (logo_PT (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (dreamcoder_abstraction_4 logo_epsL $0))) (dreamcoder_abstraction_4 logo_epsL $0)))) $0))",
+    "(lam (logo_forLoop 3 (lam (lam (dreamcoder_abstraction_3 logo_epsL (dreamcoder_abstraction_8 1 $0)))) $0))",
+    "(lam (logo_forLoop 3 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL logo_UL logo_IFTY) (dreamcoder_abstraction_8 1 $0)))) $0))",
+    "(lam (logo_forLoop 3 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 1) (dreamcoder_abstraction_8 1 $0)))) $0))",
+    "(lam (logo_forLoop 3 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL logo_epsL 1) (dreamcoder_abstraction_8 1 $0)))) $0))",
+    "(lam (logo_forLoop 3 (lam (lam (dreamcoder_abstraction_3 logo_epsL (dreamcoder_abstraction_8 1 $0)))) (dreamcoder_abstraction_3 logo_ZL $0)))",
+    "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 2) (dreamcoder_abstraction_8 2 $0)))) $0))",
+    "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL (logo_DIVL logo_UL 2) 5) (dreamcoder_abstraction_8 2 $0)))) $0))",
+    "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL (logo_DIVL logo_UL 5) 2) (dreamcoder_abstraction_8 2 $0)))) $0))",
+    "(lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 3) (dreamcoder_abstraction_8 3 $0)))",
+    "(lam (dreamcoder_abstraction_3 (logo_DIVL (logo_MULL logo_UL 3) logo_IFTY) (dreamcoder_abstraction_8 3 $0)))",
+    "(lam (dreamcoder_abstraction_3 (logo_MULL (logo_DIVL logo_UL logo_IFTY) 3) (dreamcoder_abstraction_8 3 $0)))",
+    "(lam (dreamcoder_abstraction_3 (logo_MULL (logo_MULL logo_epsL 1) 3) (dreamcoder_abstraction_8 3 $0)))",
+    "(lam (dreamcoder_abstraction_3 (logo_MULL (logo_MULL logo_epsL 3) 1) (dreamcoder_abstraction_8 3 $0)))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (dreamcoder_abstraction_4 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (dreamcoder_abstraction_4 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL (logo_PT (lam (dreamcoder_abstraction_5 1 logo_UL $0)) (dreamcoder_abstraction_4 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (dreamcoder_abstraction_7 1 $0))))",
+    "(lam (dreamcoder_abstraction_7 1 (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (dreamcoder_abstraction_4 logo_epsL $0))))",
+    "(lam (logo_FWRT logo_UL logo_UA (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (logo_FWRT logo_UL dreamcoder_abstraction_0 $0))))",
+    "(lam (logo_FWRT logo_UL logo_UA (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (logo_FWRT logo_UL dreamcoder_abstraction_0 $0))))",
+    "(lam (logo_FWRT logo_UL logo_ZA (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (logo_FWRT logo_UL dreamcoder_abstraction_0 $0))))",
     "(lam (logo_FWRT logo_UL logo_UA (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (logo_FWRT logo_UL logo_UA $0))))",
-    "(lam (logo_FWRT logo_UL logo_ZA (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (logo_FWRT logo_UL prev_dc_inv_0 $0))))",
+    "(lam (logo_FWRT logo_UL logo_ZA (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (logo_FWRT logo_UL dreamcoder_abstraction_0 $0))))",
     "(lam (logo_forLoop 3 (lam (lam (logo_FWRT (logo_DIVL logo_UL 2) logo_UA (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) $0)))) $0))",
     "(lam (logo_forLoop 3 (lam (lam (logo_FWRT (logo_DIVL logo_UL 2) logo_UA (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) $0)))) $0))",
     "(lam (logo_forLoop 3 (lam (lam (logo_FWRT (logo_DIVL logo_UL 2) logo_ZA (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) $0)))) $0))",
     "(lam (logo_forLoop 3 (lam (lam (logo_FWRT (logo_DIVL logo_UL 2) logo_ZA (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) $0)))) $0))",
     "(lam (logo_forLoop 3 (lam (lam (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (logo_FWRT (logo_DIVL logo_UL 2) logo_ZA $0)))) $0))",
-    "(lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (prev_dc_inv_3 logo_epsL $0))))",
-    "(lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (prev_dc_inv_3 logo_epsL $0))))",
-    "(lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (prev_dc_inv_5 1 logo_UL $0)) (prev_dc_inv_3 logo_epsL $0))))",
-    "(lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (prev_dc_inv_2 logo_UL logo_UA 2 $0)) (prev_dc_inv_3 logo_epsL $0))))",
-    "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) $0)))) $0))",
-    "(lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (prev_dc_inv_4 logo_epsL $0))))",
-    "(lam (prev_dc_inv_4 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (prev_dc_inv_3 logo_epsL $0))))",
-    "(lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (prev_dc_inv_4 logo_epsL $0))))",
-    "(lam (prev_dc_inv_4 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (prev_dc_inv_3 logo_epsL $0))))",
-    "(lam (prev_dc_inv_4 logo_epsL (logo_PT (lam (prev_dc_inv_5 1 logo_UL $0)) (prev_dc_inv_3 logo_epsL $0))))",
-    "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0)) (logo_FWRT logo_UL prev_dc_inv_0 $0)))) $0))",
-    "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0)) (logo_FWRT (logo_MULL logo_epsL logo_IFTY) prev_dc_inv_0 $0)))) $0))",
-    "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 2) 2) prev_dc_inv_0 $0)))) $0))",
-    "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 3) 3) prev_dc_inv_0 $0)))) $0))",
-    "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 4) 4) prev_dc_inv_0 $0)))) $0))",
-    "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA (prev_dc_inv_3 logo_epsL $0))) $0)))) $0))",
+    "(lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (dreamcoder_abstraction_5 1 logo_UL $0)) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (dreamcoder_abstraction_2 logo_UL logo_UA 2 $0)) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) $0)))) $0))",
+    "(lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (dreamcoder_abstraction_4 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (dreamcoder_abstraction_4 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL (logo_PT (lam (dreamcoder_abstraction_5 1 logo_UL $0)) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0)) (logo_FWRT logo_UL dreamcoder_abstraction_0 $0)))) $0))",
+    "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0)) (logo_FWRT (logo_MULL logo_epsL logo_IFTY) dreamcoder_abstraction_0 $0)))) $0))",
+    "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 2) 2) dreamcoder_abstraction_0 $0)))) $0))",
+    "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 3) 3) dreamcoder_abstraction_0 $0)))) $0))",
+    "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 4) 4) dreamcoder_abstraction_0 $0)))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA (dreamcoder_abstraction_3 logo_epsL $0))) $0)))) $0))",
     "(lam (logo_forLoop 7 (lam (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 7) (logo_GETSET (lam (logo_FWRT logo_UL logo_UA $0)) $0)))) $0))",
     "(lam (logo_forLoop 7 (lam (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 7) (logo_GETSET (lam (logo_FWRT logo_UL logo_ZA $0)) $0)))) $0))",
     "(lam (logo_forLoop 7 (lam (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 7) (logo_GETSET (lam (logo_FWRT logo_UL logo_epsA $0)) $0)))) $0))",
     "(lam (logo_forLoop 7 (lam (lam (logo_GETSET (lam (logo_FWRT logo_UL logo_UA $0)) (logo_FWRT logo_ZL (logo_DIVA logo_UA 7) $0)))) $0))",
     "(lam (logo_forLoop 7 (lam (lam (logo_GETSET (lam (logo_FWRT logo_UL logo_ZA $0)) (logo_FWRT logo_ZL (logo_DIVA logo_UA 7) $0)))) $0))",
-    "(lam (logo_forLoop 4 (lam (lam (prev_dc_inv_5 4 logo_UL (logo_FWRT logo_UL logo_UA $0)))) $0))",
-    "(lam (logo_forLoop 4 (lam (lam (prev_dc_inv_5 4 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) $0))",
-    "(lam (logo_forLoop 4 (lam (lam (prev_dc_inv_5 4 logo_UL (prev_dc_inv_5 1 logo_UL $0)))) $0))",
-    "(lam (logo_forLoop 4 (lam (lam (prev_dc_inv_1 4 prev_dc_inv_0 logo_UL (logo_FWRT logo_UL logo_UA $0)))) $0))",
-    "(lam (logo_forLoop 4 (lam (lam (prev_dc_inv_1 4 prev_dc_inv_0 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) $0))",
-    "(lam (prev_dc_inv_5 4 logo_UL $0))",
-    "(lam (prev_dc_inv_1 4 prev_dc_inv_0 logo_UL $0))",
-    "(lam (prev_dc_inv_5 4 (logo_MULL logo_UL 1) $0))",
-    "(lam (prev_dc_inv_5 4 (logo_DIVL logo_UL 1) $0))",
-    "(lam (prev_dc_inv_3 logo_ZL (prev_dc_inv_5 4 logo_UL $0)))",
-    "(lam (prev_dc_inv_1 4 prev_dc_inv_0 (logo_MULL logo_UL 2) $0))",
-    "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL logo_UA $0)))) $0))",
-    "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL logo_ZA $0)))) $0))",
-    "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL logo_UA (logo_FWRT logo_UL prev_dc_inv_0 $0)))) $0))",
-    "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL logo_ZA (logo_FWRT logo_UL prev_dc_inv_0 $0)))) $0))",
-    "(lam (prev_dc_inv_5 4 (logo_MULL logo_UL 3) $0))",
-    "(lam (prev_dc_inv_1 4 prev_dc_inv_0 (logo_MULL logo_UL 3) $0))",
-    "(lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL 1) 3) $0))",
-    "(lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL 3) 1) $0))",
-    "(lam (prev_dc_inv_5 4 (logo_MULL (logo_DIVL logo_UL 3) 9) $0))",
-    "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_5 4 (logo_MULL logo_UL $1) $0))) $0))",
-    "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_1 4 prev_dc_inv_0 (logo_MULL logo_UL $1) $0))) $0))",
-    "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL $1) 1) $0))) $0))",
-    "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL 1) $1) $0))) $0))",
-    "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_5 4 (logo_MULL (logo_DIVL logo_UL 1) $1) $0))) $0))"
+    "(lam (logo_forLoop 4 (lam (lam (dreamcoder_abstraction_5 4 logo_UL (logo_FWRT logo_UL logo_UA $0)))) $0))",
+    "(lam (logo_forLoop 4 (lam (lam (dreamcoder_abstraction_5 4 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) $0))",
+    "(lam (logo_forLoop 4 (lam (lam (dreamcoder_abstraction_5 4 logo_UL (dreamcoder_abstraction_5 1 logo_UL $0)))) $0))",
+    "(lam (logo_forLoop 4 (lam (lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 logo_UL (logo_FWRT logo_UL logo_UA $0)))) $0))",
+    "(lam (logo_forLoop 4 (lam (lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) $0))",
+    "(lam (dreamcoder_abstraction_5 4 logo_UL $0))",
+    "(lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 logo_UL $0))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL logo_UL 1) $0))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_DIVL logo_UL 1) $0))",
+    "(lam (dreamcoder_abstraction_3 logo_ZL (dreamcoder_abstraction_5 4 logo_UL $0)))",
+    "(lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 (logo_MULL logo_UL 2) $0))",
+    "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_UA $0)))) $0))",
+    "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_ZA $0)))) $0))",
+    "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL logo_UA (logo_FWRT logo_UL dreamcoder_abstraction_0 $0)))) $0))",
+    "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL logo_ZA (logo_FWRT logo_UL dreamcoder_abstraction_0 $0)))) $0))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL logo_UL 3) $0))",
+    "(lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 (logo_MULL logo_UL 3) $0))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL 1) 3) $0))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL 3) 1) $0))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_DIVL logo_UL 3) 9) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL logo_UL $1) $0))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 (logo_MULL logo_UL $1) $0))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL $1) 1) $0))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL 1) $1) $0))) $0))",
+    "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_DIVL logo_UL 1) $1) $0))) $0))"
   ],
   "rewritten": [
     "(fn_10 (lam (fn_17 (logo_MULA (logo_DIVA logo_UA 3) 4) 2)) 3)",
@@ -518,90 +563,90 @@
     "(fn_10 (lam (fn_9 4 $0)) 7)",
     "(fn_10 (lam (fn_10 (lam (fn_17 (logo_SUBA (logo_DIVA logo_UA 4) logo_UA) $1)) 4)) 7)",
     "(fn_10 (lam (fn_10 (lam (fn_17 (logo_MULA (logo_DIVA logo_UA 4) 9) $1)) 4)) 7)",
-    "(lam (prev_dc_inv_1 5 logo_epsA logo_ZL (prev_dc_inv_5 3 logo_UL $0)))",
-    "(lam (prev_dc_inv_5 4 (logo_MULL logo_UL 3) $0))",
-    "(fn_16 3 prev_dc_inv_0 4)",
-    "(lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL 1) 3) $0))",
-    "(lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL 3) 1) $0))",
-    "(lam (prev_dc_inv_5 4 (logo_MULL (logo_DIVL logo_UL 3) 9) $0))",
-    "(lam (prev_dc_inv_5 5 logo_UL $0))",
-    "(lam (prev_dc_inv_1 5 (logo_MULA logo_epsA 8) logo_UL $0))",
-    "(lam (logo_GETSET (lam $0) (prev_dc_inv_1 5 (logo_MULA logo_epsA 8) logo_UL $0)))",
-    "(lam (logo_GETSET (lam (prev_dc_inv_5 5 logo_UL $0)) $0))",
-    "(lam (logo_GETSET (lam (prev_dc_inv_1 5 (logo_MULA logo_epsA 8) logo_UL $0)) $0))",
-    "(lam (prev_dc_inv_1 8 logo_epsA logo_ZL (prev_dc_inv_5 6 (logo_MULL logo_UL 2) $0)))",
-    "(lam (prev_dc_inv_2 logo_ZL logo_epsA 8 (prev_dc_inv_5 6 (logo_MULL logo_UL 2) $0)))",
-    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 5) (prev_dc_inv_5 6 (logo_MULL logo_UL 2) $0)))",
-    "(fn_14 (prev_dc_inv_5 6 (logo_MULL logo_UL 2)) 5)",
-    "(lam (logo_FWRT logo_epsL (logo_MULA logo_epsA 8) (prev_dc_inv_5 6 (logo_MULL logo_UL 2) $0)))",
-    "(lam (prev_dc_inv_5 7 logo_UL $0))",
-    "(lam (prev_dc_inv_5 7 (logo_MULL logo_UL 1) $0))",
-    "(lam (prev_dc_inv_5 7 (logo_DIVL logo_UL 1) $0))",
-    "(lam (prev_dc_inv_5 7 logo_UL (prev_dc_inv_3 logo_ZL $0)))",
-    "(lam (prev_dc_inv_5 7 logo_UL (prev_dc_inv_4 logo_ZL $0)))",
-    "(lam (prev_dc_inv_5 8 (logo_DIVL logo_UL 2) $0))",
-    "(lam (prev_dc_inv_1 8 (logo_MULA logo_epsA 5) (logo_DIVL logo_UL 2) $0))",
-    "(lam (prev_dc_inv_5 8 (logo_DIVL logo_UL 2) (logo_GETSET (lam $0) $0)))",
-    "(lam (prev_dc_inv_5 8 (logo_DIVL logo_UL 2) (logo_PT (lam $0) $0)))",
+    "(lam (dreamcoder_abstraction_1 5 logo_epsA logo_ZL (dreamcoder_abstraction_5 3 logo_UL $0)))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL logo_UL 3) $0))",
+    "(fn_16 3 dreamcoder_abstraction_0 4)",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL 1) 3) $0))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL 3) 1) $0))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_DIVL logo_UL 3) 9) $0))",
+    "(lam (dreamcoder_abstraction_5 5 logo_UL $0))",
+    "(lam (dreamcoder_abstraction_1 5 (logo_MULA logo_epsA 8) logo_UL $0))",
+    "(lam (logo_GETSET (lam $0) (dreamcoder_abstraction_1 5 (logo_MULA logo_epsA 8) logo_UL $0)))",
+    "(lam (logo_GETSET (lam (dreamcoder_abstraction_5 5 logo_UL $0)) $0))",
+    "(lam (logo_GETSET (lam (dreamcoder_abstraction_1 5 (logo_MULA logo_epsA 8) logo_UL $0)) $0))",
+    "(lam (dreamcoder_abstraction_1 8 logo_epsA logo_ZL (dreamcoder_abstraction_5 6 (logo_MULL logo_UL 2) $0)))",
+    "(lam (dreamcoder_abstraction_2 logo_ZL logo_epsA 8 (dreamcoder_abstraction_5 6 (logo_MULL logo_UL 2) $0)))",
+    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 5) (dreamcoder_abstraction_5 6 (logo_MULL logo_UL 2) $0)))",
+    "(fn_14 (dreamcoder_abstraction_5 6 (logo_MULL logo_UL 2)) 5)",
+    "(lam (logo_FWRT logo_epsL (logo_MULA logo_epsA 8) (dreamcoder_abstraction_5 6 (logo_MULL logo_UL 2) $0)))",
+    "(lam (dreamcoder_abstraction_5 7 logo_UL $0))",
+    "(lam (dreamcoder_abstraction_5 7 (logo_MULL logo_UL 1) $0))",
+    "(lam (dreamcoder_abstraction_5 7 (logo_DIVL logo_UL 1) $0))",
+    "(lam (dreamcoder_abstraction_5 7 logo_UL (dreamcoder_abstraction_3 logo_ZL $0)))",
+    "(lam (dreamcoder_abstraction_5 7 logo_UL (dreamcoder_abstraction_4 logo_ZL $0)))",
+    "(lam (dreamcoder_abstraction_5 8 (logo_DIVL logo_UL 2) $0))",
+    "(lam (dreamcoder_abstraction_1 8 (logo_MULA logo_epsA 5) (logo_DIVL logo_UL 2) $0))",
+    "(lam (dreamcoder_abstraction_5 8 (logo_DIVL logo_UL 2) (logo_GETSET (lam $0) $0)))",
+    "(lam (dreamcoder_abstraction_5 8 (logo_DIVL logo_UL 2) (logo_PT (lam $0) $0)))",
     "(fn_10 (lam (lam (logo_FWRT (logo_DIVL logo_UL 2) (logo_DIVA logo_UA 8) (logo_PT (lam $0) $0)))) 8)",
-    "(lam (prev_dc_inv_2 logo_UL prev_dc_inv_0 2 $0))",
-    "(lam (logo_FWRT logo_ZL prev_dc_inv_0 (logo_FWRT logo_UL prev_dc_inv_0 $0)))",
-    "(lam (logo_FWRT logo_ZL prev_dc_inv_0 (fn_13 $0)))",
-    "(lam (logo_FWRT logo_ZL prev_dc_inv_0 (logo_FWRT logo_UL logo_epsA $0)))",
-    "(lam (logo_FWRT logo_ZL prev_dc_inv_0 (logo_FWRT logo_UL logo_ZA $0)))",
-    "(lam (logo_FWRT (logo_MULL logo_UL 2) prev_dc_inv_0 (fn_13 $0)))",
-    "(lam (logo_FWRT (logo_MULL logo_UL 2) prev_dc_inv_0 (logo_FWRT logo_UL logo_ZA $0)))",
-    "(lam (logo_FWRT (logo_MULL logo_UL 2) prev_dc_inv_0 (logo_FWRT logo_UL logo_epsA $0)))",
+    "(lam (dreamcoder_abstraction_2 logo_UL dreamcoder_abstraction_0 2 $0))",
+    "(lam (logo_FWRT logo_ZL dreamcoder_abstraction_0 (logo_FWRT logo_UL dreamcoder_abstraction_0 $0)))",
+    "(lam (logo_FWRT logo_ZL dreamcoder_abstraction_0 (fn_13 $0)))",
+    "(lam (logo_FWRT logo_ZL dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_epsA $0)))",
+    "(lam (logo_FWRT logo_ZL dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_ZA $0)))",
+    "(lam (logo_FWRT (logo_MULL logo_UL 2) dreamcoder_abstraction_0 (fn_13 $0)))",
+    "(lam (logo_FWRT (logo_MULL logo_UL 2) dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_ZA $0)))",
+    "(lam (logo_FWRT (logo_MULL logo_UL 2) dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_epsA $0)))",
     "(fn_10 (lam (lam (logo_FWRT logo_UL (logo_DIVA (logo_MULA logo_UA $1) 4) $0))) 3)",
-    "(fn_10 (lam (lam (logo_FWRT logo_UL (logo_MULA prev_dc_inv_0 $1) $0))) 3)",
-    "(lam (prev_dc_inv_1 2 prev_dc_inv_0 logo_epsL $0))",
-    "(lam (logo_FWRT logo_epsL prev_dc_inv_0 (logo_FWRT logo_epsL prev_dc_inv_0 $0)))",
-    "(lam (logo_FWRT logo_epsL prev_dc_inv_0 (logo_FWRT logo_epsL logo_UA $0)))",
-    "(lam (logo_FWRT logo_epsL prev_dc_inv_0 (logo_FWRT logo_epsL logo_epsA $0)))",
-    "(lam (logo_FWRT logo_epsL prev_dc_inv_0 (logo_FWRT logo_epsL logo_ZA $0)))",
+    "(fn_10 (lam (lam (logo_FWRT logo_UL (logo_MULA dreamcoder_abstraction_0 $1) $0))) 3)",
+    "(lam (dreamcoder_abstraction_1 2 dreamcoder_abstraction_0 logo_epsL $0))",
+    "(lam (logo_FWRT logo_epsL dreamcoder_abstraction_0 (logo_FWRT logo_epsL dreamcoder_abstraction_0 $0)))",
+    "(lam (logo_FWRT logo_epsL dreamcoder_abstraction_0 (logo_FWRT logo_epsL logo_UA $0)))",
+    "(lam (logo_FWRT logo_epsL dreamcoder_abstraction_0 (logo_FWRT logo_epsL logo_epsA $0)))",
+    "(lam (logo_FWRT logo_epsL dreamcoder_abstraction_0 (logo_FWRT logo_epsL logo_ZA $0)))",
     "(lam (fn_13 $0))",
     "(lam (logo_FWRT logo_UL logo_ZA $0))",
     "(lam (logo_FWRT logo_UL logo_epsA $0))",
     "(lam (logo_FWRT logo_UL logo_ZA (logo_GETSET (lam $0) $0)))",
     "(lam (logo_FWRT logo_UL logo_epsA (logo_GETSET (lam $0) $0)))",
-    "(lam (logo_FWRT logo_ZL (logo_DIVA prev_dc_inv_0 3) (prev_dc_inv_5 4 logo_UL $0)))",
-    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 3) (prev_dc_inv_5 4 logo_UL $0)))",
-    "(fn_14 (prev_dc_inv_5 4 logo_UL) 3)",
-    "(lam (logo_FWRT logo_ZL (logo_DIVA prev_dc_inv_0 3) (prev_dc_inv_1 4 prev_dc_inv_0 logo_UL $0)))",
-    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 3) (prev_dc_inv_1 4 prev_dc_inv_0 logo_UL $0)))",
-    "(lam (prev_dc_inv_1 7 logo_epsA logo_ZL (prev_dc_inv_8 4 $0)))",
-    "(lam (prev_dc_inv_2 logo_ZL logo_epsA 7 (prev_dc_inv_8 4 $0)))",
-    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 7) (prev_dc_inv_8 4 $0)))",
-    "(lam (prev_dc_inv_1 8 logo_epsA logo_ZL (prev_dc_inv_3 (logo_DIVL logo_UL 5) $0)))",
-    "(lam (prev_dc_inv_2 logo_ZL logo_epsA 8 (prev_dc_inv_3 (logo_DIVL logo_UL 5) $0)))",
-    "(lam (prev_dc_inv_2 (logo_MULL logo_UL 3) (logo_DIVA prev_dc_inv_0 2) 2 $0))",
-    "(lam (prev_dc_inv_2 (logo_MULL logo_UL 3) (logo_MULA logo_epsA 5) 2 $0))",
-    "(lam (prev_dc_inv_2 (logo_MULL logo_UL 3) (logo_DIVA logo_UA 8) 2 $0))",
-    "(lam (prev_dc_inv_1 5 logo_epsA logo_ZL (logo_FWRT (logo_MULL logo_UL 3) prev_dc_inv_0 $0)))",
-    "(lam (prev_dc_inv_2 logo_ZL logo_epsA 5 (logo_FWRT (logo_MULL logo_UL 3) prev_dc_inv_0 $0)))",
-    "(lam (prev_dc_inv_2 logo_UL prev_dc_inv_0 7 $0))",
-    "(lam (prev_dc_inv_2 (logo_MULL logo_UL 1) prev_dc_inv_0 7 $0))",
-    "(lam (prev_dc_inv_2 logo_UL (logo_SUBA prev_dc_inv_0 logo_UA) 7 $0))",
-    "(lam (prev_dc_inv_2 logo_UL (logo_ADDA prev_dc_inv_0 logo_UA) 7 $0))",
-    "(lam (prev_dc_inv_2 logo_UL (logo_ADDA logo_UA prev_dc_inv_0) 7 $0))",
-    "(lam (prev_dc_inv_2 logo_UL prev_dc_inv_0 8 $0))",
-    "(lam (prev_dc_inv_2 logo_UL prev_dc_inv_0 8 (logo_GETSET (lam $0) $0)))",
-    "(lam (prev_dc_inv_2 logo_UL prev_dc_inv_0 8 (logo_PT (lam $0) $0)))",
-    "(fn_10 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) prev_dc_inv_0 (logo_GETSET (lam $0) $0)))) 8)",
-    "(fn_10 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) prev_dc_inv_0 (logo_PT (lam $0) $0)))) 8)",
-    "(lam (prev_dc_inv_2 logo_epsL (logo_MULA logo_epsA 3) logo_IFTY $0))",
-    "(lam (prev_dc_inv_2 (logo_DIVL logo_UL logo_IFTY) (logo_MULA logo_epsA 3) logo_IFTY $0))",
-    "(lam (prev_dc_inv_2 logo_epsL (logo_ADDA (logo_ADDA logo_epsA logo_epsA) logo_epsA) logo_IFTY $0))",
-    "(lam (prev_dc_inv_2 logo_epsL (logo_ADDA logo_epsA (logo_ADDA logo_epsA logo_epsA)) logo_IFTY $0))",
-    "(lam (prev_dc_inv_2 logo_epsL (logo_DIVA (logo_SUBA prev_dc_inv_0 logo_epsA) 3) logo_IFTY $0))",
-    "(lam (prev_dc_inv_2 logo_epsL (logo_DIVA logo_UA 8) logo_IFTY $0))",
-    "(lam (prev_dc_inv_2 logo_epsL (logo_MULA logo_epsA 5) logo_IFTY $0))",
-    "(lam (logo_GETSET (lam $0) (prev_dc_inv_2 logo_epsL (logo_MULA logo_epsA 5) logo_IFTY $0)))",
-    "(lam (logo_GETSET (lam (prev_dc_inv_2 logo_epsL (logo_DIVA logo_UA 8) logo_IFTY $0)) $0))",
-    "(lam (logo_GETSET (lam (prev_dc_inv_2 logo_epsL (logo_MULA logo_epsA 5) logo_IFTY $0)) $0))",
+    "(lam (logo_FWRT logo_ZL (logo_DIVA dreamcoder_abstraction_0 3) (dreamcoder_abstraction_5 4 logo_UL $0)))",
+    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 3) (dreamcoder_abstraction_5 4 logo_UL $0)))",
+    "(fn_14 (dreamcoder_abstraction_5 4 logo_UL) 3)",
+    "(lam (logo_FWRT logo_ZL (logo_DIVA dreamcoder_abstraction_0 3) (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 logo_UL $0)))",
+    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 3) (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 logo_UL $0)))",
+    "(lam (dreamcoder_abstraction_1 7 logo_epsA logo_ZL (dreamcoder_abstraction_8 4 $0)))",
+    "(lam (dreamcoder_abstraction_2 logo_ZL logo_epsA 7 (dreamcoder_abstraction_8 4 $0)))",
+    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 7) (dreamcoder_abstraction_8 4 $0)))",
+    "(lam (dreamcoder_abstraction_1 8 logo_epsA logo_ZL (dreamcoder_abstraction_3 (logo_DIVL logo_UL 5) $0)))",
+    "(lam (dreamcoder_abstraction_2 logo_ZL logo_epsA 8 (dreamcoder_abstraction_3 (logo_DIVL logo_UL 5) $0)))",
+    "(lam (dreamcoder_abstraction_2 (logo_MULL logo_UL 3) (logo_DIVA dreamcoder_abstraction_0 2) 2 $0))",
+    "(lam (dreamcoder_abstraction_2 (logo_MULL logo_UL 3) (logo_MULA logo_epsA 5) 2 $0))",
+    "(lam (dreamcoder_abstraction_2 (logo_MULL logo_UL 3) (logo_DIVA logo_UA 8) 2 $0))",
+    "(lam (dreamcoder_abstraction_1 5 logo_epsA logo_ZL (logo_FWRT (logo_MULL logo_UL 3) dreamcoder_abstraction_0 $0)))",
+    "(lam (dreamcoder_abstraction_2 logo_ZL logo_epsA 5 (logo_FWRT (logo_MULL logo_UL 3) dreamcoder_abstraction_0 $0)))",
+    "(lam (dreamcoder_abstraction_2 logo_UL dreamcoder_abstraction_0 7 $0))",
+    "(lam (dreamcoder_abstraction_2 (logo_MULL logo_UL 1) dreamcoder_abstraction_0 7 $0))",
+    "(lam (dreamcoder_abstraction_2 logo_UL (logo_SUBA dreamcoder_abstraction_0 logo_UA) 7 $0))",
+    "(lam (dreamcoder_abstraction_2 logo_UL (logo_ADDA dreamcoder_abstraction_0 logo_UA) 7 $0))",
+    "(lam (dreamcoder_abstraction_2 logo_UL (logo_ADDA logo_UA dreamcoder_abstraction_0) 7 $0))",
+    "(lam (dreamcoder_abstraction_2 logo_UL dreamcoder_abstraction_0 8 $0))",
+    "(lam (dreamcoder_abstraction_2 logo_UL dreamcoder_abstraction_0 8 (logo_GETSET (lam $0) $0)))",
+    "(lam (dreamcoder_abstraction_2 logo_UL dreamcoder_abstraction_0 8 (logo_PT (lam $0) $0)))",
+    "(fn_10 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) dreamcoder_abstraction_0 (logo_GETSET (lam $0) $0)))) 8)",
+    "(fn_10 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) dreamcoder_abstraction_0 (logo_PT (lam $0) $0)))) 8)",
+    "(lam (dreamcoder_abstraction_2 logo_epsL (logo_MULA logo_epsA 3) logo_IFTY $0))",
+    "(lam (dreamcoder_abstraction_2 (logo_DIVL logo_UL logo_IFTY) (logo_MULA logo_epsA 3) logo_IFTY $0))",
+    "(lam (dreamcoder_abstraction_2 logo_epsL (logo_ADDA (logo_ADDA logo_epsA logo_epsA) logo_epsA) logo_IFTY $0))",
+    "(lam (dreamcoder_abstraction_2 logo_epsL (logo_ADDA logo_epsA (logo_ADDA logo_epsA logo_epsA)) logo_IFTY $0))",
+    "(lam (dreamcoder_abstraction_2 logo_epsL (logo_DIVA (logo_SUBA dreamcoder_abstraction_0 logo_epsA) 3) logo_IFTY $0))",
+    "(lam (dreamcoder_abstraction_2 logo_epsL (logo_DIVA logo_UA 8) logo_IFTY $0))",
+    "(lam (dreamcoder_abstraction_2 logo_epsL (logo_MULA logo_epsA 5) logo_IFTY $0))",
+    "(lam (logo_GETSET (lam $0) (dreamcoder_abstraction_2 logo_epsL (logo_MULA logo_epsA 5) logo_IFTY $0)))",
+    "(lam (logo_GETSET (lam (dreamcoder_abstraction_2 logo_epsL (logo_DIVA logo_UA 8) logo_IFTY $0)) $0))",
+    "(lam (logo_GETSET (lam (dreamcoder_abstraction_2 logo_epsL (logo_MULA logo_epsA 5) logo_IFTY $0)) $0))",
     "(fn_16 4 (logo_DIVA (logo_ADDA logo_UA logo_UA) 5) 5)",
-    "(fn_16 4 (logo_ADDA prev_dc_inv_0 (logo_MULA logo_epsA 6)) 5)",
-    "(fn_16 4 (logo_ADDA (logo_MULA logo_epsA 6) prev_dc_inv_0) 5)",
+    "(fn_16 4 (logo_ADDA dreamcoder_abstraction_0 (logo_MULA logo_epsA 6)) 5)",
+    "(fn_16 4 (logo_ADDA (logo_MULA logo_epsA 6) dreamcoder_abstraction_0) 5)",
     "(fn_16 4 (logo_MULA (logo_MULA logo_epsA 4) 4) 5)",
     "(fn_16 4 (logo_MULA (logo_ADDA logo_epsA logo_epsA) 8) 5)",
     "(fn_16 4 (logo_DIVA (logo_MULA logo_UA 4) 9) 9)",
@@ -609,168 +654,167 @@
     "(fn_16 4 (logo_MULA (logo_ADDA (logo_DIVA logo_UA 9) logo_UA) 4) 9)",
     "(fn_16 4 (logo_MULA (logo_SUBA (logo_DIVA logo_UA 9) logo_UA) 4) 9)",
     "(fn_16 4 (logo_SUBA (logo_MULA (logo_DIVA logo_UA 9) 4) logo_UA) 9)",
-    "(lam (prev_dc_inv_6 $0))",
-    "(lam (prev_dc_inv_6 (prev_dc_inv_3 logo_ZL $0)))",
-    "(lam (prev_dc_inv_6 (prev_dc_inv_4 logo_ZL $0)))",
-    "(lam (prev_dc_inv_4 logo_ZL (prev_dc_inv_6 $0)))",
-    "(lam (logo_PT (lam $0) (prev_dc_inv_6 $0)))",
-    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 2) (prev_dc_inv_6 $0)))",
-    "(lam (prev_dc_inv_3 logo_ZL (prev_dc_inv_6 $0)))",
+    "(lam (dreamcoder_abstraction_6 $0))",
+    "(lam (dreamcoder_abstraction_6 (dreamcoder_abstraction_3 logo_ZL $0)))",
+    "(lam (dreamcoder_abstraction_6 (dreamcoder_abstraction_4 logo_ZL $0)))",
+    "(lam (dreamcoder_abstraction_4 logo_ZL (dreamcoder_abstraction_6 $0)))",
+    "(lam (logo_PT (lam $0) (dreamcoder_abstraction_6 $0)))",
+    "(lam (logo_FWRT logo_epsL (logo_DIVA logo_UA 2) (dreamcoder_abstraction_6 $0)))",
+    "(lam (dreamcoder_abstraction_3 logo_ZL (dreamcoder_abstraction_6 $0)))",
     "(fn_10 (lam (fn_14 (logo_FWRT logo_epsL (logo_DIVA (logo_ADDA logo_UA logo_epsA) 2)) 2)) logo_IFTY)",
     "(fn_10 (lam (fn_14 (logo_FWRT logo_epsL (logo_DIVA (logo_SUBA logo_epsA logo_UA) 2)) 2)) logo_IFTY)",
-    "(lam (prev_dc_inv_1 logo_IFTY (logo_MULA logo_epsA 9) logo_ZL (prev_dc_inv_6 $0)))",
-    "(lam (prev_dc_inv_6 (logo_FWRT logo_ZL prev_dc_inv_0 (prev_dc_inv_6 $0))))",
-    "(lam (prev_dc_inv_6 (prev_dc_inv_2 logo_UL prev_dc_inv_0 1 (prev_dc_inv_6 $0))))",
-    "(lam (prev_dc_inv_6 (prev_dc_inv_1 5 prev_dc_inv_0 logo_ZL (prev_dc_inv_6 $0))))",
-    "(lam (prev_dc_inv_6 (prev_dc_inv_2 logo_ZL prev_dc_inv_0 5 (prev_dc_inv_6 $0))))",
-    "(lam (prev_dc_inv_6 (prev_dc_inv_1 9 prev_dc_inv_0 logo_ZL (prev_dc_inv_6 $0))))",
-    "(fn_10 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_SUBA logo_UA prev_dc_inv_0) $0)))) 5)",
-    "(fn_10 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_SUBA logo_ZA prev_dc_inv_0) $0)))) 5)",
-    "(fn_10 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_MULA prev_dc_inv_0 3) $0)))) 5)",
-    "(fn_10 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_MULA prev_dc_inv_0 7) $0)))) 5)",
-    "(fn_10 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_MULA (logo_DIVA logo_UA 8) 6) $0)))) 5)",
-    "(fn_14 (prev_dc_inv_3 logo_epsL) 8)",
-    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 5) (prev_dc_inv_3 logo_epsL $0)))",
-    "(lam (prev_dc_inv_1 5 logo_epsA logo_ZL (prev_dc_inv_3 logo_epsL $0)))",
-    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 5) (logo_GETSET (lam $0) (prev_dc_inv_3 logo_epsL $0))))",
-    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 5) (logo_PT (lam $0) (prev_dc_inv_3 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_1 logo_IFTY (logo_MULA logo_epsA 9) logo_ZL (dreamcoder_abstraction_6 $0)))",
+    "(lam (dreamcoder_abstraction_6 (logo_FWRT logo_ZL dreamcoder_abstraction_0 (dreamcoder_abstraction_6 $0))))",
+    "(lam (dreamcoder_abstraction_6 (dreamcoder_abstraction_2 logo_UL dreamcoder_abstraction_0 1 (dreamcoder_abstraction_6 $0))))",
+    "(lam (dreamcoder_abstraction_6 (dreamcoder_abstraction_1 5 dreamcoder_abstraction_0 logo_ZL (dreamcoder_abstraction_6 $0))))",
+    "(lam (dreamcoder_abstraction_6 (dreamcoder_abstraction_2 logo_ZL dreamcoder_abstraction_0 5 (dreamcoder_abstraction_6 $0))))",
+    "(lam (dreamcoder_abstraction_6 (dreamcoder_abstraction_1 9 dreamcoder_abstraction_0 logo_ZL (dreamcoder_abstraction_6 $0))))",
+    "(fn_10 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_SUBA logo_UA dreamcoder_abstraction_0) $0)))) 5)",
+    "(fn_10 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_SUBA logo_ZA dreamcoder_abstraction_0) $0)))) 5)",
+    "(fn_10 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_MULA dreamcoder_abstraction_0 3) $0)))) 5)",
+    "(fn_10 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_MULA dreamcoder_abstraction_0 7) $0)))) 5)",
+    "(fn_10 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_MULA (logo_DIVA logo_UA 8) 6) $0)))) 5)",
+    "(fn_14 (dreamcoder_abstraction_3 logo_epsL) 8)",
+    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 5) (dreamcoder_abstraction_3 logo_epsL $0)))",
+    "(lam (dreamcoder_abstraction_1 5 logo_epsA logo_ZL (dreamcoder_abstraction_3 logo_epsL $0)))",
+    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 5) (logo_GETSET (lam $0) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(lam (logo_FWRT logo_ZL (logo_MULA logo_epsA 5) (logo_PT (lam $0) (dreamcoder_abstraction_3 logo_epsL $0))))",
     "(fn_10 (lam (lam (logo_FWRT logo_epsL logo_epsA (logo_FWRT logo_epsL logo_epsA $0)))) logo_IFTY)",
-    "(lam (prev_dc_inv_4 logo_epsL $0))",
-    "(fn_10 (lam (lam (prev_dc_inv_1 7 logo_epsA logo_epsL $0))) 6)",
-    "(fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA logo_epsL $0))) 8)",
-    "(fn_10 (lam (lam (prev_dc_inv_1 2 logo_epsA logo_epsL $0))) logo_IFTY)",
-    "(lam (prev_dc_inv_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL 2) $0))",
-    "(lam (prev_dc_inv_8 2 $0))",
-    "(lam (logo_FWRT logo_ZL logo_epsA (prev_dc_inv_3 (logo_MULL logo_epsL 2) $0)))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL $0))",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 7 logo_epsA logo_epsL $0))) 6)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA logo_epsL $0))) 8)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 2 logo_epsA logo_epsL $0))) logo_IFTY)",
+    "(lam (dreamcoder_abstraction_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL 2) $0))",
+    "(lam (dreamcoder_abstraction_8 2 $0))",
+    "(lam (logo_FWRT logo_ZL logo_epsA (dreamcoder_abstraction_3 (logo_MULL logo_epsL 2) $0)))",
     "(fn_10 (lam (lam (logo_FWRT logo_ZL logo_epsA (logo_FWRT (logo_MULL logo_epsL 2) logo_UA $0)))) logo_IFTY)",
     "(fn_10 (lam (lam (logo_FWRT logo_ZL logo_epsA (logo_FWRT (logo_MULL logo_epsL 2) logo_ZA $0)))) logo_IFTY)",
-    "(lam (prev_dc_inv_3 (logo_MULL logo_epsL 3) $0))",
-    "(lam (logo_GETSET (lam $0) (prev_dc_inv_3 (logo_MULL logo_epsL 3) $0)))",
-    "(lam (logo_GETSET (lam (prev_dc_inv_3 (logo_MULL logo_epsL 3) $0)) $0))",
+    "(lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 3) $0))",
+    "(lam (logo_GETSET (lam $0) (dreamcoder_abstraction_3 (logo_MULL logo_epsL 3) $0)))",
+    "(lam (logo_GETSET (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 3) $0)) $0))",
     "(fn_10 (lam (lam (logo_GETSET (lam $0) (logo_FWRT (logo_MULL logo_epsL 3) logo_epsA $0)))) logo_IFTY)",
     "(fn_10 (lam (lam (logo_PT (lam $0) (logo_FWRT (logo_MULL logo_epsL 3) logo_epsA $0)))) logo_IFTY)",
-    "(fn_10 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 3) $0))) 2)",
-    "(lam (prev_dc_inv_7 3 $0))",
-    "(fn_10 (lam (lam (prev_dc_inv_1 6 logo_epsA (logo_MULL logo_epsL 3) $0))) 7)",
-    "(fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 3) $0))) 8)",
-    "(fn_10 (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_MULL logo_epsL 3) $0))) logo_IFTY)",
-    "(lam (prev_dc_inv_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_DIVL logo_UL 5) $0))",
-    "(lam (prev_dc_inv_1 logo_IFTY (logo_SUBA logo_ZA logo_epsA) (logo_DIVL logo_UL 5) $0))",
-    "(lam (prev_dc_inv_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL 4) $0))",
-    "(lam (prev_dc_inv_8 4 $0))",
-    "(lam (logo_FWRT logo_ZL logo_epsA (prev_dc_inv_3 (logo_DIVL logo_UL 5) $0)))",
-    "(fn_10 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 4) $0))) 2)",
-    "(lam (prev_dc_inv_7 4 $0))",
-    "(fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_DIVL logo_UL 5) $0))) 8)",
-    "(fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 4) $0))) 8)",
-    "(fn_10 (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_DIVL logo_UL 5) $0))) logo_IFTY)",
-    "(lam (prev_dc_inv_3 (logo_DIVL logo_UL 4) $0))",
-    "(lam (prev_dc_inv_3 (logo_MULL logo_epsL 5) $0))",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 3) $0))) 2)",
+    "(lam (dreamcoder_abstraction_7 3 $0))",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 6 logo_epsA (logo_MULL logo_epsL 3) $0))) 7)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 3) $0))) 8)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_MULL logo_epsL 3) $0))) logo_IFTY)",
+    "(lam (dreamcoder_abstraction_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_DIVL logo_UL 5) $0))",
+    "(lam (dreamcoder_abstraction_1 logo_IFTY (logo_SUBA logo_ZA logo_epsA) (logo_DIVL logo_UL 5) $0))",
+    "(lam (dreamcoder_abstraction_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL 4) $0))",
+    "(lam (dreamcoder_abstraction_8 4 $0))",
+    "(lam (logo_FWRT logo_ZL logo_epsA (dreamcoder_abstraction_3 (logo_DIVL logo_UL 5) $0)))",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 4) $0))) 2)",
+    "(lam (dreamcoder_abstraction_7 4 $0))",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_DIVL logo_UL 5) $0))) 8)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 4) $0))) 8)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_DIVL logo_UL 5) $0))) logo_IFTY)",
+    "(lam (dreamcoder_abstraction_3 (logo_DIVL logo_UL 4) $0))",
+    "(lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 5) $0))",
     "(fn_10 (lam (lam (logo_GETSET (lam $0) (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0)))) logo_IFTY)",
     "(fn_10 (lam (lam (logo_PT (lam $0) (logo_FWRT (logo_DIVL logo_UL 4) logo_epsA $0)))) logo_IFTY)",
     "(fn_10 (lam (lam (logo_PT (lam $0) (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0)))) logo_IFTY)",
-    "(fn_10 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 5) $0))) 2)",
-    "(lam (prev_dc_inv_4 (logo_DIVL logo_UL 4) $0))",
-    "(fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_DIVL logo_UL 4) $0))) 8)",
-    "(fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 5) $0))) 8)",
-    "(fn_10 (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_DIVL logo_UL 4) $0))) logo_IFTY)",
-    "(lam (prev_dc_inv_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL 6) $0))",
-    "(lam (prev_dc_inv_8 6 $0))",
-    "(lam (logo_FWRT logo_ZL logo_epsA (prev_dc_inv_3 (logo_MULL logo_epsL 6) $0)))",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 5) $0))) 2)",
+    "(lam (dreamcoder_abstraction_4 (logo_DIVL logo_UL 4) $0))",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_DIVL logo_UL 4) $0))) 8)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 5) $0))) 8)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_DIVL logo_UL 4) $0))) logo_IFTY)",
+    "(lam (dreamcoder_abstraction_1 logo_IFTY (logo_SUBA logo_UA logo_epsA) (logo_MULL logo_epsL 6) $0))",
+    "(lam (dreamcoder_abstraction_8 6 $0))",
+    "(lam (logo_FWRT logo_ZL logo_epsA (dreamcoder_abstraction_3 (logo_MULL logo_epsL 6) $0)))",
     "(fn_10 (lam (lam (logo_FWRT logo_ZL logo_epsA (logo_FWRT (logo_MULL logo_epsL 6) logo_UA $0)))) logo_IFTY)",
     "(fn_10 (lam (lam (logo_FWRT logo_ZL logo_epsA (logo_FWRT (logo_MULL logo_epsL 6) logo_ZA $0)))) logo_IFTY)",
-    "(fn_10 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 6) $0))) 2)",
-    "(lam (prev_dc_inv_7 6 $0))",
-    "(fn_10 (lam (lam (prev_dc_inv_1 6 logo_epsA (logo_MULL logo_epsL 6) $0))) 7)",
-    "(fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 6) $0))) 8)",
-    "(fn_10 (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_MULL logo_epsL 6) $0))) logo_IFTY)",
-    "(fn_10 (lam (lam (prev_dc_inv_7 $1 $0))) 5)",
-    "(fn_10 (lam (fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL $2) $0))) 8)) 5)",
-    "(fn_10 (lam (fn_10 (lam (lam (prev_dc_inv_1 8 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $2) $0))) 5)) 5)",
-    "(fn_10 (lam (fn_10 (lam (lam (prev_dc_inv_1 8 (logo_SUBA logo_epsA logo_UA) (logo_MULL logo_epsL $2) $0))) 5)) 5)",
-    "(fn_10 (lam (fn_10 (lam (lam (prev_dc_inv_1 5 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $2) $0))) 8)) 5)",
-    "(fn_10 (lam (lam (prev_dc_inv_4 logo_epsL (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)))) 3)",
-    "(fn_10 (lam (fn_14 (prev_dc_inv_4 logo_epsL) 3)) 3)",
-    "(fn_10 (lam (lam (logo_FWRT logo_ZL (logo_MULA (logo_DIVA logo_UA 3) 4) (prev_dc_inv_4 logo_epsL $0)))) 3)",
-    "(fn_10 (lam (lam (logo_PT (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)) (prev_dc_inv_4 logo_epsL $0)))) 3)",
-    "(fn_10 (lam (lam (logo_PT (fn_14 (prev_dc_inv_4 logo_epsL) 3) (prev_dc_inv_4 logo_epsL $0)))) 3)",
-    "(fn_10 (lam (lam (prev_dc_inv_3 logo_epsL (prev_dc_inv_8 1 $0)))) 3)",
-    "(fn_10 (lam (lam (prev_dc_inv_3 (logo_DIVL logo_UL logo_IFTY) (prev_dc_inv_8 1 $0)))) 3)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 6) $0))) 2)",
+    "(lam (dreamcoder_abstraction_7 6 $0))",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 6 logo_epsA (logo_MULL logo_epsL 6) $0))) 7)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 6) $0))) 8)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_MULL logo_epsL 6) $0))) logo_IFTY)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_7 $1 $0))) 5)",
+    "(fn_10 (lam (fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL $2) $0))) 8)) 5)",
+    "(fn_10 (lam (fn_10 (lam (lam (dreamcoder_abstraction_1 8 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $2) $0))) 5)) 5)",
+    "(fn_10 (lam (fn_10 (lam (lam (dreamcoder_abstraction_1 8 (logo_SUBA logo_epsA logo_UA) (logo_MULL logo_epsL $2) $0))) 5)) 5)",
+    "(fn_10 (lam (fn_10 (lam (lam (dreamcoder_abstraction_1 5 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $2) $0))) 8)) 5)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_4 logo_epsL (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)))) 3)",
+    "(fn_10 (lam (fn_14 (dreamcoder_abstraction_4 logo_epsL) 3)) 3)",
+    "(fn_10 (lam (lam (logo_FWRT logo_ZL (logo_MULA (logo_DIVA logo_UA 3) 4) (dreamcoder_abstraction_4 logo_epsL $0)))) 3)",
+    "(fn_10 (lam (lam (logo_PT (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)) (dreamcoder_abstraction_4 logo_epsL $0)))) 3)",
+    "(fn_10 (lam (lam (logo_PT (fn_14 (dreamcoder_abstraction_4 logo_epsL) 3) (dreamcoder_abstraction_4 logo_epsL $0)))) 3)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_3 logo_epsL (dreamcoder_abstraction_8 1 $0)))) 3)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL logo_UL logo_IFTY) (dreamcoder_abstraction_8 1 $0)))) 3)",
     "(fn_10 (lam (fn_18 1)) 3)",
-    "(fn_10 (lam (lam (prev_dc_inv_3 (logo_DIVL logo_epsL 1) (prev_dc_inv_8 1 $0)))) 3)",
-    "(lam (logo_forLoop 3 (lam (lam (prev_dc_inv_3 logo_epsL (prev_dc_inv_8 1 $0)))) (prev_dc_inv_3 logo_ZL $0)))",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL logo_epsL 1) (dreamcoder_abstraction_8 1 $0)))) 3)",
+    "(lam (logo_forLoop 3 (lam (lam (dreamcoder_abstraction_3 logo_epsL (dreamcoder_abstraction_8 1 $0)))) (dreamcoder_abstraction_3 logo_ZL $0)))",
     "(fn_10 (lam (fn_18 2)) 2)",
-    "(fn_10 (lam (lam (prev_dc_inv_3 (logo_DIVL (logo_DIVL logo_UL 2) 5) (prev_dc_inv_8 2 $0)))) 2)",
-    "(fn_10 (lam (lam (prev_dc_inv_3 (logo_DIVL (logo_DIVL logo_UL 5) 2) (prev_dc_inv_8 2 $0)))) 2)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL (logo_DIVL logo_UL 2) 5) (dreamcoder_abstraction_8 2 $0)))) 2)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL (logo_DIVL logo_UL 5) 2) (dreamcoder_abstraction_8 2 $0)))) 2)",
     "(fn_18 3)",
-    "(lam (prev_dc_inv_3 (logo_DIVL (logo_MULL logo_UL 3) logo_IFTY) (prev_dc_inv_8 3 $0)))",
-    "(lam (prev_dc_inv_3 (logo_MULL (logo_DIVL logo_UL logo_IFTY) 3) (prev_dc_inv_8 3 $0)))",
-    "(lam (prev_dc_inv_3 (logo_MULL (logo_MULL logo_epsL 1) 3) (prev_dc_inv_8 3 $0)))",
-    "(lam (prev_dc_inv_3 (logo_MULL (logo_MULL logo_epsL 3) 1) (prev_dc_inv_8 3 $0)))",
-    "(lam (prev_dc_inv_4 logo_epsL (logo_PT (lam (fn_13 $0)) (prev_dc_inv_4 logo_epsL $0))))",
-    "(lam (prev_dc_inv_4 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (prev_dc_inv_4 logo_epsL $0))))",
-    "(lam (prev_dc_inv_4 logo_epsL (logo_PT (lam (prev_dc_inv_5 1 logo_UL $0)) (prev_dc_inv_4 logo_epsL $0))))",
-    "(lam (prev_dc_inv_4 logo_epsL (logo_PT (lam (fn_13 $0)) (prev_dc_inv_7 1 $0))))",
-    "(lam (prev_dc_inv_7 1 (logo_PT (lam (fn_13 $0)) (prev_dc_inv_4 logo_epsL $0))))",
-    "(lam (fn_13 (logo_PT (lam (fn_13 $0)) (logo_FWRT logo_UL prev_dc_inv_0 $0))))",
-    "(lam (fn_13 (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (logo_FWRT logo_UL prev_dc_inv_0 $0))))",
-    "(lam (logo_FWRT logo_UL logo_ZA (logo_PT (lam (fn_13 $0)) (logo_FWRT logo_UL prev_dc_inv_0 $0))))",
+    "(lam (dreamcoder_abstraction_3 (logo_DIVL (logo_MULL logo_UL 3) logo_IFTY) (dreamcoder_abstraction_8 3 $0)))",
+    "(lam (dreamcoder_abstraction_3 (logo_MULL (logo_DIVL logo_UL logo_IFTY) 3) (dreamcoder_abstraction_8 3 $0)))",
+    "(lam (dreamcoder_abstraction_3 (logo_MULL (logo_MULL logo_epsL 1) 3) (dreamcoder_abstraction_8 3 $0)))",
+    "(lam (dreamcoder_abstraction_3 (logo_MULL (logo_MULL logo_epsL 3) 1) (dreamcoder_abstraction_8 3 $0)))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL (logo_PT (lam (fn_13 $0)) (dreamcoder_abstraction_4 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (dreamcoder_abstraction_4 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL (logo_PT (lam (dreamcoder_abstraction_5 1 logo_UL $0)) (dreamcoder_abstraction_4 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL (logo_PT (lam (fn_13 $0)) (dreamcoder_abstraction_7 1 $0))))",
+    "(lam (dreamcoder_abstraction_7 1 (logo_PT (lam (fn_13 $0)) (dreamcoder_abstraction_4 logo_epsL $0))))",
+    "(lam (fn_13 (logo_PT (lam (fn_13 $0)) (logo_FWRT logo_UL dreamcoder_abstraction_0 $0))))",
+    "(lam (fn_13 (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (logo_FWRT logo_UL dreamcoder_abstraction_0 $0))))",
+    "(lam (logo_FWRT logo_UL logo_ZA (logo_PT (lam (fn_13 $0)) (logo_FWRT logo_UL dreamcoder_abstraction_0 $0))))",
     "(lam (fn_13 (logo_PT (lam (fn_13 $0)) (fn_13 $0))))",
-    "(lam (logo_FWRT logo_UL logo_ZA (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (logo_FWRT logo_UL prev_dc_inv_0 $0))))",
+    "(lam (logo_FWRT logo_UL logo_ZA (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (logo_FWRT logo_UL dreamcoder_abstraction_0 $0))))",
     "(fn_15 (logo_FWRT (logo_DIVL logo_UL 2) logo_UA) 3)",
     "(fn_10 (lam (lam (logo_FWRT (logo_DIVL logo_UL 2) logo_UA (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) $0)))) 3)",
     "(fn_15 (logo_FWRT (logo_DIVL logo_UL 2) logo_ZA) 3)",
     "(fn_10 (lam (lam (logo_FWRT (logo_DIVL logo_UL 2) logo_ZA (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) $0)))) 3)",
     "(fn_10 (lam (lam (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (logo_FWRT (logo_DIVL logo_UL 2) logo_ZA $0)))) 3)",
-    "(lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (fn_13 $0)) (prev_dc_inv_3 logo_epsL $0))))",
-    "(lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (prev_dc_inv_3 logo_epsL $0))))",
-    "(lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (prev_dc_inv_5 1 logo_UL $0)) (prev_dc_inv_3 logo_epsL $0))))",
-    "(lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (prev_dc_inv_2 logo_UL logo_UA 2 $0)) (prev_dc_inv_3 logo_epsL $0))))",
-    "(fn_15 (prev_dc_inv_3 logo_epsL) 2)",
-    "(lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (fn_13 $0)) (prev_dc_inv_4 logo_epsL $0))))",
-    "(lam (prev_dc_inv_4 logo_epsL (logo_PT (lam (fn_13 $0)) (prev_dc_inv_3 logo_epsL $0))))",
-    "(lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (prev_dc_inv_4 logo_epsL $0))))",
-    "(lam (prev_dc_inv_4 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (prev_dc_inv_3 logo_epsL $0))))",
-    "(lam (prev_dc_inv_4 logo_epsL (logo_PT (lam (prev_dc_inv_5 1 logo_UL $0)) (prev_dc_inv_3 logo_epsL $0))))",
-    "(fn_10 (lam (lam (logo_PT (fn_17 prev_dc_inv_0 $1) (logo_FWRT logo_UL prev_dc_inv_0 $0)))) 4)",
-    "(fn_10 (lam (lam (logo_PT (fn_17 prev_dc_inv_0 $1) (logo_FWRT (logo_MULL logo_epsL logo_IFTY) prev_dc_inv_0 $0)))) 4)",
-    "(fn_10 (lam (lam (logo_PT (fn_17 prev_dc_inv_0 $1) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 2) 2) prev_dc_inv_0 $0)))) 4)",
-    "(fn_10 (lam (lam (logo_PT (fn_17 prev_dc_inv_0 $1) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 3) 3) prev_dc_inv_0 $0)))) 4)",
-    "(fn_10 (lam (lam (logo_PT (fn_17 prev_dc_inv_0 $1) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 4) 4) prev_dc_inv_0 $0)))) 4)",
-    "(fn_10 (lam (lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (fn_13 (prev_dc_inv_3 logo_epsL $0))) $0)))) 5)",
+    "(lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (fn_13 $0)) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (dreamcoder_abstraction_5 1 logo_UL $0)) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (dreamcoder_abstraction_2 logo_UL logo_UA 2 $0)) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(fn_15 (dreamcoder_abstraction_3 logo_epsL) 2)",
+    "(lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (fn_13 $0)) (dreamcoder_abstraction_4 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL (logo_PT (lam (fn_13 $0)) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (dreamcoder_abstraction_4 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(lam (dreamcoder_abstraction_4 logo_epsL (logo_PT (lam (dreamcoder_abstraction_5 1 logo_UL $0)) (dreamcoder_abstraction_3 logo_epsL $0))))",
+    "(fn_10 (lam (lam (logo_PT (fn_17 dreamcoder_abstraction_0 $1) (logo_FWRT logo_UL dreamcoder_abstraction_0 $0)))) 4)",
+    "(fn_10 (lam (lam (logo_PT (fn_17 dreamcoder_abstraction_0 $1) (logo_FWRT (logo_MULL logo_epsL logo_IFTY) dreamcoder_abstraction_0 $0)))) 4)",
+    "(fn_10 (lam (lam (logo_PT (fn_17 dreamcoder_abstraction_0 $1) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 2) 2) dreamcoder_abstraction_0 $0)))) 4)",
+    "(fn_10 (lam (lam (logo_PT (fn_17 dreamcoder_abstraction_0 $1) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 3) 3) dreamcoder_abstraction_0 $0)))) 4)",
+    "(fn_10 (lam (lam (logo_PT (fn_17 dreamcoder_abstraction_0 $1) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 4) 4) dreamcoder_abstraction_0 $0)))) 4)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (fn_13 (dreamcoder_abstraction_3 logo_epsL $0))) $0)))) 5)",
     "(fn_10 (lam (fn_14 (logo_GETSET (lam (fn_13 $0))) 7)) 7)",
     "(fn_10 (lam (fn_14 (logo_GETSET (lam (logo_FWRT logo_UL logo_ZA $0))) 7)) 7)",
     "(fn_10 (lam (fn_14 (logo_GETSET (lam (logo_FWRT logo_UL logo_epsA $0))) 7)) 7)",
     "(fn_11 7 logo_UA)",
     "(fn_11 7 logo_ZA)",
-    "(fn_10 (lam (lam (prev_dc_inv_5 4 logo_UL (fn_13 $0)))) 4)",
-    "(fn_10 (lam (lam (prev_dc_inv_5 4 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) 4)",
-    "(fn_10 (lam (lam (prev_dc_inv_5 4 logo_UL (prev_dc_inv_5 1 logo_UL $0)))) 4)",
-    "(fn_10 (lam (lam (prev_dc_inv_1 4 prev_dc_inv_0 logo_UL (fn_13 $0)))) 4)",
-    "(fn_10 (lam (lam (prev_dc_inv_1 4 prev_dc_inv_0 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) 4)",
-    "(lam (prev_dc_inv_5 4 logo_UL $0))",
-    "(lam (prev_dc_inv_1 4 prev_dc_inv_0 logo_UL $0))",
-    "(lam (prev_dc_inv_5 4 (logo_MULL logo_UL 1) $0))",
-    "(lam (prev_dc_inv_5 4 (logo_DIVL logo_UL 1) $0))",
-    "(lam (prev_dc_inv_3 logo_ZL (prev_dc_inv_5 4 logo_UL $0)))",
-    "(fn_16 2 prev_dc_inv_0 4)",
-    "(fn_10 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (fn_13 $0)))) 4)",
-    "(fn_10 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL logo_ZA $0)))) 4)",
-    "(fn_10 (lam (lam (fn_13 (logo_FWRT logo_UL prev_dc_inv_0 $0)))) 4)",
-    "(fn_10 (lam (lam (logo_FWRT logo_UL logo_ZA (logo_FWRT logo_UL prev_dc_inv_0 $0)))) 4)",
-    "(lam (prev_dc_inv_5 4 (logo_MULL logo_UL 3) $0))",
-    "(fn_16 3 prev_dc_inv_0 4)",
-    "(lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL 1) 3) $0))",
-    "(lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL 3) 1) $0))",
-    "(lam (prev_dc_inv_5 4 (logo_MULL (logo_DIVL logo_UL 3) 9) $0))",
-    "(fn_10 (lam (lam (prev_dc_inv_5 4 (logo_MULL logo_UL $1) $0))) 5)",
-    "(fn_10 (lam (fn_16 $0 prev_dc_inv_0 4)) 5)",
-    "(fn_10 (lam (lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL $1) 1) $0))) 5)",
-    "(fn_10 (lam (lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL 1) $1) $0))) 5)",
-    "(fn_10 (lam (lam (prev_dc_inv_5 4 (logo_MULL (logo_DIVL logo_UL 1) $1) $0))) 5)"
+    "(fn_10 (lam (lam (dreamcoder_abstraction_5 4 logo_UL (fn_13 $0)))) 4)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_5 4 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) 4)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_5 4 logo_UL (dreamcoder_abstraction_5 1 logo_UL $0)))) 4)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 logo_UL (fn_13 $0)))) 4)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) 4)",
+    "(lam (dreamcoder_abstraction_5 4 logo_UL $0))",
+    "(lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 logo_UL $0))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL logo_UL 1) $0))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_DIVL logo_UL 1) $0))",
+    "(lam (dreamcoder_abstraction_3 logo_ZL (dreamcoder_abstraction_5 4 logo_UL $0)))",
+    "(fn_16 2 dreamcoder_abstraction_0 4)",
+    "(fn_10 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (fn_13 $0)))) 4)",
+    "(fn_10 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_ZA $0)))) 4)",
+    "(fn_10 (lam (lam (fn_13 (logo_FWRT logo_UL dreamcoder_abstraction_0 $0)))) 4)",
+    "(fn_10 (lam (lam (logo_FWRT logo_UL logo_ZA (logo_FWRT logo_UL dreamcoder_abstraction_0 $0)))) 4)",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL logo_UL 3) $0))",
+    "(fn_16 3 dreamcoder_abstraction_0 4)",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL 1) 3) $0))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL 3) 1) $0))",
+    "(lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_DIVL logo_UL 3) 9) $0))",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL logo_UL $1) $0))) 5)",
+    "(fn_10 (lam (fn_16 $0 dreamcoder_abstraction_0 4)) 5)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL $1) 1) $0))) 5)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL 1) $1) $0))) 5)",
+    "(fn_10 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_DIVL logo_UL 1) $1) $0))) 5)"
   ],
   "rewritten_dreamcoder": null,
-  "test_output": null,
   "abstractions": [
     {
       "body": "(lam (logo_forLoop #0 (lam (lam (logo_FWRT (logo_MULL logo_UL #1) (logo_DIVA logo_UA #0) $0))) $0))",
@@ -822,28 +866,43 @@
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_10 (lam (lam (prev_dc_inv_3 (logo_DIVL (logo_DIVL logo_UL 2) 5) (prev_dc_inv_8 2 $0)))) 2": "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 (logo_DIVL (logo_DIVL logo_UL 2) 5) (prev_dc_inv_8 2 $0)))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL (logo_DIVL logo_UL 2) 5) (dreamcoder_abstraction_8 2 $0)))) 2": "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL (logo_DIVL logo_UL 2) 5) (dreamcoder_abstraction_8 2 $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_3 (logo_DIVL (logo_DIVL logo_UL 5) 2) (prev_dc_inv_8 2 $0)))) 2": "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 (logo_DIVL (logo_DIVL logo_UL 5) 2) (prev_dc_inv_8 2 $0)))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL (logo_DIVL logo_UL 5) 2) (dreamcoder_abstraction_8 2 $0)))) 2": "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL (logo_DIVL logo_UL 5) 2) (dreamcoder_abstraction_8 2 $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 2) (prev_dc_inv_8 2 $0)))) 2": "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 2) (prev_dc_inv_8 2 $0)))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 2) (dreamcoder_abstraction_8 2 $0)))) 2": "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 2) (dreamcoder_abstraction_8 2 $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 3) $0))) 2": "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 3) $0))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 3) $0))) 2": "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 3) $0))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 4) $0))) 2": "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 4) $0))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 4) $0))) 2": "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 4) $0))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 5) $0))) 2": "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 5) $0))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 5) $0))) 2": "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 5) $0))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 6) $0))) 2": "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 6) $0))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 6) $0))) 2": "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 6) $0))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) $0)))) 2": "(lam (logo_forLoop 2 (lam (lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) $0)))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) $0)))) 2": "(lam (logo_forLoop 2 (lam (lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) $0)))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL logo_UL logo_IFTY) (dreamcoder_abstraction_8 1 $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL logo_UL logo_IFTY) (dreamcoder_abstraction_8 1 $0)))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL logo_epsL 1) (dreamcoder_abstraction_8 1 $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (dreamcoder_abstraction_3 (logo_DIVL logo_epsL 1) (dreamcoder_abstraction_8 1 $0)))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 1) (dreamcoder_abstraction_8 1 $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 1) (dreamcoder_abstraction_8 1 $0)))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_3 logo_epsL (dreamcoder_abstraction_8 1 $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (dreamcoder_abstraction_3 logo_epsL (dreamcoder_abstraction_8 1 $0)))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_4 logo_epsL (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (dreamcoder_abstraction_4 logo_epsL (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)))) $0))"
         },
         {
           "fn_10 (lam (lam (logo_FWRT (logo_DIVL logo_UL 2) logo_UA (logo_FWRT (logo_DIVL logo_UL 2) logo_UA (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) $0))))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_FWRT (logo_DIVL logo_UL 2) logo_UA (logo_FWRT (logo_DIVL logo_UL 2) logo_UA (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) $0))))) $0))"
@@ -891,7 +950,7 @@
           "fn_10 (lam (lam (logo_FWRT logo_UL (logo_DIVA (logo_MULA logo_UA $1) 4) $0))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_UL (logo_DIVA (logo_MULA logo_UA $1) 4) $0))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_FWRT logo_UL (logo_MULA prev_dc_inv_0 $1) $0))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_UL (logo_MULA prev_dc_inv_0 $1) $0))) $0))"
+          "fn_10 (lam (lam (logo_FWRT logo_UL (logo_MULA dreamcoder_abstraction_0 $1) $0))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_UL (logo_MULA dreamcoder_abstraction_0 $1) $0))) $0))"
         },
         {
           "fn_10 (lam (lam (logo_FWRT logo_UL logo_UA (logo_PT (lam (logo_FWRT (logo_DIVL logo_UL 2) logo_UA (logo_FWRT (logo_DIVL logo_UL 2) logo_UA $0))) $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_UL logo_UA (logo_PT (lam (logo_FWRT (logo_DIVL logo_UL 2) logo_UA (logo_FWRT (logo_DIVL logo_UL 2) logo_UA $0))) $0)))) $0))"
@@ -903,10 +962,10 @@
           "fn_10 (lam (lam (logo_FWRT logo_UL logo_UA (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_UL logo_UA (logo_PT (lam (logo_FWRT logo_UL logo_UA $0)) $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (prev_dc_inv_4 logo_epsL $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (prev_dc_inv_4 logo_epsL $0)))) $0))"
+          "fn_10 (lam (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (dreamcoder_abstraction_4 logo_epsL $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (dreamcoder_abstraction_4 logo_epsL $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_FWRT logo_ZL (logo_MULA (logo_DIVA logo_UA 3) 4) (prev_dc_inv_4 logo_epsL $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_ZL (logo_MULA (logo_DIVA logo_UA 3) 4) (prev_dc_inv_4 logo_epsL $0)))) $0))"
+          "fn_10 (lam (lam (logo_FWRT logo_ZL (logo_MULA (logo_DIVA logo_UA 3) 4) (dreamcoder_abstraction_4 logo_epsL $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_FWRT logo_ZL (logo_MULA (logo_DIVA logo_UA 3) 4) (dreamcoder_abstraction_4 logo_epsL $0)))) $0))"
         },
         {
           "fn_10 (lam (lam (logo_GETSET (lam (logo_FWRT logo_UL (logo_DIVA logo_UA 5) $0)) (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_GETSET (lam (logo_FWRT logo_UL (logo_DIVA logo_UA 5) $0)) (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)))) $0))"
@@ -927,25 +986,25 @@
           "fn_10 (lam (lam (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (logo_FWRT (logo_DIVL logo_UL 2) logo_ZA $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_PT (lam (logo_FWRT logo_UL logo_ZA $0)) (logo_FWRT (logo_DIVL logo_UL 2) logo_ZA $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_PT (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)) (prev_dc_inv_4 logo_epsL $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_PT (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)) (prev_dc_inv_4 logo_epsL $0)))) $0))"
+          "fn_10 (lam (lam (logo_PT (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)) (dreamcoder_abstraction_4 logo_epsL $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_PT (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)) (dreamcoder_abstraction_4 logo_epsL $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_PT (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (prev_dc_inv_4 logo_epsL $0))) (prev_dc_inv_4 logo_epsL $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_PT (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (prev_dc_inv_4 logo_epsL $0))) (prev_dc_inv_4 logo_epsL $0)))) $0))"
+          "fn_10 (lam (lam (logo_PT (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (dreamcoder_abstraction_4 logo_epsL $0))) (dreamcoder_abstraction_4 logo_epsL $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (logo_PT (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (dreamcoder_abstraction_4 logo_epsL $0))) (dreamcoder_abstraction_4 logo_epsL $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_3 (logo_DIVL logo_UL logo_IFTY) (prev_dc_inv_8 1 $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (prev_dc_inv_3 (logo_DIVL logo_UL logo_IFTY) (prev_dc_inv_8 1 $0)))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 logo_UL (logo_FWRT logo_UL logo_UA $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 logo_UL (logo_FWRT logo_UL logo_UA $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_3 (logo_DIVL logo_epsL 1) (prev_dc_inv_8 1 $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (prev_dc_inv_3 (logo_DIVL logo_epsL 1) (prev_dc_inv_8 1 $0)))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 1) (prev_dc_inv_8 1 $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (prev_dc_inv_3 (logo_MULL logo_epsL 1) (prev_dc_inv_8 1 $0)))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_5 4 logo_UL (dreamcoder_abstraction_5 1 logo_UL $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (dreamcoder_abstraction_5 4 logo_UL (dreamcoder_abstraction_5 1 logo_UL $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_3 logo_epsL (prev_dc_inv_8 1 $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (prev_dc_inv_3 logo_epsL (prev_dc_inv_8 1 $0)))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_5 4 logo_UL (logo_FWRT logo_UL logo_UA $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (dreamcoder_abstraction_5 4 logo_UL (logo_FWRT logo_UL logo_UA $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_4 logo_epsL (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)))) 3": "(lam (logo_forLoop 3 (lam (lam (prev_dc_inv_4 logo_epsL (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) $0)))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_5 4 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (dreamcoder_abstraction_5 4 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) $0))"
         },
         {
           "fn_10 (lam (lam (logo_FWRT (logo_DIVL logo_UL 3) logo_UA (logo_PT (lam (logo_FWRT (logo_DIVL logo_UL 2) logo_UA (logo_FWRT (logo_DIVL logo_UL 2) logo_UA $0))) $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_FWRT (logo_DIVL logo_UL 3) logo_UA (logo_PT (lam (logo_FWRT (logo_DIVL logo_UL 2) logo_UA (logo_FWRT (logo_DIVL logo_UL 2) logo_UA $0))) $0)))) $0))"
@@ -999,16 +1058,16 @@
           "fn_10 (lam (lam (logo_FWRT logo_UL (logo_DIVA logo_UA 4) (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) (logo_FWRT logo_UL (logo_DIVA logo_UA 4) $0))))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL (logo_DIVA logo_UA 4) (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) (logo_FWRT logo_UL (logo_DIVA logo_UA 4) $0))))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_FWRT logo_UL logo_UA (logo_FWRT logo_UL prev_dc_inv_0 $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL logo_UA (logo_FWRT logo_UL prev_dc_inv_0 $0)))) $0))"
+          "fn_10 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_UA $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_UA $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_FWRT logo_UL logo_ZA (logo_FWRT logo_UL prev_dc_inv_0 $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL logo_ZA (logo_FWRT logo_UL prev_dc_inv_0 $0)))) $0))"
+          "fn_10 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_ZA $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL logo_ZA $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL logo_UA $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL logo_UA $0)))) $0))"
+          "fn_10 (lam (lam (logo_FWRT logo_UL logo_UA (logo_FWRT logo_UL dreamcoder_abstraction_0 $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL logo_UA (logo_FWRT logo_UL dreamcoder_abstraction_0 $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL logo_ZA $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL logo_ZA $0)))) $0))"
+          "fn_10 (lam (lam (logo_FWRT logo_UL logo_ZA (logo_FWRT logo_UL dreamcoder_abstraction_0 $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL logo_ZA (logo_FWRT logo_UL dreamcoder_abstraction_0 $0)))) $0))"
         },
         {
           "fn_10 (lam (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 4) (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL (logo_DIVA logo_UA 4) $0))) $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 4) (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL (logo_DIVA logo_UA 4) $0))) $0)))) $0))"
@@ -1017,19 +1076,19 @@
           "fn_10 (lam (lam (logo_GETSET (lam (logo_FWRT logo_UL (logo_DIVA logo_UA 4) (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) $0))) (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_GETSET (lam (logo_FWRT logo_UL (logo_DIVA logo_UA 4) (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) $0))) (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 2) 2) prev_dc_inv_0 $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 2) 2) prev_dc_inv_0 $0)))) $0))"
+          "fn_10 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 2) 2) dreamcoder_abstraction_0 $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 2) 2) dreamcoder_abstraction_0 $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 3) 3) prev_dc_inv_0 $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 3) 3) prev_dc_inv_0 $0)))) $0))"
+          "fn_10 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 3) 3) dreamcoder_abstraction_0 $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 3) 3) dreamcoder_abstraction_0 $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 4) 4) prev_dc_inv_0 $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 4) 4) prev_dc_inv_0 $0)))) $0))"
+          "fn_10 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 4) 4) dreamcoder_abstraction_0 $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0)) (logo_FWRT (logo_MULL (logo_DIVL logo_UL 4) 4) dreamcoder_abstraction_0 $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0)) (logo_FWRT (logo_MULL logo_epsL logo_IFTY) prev_dc_inv_0 $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0)) (logo_FWRT (logo_MULL logo_epsL logo_IFTY) prev_dc_inv_0 $0)))) $0))"
+          "fn_10 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0)) (logo_FWRT (logo_MULL logo_epsL logo_IFTY) dreamcoder_abstraction_0 $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0)) (logo_FWRT (logo_MULL logo_epsL logo_IFTY) dreamcoder_abstraction_0 $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0)) (logo_FWRT logo_UL prev_dc_inv_0 $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0)) (logo_FWRT logo_UL prev_dc_inv_0 $0)))) $0))"
+          "fn_10 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0)) (logo_FWRT logo_UL dreamcoder_abstraction_0 $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0)) (logo_FWRT logo_UL dreamcoder_abstraction_0 $0)))) $0))"
         },
         {
           "fn_10 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) $0)) (logo_forLoop 4 (lam (lam (logo_FWRT (logo_MULL (logo_DIVL logo_UL 2) 2) (logo_DIVA logo_UA 4) $0))) $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) $0)) (logo_forLoop 4 (lam (lam (logo_FWRT (logo_MULL (logo_DIVL logo_UL 2) 2) (logo_DIVA logo_UA 4) $0))) $0)))) $0))"
@@ -1038,19 +1097,31 @@
           "fn_10 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) $0)) (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL (logo_DIVA logo_UA 4) $0))) $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (logo_PT (lam (logo_FWRT (logo_MULL logo_UL 2) (logo_DIVA logo_UA 4) $0)) (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL (logo_DIVA logo_UA 4) $0))) $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_1 4 prev_dc_inv_0 logo_UL (logo_FWRT logo_UL logo_UA $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (prev_dc_inv_1 4 prev_dc_inv_0 logo_UL (logo_FWRT logo_UL logo_UA $0)))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 (logo_MULL logo_UL $1) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 (logo_MULL logo_UL $1) $0))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_1 4 prev_dc_inv_0 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (prev_dc_inv_1 4 prev_dc_inv_0 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 8 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $2) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_1 8 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_5 4 logo_UL (logo_FWRT logo_UL logo_UA $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (prev_dc_inv_5 4 logo_UL (logo_FWRT logo_UL logo_UA $0)))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 8 (logo_SUBA logo_epsA logo_UA) (logo_MULL logo_epsL $2) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_1 8 (logo_SUBA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_5 4 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (prev_dc_inv_5 4 logo_UL (logo_FWRT logo_UL logo_ZA $0)))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA (dreamcoder_abstraction_3 logo_epsL $0))) $0)))) 5": "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA (dreamcoder_abstraction_3 logo_epsL $0))) $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_5 4 logo_UL (prev_dc_inv_5 1 logo_UL $0)))) 4": "(lam (logo_forLoop 4 (lam (lam (prev_dc_inv_5 4 logo_UL (prev_dc_inv_5 1 logo_UL $0)))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_DIVL logo_UL 1) $1) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_DIVL logo_UL 1) $1) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL $1) 1) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL $1) 1) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL 1) $1) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL (logo_MULL logo_UL 1) $1) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL logo_UL $1) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_5 4 (logo_MULL logo_UL $1) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_7 $1 $0))) 5": "(lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_7 $1 $0))) $0))"
         },
         {
           "fn_10 (lam (lam (logo_FWRT (logo_MULL (logo_DIVL logo_UL 2) 4) (logo_DIVA logo_UA 5) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_FWRT (logo_MULL (logo_DIVL logo_UL 2) 4) (logo_DIVA logo_UA 5) $0))) $0))"
@@ -1068,19 +1139,19 @@
           "fn_10 (lam (lam (logo_FWRT (logo_MULL logo_epsL 2) logo_epsA $0))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_FWRT (logo_MULL logo_epsL 2) logo_epsA $0))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_MULA (logo_DIVA logo_UA 8) 6) $0)))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_MULA (logo_DIVA logo_UA 8) 6) $0)))) $0))"
+          "fn_10 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_MULA (logo_DIVA logo_UA 8) 6) $0)))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_MULA (logo_DIVA logo_UA 8) 6) $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_MULA prev_dc_inv_0 3) $0)))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_MULA prev_dc_inv_0 3) $0)))) $0))"
+          "fn_10 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_MULA dreamcoder_abstraction_0 3) $0)))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_MULA dreamcoder_abstraction_0 3) $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_MULA prev_dc_inv_0 7) $0)))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_MULA prev_dc_inv_0 7) $0)))) $0))"
+          "fn_10 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_MULA dreamcoder_abstraction_0 7) $0)))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_MULA dreamcoder_abstraction_0 7) $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_SUBA logo_UA prev_dc_inv_0) $0)))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_SUBA logo_UA prev_dc_inv_0) $0)))) $0))"
+          "fn_10 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_SUBA logo_UA dreamcoder_abstraction_0) $0)))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_SUBA logo_UA dreamcoder_abstraction_0) $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_SUBA logo_ZA prev_dc_inv_0) $0)))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL prev_dc_inv_0 (logo_FWRT logo_UL (logo_SUBA logo_ZA prev_dc_inv_0) $0)))) $0))"
+          "fn_10 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_SUBA logo_ZA dreamcoder_abstraction_0) $0)))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_FWRT logo_UL dreamcoder_abstraction_0 (logo_FWRT logo_UL (logo_SUBA logo_ZA dreamcoder_abstraction_0) $0)))) $0))"
         },
         {
           "fn_10 (lam (lam (logo_GETSET (lam (logo_FWRT logo_UL (logo_DIVA logo_UA 7) $0)) (logo_FWRT logo_ZL (logo_DIVA logo_UA 5) $0)))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_GETSET (lam (logo_FWRT logo_UL (logo_DIVA logo_UA 7) $0)) (logo_FWRT logo_ZL (logo_DIVA logo_UA 5) $0)))) $0))"
@@ -1098,10 +1169,16 @@
           "fn_10 (lam (lam (logo_GETSET (lam (logo_FWRT logo_UL logo_epsA $0)) (logo_FWRT logo_ZL (logo_MULA logo_epsA 8) $0)))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_GETSET (lam (logo_FWRT logo_UL logo_epsA $0)) (logo_FWRT logo_ZL (logo_MULA logo_epsA 8) $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_forLoop 5 (lam (lam (prev_dc_inv_1 8 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 5 (lam (lam (prev_dc_inv_1 8 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) $0))"
+          "fn_10 (lam (lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_1 8 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_1 8 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_forLoop 5 (lam (lam (prev_dc_inv_1 8 (logo_SUBA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 5 (lam (lam (prev_dc_inv_1 8 (logo_SUBA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) $0))"
+          "fn_10 (lam (lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_1 8 (logo_SUBA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 5 (lam (lam (dreamcoder_abstraction_1 8 (logo_SUBA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL $3) $0))) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL $3) $0))) $0))) $0))"
         },
         {
           "fn_10 (lam (lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_DIVL (logo_DIVL logo_UL 2) 5) logo_epsA $0))) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_DIVL (logo_DIVL logo_UL 2) 5) logo_epsA $0))) $0))) $0))"
@@ -1116,37 +1193,7 @@
           "fn_10 (lam (lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_MULL logo_epsL 2) logo_epsA $0))) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_MULL logo_epsL 2) logo_epsA $0))) $0))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL $3) $0))) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL $3) $0))) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 4 prev_dc_inv_0 (logo_MULL logo_UL $1) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_1 4 prev_dc_inv_0 (logo_MULL logo_UL $1) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 8 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $2) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_1 8 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 8 (logo_SUBA logo_epsA logo_UA) (logo_MULL logo_epsL $2) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_1 8 (logo_SUBA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA (prev_dc_inv_3 logo_epsL $0))) $0)))) 5": "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (logo_FWRT logo_UL logo_UA (prev_dc_inv_3 logo_epsL $0))) $0)))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_5 4 (logo_MULL (logo_DIVL logo_UL 1) $1) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_5 4 (logo_MULL (logo_DIVL logo_UL 1) $1) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL $1) 1) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL $1) 1) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL 1) $1) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_5 4 (logo_MULL (logo_MULL logo_UL 1) $1) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_5 4 (logo_MULL logo_UL $1) $0))) 5": "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_5 4 (logo_MULL logo_UL $1) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_7 $1 $0))) 5": "(lam (logo_forLoop 5 (lam (lam (prev_dc_inv_7 $1 $0))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 7 logo_epsA logo_epsL $0))) 6": "(lam (logo_forLoop 6 (lam (lam (dreamcoder_abstraction_1 7 logo_epsA logo_epsL $0))) $0))"
         },
         {
           "fn_10 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) (logo_ADDA (logo_DIVA logo_UA 4) logo_UA) $0))) 6": "(lam (logo_forLoop 6 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) (logo_ADDA (logo_DIVA logo_UA 4) logo_UA) $0))) $0))"
@@ -1185,10 +1232,13 @@
           "fn_10 (lam (lam (logo_forLoop 8 (lam (lam (logo_forLoop 5 (lam (lam (logo_FWRT (logo_MULL logo_epsL $5) logo_epsA $0))) $0))) $0))) 6": "(lam (logo_forLoop 6 (lam (lam (logo_forLoop 8 (lam (lam (logo_forLoop 5 (lam (lam (logo_FWRT (logo_MULL logo_epsL $5) logo_epsA $0))) $0))) $0))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_1 7 logo_epsA logo_epsL $0))) 6": "(lam (logo_forLoop 6 (lam (lam (prev_dc_inv_1 7 logo_epsA logo_epsL $0))) $0))"
+          "fn_10 (lam (fn_9 4 $0)) 7": "(lam (logo_forLoop 7 (lam (fn_9 4 $0)) $0))"
         },
         {
-          "fn_10 (lam (fn_9 4 $0)) 7": "(lam (logo_forLoop 7 (lam (fn_9 4 $0)) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 6 logo_epsA (logo_MULL logo_epsL 3) $0))) 7": "(lam (logo_forLoop 7 (lam (lam (dreamcoder_abstraction_1 6 logo_epsA (logo_MULL logo_epsL 3) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 6 logo_epsA (logo_MULL logo_epsL 6) $0))) 7": "(lam (logo_forLoop 7 (lam (lam (dreamcoder_abstraction_1 6 logo_epsA (logo_MULL logo_epsL 6) $0))) $0))"
         },
         {
           "fn_10 (lam (lam (logo_FWRT (logo_MULL (logo_DIVL logo_UL 2) 6) (logo_DIVA logo_UA 7) $0))) 7": "(lam (logo_forLoop 7 (lam (lam (logo_FWRT (logo_MULL (logo_DIVL logo_UL 2) 6) (logo_DIVA logo_UA 7) $0))) $0))"
@@ -1245,10 +1295,31 @@
           "fn_10 (lam (lam (logo_forLoop 4 (lam (lam (logo_FWRT (logo_MULL logo_UL $3) (logo_SUBA (logo_DIVA logo_UA 4) logo_UA) $0))) $0))) 7": "(lam (logo_forLoop 7 (lam (lam (logo_forLoop 4 (lam (lam (logo_FWRT (logo_MULL logo_UL $3) (logo_SUBA (logo_DIVA logo_UA 4) logo_UA) $0))) $0))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_1 6 logo_epsA (logo_MULL logo_epsL 3) $0))) 7": "(lam (logo_forLoop 7 (lam (lam (prev_dc_inv_1 6 logo_epsA (logo_MULL logo_epsL 3) $0))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 5 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $2) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_1 6 logo_epsA (logo_MULL logo_epsL 6) $0))) 7": "(lam (logo_forLoop 7 (lam (lam (prev_dc_inv_1 6 logo_epsA (logo_MULL logo_epsL 6) $0))) $0))"
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_DIVL logo_UL 4) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_DIVL logo_UL 4) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_DIVL logo_UL 5) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_DIVL logo_UL 5) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL $2) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL $3) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 3) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 3) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 4) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 4) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 5) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 5) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 6) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA (logo_MULL logo_epsL 6) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA logo_epsL $0))) 8": "(lam (logo_forLoop 8 (lam (lam (dreamcoder_abstraction_1 5 logo_epsA logo_epsL $0))) $0))"
         },
         {
           "fn_10 (lam (lam (logo_FWRT (logo_DIVL (logo_DIVL logo_UL 2) 5) logo_epsA $0))) 8": "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_DIVL (logo_DIVL logo_UL 2) 5) logo_epsA $0))) $0))"
@@ -1257,10 +1328,10 @@
           "fn_10 (lam (lam (logo_FWRT (logo_DIVL logo_UL 2) (logo_DIVA logo_UA 8) (logo_PT (lam $0) $0)))) 8": "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_DIVL logo_UL 2) (logo_DIVA logo_UA 8) (logo_PT (lam $0) $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) prev_dc_inv_0 (logo_GETSET (lam $0) $0)))) 8": "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) prev_dc_inv_0 (logo_GETSET (lam $0) $0)))) $0))"
+          "fn_10 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) dreamcoder_abstraction_0 (logo_GETSET (lam $0) $0)))) 8": "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) dreamcoder_abstraction_0 (logo_GETSET (lam $0) $0)))) $0))"
         },
         {
-          "fn_10 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) prev_dc_inv_0 (logo_PT (lam $0) $0)))) 8": "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) prev_dc_inv_0 (logo_PT (lam $0) $0)))) $0))"
+          "fn_10 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) dreamcoder_abstraction_0 (logo_PT (lam $0) $0)))) 8": "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) dreamcoder_abstraction_0 (logo_PT (lam $0) $0)))) $0))"
         },
         {
           "fn_10 (lam (lam (logo_FWRT (logo_MULL logo_epsL $4) logo_epsA $0))) 8": "(lam (logo_forLoop 8 (lam (lam (logo_FWRT (logo_MULL logo_epsL $5) logo_epsA $0))) $0))"
@@ -1281,33 +1352,6 @@
           "fn_10 (lam (lam (logo_forLoop 5 (lam (lam (logo_FWRT (logo_MULL logo_epsL 2) logo_epsA $0))) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (logo_forLoop 5 (lam (lam (logo_FWRT (logo_MULL logo_epsL 2) logo_epsA $0))) $0))) $0))"
         },
         {
-          "fn_10 (lam (lam (prev_dc_inv_1 5 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $2) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 (logo_ADDA logo_epsA logo_UA) (logo_MULL logo_epsL $3) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_DIVL logo_UL 4) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_DIVL logo_UL 4) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_DIVL logo_UL 5) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_DIVL logo_UL 5) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL $2) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL $3) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 3) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 3) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 4) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 4) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 5) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 5) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 6) $0))) 8": "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA (logo_MULL logo_epsL 6) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 5 logo_epsA logo_epsL $0))) 8": "(lam (logo_forLoop 8 (lam (lam (prev_dc_inv_1 5 logo_epsA logo_epsL $0))) $0))"
-        },
-        {
           "fn_10 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) (logo_ADDA (logo_DIVA logo_UA 4) logo_UA) $0))) 9": "(lam (logo_forLoop 9 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) (logo_ADDA (logo_DIVA logo_UA 4) logo_UA) $0))) $0))"
         },
         {
@@ -1321,6 +1365,21 @@
         },
         {
           "fn_10 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) (logo_SUBA (logo_DIVA logo_UA 4) logo_UA) $0))) 9": "(lam (logo_forLoop 9 (lam (lam (logo_FWRT (logo_MULL logo_UL $1) (logo_SUBA (logo_DIVA logo_UA 4) logo_UA) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_DIVL logo_UL 4) $0))) logo_IFTY": "(lam (logo_forLoop logo_IFTY (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_DIVL logo_UL 4) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_DIVL logo_UL 5) $0))) logo_IFTY": "(lam (logo_forLoop logo_IFTY (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_DIVL logo_UL 5) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_MULL logo_epsL 3) $0))) logo_IFTY": "(lam (logo_forLoop logo_IFTY (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_MULL logo_epsL 3) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_MULL logo_epsL 6) $0))) logo_IFTY": "(lam (logo_forLoop logo_IFTY (lam (lam (dreamcoder_abstraction_1 2 logo_epsA (logo_MULL logo_epsL 6) $0))) $0))"
+        },
+        {
+          "fn_10 (lam (lam (dreamcoder_abstraction_1 2 logo_epsA logo_epsL $0))) logo_IFTY": "(lam (logo_forLoop logo_IFTY (lam (lam (dreamcoder_abstraction_1 2 logo_epsA logo_epsL $0))) $0))"
         },
         {
           "fn_10 (lam (lam (logo_FWRT (logo_DIVL logo_UL 4) (logo_SUBA logo_UA logo_epsA) $0))) logo_IFTY": "(lam (logo_forLoop logo_IFTY (lam (lam (logo_FWRT (logo_DIVL logo_UL 4) (logo_SUBA logo_UA logo_epsA) $0))) $0))"
@@ -1456,21 +1515,6 @@
         },
         {
           "fn_10 (lam (lam (logo_PT (lam $0) (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0)))) logo_IFTY": "(lam (logo_forLoop logo_IFTY (lam (lam (logo_PT (lam $0) (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0)))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_DIVL logo_UL 4) $0))) logo_IFTY": "(lam (logo_forLoop logo_IFTY (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_DIVL logo_UL 4) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_DIVL logo_UL 5) $0))) logo_IFTY": "(lam (logo_forLoop logo_IFTY (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_DIVL logo_UL 5) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_MULL logo_epsL 3) $0))) logo_IFTY": "(lam (logo_forLoop logo_IFTY (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_MULL logo_epsL 3) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_MULL logo_epsL 6) $0))) logo_IFTY": "(lam (logo_forLoop logo_IFTY (lam (lam (prev_dc_inv_1 2 logo_epsA (logo_MULL logo_epsL 6) $0))) $0))"
-        },
-        {
-          "fn_10 (lam (lam (prev_dc_inv_1 2 logo_epsA logo_epsL $0))) logo_IFTY": "(lam (logo_forLoop logo_IFTY (lam (lam (prev_dc_inv_1 2 logo_epsA logo_epsL $0))) $0))"
         }
       ]
     },
@@ -1671,16 +1715,16 @@
           "fn_14 (logo_FWRT logo_epsL (logo_DIVA (logo_SUBA logo_epsA logo_UA) 2)) 2": "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 2) (logo_FWRT logo_epsL (logo_DIVA (logo_SUBA logo_epsA logo_UA) 2) $0)))"
         },
         {
-          "fn_14 (prev_dc_inv_4 logo_epsL) 3": "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (prev_dc_inv_4 logo_epsL $0)))"
+          "fn_14 (dreamcoder_abstraction_4 logo_epsL) 3": "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (dreamcoder_abstraction_4 logo_epsL $0)))"
         },
         {
-          "fn_14 (prev_dc_inv_5 4 logo_UL) 3": "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (prev_dc_inv_5 4 logo_UL $0)))"
+          "fn_14 (dreamcoder_abstraction_5 4 logo_UL) 3": "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 3) (dreamcoder_abstraction_5 4 logo_UL $0)))"
         },
         {
           "fn_14 (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL (logo_DIVA logo_UA 4) $0)))) 4": "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 4) (logo_forLoop 4 (lam (lam (logo_FWRT logo_UL (logo_DIVA logo_UA 4) $0))) $0)))"
         },
         {
-          "fn_14 (prev_dc_inv_5 6 (logo_MULL logo_UL 2)) 5": "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 5) (prev_dc_inv_5 6 (logo_MULL logo_UL 2) $0)))"
+          "fn_14 (dreamcoder_abstraction_5 6 (logo_MULL logo_UL 2)) 5": "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 5) (dreamcoder_abstraction_5 6 (logo_MULL logo_UL 2) $0)))"
         },
         {
           "fn_14 (logo_GETSET (lam (fn_13 $0))) 7": "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 7) (logo_GETSET (lam (fn_13 $0)) $0)))"
@@ -1692,7 +1736,7 @@
           "fn_14 (logo_GETSET (lam (logo_FWRT logo_UL logo_epsA $0))) 7": "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 7) (logo_GETSET (lam (logo_FWRT logo_UL logo_epsA $0)) $0)))"
         },
         {
-          "fn_14 (prev_dc_inv_3 logo_epsL) 8": "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 8) (prev_dc_inv_3 logo_epsL $0)))"
+          "fn_14 (dreamcoder_abstraction_3 logo_epsL) 8": "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 8) (dreamcoder_abstraction_3 logo_epsL $0)))"
         }
       ]
     },
@@ -1710,6 +1754,9 @@
       "rewritten_dreamcoder": null,
       "uses": [
         {
+          "fn_15 (dreamcoder_abstraction_3 logo_epsL)": "(fn_10 (lam (lam (dreamcoder_abstraction_3 logo_epsL (logo_PT (lam (fn_13 $0)) $0)))))"
+        },
+        {
           "fn_15 fn_13": "(fn_10 (lam (lam (fn_13 (logo_PT (lam (fn_13 $0)) $0)))))"
         },
         {
@@ -1726,14 +1773,11 @@
         },
         {
           "fn_15 (logo_FWRT (logo_MULL logo_epsL logo_IFTY) logo_UA)": "(fn_10 (lam (lam (logo_FWRT (logo_MULL logo_epsL logo_IFTY) logo_UA (logo_PT (lam (fn_13 $0)) $0)))))"
-        },
-        {
-          "fn_15 (prev_dc_inv_3 logo_epsL)": "(fn_10 (lam (lam (prev_dc_inv_3 logo_epsL (logo_PT (lam (fn_13 $0)) $0)))))"
         }
       ]
     },
     {
-      "body": "(lam (prev_dc_inv_1 #2 #1 (logo_MULL logo_UL #0) $0))",
+      "body": "(lam (dreamcoder_abstraction_1 #2 #1 (logo_MULL logo_UL #0) $0))",
       "dreamcoder": "#(lambda (lambda (lambda (lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) $1 $2 (logo_MULL logo_UL $3) $0)))))",
       "arity": 3,
       "name": "fn_16",
@@ -1746,43 +1790,43 @@
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_16 $0 prev_dc_inv_0 4": "(lam (prev_dc_inv_1 4 prev_dc_inv_0 (logo_MULL logo_UL $1) $0))"
+          "fn_16 $0 dreamcoder_abstraction_0 4": "(lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 (logo_MULL logo_UL $1) $0))"
         },
         {
-          "fn_16 2 prev_dc_inv_0 4": "(lam (prev_dc_inv_1 4 prev_dc_inv_0 (logo_MULL logo_UL 2) $0))"
+          "fn_16 2 dreamcoder_abstraction_0 4": "(lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 (logo_MULL logo_UL 2) $0))"
         },
         {
-          "fn_16 3 prev_dc_inv_0 4": "(lam (prev_dc_inv_1 4 prev_dc_inv_0 (logo_MULL logo_UL 3) $0))"
+          "fn_16 3 dreamcoder_abstraction_0 4": "(lam (dreamcoder_abstraction_1 4 dreamcoder_abstraction_0 (logo_MULL logo_UL 3) $0))"
         },
         {
-          "fn_16 4 (logo_ADDA (logo_MULA logo_epsA 6) prev_dc_inv_0) 5": "(lam (prev_dc_inv_1 5 (logo_ADDA (logo_MULA logo_epsA 6) prev_dc_inv_0) (logo_MULL logo_UL 4) $0))"
+          "fn_16 4 (logo_ADDA (logo_MULA logo_epsA 6) dreamcoder_abstraction_0) 5": "(lam (dreamcoder_abstraction_1 5 (logo_ADDA (logo_MULA logo_epsA 6) dreamcoder_abstraction_0) (logo_MULL logo_UL 4) $0))"
         },
         {
-          "fn_16 4 (logo_ADDA prev_dc_inv_0 (logo_MULA logo_epsA 6)) 5": "(lam (prev_dc_inv_1 5 (logo_ADDA prev_dc_inv_0 (logo_MULA logo_epsA 6)) (logo_MULL logo_UL 4) $0))"
+          "fn_16 4 (logo_ADDA dreamcoder_abstraction_0 (logo_MULA logo_epsA 6)) 5": "(lam (dreamcoder_abstraction_1 5 (logo_ADDA dreamcoder_abstraction_0 (logo_MULA logo_epsA 6)) (logo_MULL logo_UL 4) $0))"
         },
         {
-          "fn_16 4 (logo_DIVA (logo_ADDA logo_UA logo_UA) 5) 5": "(lam (prev_dc_inv_1 5 (logo_DIVA (logo_ADDA logo_UA logo_UA) 5) (logo_MULL logo_UL 4) $0))"
+          "fn_16 4 (logo_DIVA (logo_ADDA logo_UA logo_UA) 5) 5": "(lam (dreamcoder_abstraction_1 5 (logo_DIVA (logo_ADDA logo_UA logo_UA) 5) (logo_MULL logo_UL 4) $0))"
         },
         {
-          "fn_16 4 (logo_MULA (logo_ADDA logo_epsA logo_epsA) 8) 5": "(lam (prev_dc_inv_1 5 (logo_MULA (logo_ADDA logo_epsA logo_epsA) 8) (logo_MULL logo_UL 4) $0))"
+          "fn_16 4 (logo_MULA (logo_ADDA logo_epsA logo_epsA) 8) 5": "(lam (dreamcoder_abstraction_1 5 (logo_MULA (logo_ADDA logo_epsA logo_epsA) 8) (logo_MULL logo_UL 4) $0))"
         },
         {
-          "fn_16 4 (logo_MULA (logo_MULA logo_epsA 4) 4) 5": "(lam (prev_dc_inv_1 5 (logo_MULA (logo_MULA logo_epsA 4) 4) (logo_MULL logo_UL 4) $0))"
+          "fn_16 4 (logo_MULA (logo_MULA logo_epsA 4) 4) 5": "(lam (dreamcoder_abstraction_1 5 (logo_MULA (logo_MULA logo_epsA 4) 4) (logo_MULL logo_UL 4) $0))"
         },
         {
-          "fn_16 4 (logo_DIVA (logo_MULA logo_UA 4) 9) 9": "(lam (prev_dc_inv_1 9 (logo_DIVA (logo_MULA logo_UA 4) 9) (logo_MULL logo_UL 4) $0))"
+          "fn_16 4 (logo_DIVA (logo_MULA logo_UA 4) 9) 9": "(lam (dreamcoder_abstraction_1 9 (logo_DIVA (logo_MULA logo_UA 4) 9) (logo_MULL logo_UL 4) $0))"
         },
         {
-          "fn_16 4 (logo_MULA (logo_ADDA (logo_DIVA logo_UA 9) logo_UA) 4) 9": "(lam (prev_dc_inv_1 9 (logo_MULA (logo_ADDA (logo_DIVA logo_UA 9) logo_UA) 4) (logo_MULL logo_UL 4) $0))"
+          "fn_16 4 (logo_MULA (logo_ADDA (logo_DIVA logo_UA 9) logo_UA) 4) 9": "(lam (dreamcoder_abstraction_1 9 (logo_MULA (logo_ADDA (logo_DIVA logo_UA 9) logo_UA) 4) (logo_MULL logo_UL 4) $0))"
         },
         {
-          "fn_16 4 (logo_MULA (logo_DIVA logo_UA 9) 4) 9": "(lam (prev_dc_inv_1 9 (logo_MULA (logo_DIVA logo_UA 9) 4) (logo_MULL logo_UL 4) $0))"
+          "fn_16 4 (logo_MULA (logo_DIVA logo_UA 9) 4) 9": "(lam (dreamcoder_abstraction_1 9 (logo_MULA (logo_DIVA logo_UA 9) 4) (logo_MULL logo_UL 4) $0))"
         },
         {
-          "fn_16 4 (logo_MULA (logo_SUBA (logo_DIVA logo_UA 9) logo_UA) 4) 9": "(lam (prev_dc_inv_1 9 (logo_MULA (logo_SUBA (logo_DIVA logo_UA 9) logo_UA) 4) (logo_MULL logo_UL 4) $0))"
+          "fn_16 4 (logo_MULA (logo_SUBA (logo_DIVA logo_UA 9) logo_UA) 4) 9": "(lam (dreamcoder_abstraction_1 9 (logo_MULA (logo_SUBA (logo_DIVA logo_UA 9) logo_UA) 4) (logo_MULL logo_UL 4) $0))"
         },
         {
-          "fn_16 4 (logo_SUBA (logo_MULA (logo_DIVA logo_UA 9) 4) logo_UA) 9": "(lam (prev_dc_inv_1 9 (logo_SUBA (logo_MULA (logo_DIVA logo_UA 9) 4) logo_UA) (logo_MULL logo_UL 4) $0))"
+          "fn_16 4 (logo_SUBA (logo_MULA (logo_DIVA logo_UA 9) 4) logo_UA) 9": "(lam (dreamcoder_abstraction_1 9 (logo_SUBA (logo_MULA (logo_DIVA logo_UA 9) 4) logo_UA) (logo_MULL logo_UL 4) $0))"
         }
       ]
     },
@@ -1827,7 +1871,7 @@
           "fn_17 (logo_SUBA (logo_DIVA logo_UA 4) logo_UA) $1": "(lam (logo_FWRT (logo_MULL logo_UL $2) (logo_SUBA (logo_DIVA logo_UA 4) logo_UA) $0))"
         },
         {
-          "fn_17 prev_dc_inv_0 $1": "(lam (logo_FWRT (logo_MULL logo_UL $2) prev_dc_inv_0 $0))"
+          "fn_17 dreamcoder_abstraction_0 $1": "(lam (logo_FWRT (logo_MULL logo_UL $2) dreamcoder_abstraction_0 $0))"
         },
         {
           "fn_17 (logo_DIVA logo_UA 4) $2": "(lam (logo_FWRT (logo_MULL logo_UL $3) (logo_DIVA logo_UA 4) $0))"
@@ -1901,7 +1945,7 @@
       ]
     },
     {
-      "body": "(lam (prev_dc_inv_3 (logo_MULL logo_epsL #0) (prev_dc_inv_8 #0 $0)))",
+      "body": "(lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL #0) (dreamcoder_abstraction_8 #0 $0)))",
       "dreamcoder": "#(lambda (lambda (#(#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY logo_epsA) (logo_MULL logo_epsL $1) (#(lambda (#(lambda (lambda (lambda (logo_forLoop $2 (lambda (lambda (logo_FWRT $2 $3 $0))))))) logo_IFTY (logo_SUBA logo_ZA logo_epsA) (logo_MULL logo_epsL $0))) $1 $0))))",
       "arity": 1,
       "name": "fn_18",
@@ -1914,13 +1958,13 @@
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_18 1": "(lam (prev_dc_inv_3 (logo_MULL logo_epsL 1) (prev_dc_inv_8 1 $0)))"
+          "fn_18 1": "(lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 1) (dreamcoder_abstraction_8 1 $0)))"
         },
         {
-          "fn_18 2": "(lam (prev_dc_inv_3 (logo_MULL logo_epsL 2) (prev_dc_inv_8 2 $0)))"
+          "fn_18 2": "(lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 2) (dreamcoder_abstraction_8 2 $0)))"
         },
         {
-          "fn_18 3": "(lam (prev_dc_inv_3 (logo_MULL logo_epsL 3) (prev_dc_inv_8 3 $0)))"
+          "fn_18 3": "(lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 3) (dreamcoder_abstraction_8 3 $0)))"
         }
       ]
     }
