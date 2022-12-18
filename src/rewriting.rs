@@ -129,7 +129,7 @@ pub fn rewrite_fast(
 pub fn rewrite_with_inventions(
     programs: &[ExprOwned],
     invs: &[Invention],
-    cfg: &CompressionStepConfig,
+    cfg: &CostConfig,
 ) -> Vec<ExprOwned> {
 
     if invs.is_empty() {
@@ -138,8 +138,8 @@ pub fn rewrite_with_inventions(
 
     // programs.to_vec()
     let follow = Some(invs.to_vec());
-    let mut multistep_cfg = MultistepCompressionConfig::parse_from("compress".split_whitespace());
-    multistep_cfg.step = cfg.clone();
+    let mut multistep_cfg = MultistepCompressionConfig::new();
+    multistep_cfg.step.cost = cfg.clone();
     multistep_cfg.iterations = invs.len();
     multistep_cfg.step.max_arity = invs.iter().map(|inv| inv.arity).max().unwrap();
 

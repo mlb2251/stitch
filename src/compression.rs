@@ -212,6 +212,14 @@ impl CompressionStepConfig {
         self.no_opt_useless_abstract = true;
         self.no_opt_arity_zero = true;
     }
+    pub fn new() -> Self {
+        Self::parse_from("compress".split_whitespace())
+    }
+}
+impl MultistepCompressionConfig {
+    pub fn new() -> Self {
+        Self::parse_from("compress".split_whitespace())
+    }
 }
 
 /// A Pattern is a partial invention with holes. The simplest pattern is the single hole `??` which
@@ -1020,11 +1028,7 @@ fn stitch_search(
                     if shared.cfg.rewrite_check {
                         // run rewriting just to make sure the assert in it passes
                         let rw_fast = rewrite_fast(&finished_pattern, &shared, &Node::Prim("fake_inv".into()), &shared.cost_fn);
-                        // we want to double check that if someone were to run rewriting from scratch with no settings
-                        // other than having the same cost fn, theyd find it too.
-                        let mut rw_cfg = CompressionStepConfig::parse_from("compress".split_whitespace());
-                        rw_cfg.cost = shared.cfg.cost.clone();
-                        let rw_slow = rewrite_with_inventions(&shared.programs, &[finished_pattern.clone().to_invention("fake_inv", &shared)], &rw_cfg);
+                        let rw_slow = rewrite_with_inventions(&shared.programs, &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.cfg.cost);
                         for (fast,slow) in rw_fast.iter().zip(rw_slow.iter()) {
                             assert_eq!(fast.to_string(), slow.to_string());
                         }

@@ -107,8 +107,7 @@ fn main() {
     }).collect();
     programs_info(&programs, &cost_fn);
 
-    let cfg = CompressionStepConfig::parse_from("compress".split_whitespace());
-    let rewritten: Vec<ExprOwned> = rewrite_with_inventions(&programs, &inventions[..], &cfg);
+    let rewritten: Vec<ExprOwned> = rewrite_with_inventions(&programs, &inventions[..], &args.cost);
 
     match args.fmt {
         InputFormat::Dreamcoder => {
