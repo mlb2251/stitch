@@ -25,16 +25,4 @@ jobs:
          cargo build --release --verbose
       - name: test
         run: make test
-      - name: claim-1
-        run: make claim-1
-      - name: claim-2
-        run: make claim-2 SEEDS=5
-      - name: claim-3
-        run: make claim-3
-      - name: Upload plots
-        uses: actions/upload-artifact@v3
-        with:
-          name: plots-${{ matrix.os }}
-          path: experiments/plots
-
 
