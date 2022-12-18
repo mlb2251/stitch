@@ -12,7 +12,7 @@ use serde::Serialize;
 use std::thread;
 use std::sync::Arc;
 use parking_lot::Mutex;
-use std::ops::{DerefMut};
+use std::ops::DerefMut;
 use std::collections::BinaryHeap;
 use rand::Rng;
 
@@ -219,6 +219,19 @@ impl CompressionStepConfig {
 impl MultistepCompressionConfig {
     pub fn new() -> Self {
         Self::parse_from("compress".split_whitespace())
+    }
+}
+
+// we use these manual implementations - deriving would set things to zero instead of
+// to their clap defaults i think
+impl Default for MultistepCompressionConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl Default for CompressionStepConfig {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
