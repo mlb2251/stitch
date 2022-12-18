@@ -1,51 +1,55 @@
 {
-  "cmd": "target/release/compress -a3 -i10 --fmt=dreamcoder --out=data/expected_outputs/origami_0-a3-i10.json data/dc/origami/iteration_0_3.json",
+  "cmd": "/Users/matthewbowers/proj/rust/stitch/target/release/deps/integration_tests-38d27ecd504c7478",
   "args": {
-    "file": "data/dc/origami/iteration_0_3.json",
-    "out": "data/expected_outputs/origami_0-a3-i10.json",
     "iterations": 10,
+    "abstraction_prefix": "fn_",
+    "previous_abstractions": 0,
     "shuffle": false,
     "truncate": null,
-    "fmt": "Dreamcoder",
     "no_opt": false,
-    "args_from_json": false,
-    "save_rewritten": null,
+    "silent": false,
     "step": {
       "max_arity": 3,
       "threads": 1,
+      "no_stats": false,
       "batch": 1,
       "dynamic_batch": false,
-      "refine": false,
-      "max_refinement_size": null,
-      "max_refinement_arity": 1,
       "inv_candidates": 1,
       "hole_choice": "DepthFirst",
+      "cost": "Dreamcoder",
+      "cost_lam": null,
+      "cost_app": null,
+      "cost_var": null,
+      "cost_ivar": null,
+      "cost_prim_default": null,
       "no_mismatch_check": false,
       "no_top_lambda": false,
-      "track": null,
-      "track_refined": null,
-      "follow_track": false,
+      "follow": null,
+      "follow_prune": false,
       "verbose_worklist": false,
       "verbose_best": false,
       "print_stats": 0,
-      "dreamcoder_drop_last": false,
-      "no_cache": false,
       "show_rewritten": false,
-      "no_opt_free_vars": false,
+      "rewritten_dreamcoder": false,
+      "rewritten_intermediates": false,
+      "inv_arg_cap": false,
       "no_opt_single_use": false,
-      "no_opt_single_task": false,
+      "allow_single_task": false,
       "no_opt_upper_bound": false,
       "no_opt_force_multiuse": false,
       "no_opt_useless_abstract": false,
       "no_opt_arity_zero": false,
-      "no_stats": false,
       "no_other_util": false,
-      "rewrite_check": false,
+      "rewrite_check": true,
       "utility_by_rewrite": false,
-      "dreamcoder_comparison": false
+      "dreamcoder_comparison": false,
+      "quiet": false
     }
   },
-  "original_cost": 70899,
+  "original_cost": 15273,
+  "final_cost": 4540,
+  "compression_ratio": 3.3640969162995593,
+  "num_abstractions": 10,
   "original": [
     "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) 1))))))",
     "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))))",
@@ -97,141 +101,80 @@
     "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0))))))))",
     "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 1 (+ 1 (car $0))) ($1 (cdr $0))))))))"
   ],
-  "invs": [
+  "rewritten": [
+    "(fn_2 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) 1)))))",
+    "(fn_2 (lam (lam (if (empty? $0) 0 (fn_8 ($1 (cdr $0)))))))",
+    "(fn_2 (lam (lam (+ (fn_0 $0 $1 0) 1))))",
+    "(fn_2 (lam (lam (fn_8 (fn_0 $0 $1 0)))))",
+    "(fn_2 (lam (lam (if (empty? (cdr $0)) 1 (fn_8 ($1 (cdr $0)))))))",
+    "(fn_2 (lam (lam (if (eq? $0 0) empty (cons (fn_8 $0) ($1 (- $0 1)))))))",
+    "(fn_2 (lam (lam (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1)))))))",
+    "(fn_1 - fn_8)",
+    "(fn_2 (lam (lam (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty))))",
+    "(fn_2 (lam (lam (if (gt? $0 0) (cons (fn_8 $0) ($1 (- $0 1))) empty))))",
+    "(fn_2 (lam (lam (if (eq? $0 0) empty (cons (- 0 $0) ($1 (fn_8 $0)))))))",
+    "(fn_1 + (- 0))",
+    "(fn_2 (lam (lam (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (fn_8 $0)))))))",
+    "(fn_2 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty))))",
+    "(fn_2 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (fn_8 $0))) empty))))",
+    "(fn_2 (lam (lam (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
+    "(fn_2 (lam (lam (fn_4 $0 cdr $1))))",
+    "(fn_2 (lam (lam (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
+    "(fn_2 (lam (lam (fn_9 (cdr $0) $1 (cons (car $0))))))",
+    "(fn_2 (lam (lam (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0)))))))",
+    "(fn_2 (lam (lam (if (empty? (cdr $0)) (cdr $0) (cons (car $0) ($1 (cdr $0)))))))",
+    "(fn_2 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0)))))))))",
+    "(fn_2 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0)))))))))",
+    "(fn_2 (lam (lam (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0))))))))",
+    "(fn_6 cons fn_4)",
+    "(fn_2 (lam (lam (cons (car $0) (cons (car $0) (fn_0 $0 $1 empty))))))",
+    "(fn_2 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0))))))",
+    "(fn_2 (lam (lam (if (empty? $0) 0 (+ (car $0) ($1 (cdr $0)))))))",
+    "(fn_5 0 +)",
+    "(fn_2 (lam (lam (+ (fn_0 $0 $1 0) (car $0)))))",
+    "(fn_2 (lam (lam (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0))))))",
+    "(fn_2 (lam (lam (if (empty? $0) (cons 0 empty) (cons (car $0) ($1 (cdr $0)))))))",
+    "(fn_2 (lam (lam (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0)))))))",
+    "(fn_5 (cons 0 empty) cons)",
+    "(fn_2 (lam (lam (if (empty? $0) (cons (- 1 1) empty) (cons (car $0) ($1 (cdr $0)))))))",
+    "(fn_2 (lam (lam (cons (if (empty? $0) 0 (car $0)) (fn_9 $0 cdr $1)))))",
+    "(fn_2 (lam (lam (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0)))))))",
+    "(fn_6 + fn_3)",
+    "(fn_2 (lam (lam (cons (+ (car $0) (car $0)) (fn_0 $0 $1 empty)))))",
+    "(fn_2 (lam (lam (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0)))))))",
+    "(fn_2 (lam (lam (if (empty? $0) empty (cons (fn_8 (car $0)) ($1 (cdr $0)))))))",
+    "(fn_2 (lam (lam (if (empty? $0) $0 (cons (+ (car $0) 1) ($1 (cdr $0)))))))",
+    "(fn_7 fn_8)",
+    "(fn_2 (lam (lam (cons (+ (car $0) 1) (fn_0 $0 $1 empty)))))",
+    "(fn_2 (lam (lam (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0)))))))",
+    "(fn_7 (- 0))",
+    "(fn_2 (lam (lam (cons (- 0 (car $0)) (fn_0 $0 $1 empty)))))",
+    "(fn_2 (lam (lam (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0)))))))",
+    "(fn_2 (lam (lam (if (empty? $0) empty (cons (- 1 (fn_8 (car $0))) ($1 (cdr $0)))))))"
+  ],
+  "rewritten_dreamcoder": null,
+  "abstractions": [
     {
-      "body": "(if (empty? #2) #2 (cons #1 #0))",
-      "dreamcoder": "#(lambda (lambda (lambda (if (empty? $0) $0 (cons $1 $2)))))",
+      "body": "(if (empty? (cdr #0)) #2 (#1 (cdr #0)))",
+      "dreamcoder": "#(lambda (lambda (lambda (if (empty? (cdr $2)) $0 ($1 (cdr $2))))))",
       "arity": 3,
       "name": "fn_0",
-      "rewritten": [
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) 1))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1)))))",
-        "(lam (fix1 $0 (lam (lam (+ 1 (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) 1 (+ 1 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (eq? $0 0) empty (cons (+ 1 $0) ($1 (- $0 1))))))))",
-        "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1))))))))",
-        "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (+ 1 $0) ($1 (- $0 1))))))))",
-        "(lam (fix1 $0 (lam (lam (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (gt? $0 0) (cons (+ 1 $0) ($1 (- $0 1))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (eq? $0 0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ $0 1))))))))",
-        "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr (cdr $0))) (car $0) $0)))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (car $0) (cdr $0))))))",
-        "(lam (fix1 $0 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lam (fix1 $0 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0)))))",
-        "(lam (fix1 $0 (lam (lam (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0)))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ (car $0) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0)))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) (cons 0 empty) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) (cons (- 1 1) empty) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) (car $0)) $0)))))",
-        "(lam (fix1 $0 (lam (lam (cons (+ (car $0) (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ 1 (car $0)) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0)))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (+ 1 (car $0)) $0)))))",
-        "(lam (fix1 $0 (lam (lam (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (- 0 (car $0)) $0)))))",
-        "(lam (fix1 $0 (lam (lam (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 1 (+ 1 (car $0))) ($1 (cdr $0))))))))"
-      ],
-      "rewritten_dreamcoder": [
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) 1))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1)))))",
-        "(lambda (fix1 $0 (lambda (lambda (+ 1 (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (cdr $0)) 1 (+ 1 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? $0 0) empty (cons (+ 1 $0) ($1 (- $0 1))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? 0 $0) empty (cons (+ 1 $0) ($1 (- $0 1))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? $0 0) (cons (+ 1 $0) ($1 (- $0 1))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? $0 0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ $0 1))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (if (empty? $0) $0 (cons $1 $2))))) ($1 (cdr (cdr $0))) (car $0) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (if (empty? $0) $0 (cons $1 $2))))) ($1 (cdr $0)) (car $0) (cdr $0))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (if (empty? $0) $0 (cons $1 $2))))) (cons (car $0) ($1 (cdr $0))) (car $0) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0)))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ (car $0) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0)))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) (cons 0 empty) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) (cons (- 1 1) empty) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (if (empty? $0) $0 (cons $1 $2))))) ($1 (cdr $0)) (+ (car $0) (car $0)) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (+ (car $0) (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (+ 1 (car $0)) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (if (empty? $0) $0 (cons $1 $2))))) ($1 (cdr $0)) (+ (car $0) 1) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (if (empty? $0) $0 (cons $1 $2))))) ($1 (cdr $0)) (+ 1 (car $0)) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (if (empty? $0) $0 (cons $1 $2))))) ($1 (cdr $0)) (- 0 (car $0)) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (- 1 (+ 1 (car $0))) ($1 (cdr $0))))))))"
-      ],
-      "utility": 1512,
-      "expected_cost": 13455,
-      "final_cost": 13455,
-      "multiplier": 1.1351170568561872,
-      "multiplier_wrt_orig": 1.1351170568561872,
-      "num_uses": 7,
+      "utility": 1714,
+      "final_cost": 13152,
+      "compression_ratio": 1.1612682481751824,
+      "cumulative_compression_ratio": 1.1612682481751824,
+      "num_uses": 9,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_0 ($1 (cdr $0)) (+ (car $0) (car $0)) $0": "(if (empty? $0) $0 (cons (+ (car $0) (car $0)) ($1 (cdr $0))))"
+          "fn_0 $0 $1 (cons 0 empty)": "(if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0)))"
         },
         {
-          "fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0": "(if (empty? $0) $0 (cons (+ (car $0) 1) ($1 (cdr $0))))"
+          "fn_0 $0 $1 0": "(if (empty? (cdr $0)) 0 ($1 (cdr $0)))"
         },
         {
-          "fn_0 ($1 (cdr $0)) (+ 1 (car $0)) $0": "(if (empty? $0) $0 (cons (+ 1 (car $0)) ($1 (cdr $0))))"
-        },
-        {
-          "fn_0 ($1 (cdr $0)) (- 0 (car $0)) $0": "(if (empty? $0) $0 (cons (- 0 (car $0)) ($1 (cdr $0))))"
-        },
-        {
-          "fn_0 ($1 (cdr (cdr $0))) (car $0) $0": "(if (empty? $0) $0 (cons (car $0) ($1 (cdr (cdr $0)))))"
-        },
-        {
-          "fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0": "(if (empty? $0) $0 (cons (car $0) (cons (car $0) ($1 (cdr $0)))))"
-        },
-        {
-          "fn_0 ($1 (cdr $0)) (car $0) (cdr $0)": "(if (empty? (cdr $0)) (cdr $0) (cons (car $0) ($1 (cdr $0))))"
+          "fn_0 $0 $1 empty": "(if (empty? (cdr $0)) empty ($1 (cdr $0)))"
         }
       ]
     },
@@ -240,114 +183,13 @@
       "dreamcoder": "#(lambda (lambda (lambda (fix1 $0 (lambda (lambda (if (eq? 0 $0) empty (cons ($3 $0) ($1 ($4 $0 1))))))))))",
       "arity": 2,
       "name": "fn_1",
-      "rewritten": [
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) 1))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1)))))",
-        "(lam (fix1 $0 (lam (lam (+ 1 (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) 1 (+ 1 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (eq? $0 0) empty (cons (+ 1 $0) ($1 (- $0 1))))))))",
-        "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1))))))))",
-        "(fn_1 - (+ 1))",
-        "(lam (fix1 $0 (lam (lam (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (gt? $0 0) (cons (+ 1 $0) ($1 (- $0 1))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (eq? $0 0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(fn_1 + (- 0))",
-        "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr (cdr $0))) (car $0) $0)))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (car $0) (cdr $0))))))",
-        "(lam (fix1 $0 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lam (fix1 $0 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0)))))",
-        "(lam (fix1 $0 (lam (lam (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0)))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ (car $0) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0)))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) (cons 0 empty) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) (cons (- 1 1) empty) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) (car $0)) $0)))))",
-        "(lam (fix1 $0 (lam (lam (cons (+ (car $0) (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ 1 (car $0)) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0)))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (+ 1 (car $0)) $0)))))",
-        "(lam (fix1 $0 (lam (lam (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (- 0 (car $0)) $0)))))",
-        "(lam (fix1 $0 (lam (lam (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 1 (+ 1 (car $0))) ($1 (cdr $0))))))))"
-      ],
-      "rewritten_dreamcoder": [
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) 1))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1)))))",
-        "(lambda (fix1 $0 (lambda (lambda (+ 1 (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (cdr $0)) 1 (+ 1 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? $0 0) empty (cons (+ 1 $0) ($1 (- $0 1))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1))))))))",
-        "(#(lambda (lambda (lambda (fix1 $0 (lambda (lambda (if (eq? 0 $0) empty (cons ($3 $0) ($1 ($4 $0 1)))))))))) - (+ 1))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? $0 0) (cons (+ 1 $0) ($1 (- $0 1))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? $0 0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(#(lambda (lambda (lambda (fix1 $0 (lambda (lambda (if (eq? 0 $0) empty (cons ($3 $0) ($1 ($4 $0 1)))))))))) + (- 0))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr (cdr $0))) (car $0) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr $0)) (car $0) (cdr $0))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0)))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ (car $0) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0)))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) (cons 0 empty) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) (cons (- 1 1) empty) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr $0)) (+ (car $0) (car $0)) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (+ (car $0) (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (+ 1 (car $0)) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr $0)) (+ 1 (car $0)) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr $0)) (- 0 (car $0)) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (- 1 (+ 1 (car $0))) ($1 (cdr $0))))))))"
-      ],
       "utility": 1012,
-      "expected_cost": 11227,
-      "final_cost": 11227,
-      "multiplier": 1.1984501647813308,
-      "multiplier_wrt_orig": 1.3603812238353967,
+      "final_cost": 10924,
+      "compression_ratio": 1.2039545953863053,
+      "cumulative_compression_ratio": 1.3981142438667156,
       "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
       "uses": [
         {
           "fn_1 - (+ 1)": "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (+ 1 $0) ($1 (- $0 1))))))))"
@@ -358,497 +200,266 @@
       ]
     },
     {
-      "body": "(lam (fix1 $0 (lam (lam (if (empty? $0) #1 (#0 (car $0) ($1 (cdr $0))))))))",
-      "dreamcoder": "#(lambda (lambda (lambda (fix1 $0 (lambda (lambda (if (empty? $0) $3 ($4 (car $0) ($1 (cdr $0))))))))))",
-      "arity": 2,
-      "name": "fn_2",
-      "rewritten": [
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) 1))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1)))))",
-        "(lam (fix1 $0 (lam (lam (+ 1 (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) 1 (+ 1 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (eq? $0 0) empty (cons (+ 1 $0) ($1 (- $0 1))))))))",
-        "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1))))))))",
-        "(fn_1 - (+ 1))",
-        "(lam (fix1 $0 (lam (lam (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (gt? $0 0) (cons (+ 1 $0) ($1 (- $0 1))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (eq? $0 0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(fn_1 + (- 0))",
-        "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr (cdr $0))) (car $0) $0)))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (car $0) (cdr $0))))))",
-        "(lam (fix1 $0 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lam (fix1 $0 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0)))))",
-        "(lam (fix1 $0 (lam (lam (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0)))))))",
-        "(fn_2 + 0)",
-        "(lam (fix1 $0 (lam (lam (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0)))))))",
-        "(fn_2 cons (cons 0 empty))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0))))))))",
-        "(fn_2 cons (cons (- 1 1) empty))",
-        "(lam (fix1 $0 (lam (lam (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) (car $0)) $0)))))",
-        "(lam (fix1 $0 (lam (lam (cons (+ (car $0) (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ 1 (car $0)) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0)))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (+ 1 (car $0)) $0)))))",
-        "(lam (fix1 $0 (lam (lam (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (- 0 (car $0)) $0)))))",
-        "(lam (fix1 $0 (lam (lam (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 1 (+ 1 (car $0))) ($1 (cdr $0))))))))"
-      ],
-      "rewritten_dreamcoder": [
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) 1))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1)))))",
-        "(lambda (fix1 $0 (lambda (lambda (+ 1 (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (cdr $0)) 1 (+ 1 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? $0 0) empty (cons (+ 1 $0) ($1 (- $0 1))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1))))))))",
-        "(fn_1 - (+ 1))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? $0 0) (cons (+ 1 $0) ($1 (- $0 1))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? $0 0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(fn_1 + (- 0))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr (cdr $0))) (car $0) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr $0)) (car $0) (cdr $0))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0)))))))",
-        "(#(lambda (lambda (lambda (fix1 $0 (lambda (lambda (if (empty? $0) $3 ($4 (car $0) ($1 (cdr $0)))))))))) + 0)",
-        "(lambda (fix1 $0 (lambda (lambda (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0)))))))",
-        "(#(lambda (lambda (lambda (fix1 $0 (lambda (lambda (if (empty? $0) $3 ($4 (car $0) ($1 (cdr $0)))))))))) cons (cons 0 empty))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0))))))))",
-        "(#(lambda (lambda (lambda (fix1 $0 (lambda (lambda (if (empty? $0) $3 ($4 (car $0) ($1 (cdr $0)))))))))) cons (cons (- 1 1) empty))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr $0)) (+ (car $0) (car $0)) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (+ (car $0) (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (+ 1 (car $0)) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr $0)) (+ 1 (car $0)) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr $0)) (- 0 (car $0)) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (- 1 (+ 1 (car $0))) ($1 (cdr $0))))))))"
-      ],
-      "utility": 810,
-      "expected_cost": 9403,
-      "final_cost": 9403,
-      "multiplier": 1.1939806444751675,
-      "multiplier_wrt_orig": 1.6242688503669043,
-      "num_uses": 4,
-      "uses": [
-        {
-          "fn_2 cons (cons (- 1 1) empty)": "(lam (fix1 $0 (lam (lam (if (empty? $0) (cons (- 1 1) empty) (cons (car $0) ($1 (cdr $0))))))))"
-        },
-        {
-          "fn_2 cons (cons 0 #0)": "(lam (fix1 $0 (lam (lam (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0))))))))"
-        },
-        {
-          "fn_2 cons (cons 0 empty)": "(lam (fix1 $0 (lam (lam (if (empty? $0) (cons 0 empty) (cons (car $0) ($1 (cdr $0))))))))"
-        },
-        {
-          "fn_2 + 0": "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ (car $0) ($1 (cdr $0))))))))"
-        }
-      ]
-    },
-    {
-      "body": "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (#0 (car $0)) $0)))))",
-      "dreamcoder": "#(lambda (lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (if (empty? $0) $0 (cons $1 $2))))) ($1 (cdr $0)) ($3 (car $0)) $0))))))",
-      "arity": 1,
-      "name": "fn_3",
-      "rewritten": [
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) 1))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1)))))",
-        "(lam (fix1 $0 (lam (lam (+ 1 (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) 1 (+ 1 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (eq? $0 0) empty (cons (+ 1 $0) ($1 (- $0 1))))))))",
-        "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1))))))))",
-        "(fn_1 - (+ 1))",
-        "(lam (fix1 $0 (lam (lam (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (gt? $0 0) (cons (+ 1 $0) ($1 (- $0 1))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (eq? $0 0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(fn_1 + (- 0))",
-        "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty)))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr (cdr $0))) (car $0) $0)))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (car $0) (cdr $0))))))",
-        "(lam (fix1 $0 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lam (fix1 $0 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0)))))",
-        "(lam (fix1 $0 (lam (lam (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0)))))))",
-        "(fn_2 + 0)",
-        "(lam (fix1 $0 (lam (lam (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0)))))))",
-        "(fn_2 cons (cons 0 empty))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0))))))))",
-        "(fn_2 cons (cons (- 1 1) empty))",
-        "(lam (fix1 $0 (lam (lam (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) (car $0)) $0)))))",
-        "(lam (fix1 $0 (lam (lam (cons (+ (car $0) (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ 1 (car $0)) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0)))))",
-        "(fn_3 (+ 1))",
-        "(lam (fix1 $0 (lam (lam (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0))))))))",
-        "(fn_3 (- 0))",
-        "(lam (fix1 $0 (lam (lam (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0))))))))",
-        "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 1 (+ 1 (car $0))) ($1 (cdr $0))))))))"
-      ],
-      "rewritten_dreamcoder": [
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) 1))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1)))))",
-        "(lambda (fix1 $0 (lambda (lambda (+ 1 (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (cdr $0)) 1 (+ 1 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? $0 0) empty (cons (+ 1 $0) ($1 (- $0 1))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1))))))))",
-        "(fn_1 - (+ 1))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? $0 0) (cons (+ 1 $0) ($1 (- $0 1))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? $0 0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(fn_1 + (- 0))",
-        "(lambda (fix1 $0 (lambda (lambda (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr (cdr $0))) (car $0) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr $0)) (car $0) (cdr $0))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0))))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0)))))))",
-        "(fn_2 + 0)",
-        "(lambda (fix1 $0 (lambda (lambda (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0)))))))",
-        "(fn_2 cons (cons 0 empty))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0))))))))",
-        "(fn_2 cons (cons (- 1 1) empty))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr $0)) (+ (car $0) (car $0)) $0)))))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (+ (car $0) (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (+ 1 (car $0)) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0)))))",
-        "(#(lambda (lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (if (empty? $0) $0 (cons $1 $2))))) ($1 (cdr $0)) ($3 (car $0)) $0)))))) (+ 1))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0))))))))",
-        "(#(lambda (lambda (fix1 $0 (lambda (lambda (#(lambda (lambda (lambda (if (empty? $0) $0 (cons $1 $2))))) ($1 (cdr $0)) ($3 (car $0)) $0)))))) (- 0))",
-        "(lambda (fix1 $0 (lambda (lambda (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0))))))))",
-        "(lambda (fix1 $0 (lambda (lambda (if (empty? $0) empty (cons (- 1 (+ 1 (car $0))) ($1 (cdr $0))))))))"
-      ],
-      "utility": 710,
-      "expected_cost": 7781,
-      "final_cost": 7781,
-      "multiplier": 1.2084564965942681,
-      "multiplier_wrt_orig": 1.9628582444415885,
-      "num_uses": 3,
-      "uses": [
-        {
-          "fn_3 (+ (car #0))": "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) (car $0)) $0)))))"
-        },
-        {
-          "fn_3 (+ 1)": "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (+ 1 (car $0)) $0)))))"
-        },
-        {
-          "fn_3 (- 0)": "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (- 0 (car $0)) $0)))))"
-        }
-      ]
-    },
-    {
       "body": "(lam (fix1 $0 #0))",
       "dreamcoder": "#(lambda (lambda (fix1 $0 $1)))",
       "arity": 1,
-      "name": "fn_4",
-      "rewritten": [
-        "(fn_4 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) 1)))))",
-        "(fn_4 (lam (lam (if (empty? $0) 0 (+ 1 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1))))",
-        "(fn_4 (lam (lam (+ 1 (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? (cdr $0)) 1 (+ 1 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (eq? $0 0) empty (cons (+ 1 $0) ($1 (- $0 1)))))))",
-        "(fn_4 (lam (lam (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1)))))))",
-        "(fn_1 - (+ 1))",
-        "(fn_4 (lam (lam (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty))))",
-        "(fn_4 (lam (lam (if (gt? $0 0) (cons (+ 1 $0) ($1 (- $0 1))) empty))))",
-        "(fn_4 (lam (lam (if (eq? $0 0) empty (cons (- 0 $0) ($1 (+ 1 $0)))))))",
-        "(fn_1 + (- 0))",
-        "(fn_4 (lam (lam (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ 1 $0)))))))",
-        "(fn_4 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty))))",
-        "(fn_4 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr (cdr $0))) (car $0) $0))))",
-        "(fn_4 (lam (lam (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(fn_4 (lam (lam (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr $0)) (car $0) (cdr $0)))))",
-        "(fn_4 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(fn_4 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(fn_4 (lam (lam (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0))))",
-        "(fn_4 (lam (lam (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(fn_4 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 + 0)",
-        "(fn_4 (lam (lam (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0)))))",
-        "(fn_4 (lam (lam (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 cons (cons 0 empty))",
-        "(fn_4 (lam (lam (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0)))))))",
-        "(fn_2 cons (cons (- 1 1) empty))",
-        "(fn_4 (lam (lam (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) (car $0)) $0))))",
-        "(fn_4 (lam (lam (cons (+ (car $0) (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (+ 1 (car $0)) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0))))",
-        "(fn_3 (+ 1))",
-        "(fn_4 (lam (lam (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0)))))))",
-        "(fn_3 (- 0))",
-        "(fn_4 (lam (lam (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (- 1 (+ 1 (car $0))) ($1 (cdr $0)))))))"
-      ],
-      "rewritten_dreamcoder": [
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) 1)))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? $0) 0 (+ 1 ($1 (cdr $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (+ 1 (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? (cdr $0)) 1 (+ 1 ($1 (cdr $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (eq? $0 0) empty (cons (+ 1 $0) ($1 (- $0 1)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1)))))))",
-        "(fn_1 - (+ 1))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (gt? $0 0) (cons (+ 1 $0) ($1 (- $0 1))) empty))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (eq? $0 0) empty (cons (- 0 $0) ($1 (+ 1 $0)))))))",
-        "(fn_1 + (- 0))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ 1 $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (fn_0 ($1 (cdr (cdr $0))) (car $0) $0))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (fn_0 ($1 (cdr $0)) (car $0) (cdr $0)))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 + 0)",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0)))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 cons (cons 0 empty))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0)))))))",
-        "(fn_2 cons (cons (- 1 1) empty))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (fn_0 ($1 (cdr $0)) (+ (car $0) (car $0)) $0))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (cons (+ (car $0) (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? $0) empty (cons (+ 1 (car $0)) ($1 (cdr $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0))))",
-        "(fn_3 (+ 1))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0)))))))",
-        "(fn_3 (- 0))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0)))))))",
-        "(#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (if (empty? $0) empty (cons (- 1 (+ 1 (car $0))) ($1 (cdr $0)))))))"
-      ],
-      "utility": 307,
-      "expected_cost": 7271,
-      "final_cost": 7271,
-      "multiplier": 1.0701416586439279,
-      "multiplier_wrt_orig": 2.10053637738963,
-      "num_uses": 42,
+      "name": "fn_2",
+      "utility": 715,
+      "final_cost": 10006,
+      "compression_ratio": 1.091744953028183,
+      "cumulative_compression_ratio": 1.526384169498301,
+      "num_uses": 47,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_4 (lam (lam (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (+ (car $0) (fn_0 $0 $1 0))))": "(lam (fix1 $0 (lam (lam (+ (car $0) (fn_0 $0 $1 0))))))"
         },
         {
-          "fn_4 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0))))": "(lam (fix1 $0 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0))))))"
+          "fn_2 (lam (lam (+ (fn_0 $0 $1 0) (car $0))))": "(lam (fix1 $0 (lam (lam (+ (fn_0 $0 $1 0) (car $0))))))"
         },
         {
-          "fn_4 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1)))": "(lam (fix1 $0 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1)))))"
+          "fn_2 (lam (lam (+ (fn_0 $0 $1 0) 1)))": "(lam (fix1 $0 (lam (lam (+ (fn_0 $0 $1 0) 1)))))"
         },
         {
-          "fn_4 (lam (lam (+ 1 (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (+ 1 (if (empty? (cdr $0)) 0 ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (+ 1 (fn_0 $0 $1 0))))": "(lam (fix1 $0 (lam (lam (+ 1 (fn_0 $0 $1 0))))))"
         },
         {
-          "fn_4 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0))))))))": "(lam (fix1 $0 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0))))))))))"
+          "fn_2 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0))))))))": "(lam (fix1 $0 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0))))))))))"
         },
         {
-          "fn_4 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0))))))))": "(lam (fix1 $0 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0))))))))))"
+          "fn_2 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0))))))))": "(lam (fix1 $0 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0))))))))))"
         },
         {
-          "fn_4 (lam (lam (cons (+ (car $0) (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (cons (+ (car $0) (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (cons (+ (car $0) (car $0)) (fn_0 $0 $1 empty))))": "(lam (fix1 $0 (lam (lam (cons (+ (car $0) (car $0)) (fn_0 $0 $1 empty))))))"
         },
         {
-          "fn_4 (lam (lam (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (cons (+ (car $0) 1) (fn_0 $0 $1 empty))))": "(lam (fix1 $0 (lam (lam (cons (+ (car $0) 1) (fn_0 $0 $1 empty))))))"
         },
         {
-          "fn_4 (lam (lam (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (cons (- 0 (car $0)) (fn_0 $0 $1 empty))))": "(lam (fix1 $0 (lam (lam (cons (- 0 (car $0)) (fn_0 $0 $1 empty))))))"
         },
         {
-          "fn_4 (lam (lam (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))": "(lam (fix1 $0 (lam (lam (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))))"
+          "fn_2 (lam (lam (cons (car $0) (cons (car $0) (fn_0 $0 $1 empty)))))": "(lam (fix1 $0 (lam (lam (cons (car $0) (cons (car $0) (fn_0 $0 $1 empty)))))))"
         },
         {
-          "fn_4 (lam (lam (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (cons (car $0) (fn_0 $0 $1 (cons 0 empty)))))": "(lam (fix1 $0 (lam (lam (cons (car $0) (fn_0 $0 $1 (cons 0 empty)))))))"
         },
         {
-          "fn_4 (lam (lam (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) (car $0)) $0)))": "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) (car $0)) $0)))))"
+          "fn_2 (lam (lam (if (empty? $0) $0 (cons (+ (car $0) (car $0)) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) $0 (cons (+ (car $0) (car $0)) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0)))": "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0)))))"
+          "fn_2 (lam (lam (if (empty? $0) $0 (cons (+ (car $0) 1) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) $0 (cons (+ (car $0) 1) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (fn_0 ($1 (cdr $0)) (car $0) (cdr $0))))": "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr $0)) (car $0) (cdr $0))))))"
+          "fn_2 (lam (lam (if (empty? $0) $0 (cons (+ 1 (car $0)) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) $0 (cons (+ 1 (car $0)) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (fn_0 ($1 (cdr (cdr $0))) (car $0) $0)))": "(lam (fix1 $0 (lam (lam (fn_0 ($1 (cdr (cdr $0))) (car $0) $0)))))"
+          "fn_2 (lam (lam (if (empty? $0) $0 (cons (- 0 (car $0)) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) $0 (cons (- 0 (car $0)) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0)))": "(lam (fix1 $0 (lam (lam (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0)))))"
+          "fn_2 (lam (lam (if (empty? $0) $0 (cons (car $0) ($1 (cdr (cdr $0)))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) $0 (cons (car $0) ($1 (cdr (cdr $0)))))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (if (empty? $0) $0 (cons (car $0) (cons (car $0) ($1 (cdr $0)))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) $0 (cons (car $0) (cons (car $0) ($1 (cdr $0)))))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0)))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0)))))))"
+          "fn_2 (lam (lam (if (empty? $0) (cons (- 1 1) empty) (cons (car $0) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) (cons (- 1 1) empty) (cons (car $0) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) 1))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) 1))))))"
+          "fn_2 (lam (lam (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (if (empty? $0) (cons 0 empty) (cons (car $0) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) (cons 0 empty) (cons (car $0) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0)))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0)))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) 1))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) 1))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? $0) empty (cons (+ 1 (car $0)) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ 1 (car $0)) ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (if (empty? $0) 0 (+ (car $0) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ (car $0) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) 0 (+ 1 ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? $0) empty (cons (- 1 (+ 1 (car $0))) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 1 (+ 1 (car $0))) ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0)))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))"
+          "fn_2 (lam (lam (if (empty? $0) empty (cons (+ 1 (car $0)) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (+ 1 (car $0)) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0)))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0)))))))))"
+          "fn_2 (lam (lam (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0)))))": "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0)))))))"
+          "fn_2 (lam (lam (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? (cdr $0)) 1 (+ 1 ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) 1 (+ 1 ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (if (empty? $0) empty (cons (- 1 (+ 1 (car $0))) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (- 1 (+ 1 (car $0))) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0))))))))"
+          "fn_2 (lam (lam (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0)))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))"
         },
         {
-          "fn_4 (lam (lam (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0)))))))": "(lam (fix1 $0 (lam (lam (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))"
+          "fn_2 (lam (lam (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0)))))))": "(lam (fix1 $0 (lam (lam (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0)))))))))"
         },
         {
-          "fn_4 (lam (lam (if (eq? $0 0) empty (cons (+ 1 $0) ($1 (- $0 1))))))": "(lam (fix1 $0 (lam (lam (if (eq? $0 0) empty (cons (+ 1 $0) ($1 (- $0 1))))))))"
+          "fn_2 (lam (lam (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0)))))": "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0)))))))"
         },
         {
-          "fn_4 (lam (lam (if (eq? $0 0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))": "(lam (fix1 $0 (lam (lam (if (eq? $0 0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))"
+          "fn_2 (lam (lam (if (empty? (cdr $0)) (cdr $0) (cons (car $0) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) (cdr $0) (cons (car $0) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1))))))": "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1))))))))"
+          "fn_2 (lam (lam (if (empty? (cdr $0)) 1 (+ 1 ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) 1 (+ 1 ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))": "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))"
+          "fn_2 (lam (lam (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0))))))": "(lam (fix1 $0 (lam (lam (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0))))))))"
         },
         {
-          "fn_4 (lam (lam (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty)))": "(lam (fix1 $0 (lam (lam (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty)))))"
+          "fn_2 (lam (lam (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0)))))))": "(lam (fix1 $0 (lam (lam (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0)))))))))"
         },
         {
-          "fn_4 (lam (lam (if (gt? $0 0) (cons (+ 1 $0) ($1 (- $0 1))) empty)))": "(lam (fix1 $0 (lam (lam (if (gt? $0 0) (cons (+ 1 $0) ($1 (- $0 1))) empty)))))"
+          "fn_2 (lam (lam (if (eq? $0 0) empty (cons (+ 1 $0) ($1 (- $0 1))))))": "(lam (fix1 $0 (lam (lam (if (eq? $0 0) empty (cons (+ 1 $0) ($1 (- $0 1))))))))"
         },
         {
-          "fn_4 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty)))": "(lam (fix1 $0 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty)))))"
+          "fn_2 (lam (lam (if (eq? $0 0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))": "(lam (fix1 $0 (lam (lam (if (eq? $0 0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))"
         },
         {
-          "fn_4 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty)))": "(lam (fix1 $0 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty)))))"
+          "fn_2 (lam (lam (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1))))))": "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1))))))))"
+        },
+        {
+          "fn_2 (lam (lam (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))": "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ 1 $0))))))))"
+        },
+        {
+          "fn_2 (lam (lam (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty)))": "(lam (fix1 $0 (lam (lam (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty)))))"
+        },
+        {
+          "fn_2 (lam (lam (if (gt? $0 0) (cons (+ 1 $0) ($1 (- $0 1))) empty)))": "(lam (fix1 $0 (lam (lam (if (gt? $0 0) (cons (+ 1 $0) ($1 (- $0 1))) empty)))))"
+        },
+        {
+          "fn_2 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty)))": "(lam (fix1 $0 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty)))))"
+        },
+        {
+          "fn_2 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty)))": "(lam (fix1 $0 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty)))))"
+        }
+      ]
+    },
+    {
+      "body": "(if (empty? #0) #0 (cons (#2 (car #0)) (#1 (cdr #0))))",
+      "dreamcoder": "#(lambda (lambda (lambda (if (empty? $2) $2 (cons ($0 (car $2)) ($1 (cdr $2)))))))",
+      "arity": 3,
+      "name": "fn_3",
+      "utility": 702,
+      "final_cost": 8794,
+      "compression_ratio": 1.1378212417557425,
+      "cumulative_compression_ratio": 1.7367523311348647,
+      "num_uses": 3,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_3 $0 $1 (+ (car $0))": "(if (empty? $0) $0 (cons (+ (car $0) (car $0)) ($1 (cdr $0))))"
+        },
+        {
+          "fn_3 $0 $1 (+ 1)": "(if (empty? $0) $0 (cons (+ 1 (car $0)) ($1 (cdr $0))))"
+        },
+        {
+          "fn_3 $0 $1 (- 0)": "(if (empty? $0) $0 (cons (- 0 (car $0)) ($1 (cdr $0))))"
+        }
+      ]
+    },
+    {
+      "body": "(if (empty? #0) #0 (cons (car #0) (#2 (#1 (cdr #0)))))",
+      "dreamcoder": "#(lambda (lambda (lambda (if (empty? $2) $2 (cons (car $2) ($0 ($1 (cdr $2))))))))",
+      "arity": 3,
+      "name": "fn_4",
+      "utility": 601,
+      "final_cost": 7683,
+      "compression_ratio": 1.1446049720161395,
+      "cumulative_compression_ratio": 1.987895353377587,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_4 $0 cdr $1": "(if (empty? $0) $0 (cons (car $0) ($1 (cdr (cdr $0)))))"
+        },
+        {
+          "fn_4 $0 $1 (cons (car $0))": "(if (empty? $0) $0 (cons (car $0) (cons (car $0) ($1 (cdr $0)))))"
+        }
+      ]
+    },
+    {
+      "body": "(fn_2 (lam (lam (#1 (car $0) (fn_0 $0 $1 #0)))))",
+      "dreamcoder": "#(lambda (lambda (#(lambda (lambda (fix1 $0 $1))) (lambda (lambda ($2 (car $0) (#(lambda (lambda (lambda (if (empty? (cdr $2)) $0 ($1 (cdr $2)))))) $0 $1 $3)))))))",
+      "arity": 2,
+      "name": "fn_5",
+      "utility": 405,
+      "final_cost": 6669,
+      "compression_ratio": 1.152046783625731,
+      "cumulative_compression_ratio": 2.290148448043185,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_5 0 +": "(fn_2 (lam (lam (+ (car $0) (fn_0 $0 $1 0)))))"
+        },
+        {
+          "fn_5 (cons 0 empty) cons": "(fn_2 (lam (lam (cons (car $0) (fn_0 $0 $1 (cons 0 empty))))))"
+        }
+      ]
+    },
+    {
+      "body": "(fn_2 (lam (lam (#1 $0 $1 (#0 (car $0))))))",
+      "dreamcoder": "#(lambda (lambda (#(lambda (lambda (fix1 $0 $1))) (lambda (lambda ($2 $0 $1 ($3 (car $0))))))))",
+      "arity": 2,
+      "name": "fn_6",
+      "utility": 304,
+      "final_cost": 5857,
+      "compression_ratio": 1.138637527744579,
+      "cumulative_compression_ratio": 2.607648967047977,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_6 + fn_3": "(fn_2 (lam (lam (fn_3 $0 $1 (+ (car $0))))))"
+        },
+        {
+          "fn_6 cons fn_4": "(fn_2 (lam (lam (fn_4 $0 $1 (cons (car $0))))))"
+        }
+      ]
+    },
+    {
+      "body": "(fn_2 (lam (lam (fn_3 $0 $1 #0))))",
+      "dreamcoder": "#(lambda (#(lambda (lambda (fix1 $0 $1))) (lambda (lambda (#(lambda (lambda (lambda (if (empty? $2) $2 (cons ($0 (car $2)) ($1 (cdr $2))))))) $0 $1 $2)))))",
+      "arity": 1,
+      "name": "fn_7",
+      "utility": 204,
+      "final_cost": 5247,
+      "compression_ratio": 1.116256908709739,
+      "cumulative_compression_ratio": 2.9108061749571186,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_7 (+ 1)": "(fn_2 (lam (lam (fn_3 $0 $1 (+ 1)))))"
+        },
+        {
+          "fn_7 (- 0)": "(fn_2 (lam (lam (fn_3 $0 $1 (- 0)))))"
         }
       ]
     },
@@ -856,359 +467,38 @@
       "body": "(+ 1)",
       "dreamcoder": "#(+ 1)",
       "arity": 0,
-      "name": "fn_5",
-      "rewritten": [
-        "(fn_4 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) 1)))))",
-        "(fn_4 (lam (lam (if (empty? $0) 0 (fn_5 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1))))",
-        "(fn_4 (lam (lam (fn_5 (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? (cdr $0)) 1 (fn_5 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (eq? $0 0) empty (cons (fn_5 $0) ($1 (- $0 1)))))))",
-        "(fn_4 (lam (lam (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1)))))))",
-        "(fn_1 - fn_5)",
-        "(fn_4 (lam (lam (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty))))",
-        "(fn_4 (lam (lam (if (gt? $0 0) (cons (fn_5 $0) ($1 (- $0 1))) empty))))",
-        "(fn_4 (lam (lam (if (eq? $0 0) empty (cons (- 0 $0) ($1 (fn_5 $0)))))))",
-        "(fn_1 + (- 0))",
-        "(fn_4 (lam (lam (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (fn_5 $0)))))))",
-        "(fn_4 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty))))",
-        "(fn_4 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (fn_5 $0))) empty))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr (cdr $0))) (car $0) $0))))",
-        "(fn_4 (lam (lam (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(fn_4 (lam (lam (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr $0)) (car $0) (cdr $0)))))",
-        "(fn_4 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(fn_4 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(fn_4 (lam (lam (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0))))",
-        "(fn_4 (lam (lam (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(fn_4 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 + 0)",
-        "(fn_4 (lam (lam (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0)))))",
-        "(fn_4 (lam (lam (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 cons (cons 0 empty))",
-        "(fn_4 (lam (lam (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0)))))))",
-        "(fn_2 cons (cons (- 1 1) empty))",
-        "(fn_4 (lam (lam (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) (car $0)) $0))))",
-        "(fn_4 (lam (lam (cons (+ (car $0) (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (fn_5 (car $0)) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0))))",
-        "(fn_3 fn_5)",
-        "(fn_4 (lam (lam (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0)))))))",
-        "(fn_3 (- 0))",
-        "(fn_4 (lam (lam (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (- 1 (fn_5 (car $0))) ($1 (cdr $0)))))))"
-      ],
-      "rewritten_dreamcoder": [
-        "(fn_4 (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) 1)))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) 0 (#(+ 1) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1))))",
-        "(fn_4 (lambda (lambda (#(+ 1) (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? (cdr $0)) 1 (#(+ 1) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (eq? $0 0) empty (cons (#(+ 1) $0) ($1 (- $0 1)))))))",
-        "(fn_4 (lambda (lambda (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1)))))))",
-        "(fn_1 - #(+ 1))",
-        "(fn_4 (lambda (lambda (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty))))",
-        "(fn_4 (lambda (lambda (if (gt? $0 0) (cons (#(+ 1) $0) ($1 (- $0 1))) empty))))",
-        "(fn_4 (lambda (lambda (if (eq? $0 0) empty (cons (- 0 $0) ($1 (#(+ 1) $0)))))))",
-        "(fn_1 + (- 0))",
-        "(fn_4 (lambda (lambda (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (#(+ 1) $0)))))))",
-        "(fn_4 (lambda (lambda (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty))))",
-        "(fn_4 (lambda (lambda (if (gt? 0 $0) (cons (- 0 $0) ($1 (#(+ 1) $0))) empty))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(fn_4 (lambda (lambda (fn_0 ($1 (cdr (cdr $0))) (car $0) $0))))",
-        "(fn_4 (lambda (lambda (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(fn_4 (lambda (lambda (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (fn_0 ($1 (cdr $0)) (car $0) (cdr $0)))))",
-        "(fn_4 (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(fn_4 (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(fn_4 (lambda (lambda (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0))))",
-        "(fn_4 (lambda (lambda (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 + 0)",
-        "(fn_4 (lambda (lambda (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0)))))",
-        "(fn_4 (lambda (lambda (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 cons (cons 0 empty))",
-        "(fn_4 (lambda (lambda (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0)))))))",
-        "(fn_2 cons (cons (- 1 1) empty))",
-        "(fn_4 (lambda (lambda (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (+ (car $0) (car $0)) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (fn_0 ($1 (cdr $0)) (+ (car $0) (car $0)) $0))))",
-        "(fn_4 (lambda (lambda (cons (+ (car $0) (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (#(+ 1) (car $0)) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0))))",
-        "(fn_3 #(+ 1))",
-        "(fn_4 (lambda (lambda (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0)))))))",
-        "(fn_3 (- 0))",
-        "(fn_4 (lambda (lambda (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (- 1 (#(+ 1) (car $0))) ($1 (cdr $0)))))))"
-      ],
+      "name": "fn_8",
       "utility": 102,
-      "expected_cost": 6968,
-      "final_cost": 6968,
-      "multiplier": 1.0434845005740527,
-      "multiplier_wrt_orig": 2.1918771526980483,
+      "final_cost": 4944,
+      "compression_ratio": 1.0612864077669903,
+      "cumulative_compression_ratio": 3.0891990291262137,
       "num_uses": 12,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_5 ": "(+ 1)"
+          "fn_8 ": "(+ 1)"
         }
       ]
     },
     {
-      "body": "(#1 #0 #0)",
-      "dreamcoder": "#(lambda (lambda ($0 $1 $1)))",
-      "arity": 2,
-      "name": "fn_6",
-      "rewritten": [
-        "(fn_4 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) 1)))))",
-        "(fn_4 (lam (lam (if (empty? $0) 0 (fn_5 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1))))",
-        "(fn_4 (lam (lam (fn_5 (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? (cdr $0)) 1 (fn_5 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (eq? $0 0) empty (cons (fn_5 $0) ($1 (- $0 1)))))))",
-        "(fn_4 (lam (lam (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1)))))))",
-        "(fn_1 - fn_5)",
-        "(fn_4 (lam (lam (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty))))",
-        "(fn_4 (lam (lam (if (gt? $0 0) (cons (fn_5 $0) ($1 (- $0 1))) empty))))",
-        "(fn_4 (lam (lam (if (eq? $0 0) empty (cons (- 0 $0) ($1 (fn_5 $0)))))))",
-        "(fn_1 + (- 0))",
-        "(fn_4 (lam (lam (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (fn_5 $0)))))))",
-        "(fn_4 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty))))",
-        "(fn_4 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (fn_5 $0))) empty))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr (cdr $0))) (car $0) $0))))",
-        "(fn_4 (lam (lam (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(fn_4 (lam (lam (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr $0)) (car $0) (cdr $0)))))",
-        "(fn_4 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(fn_4 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(fn_4 (lam (lam (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0))))",
-        "(fn_4 (lam (lam (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(fn_4 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 + 0)",
-        "(fn_4 (lam (lam (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0)))))",
-        "(fn_4 (lam (lam (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 cons (cons 0 empty))",
-        "(fn_4 (lam (lam (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0)))))))",
-        "(fn_2 cons (cons (- 1 1) empty))",
-        "(fn_4 (lam (lam (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (fn_6 (car $0) +) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr $0)) (fn_6 (car $0) +) $0))))",
-        "(fn_4 (lam (lam (cons (fn_6 (car $0) +) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (fn_5 (car $0)) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0))))",
-        "(fn_3 fn_5)",
-        "(fn_4 (lam (lam (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0)))))))",
-        "(fn_3 (- 0))",
-        "(fn_4 (lam (lam (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (- 1 (fn_5 (car $0))) ($1 (cdr $0)))))))"
-      ],
-      "rewritten_dreamcoder": [
-        "(fn_4 (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) 1)))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) 0 (fn_5 ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1))))",
-        "(fn_4 (lambda (lambda (fn_5 (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? (cdr $0)) 1 (fn_5 ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (eq? $0 0) empty (cons (fn_5 $0) ($1 (- $0 1)))))))",
-        "(fn_4 (lambda (lambda (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1)))))))",
-        "(fn_1 - fn_5)",
-        "(fn_4 (lambda (lambda (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty))))",
-        "(fn_4 (lambda (lambda (if (gt? $0 0) (cons (fn_5 $0) ($1 (- $0 1))) empty))))",
-        "(fn_4 (lambda (lambda (if (eq? $0 0) empty (cons (- 0 $0) ($1 (fn_5 $0)))))))",
-        "(fn_1 + (- 0))",
-        "(fn_4 (lambda (lambda (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (fn_5 $0)))))))",
-        "(fn_4 (lambda (lambda (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ $0 1))) empty))))",
-        "(fn_4 (lambda (lambda (if (gt? 0 $0) (cons (- 0 $0) ($1 (fn_5 $0))) empty))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(fn_4 (lambda (lambda (fn_0 ($1 (cdr (cdr $0))) (car $0) $0))))",
-        "(fn_4 (lambda (lambda (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(fn_4 (lambda (lambda (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (fn_0 ($1 (cdr $0)) (car $0) (cdr $0)))))",
-        "(fn_4 (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(fn_4 (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(fn_4 (lambda (lambda (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0))))",
-        "(fn_4 (lambda (lambda (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 + 0)",
-        "(fn_4 (lambda (lambda (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0)))))",
-        "(fn_4 (lambda (lambda (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 cons (cons 0 empty))",
-        "(fn_4 (lambda (lambda (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0)))))))",
-        "(fn_2 cons (cons (- 1 1) empty))",
-        "(fn_4 (lambda (lambda (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (#(lambda (lambda ($0 $1 $1))) (car $0) +) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (fn_0 ($1 (cdr $0)) (#(lambda (lambda ($0 $1 $1))) (car $0) +) $0))))",
-        "(fn_4 (lambda (lambda (cons (#(lambda (lambda ($0 $1 $1))) (car $0) +) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (fn_5 (car $0)) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0))))",
-        "(fn_3 fn_5)",
-        "(fn_4 (lambda (lambda (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (- 0 (car $0)) ($1 (cdr $0)))))))",
-        "(fn_3 (- 0))",
-        "(fn_4 (lambda (lambda (cons (- 0 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (- 1 (fn_5 (car $0))) ($1 (cdr $0)))))))"
-      ],
-      "utility": 99,
-      "expected_cost": 6867,
-      "final_cost": 6867,
-      "multiplier": 1.0147080238823358,
-      "multiplier_wrt_orig": 2.2241153342070774,
-      "num_uses": 4,
+      "body": "(if (empty? #0) empty (#2 (#1 #0)))",
+      "dreamcoder": "#(lambda (lambda (lambda (if (empty? $2) empty ($0 ($1 $2))))))",
+      "arity": 3,
+      "name": "fn_9",
+      "utility": 98,
+      "final_cost": 4540,
+      "compression_ratio": 1.088986784140969,
+      "cumulative_compression_ratio": 3.3640969162995593,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_6 (car $0) +": "(+ (car $0) (car $0))"
+          "fn_9 $0 cdr $1": "(if (empty? $0) empty ($1 (cdr $0)))"
         },
         {
-          "fn_6 1 -": "(- 1 1)"
-        }
-      ]
-    },
-    {
-      "body": "(- 0)",
-      "dreamcoder": "#(- 0)",
-      "arity": 0,
-      "name": "fn_7",
-      "rewritten": [
-        "(fn_4 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) 1)))))",
-        "(fn_4 (lam (lam (if (empty? $0) 0 (fn_5 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1))))",
-        "(fn_4 (lam (lam (fn_5 (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? (cdr $0)) 1 (fn_5 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (eq? $0 0) empty (cons (fn_5 $0) ($1 (- $0 1)))))))",
-        "(fn_4 (lam (lam (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1)))))))",
-        "(fn_1 - fn_5)",
-        "(fn_4 (lam (lam (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty))))",
-        "(fn_4 (lam (lam (if (gt? $0 0) (cons (fn_5 $0) ($1 (- $0 1))) empty))))",
-        "(fn_4 (lam (lam (if (eq? $0 0) empty (cons (fn_7 $0) ($1 (fn_5 $0)))))))",
-        "(fn_1 + fn_7)",
-        "(fn_4 (lam (lam (if (eq? 0 $0) empty (cons (fn_7 $0) ($1 (fn_5 $0)))))))",
-        "(fn_4 (lam (lam (if (gt? 0 $0) (cons (fn_7 $0) ($1 (+ $0 1))) empty))))",
-        "(fn_4 (lam (lam (if (gt? 0 $0) (cons (fn_7 $0) ($1 (fn_5 $0))) empty))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr (cdr $0))) (car $0) $0))))",
-        "(fn_4 (lam (lam (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(fn_4 (lam (lam (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr $0)) (car $0) (cdr $0)))))",
-        "(fn_4 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(fn_4 (lam (lam (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(fn_4 (lam (lam (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0))))",
-        "(fn_4 (lam (lam (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(fn_4 (lam (lam (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 + 0)",
-        "(fn_4 (lam (lam (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0)))))",
-        "(fn_4 (lam (lam (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 cons (cons 0 empty))",
-        "(fn_4 (lam (lam (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0)))))))",
-        "(fn_2 cons (cons (- 1 1) empty))",
-        "(fn_4 (lam (lam (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (fn_6 (car $0) +) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr $0)) (fn_6 (car $0) +) $0))))",
-        "(fn_4 (lam (lam (cons (fn_6 (car $0) +) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (fn_5 (car $0)) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0))))",
-        "(fn_3 fn_5)",
-        "(fn_4 (lam (lam (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (fn_7 (car $0)) ($1 (cdr $0)))))))",
-        "(fn_3 fn_7)",
-        "(fn_4 (lam (lam (cons (fn_7 (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0)))))))",
-        "(fn_4 (lam (lam (if (empty? $0) empty (cons (- 1 (fn_5 (car $0))) ($1 (cdr $0)))))))"
-      ],
-      "rewritten_dreamcoder": [
-        "(fn_4 (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) 1)))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) 0 (fn_5 ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) 1))))",
-        "(fn_4 (lambda (lambda (fn_5 (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? (cdr $0)) 1 (fn_5 ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (eq? $0 0) empty (cons (fn_5 $0) ($1 (- $0 1)))))))",
-        "(fn_4 (lambda (lambda (if (eq? 0 $0) empty (cons (+ $0 1) ($1 (- $0 1)))))))",
-        "(fn_1 - fn_5)",
-        "(fn_4 (lambda (lambda (if (gt? $0 0) (cons (+ $0 1) ($1 (- $0 1))) empty))))",
-        "(fn_4 (lambda (lambda (if (gt? $0 0) (cons (fn_5 $0) ($1 (- $0 1))) empty))))",
-        "(fn_4 (lambda (lambda (if (eq? $0 0) empty (cons (#(- 0) $0) ($1 (fn_5 $0)))))))",
-        "(fn_1 + #(- 0))",
-        "(fn_4 (lambda (lambda (if (eq? 0 $0) empty (cons (#(- 0) $0) ($1 (fn_5 $0)))))))",
-        "(fn_4 (lambda (lambda (if (gt? 0 $0) (cons (#(- 0) $0) ($1 (+ $0 1))) empty))))",
-        "(fn_4 (lambda (lambda (if (gt? 0 $0) (cons (#(- 0) $0) ($1 (fn_5 $0))) empty))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(fn_4 (lambda (lambda (fn_0 ($1 (cdr (cdr $0))) (car $0) $0))))",
-        "(fn_4 (lambda (lambda (if (empty? (if (empty? $0) empty $0)) empty (cons (car $0) ($1 (cdr (cdr $0))))))))",
-        "(fn_4 (lambda (lambda (if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (cons (car $0) (if (empty? (cdr (cdr $0))) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (fn_0 ($1 (cdr $0)) (car $0) (cdr $0)))))",
-        "(fn_4 (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 0 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(fn_4 (lambda (lambda (cdr (if (empty? (cdr $0)) $0 (cons 1 (cons (car $0) ($1 (cdr $0)))))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (car $0) (cons (car $0) ($1 (cdr $0))))))))",
-        "(fn_4 (lambda (lambda (fn_0 (cons (car $0) ($1 (cdr $0))) (car $0) $0))))",
-        "(fn_4 (lambda (lambda (cons (car $0) (cons (car $0) (if (empty? (cdr $0)) empty ($1 (cdr $0))))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) 0 (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 + 0)",
-        "(fn_4 (lambda (lambda (+ (car $0) (if (empty? (cdr $0)) 0 ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (+ (if (empty? (cdr $0)) 0 ($1 (cdr $0))) (car $0)))))",
-        "(fn_4 (lambda (lambda (if (empty? (cdr $0)) (car $0) (+ ($1 (cdr $0)) (car $0))))))",
-        "(fn_2 cons (cons 0 empty))",
-        "(fn_4 (lambda (lambda (if (empty? $0) (cons 0 $0) (cons (car $0) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (cons (car $0) (if (empty? (cdr $0)) (cons 0 empty) ($1 (cdr $0)))))))",
-        "(fn_2 cons (cons (- 1 1) empty))",
-        "(fn_4 (lambda (lambda (cons (if (empty? $0) 0 (car $0)) (if (empty? $0) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (fn_6 (car $0) +) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (fn_0 ($1 (cdr $0)) (fn_6 (car $0) +) $0))))",
-        "(fn_4 (lambda (lambda (cons (fn_6 (car $0) +) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (+ (car $0) 1) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (fn_5 (car $0)) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (fn_0 ($1 (cdr $0)) (+ (car $0) 1) $0))))",
-        "(fn_3 fn_5)",
-        "(fn_4 (lambda (lambda (cons (+ (car $0) 1) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (#(- 0) (car $0)) ($1 (cdr $0)))))))",
-        "(fn_3 #(- 0))",
-        "(fn_4 (lambda (lambda (cons (#(- 0) (car $0)) (if (empty? (cdr $0)) empty ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (- 1 (+ (car $0) 1)) ($1 (cdr $0)))))))",
-        "(fn_4 (lambda (lambda (if (empty? $0) empty (cons (- 1 (fn_5 (car $0))) ($1 (cdr $0)))))))"
-      ],
-      "utility": 1,
-      "expected_cost": 6665,
-      "final_cost": 6665,
-      "multiplier": 1.0303075768942236,
-      "multiplier_wrt_orig": 2.29152288072018,
-      "num_uses": 8,
-      "uses": [
-        {
-          "fn_7 ": "(- 0)"
+          "fn_9 (cdr $0) $1 (cons (car $0))": "(if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0))))"
         }
       ]
     }

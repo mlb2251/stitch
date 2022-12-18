@@ -1,28 +1,11 @@
-use stitch::{compression, CompressionStepConfig, InputFormat, Input, Expr, CompressionStepResult, timestamp};
+use std::path::Path;
+
+use stitch_core::*;
 use clap::Parser;
-use serde_json::{json,Value};
-// use stitch::format
-
-
-fn load_programs(file: &str, input_format: InputFormat) -> (Input,Expr) {
-    let input_file = std::path::Path::new(file);
-    let input = input_format.load_programs_and_tasks(input_file).unwrap();
-    let train_programs: Vec<Expr> = input.train_programs.iter().map(|p| p.parse().unwrap()).collect();
-    (input,Expr::programs(train_programs))
-}
-
-fn out_json(train_programs: &Expr, step_results: &Vec<CompressionStepResult>) -> serde_json::Value {
-    json!({
-        "cmd": Value::Null,
-        "args": Value::Null,
-        "original_cost": train_programs.cost(),
-        "original": train_programs.split_programs().iter().map(|p| p.to_string()).collect::<Vec<String>>(),
-        "invs": step_results.iter().map(|inv| inv.json()).collect::<Vec<serde_json::Value>>(),
-    })
-}
+use serde_json::Value;
 
 fn write_json_for_diff(out: &Value, expected_out_path: &str) {
-    let path = format!("out/test_outputs/{}.json",timestamp());
+    let path = format!("out/test_outputs/{}_{}.json",timestamp(), Path::new(expected_out_path).file_stem().unwrap().to_str().unwrap());
     let out_path = std::path::Path::new(&path);
     if let Some(out_path_dir) = out_path.parent() {
         if !out_path_dir.exists() {
@@ -31,28 +14,37 @@ fn write_json_for_diff(out: &Value, expected_out_path: &str) {
     }
     std::fs::write(out_path, serde_json::to_string_pretty(&out).unwrap()).unwrap();
     println!("Wrote test output to {:?} diff with expected out path {:?}", out_path, expected_out_path);
+    println!("Command to replace:");
+    println!("cp {:?} {:?}", out_path, expected_out_path);
 }
 
-fn run_compression(train_programs: &Expr, input: &Input, iterations: usize, args: &str) -> Vec<CompressionStepResult> {
-    compression(
-        train_programs,
-        &None,
-        iterations,
-        &CompressionStepConfig::parse_from(format!("compress {}",args).split_whitespace()),
-        &input.tasks,
-        &input.prev_dc_inv_to_inv_strs)
+fn run_compression(inputs: &Input, cfg: &MultistepCompressionConfig) -> Value {
+    multistep_compression(
+        &inputs.train_programs,
+        inputs.tasks.clone(),
+        inputs.anonymous_to_named.clone(),
+        cfg,
+        ).1
 }
 
-fn compare_out_jsons(file: &str, expected_out_file: &str, args: &str, iterations: usize, input_format: InputFormat) {
-    let (input,train_programs) = load_programs(file, input_format);
-    let step_results = run_compression(&train_programs, &input, iterations, args);
+fn compare_out_jsons(file: &str, expected_out_file: &str, args: &str, input_format: InputFormat) {
+    let input = input_format.load_programs_and_tasks(std::path::Path::new(file)).unwrap();
 
-    let output: Value = out_json(&train_programs, &step_results);
+    let mut cfg = MultistepCompressionConfig::parse_from(format!("compress {}",args).split_whitespace());
+
+    cfg.previous_abstractions = input.anonymous_to_named.clone().unwrap_or_default().len();
+
+    let output = run_compression(&input, &cfg);
+
     let expected_output: Value = serde_json::from_str(&std::fs::read_to_string(std::path::Path::new(expected_out_file)).unwrap()).unwrap();
 
     check_eq(&output["original"], &expected_output["original"], vec!["original".into()], &output, expected_out_file);
     check_eq(&output["original_cost"], &expected_output["original_cost"], vec!["original_cost".into()], &output, expected_out_file);
-    check_eq(&output["invs"], &expected_output["invs"], vec!["invs".into()], &output, expected_out_file);
+    check_eq(&output["final_cost"], &expected_output["final_cost"], vec!["final_cost".into()], &output, expected_out_file);
+    check_eq(&output["compression_ratio"], &expected_output["compression_ratio"], vec!["compression_ratio".into()], &output, expected_out_file);
+    check_eq(&output["num_abstractions"], &expected_output["num_abstractions"], vec!["num_abstractions".into()], &output, expected_out_file);
+    check_eq(&output["abstractions"], &expected_output["abstractions"], vec!["abstractions".into()], &output, expected_out_file);
+    check_eq(&output["rewritten"], &expected_output["rewritten"], vec!["rewritten".into()], &output, expected_out_file);
 
 }
 
@@ -122,70 +114,70 @@ fn check_eq(actual: &Value, expected: &Value, path: Vec<String>, out: &Value, ex
 
 #[test]
 fn simple1_a1_i1() {
-    compare_out_jsons("data/basic/simple1.json", "data/expected_outputs/simple1-a1-i1.json", "-a1", 1, InputFormat::ProgramsList);
+    compare_out_jsons("data/basic/simple1.json", "data/expected_outputs/simple1-a1-i1.json", "-i1 -a1 --rewrite-check", InputFormat::ProgramsList);
 }
 
 #[test]
 fn simple2_a1_i1() {
-    compare_out_jsons("data/basic/simple2.json", "data/expected_outputs/simple2-a1-i1.json", "-a1", 1, InputFormat::ProgramsList);
+    compare_out_jsons("data/basic/simple2.json", "data/expected_outputs/simple2-a1-i1.json", "-i1 -a1 --rewrite-check", InputFormat::ProgramsList);
 }
 
 #[test]
 fn nuts_bolts_a3_i10() {
-    compare_out_jsons("data/cogsci/nuts-bolts.json", "data/expected_outputs/nuts-bolts-a3-i10.json", "-a3", 10, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/nuts-bolts.json", "data/expected_outputs/nuts-bolts-a3-i10.json", "-i10 -a3 --rewrite-check", InputFormat::ProgramsList);
 }
 #[test]
 fn furniture_a2_i10() {
-    compare_out_jsons("data/cogsci/furniture.json", "data/expected_outputs/furniture-a2-i10.json", "-a2", 10, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/furniture.json", "data/expected_outputs/furniture-a2-i10.json", "-i10 -a2 --rewrite-check", InputFormat::ProgramsList);
 }
 #[test]
 fn wheels_a2_i10() {
-    compare_out_jsons("data/cogsci/wheels.json", "data/expected_outputs/wheels-a2-i10.json", "-a2", 10, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/wheels.json", "data/expected_outputs/wheels-a2-i10.json", "-i10 -a2 --rewrite-check",  InputFormat::ProgramsList);
 }
 
 #[test]
 fn dials_a2_i10() {
-    compare_out_jsons("data/cogsci/dials.json", "data/expected_outputs/dials-a2-i10.json", "-a2", 10, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/dials.json", "data/expected_outputs/dials-a2-i10.json", "-i10 -a2 --rewrite-check", InputFormat::ProgramsList);
 }
 
 #[test]
 fn city_a1_i1() {
-    compare_out_jsons("data/cogsci/city.json", "data/expected_outputs/city-a1-i1.json", "-a1", 1, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/city.json", "data/expected_outputs/city-a1-i1.json", "-i1 -a1 --rewrite-check", InputFormat::ProgramsList);
 }
 
 #[test]
 fn bridge_a2_i10() {
-    compare_out_jsons("data/cogsci/bridge.json", "data/expected_outputs/bridge-a2-i10.json", "-a2", 10, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/bridge.json", "data/expected_outputs/bridge-a2-i10.json", "-i10 -a2 --rewrite-check", InputFormat::ProgramsList);
 }
 
 #[test]
 fn castle_a1_i1() {
-    compare_out_jsons("data/cogsci/castle.json", "data/expected_outputs/castle-a1-i1.json", "-a1", 1, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/castle.json", "data/expected_outputs/castle-a1-i1.json", "-i1 -a1 --rewrite-check", InputFormat::ProgramsList);
 }
 
 #[test]
 fn house_a1_i1() {
-    compare_out_jsons("data/cogsci/house.json", "data/expected_outputs/house-a1-i1.json", "-a1", 1, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/house.json", "data/expected_outputs/house-a1-i1.json", "-i1 -a1 --rewrite-check", InputFormat::ProgramsList);
 }
 
 #[test]
 fn logo_iteration_1_a3_i10() {
-    compare_out_jsons("data/dc/logo_iteration_1.json", "data/expected_outputs/logo_iteration_1-a3-i10.json", "-a3", 10, InputFormat::Dreamcoder);
+    compare_out_jsons("data/dc/logo_iteration_1.json", "data/expected_outputs/logo_iteration_1-a3-i10.json", "-i10 -a3 --rewrite-check", InputFormat::Dreamcoder);
 }
 
 #[test]
 fn origami_0_a3_i10() {
-    compare_out_jsons("data/dc/origami/iteration_0_3.json", "data/expected_outputs/origami_0-a3-i10.json", "-a3", 10, InputFormat::Dreamcoder);
+    compare_out_jsons("data/dc/origami/iteration_0_3.json", "data/expected_outputs/origami_0-a3-i10.json", "-i10 -a3 --rewrite-check", InputFormat::Dreamcoder);
 }
 
 #[test]
 fn origami_1_a3_i10() {
-    compare_out_jsons("data/dc/origami/iteration_1_6.json", "data/expected_outputs/origami_1-a3-i10.json", "-a3", 10, InputFormat::Dreamcoder);
+    compare_out_jsons("data/dc/origami/iteration_1_6.json", "data/expected_outputs/origami_1-a3-i10.json", "-i10 -a3 --rewrite-check", InputFormat::Dreamcoder);
 }
 
 #[test]
 fn origami_2_a3_i10() {
-    compare_out_jsons("data/dc/origami/iteration_2_1.json", "data/expected_outputs/origami_2-a3-i10.json", "-a3", 10, InputFormat::Dreamcoder);
+    compare_out_jsons("data/dc/origami/iteration_2_1.json", "data/expected_outputs/origami_2-a3-i10.json", "-i10 -a3 --rewrite-check", InputFormat::Dreamcoder);
 }
 
 // todo disabled bc nondeterminism with 2 equal things on the first invention (usually threading prevents that, but here for some reason you always get the same result when running from commandline and a diff result when running from test)

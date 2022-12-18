@@ -1,0 +1,138 @@
+rm -rf claim-2-out-3
+STITCH_DIR=.. ./claim-2.sh 3 claim-2-out-3
+~/proj/stitch-artifact/stitch_experiments ~/proj/stitch-artifact/stitch_experiments/experiments
+    Finished release [optimized + debuginfo] target(s) in 0.06s
+~/proj/stitch-artifact/stitch_experiments/experiments
+[claim-2.sh] Starting workload bridge, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload bridge, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+removed 'bridge-1-split.json'
+removed 'bridge-2-split.json'
+removed 'bridge-3-split.json'
+[claim-2.sh] Starting workload castle, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload castle, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+removed 'castle-1-split.json'
+removed 'castle-2-split.json'
+removed 'castle-3-split.json'
+[claim-2.sh] Starting workload city, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload city, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+removed 'city-1-split.json'
+removed 'city-2-split.json'
+removed 'city-3-split.json'
+[claim-2.sh] Starting workload dials, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload dials, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+removed 'dials-1-split.json'
+removed 'dials-2-split.json'
+removed 'dials-3-split.json'
+[claim-2.sh] Starting workload furniture, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload furniture, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+removed 'furniture-1-split.json'
+removed 'furniture-2-split.json'
+removed 'furniture-3-split.json'
+[claim-2.sh] Starting workload house, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload house, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+removed 'house-1-split.json'
+removed 'house-2-split.json'
+removed 'house-3-split.json'
+[claim-2.sh] Starting workload nuts-bolts, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload nuts-bolts, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+removed 'nuts-bolts-1-split.json'
+removed 'nuts-bolts-2-split.json'
+removed 'nuts-bolts-3-split.json'
+[claim-2.sh] Starting workload wheels, seed 1
+[claim-2.sh] Split data; seed used was 1, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 2
+[claim-2.sh] Split data; seed used was 2, train test % was 80%
+Running Stitch
+[claim-2.sh] Starting workload wheels, seed 3
+[claim-2.sh] Split data; seed used was 3, train test % was 80%
+Running Stitch
+removed 'wheels-1-split.json'
+removed 'wheels-2-split.json'
+removed 'wheels-3-split.json'
+Done: claim-2-out-3
+python3 plot.py claim-2 claim-2-out-3 3
++--------------+-------------------+---------------+---------------+----------------------+
+|    Domain    | Training set C.R. | Test set C.R. |  Runtime (s)  | Peak mem. usage (MB) |
++--------------+-------------------+---------------+---------------+----------------------+
+| nuts & bolts |   11.81 +- 0.16   | 12.15 +- 0.70 |  0.21 +- 0.01 |    11.30 +- 0.30     |
+|   gadgets    |    3.96 +- 0.01   |  3.65 +- 0.18 |  1.52 +- 0.10 |    31.11 +- 0.65     |
+|  furniture   |    4.95 +- 0.06   |  4.82 +- 0.30 |  2.52 +- 0.03 |    31.31 +- 0.48     |
+|   vehicles   |    4.26 +- 0.05   |  4.19 +- 0.10 |  1.31 +- 0.03 |    28.16 +- 0.46     |
+|   bridges    |    4.36 +- 0.05   |  3.72 +- 0.06 | 14.82 +- 0.73 |   189.02 +- 16.47    |
+|    cities    |    3.19 +- 0.04   |  3.05 +- 0.09 | 40.60 +- 1.87 |    430.79 +- 4.36    |
+|   castles    |    2.58 +- 0.06   |  2.55 +- 0.06 | 59.48 +- 4.54 |   693.07 +- 11.91    |
+|    houses    |    8.76 +- 0.27   |  8.99 +- 0.23 | 11.47 +- 0.11 |    242.98 +- 2.50    |
++--------------+-------------------+---------------+---------------+----------------------+
+	Command being timed: "make claim-2"
+	User time (seconds): 401.17
+	System time (seconds): 9.13
+	Percent of CPU this job got: 101%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 6:44.56
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 702960
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 2819826
+	Voluntary context switches: 630
+	Involuntary context switches: 3516694
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 107104
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

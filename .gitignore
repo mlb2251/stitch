@@ -4,6 +4,7 @@ flamegraph.svg
 .vscode
 *.svg
 .DS_Store
+perf.data
 
 out/
 
@@ -20,3 +21,12 @@ experiments/benches*
 experiments/cs2*
 experiments/plots
 experiments/launchers
+experiments/claim-2-out-*
+experiments/claim-3-out/
+experiments/plots/
+experiments/claim-4-out/
+experiments/*.json
+experiments/compression_benchmark
+experiments/claim-2-data
+experiments/claim-2
+experiments/out_camera_ready/

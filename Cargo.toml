@@ -1,49 +1,32 @@
 [package]
-name = "stitch"
+name = "stitch_core"
 version = "0.1.0"
 authors = ["Matthew Bowers <mlbowers@mit.edu>", "Theo X. Olausson <theoxo@mit.edu>"]
 edition = "2018"
 license = "MIT"
-
-[features]
-python = ["pyo3"]
-
-[[example]]
-name = "stitch"
-crate-type = ["cdylib"]
+description = "A scalable abstraction learning library"
+repository = "https://github.com/mlb2251/stitch"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-egg = {version = "0.7.1", features = ["serde-1"]}
-log = "0.4.0"
-env_logger = "0.8.4"
 chrono = "0.4"
 serde_json = {version = "1.0", features = ["preserve_order"]}
 clap = { version = "3.1.0", features = ["derive"]}
-symbolic_expressions = "5"
-nix = "0.23.0"
 serde = "1"
-procspawn = "0.10.0"
-lazy_static = "1.4.0"
-sexp = "1.1.4"
 itertools = "0.10.3"
 rand = "0.8.4"
 parking_lot = "0.12.0"
 colorful = "0.2.1"
 rustc-hash = "1.1.0"
+lambdas = { git = "https://github.com/mlb2251/lambdas", rev = "56bc9ee"}
 
-[dependencies.pyo3]
-version = "0.16.1"
-features = ["extension-module"]
-optional = true
 
-[profile.release]
-debug = true # for flamegraphs
+# [patch.crates-io]
+# lambdas = { path = "../lambdas"}
 
-[dev-dependencies]
-criterion = {version = "0.3", features = ["html_reports"]}
 
-[[bench]]
-name = "compress_bench"
-harness = false # so we can add our own benchmarking harness
+# enable for flamegraphs
+# [profile.release]
+# debug = true
+
