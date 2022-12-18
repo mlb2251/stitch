@@ -18,7 +18,7 @@ The rest of this ReadMe is not relevant to the Python API, but instead focuses o
 - ensure that `cargo run --release --bin=compress -- data/cogsci/nuts-bolts.json` runs without crashing
 - For a more thorough test, run `make test`
 
-## Quickstart
+## Quickstart (non-Python)
 
 Lets take a look at some simple examples of the `stitch` input format. Put the following in a new file `data/basic/ex1.json`:
 ```json
@@ -95,6 +95,16 @@ Primer on input format:
 - Be sure to balance your parentheses.
 - You don't need to pre-define a DSL or anything to work with `stitch`. Any space-separated series of tokens that isn't reserved for something else is treated as a DSL primitive, like `foo` and `a` in the earlier example or any of the primitive likes `T` or `-0.5` in the second example.
 - check out other examples in `data/basic/` and `data/cogsci/`
+
+As an example involving lambdas, the the running example from Section 2 of the paper could be written with de bruijn indices like so:
+```json
+[
+    "(lam (+ 3 (* 0 (+ 2 4))))",
+    "(lam (map (lam (+ 3 (* 0 (+ 3 $0)))) $0))",
+    "(lam (* 2 (+ 3 (* 0 (+ $0 1)))))"
+]
+```
+
 
 ## Common command-line arguments
 
