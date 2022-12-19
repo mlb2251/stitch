@@ -45,6 +45,9 @@ pub fn ivar_to_dc(e: &mut ExprMut, depth: i32, arity: i32) {
             ivar_to_dc(&mut e.get(f), depth, arity);
             ivar_to_dc(&mut e.get(x), depth, arity);
         },
+        Node::LoopChoice(_, b) => {
+            ivar_to_dc(&mut e.get(b), depth, arity);
+        },
         Node::Lam(b) => {
             ivar_to_dc(&mut e.get(b), depth+1, arity);
         },

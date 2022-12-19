@@ -291,6 +291,11 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>
                 helper(expr.get(*x), curr_zip, zids_of_ivar, zid_of_zip)?;
                 curr_zip.pop();
             }
+            Node::LoopChoice(_, b) => {
+                curr_zip.push(ZNode::Body);
+                helper(expr.get(*b), curr_zip, zids_of_ivar, zid_of_zip)?;
+                curr_zip.pop();
+            }
         }
         Ok(())
     }
@@ -315,6 +320,10 @@ pub struct CostConfig {
     #[clap(long, default_value = "1")]
     pub cost_app: usize,
 
+    /// Sets cost for loop nodes in the lambda calculus
+    #[clap(long, default_value = "1")]
+    pub cost_loop_choice: usize,
+
     /// Sets cost for `$i` variables
     #[clap(long, default_value = "100")]
     pub cost_var: usize,
@@ -333,6 +342,7 @@ impl CostConfig {
         ExprCost {
             cost_lam: self.cost_lam.try_into().unwrap(),
             cost_app: self.cost_app.try_into().unwrap(),
+            cost_loop_choice: self.cost_loop_choice.try_into().unwrap(),
             cost_var: self.cost_var.try_into().unwrap(),
             cost_ivar: self.cost_ivar.try_into().unwrap(),
             cost_prim_default: self.cost_prim_default.try_into().unwrap(),
@@ -425,6 +435,7 @@ impl Pattern {
 pub enum ExpandsTo {
     Lam,
     App,
+    LoopChoice,
     Var(i32),
     Prim(Symbol),
     IVar(i32),
@@ -438,6 +449,7 @@ impl ExpandsTo {
         match self {
             ExpandsTo::Lam => true,
             ExpandsTo::App => true,
+            ExpandsTo::LoopChoice => true,
             ExpandsTo::Var(_) => false,
             ExpandsTo::Prim(_) => false,
             ExpandsTo::IVar(_) => false,
@@ -455,6 +467,7 @@ impl std::fmt::Display for ExpandsTo {
         match self {
             ExpandsTo::Lam => write!(f, "(lam ??)"),
             ExpandsTo::App => write!(f, "(?? ??)"),
+            ExpandsTo::LoopChoice => write!(f, "(loop ?? ??)"),
             ExpandsTo::Var(v) => write!(f, "${}", v),
             ExpandsTo::Prim(p) => write!(f, "{}", p),
             ExpandsTo::IVar(v) => write!(f, "#{}", v),
@@ -488,6 +501,7 @@ fn expands_to_of_node(node: &Node) -> ExpandsTo {
         Node::Lam(_) => ExpandsTo::Lam,
         Node::App(_,_) => ExpandsTo::App,
         Node::IVar(i) => ExpandsTo::IVar(*i),
+        Node::LoopChoice(_, _) => ExpandsTo::LoopChoice,
     }
 }
 
@@ -912,6 +926,7 @@ fn stitch_search(
                 let body_utility = original_pattern.body_utility +  match &expands_to {
                     ExpandsTo::Lam => shared.cost_fn.cost_lam,
                     ExpandsTo::App => shared.cost_fn.cost_app,
+                    ExpandsTo::LoopChoice => 0, // TODO add cost of loop nodes
                     ExpandsTo::Var(_) => shared.cost_fn.cost_var,
                     ExpandsTo::Prim(p) => *shared.cost_fn.cost_prim.get(p).unwrap_or(&shared.cost_fn.cost_prim_default),
                     ExpandsTo::IVar(_) => 0,
@@ -944,6 +959,10 @@ fn stitch_search(
                         // add new holes
                             holes.push(shared.extensions_of_zid[hole_zid].func.unwrap());
                             holes.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
+                    }
+                    ExpandsTo::LoopChoice => {
+                        // add new holes
+                        holes.push(shared.extensions_of_zid[hole_zid].body.unwrap());
                     }
                     _ => {}
                 }
@@ -1269,6 +1288,23 @@ fn get_zippers(
                     }
                     arg_of_zid_node[*zid].insert(idx, arg);
                 }            },
+            Node::LoopChoice(_, b) => {
+                for b_zid in zids_of_node[&b].iter() {
+
+                    // clone and extend zip to get new zid for this node
+                    let mut zip = zip_of_zid[*b_zid].clone();
+                    zip.insert(0,ZNode::Body);
+                    let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
+                        let zid = zip_of_zid.len();
+                        zip_of_zid.push(zip.clone());
+                        arg_of_zid_node.push(FxHashMap::default());
+                        zid
+                    });
+                    // add new zid to this node
+                    zids.push(*zid);
+                    // TODO am I right that this is identical to the Lam case but without the
+                    // shifting?
+                }            },
         }
         zids_of_node.insert(idx, zids);
     }
@@ -1531,6 +1567,7 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
 
         let utility_without_rewrite: i32 = match &shared.set[node] {
             Node::Lam(b) => cumulative_utility_of_node[*b],
+            Node::LoopChoice(_, b) => cumulative_utility_of_node[*b],
             Node::App(f,x) => cumulative_utility_of_node[*f] + cumulative_utility_of_node[*x],
             Node::Prim(_) | Node::Var(_) => 0,
             Node::IVar(_) => unreachable!(),

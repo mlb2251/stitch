@@ -76,5 +76,9 @@ pub fn insert_arg_ivars(e: &mut ExprMut, set_to: i32, init_depth: i32, analyzed_
             let b = insert_arg_ivars(&mut e.get(b), set_to, init_depth + 1, analyzed_free_vars);
             e.set.add(Node::Lam(b))
         },
+        Node::LoopChoice(p, b) => {
+            let b = insert_arg_ivars(&mut e.get(b), set_to, init_depth, analyzed_free_vars);
+            e.set.add(Node::LoopChoice(p, b))
+        }
     }
 }
