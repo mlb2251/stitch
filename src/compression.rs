@@ -247,6 +247,7 @@ impl Default for CompressionStepConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Pattern {
     pub holes: Vec<ZId>, // in order of when theyre added NOT left to right
+    pub loops: Vec<ZId>,
     arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an argchoice, again these are in order of when they were added
     pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index of the first use of #i in arg_choices
     pub match_locations: Vec<Idx>, // places where it applies
@@ -365,6 +366,7 @@ impl Pattern {
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cost_fn, cfg);
         Pattern {
             holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
+            loops: vec![],
             arg_choices: vec![],
             first_zid_of_ivar: vec![],
             match_locations, // single hole matches everywhere
@@ -373,9 +375,50 @@ impl Pattern {
             tracked: cfg.follow.is_some(),
         }
     }
+
+    fn _to_expr_helper(&self, set: &mut ExprSet, curr_node: Idx, curr_zip: &mut Vec<ZNode>, zips: &[(Vec<ZNode>,Node)], shared: &SharedData) -> Idx {
+        println!("in helper: node is {:?}@{:?}", &shared.set[curr_node], curr_node);
+        if let Some((_,e)) = zips.iter().find(|(zip,_)| zip == curr_zip) {
+            println!("returning; e={:?}", e);
+            return set.add(e.clone()); // current zip matches a hole
+        }
+        // no ivar zip match, so recurse
+        match &shared.set[curr_node] {
+            Node::Prim(p) => set.add(Node::Prim(p.clone())),
+            Node::Var(v) => set.add(Node::Var(*v)),
+            Node::Lam(b) => {
+                curr_zip.push(ZNode::Body);
+                let b_idx = self._to_expr_helper(set, *b, curr_zip, zips, shared);
+                curr_zip.pop();
+                set.add(Node::Lam(b_idx))
+            }
+            Node::App(f,x) => {
+                curr_zip.push(ZNode::Func);
+                let f_idx = self._to_expr_helper(set, *f, curr_zip, zips, shared);
+                curr_zip.pop();
+                // it is THIS FUNCTION wich ends up expanding it to ?? x
+                // the reason being it looks at the ExprSet in shared
+                // (which looks like the input programs) and then
+                // extracts out nodes from there
+                curr_zip.push(ZNode::Arg);
+                let x_idx = self._to_expr_helper(set, *x, curr_zip, zips, shared);
+                curr_zip.pop();
+                if self.loops.contains(&f_idx) {
+                    println!("yes this is a loop!!!");
+                    let l_idx = set.add(Node::LoopChoice(1, x_idx));
+                    set.add(Node::App(f_idx, l_idx))
+                } else {
+                    set.add(Node::App(f_idx, x_idx))
+                }
+                //set.add(Node::App(f_idx,x_idx))
+            }
+            _ => unreachable!(),
+        }
+    }
     /// convert pattern to an Expr with `??` in place of holes and `?#` in place of argchoices. Recursive top down
     /// approach, not particularly efficient.
     fn to_expr(&self, shared: &SharedData) -> ExprOwned {
+        println!("to_expr; loops are at {:?}", self.loops);
         let mut set = ExprSet::empty(Order::ChildFirst, false, false);
 
         let mut curr_zip: Vec<ZNode> = vec![];
@@ -384,34 +427,9 @@ impl Pattern {
             .chain(self.arg_choices.iter()
             .map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(), Node::IVar(labelled_zid.ivar as i32)))).collect();
 
-        fn helper(set: &mut ExprSet, curr_node: Idx, curr_zip: &mut Vec<ZNode>, zips: &[(Vec<ZNode>,Node)], shared: &SharedData) -> Idx {
-            if let Some((_,e)) = zips.iter().find(|(zip,_)| zip == curr_zip) {
-                return set.add(e.clone()); // current zip matches a hole
-            }
-            // no ivar zip match, so recurse
-            match &shared.set[curr_node] {
-                Node::Prim(p) => set.add(Node::Prim(p.clone())),
-                Node::Var(v) => set.add(Node::Var(*v)),
-                Node::Lam(b) => {
-                    curr_zip.push(ZNode::Body);
-                    let b_idx = helper(set, *b, curr_zip, zips, shared);
-                    curr_zip.pop();
-                    set.add(Node::Lam(b_idx))
-                }
-                Node::App(f,x) => {
-                    curr_zip.push(ZNode::Func);
-                    let f_idx = helper(set, *f, curr_zip, zips, shared);
-                    curr_zip.pop();
-                    curr_zip.push(ZNode::Arg);
-                    let x_idx = helper(set, *x, curr_zip, zips, shared);
-                    curr_zip.pop();
-                    set.add(Node::App(f_idx,x_idx))
-                }
-                _ => unreachable!(),
-            }
-        }
         // we can pick any match location
-        let idx = helper(&mut set, self.match_locations[0], &mut curr_zip, &zips, shared);
+        let idx = self._to_expr_helper(&mut set, self.match_locations[0], &mut curr_zip, &zips, shared);
+        println!("finished; {:?}@{:?}", idx, set);
         ExprOwned { set, idx }
     }
 
@@ -435,7 +453,7 @@ impl Pattern {
 pub enum ExpandsTo {
     Lam,
     App,
-    LoopChoice,
+    LoopChoice(i32),  // parameter is the depth of the loop
     Var(i32),
     Prim(Symbol),
     IVar(i32),
@@ -449,7 +467,7 @@ impl ExpandsTo {
         match self {
             ExpandsTo::Lam => true,
             ExpandsTo::App => true,
-            ExpandsTo::LoopChoice => true,
+            ExpandsTo::LoopChoice(_) => true,
             ExpandsTo::Var(_) => false,
             ExpandsTo::Prim(_) => false,
             ExpandsTo::IVar(_) => false,
@@ -467,7 +485,7 @@ impl std::fmt::Display for ExpandsTo {
         match self {
             ExpandsTo::Lam => write!(f, "(lam ??)"),
             ExpandsTo::App => write!(f, "(?? ??)"),
-            ExpandsTo::LoopChoice => write!(f, "(loop ?? ??)"),
+            ExpandsTo::LoopChoice(n) => write!(f, "(loop {} ??)", n),
             ExpandsTo::Var(v) => write!(f, "${}", v),
             ExpandsTo::Prim(p) => write!(f, "{}", p),
             ExpandsTo::IVar(v) => write!(f, "#{}", v),
@@ -501,7 +519,7 @@ fn expands_to_of_node(node: &Node) -> ExpandsTo {
         Node::Lam(_) => ExpandsTo::Lam,
         Node::App(_,_) => ExpandsTo::App,
         Node::IVar(i) => ExpandsTo::IVar(*i),
-        Node::LoopChoice(_, _) => ExpandsTo::LoopChoice,
+        Node::LoopChoice(n, _) => ExpandsTo::LoopChoice(*n),
     }
 }
 
@@ -852,6 +870,8 @@ fn stitch_search(
                 None => return,
         };
 
+        println!("patterns: {:?}", patterns);
+
         for original_pattern in patterns {
 
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
@@ -873,13 +893,18 @@ fn stitch_search(
             // node type in order to iterate over all the different expansions
             // We also sort secondarily by `loc` to ensure each groupby subsequence has the locations in sorted order
             let mut match_locations = original_pattern.match_locations.clone();
+            for loc in 0..match_locations.len() {
+                if !(arg_of_loc.keys().contains(&loc)) {
+                    println!("loc {:?} not in {:?}", loc, arg_of_loc.keys());
+                }
+            }
             match_locations.sort_by_cached_key(|loc| (&arg_of_loc[loc].expands_to, *loc));
 
             let ivars_expansions = get_ivars_expansions(&original_pattern, arg_of_loc, &shared);
 
             let mut found_tracked = false;
-            // for each way of expanding the hole...
 
+            // for each way of expanding the hole...
             'expansion:
                 for (expands_to, locs) in match_locations.into_iter()
                 .group_by(|loc| &arg_of_loc[loc].expands_to).into_iter()
@@ -926,15 +951,20 @@ fn stitch_search(
                 let body_utility = original_pattern.body_utility +  match &expands_to {
                     ExpandsTo::Lam => shared.cost_fn.cost_lam,
                     ExpandsTo::App => shared.cost_fn.cost_app,
-                    ExpandsTo::LoopChoice => 0, // TODO add cost of loop nodes
+                    ExpandsTo::LoopChoice(_) => shared.cost_fn.cost_loop_choice,
                     ExpandsTo::Var(_) => shared.cost_fn.cost_var,
                     ExpandsTo::Prim(p) => *shared.cost_fn.cost_prim.get(p).unwrap_or(&shared.cost_fn.cost_prim_default),
                     ExpandsTo::IVar(_) => 0,
                 };
 
                 // update the upper bound
-                let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cost_fn, &shared.cfg);
+                let mut util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cost_fn, &shared.cfg);
                 assert!(util_upper_bound <= original_pattern.utility_upper_bound);
+                if let ExpandsTo::LoopChoice(_) = expands_to {
+                    println!("hack: expanding to loop, setting uppper bound of util to i32::MAX");
+                    util_upper_bound = i32::MAX;
+
+                }
 
                 // Pruning (UPPER BOUND): if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
                 if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
@@ -960,11 +990,21 @@ fn stitch_search(
                             holes.push(shared.extensions_of_zid[hole_zid].func.unwrap());
                             holes.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
                     }
-                    ExpandsTo::LoopChoice => {
+                    ExpandsTo::LoopChoice(_) => {
                         // add new holes
-                        holes.push(shared.extensions_of_zid[hole_zid].body.unwrap());
+                        holes.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
                     }
                     _ => {}
+                }
+
+                // add any new loops to the list of loops
+                let mut loops = original_pattern.loops.clone();
+                match expands_to {
+                    ExpandsTo::LoopChoice(_) => {
+                        loops.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
+                        // TODO no clue lol
+                    },
+                    _ => {},
                 }
 
                 // update arg_choices and possibly first_zid_of_ivar if a new ivar was added
@@ -1017,6 +1057,7 @@ fn stitch_search(
                 // from the old pattern.
                 let new_pattern = Pattern {
                     holes,
+                    loops,
                     arg_choices,
                     first_zid_of_ivar,
                     match_locations: locs,
@@ -1024,6 +1065,8 @@ fn stitch_search(
                     body_utility,
                     tracked
                 };
+
+                println!("> new pattern survived pruning: {:?}", new_pattern);
 
                 // new_pattern.utility_upper_bound = utility_upper_bound_with_conflicts(&new_pattern, body_utility_no_refinement + refinement_body_utility, &shared);
                 // // branch and bound again
@@ -1086,7 +1129,7 @@ fn stitch_search(
                 // let new = format!("<{}>",tracked_expands_to(&original_pattern, hole_zid, &shared));
                 // let mut s = original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &new ).to_string();
                 // s = s.replace(&new, &new.clone().magenta().bold().to_string());
-            if !shared.cfg.quiet { println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
+                if !shared.cfg.quiet { println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
             }
         
         }
@@ -1200,6 +1243,7 @@ fn get_zippers(
     // loop over all nodes in all programs in bottom up order
     for idx in corpus_span.clone() {
         // if !shared.cfg.quiet { println!("processing Idx={}: {}", treenode, extract(*treenode, egraph) ) }
+        println!("processing Idx={}, subtree={}", idx, set.get(idx).to_string());
 
         
         // any node can become the identity function (the empty zipper with itself as the arg)
@@ -1249,7 +1293,57 @@ fn get_zippers(
                     // give it the same arg
                     let arg = arg_of_zid_node[*x_zid][&x].clone();
                     arg_of_zid_node[*zid].insert(idx, arg);
+                }
 
+                // Apps may also become loops (if they are recursive)
+                let mut depth: usize = 0;
+                let mut parent = idx;
+                let mut curr_ptr = x;
+                loop {
+                    match set.get(curr_ptr).node() {
+                        &Node::App(ff, xx) => {
+                            if ff == f {  // TODO is this a valid way of checking subtree
+                                            // equality (given we're using structural hashing)?
+                                depth += 1;
+                                parent = curr_ptr;
+                                curr_ptr = xx;
+                            } else {
+                                break;
+                            }
+                        }
+                        _ => break,
+                    }
+                }
+
+                if depth > 0 {
+                    // parent points to the last node in the loop starting at idx
+                    // curr_ptr points to the argument of the loop
+                    let a_zids = zids_of_node[&curr_ptr].clone();
+                    for a_zid in a_zids.iter() {
+                        let mut zip = zip_of_zid[*a_zid].clone();
+                        zip.insert(0, ZNode::Arg);  // TODO does this need a ZNode::Loop?
+                        let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
+                            let zid = zip_of_zid.len();
+                            zip_of_zid.push(zip);
+                            arg_of_zid_node.push(FxHashMap::default());
+                            zid
+                        });
+                        // add new zid to this node
+                        let mut x_zids = zids_of_node[&x].clone();
+                        x_zids.push(*zid);
+                        zids_of_node.insert(x, x_zids);
+                        //zids.push(*zid);
+
+                        // give it a LoopChoice arg
+                        //arg_of_zid_node[*zid].insert(idx,
+                        //    Arg { shifted_id: idx, unshifted_id: idx, shift: 0 , cost: analyzed_cost[idx], expands_to: ExpandsTo::LoopChoice(1 as i32) }); // TODO 
+                        //println!("curr_ptr={}, x={}, parent={}", curr_ptr, x, parent);
+                        //println!("curr_ptr={}, x={}, parent={}", set.get(curr_ptr).to_string(), set.get(x).to_string(), set.get(parent).to_string());
+                        arg_of_zid_node[*zid].insert(x,
+                            Arg { shifted_id: x, unshifted_id: x, shift: 0, cost: analyzed_cost[x], expands_to: ExpandsTo::LoopChoice(1 as i32) }); // TODO 
+                    }
+
+                    println!("found loop of depth {} at Idx={}, subtree is {}", depth, idx, set.get(idx).to_string());
                 }
             },
             Node::Lam(b) => {
@@ -1266,9 +1360,10 @@ fn get_zippers(
                     });
                     // add new zid to this node
                     zids.push(*zid);
-                    // shift the arg but keep the unshifted part the same
+
                     let mut arg: Arg = arg_of_zid_node[*b_zid][&b].clone();
 
+                    // shift the arg but keep the unshifted part the same
                     if !analyzed_free_vars.analyze_get(set.get(arg.shifted_id)).is_empty() {
                         // if !shared.cfg.quiet { println!("stepping from child: {}", extract(b, egraph)) }
                         // if !shared.cfg.quiet { println!("stepping to parent : {}", extract(*treenode, egraph)) }
@@ -1287,13 +1382,14 @@ fn get_zippers(
                         arg.shift -= 1;
                     }
                     arg_of_zid_node[*zid].insert(idx, arg);
-                }            },
+                }
+            },
             Node::LoopChoice(_, b) => {
                 for b_zid in zids_of_node[&b].iter() {
 
                     // clone and extend zip to get new zid for this node
                     let mut zip = zip_of_zid[*b_zid].clone();
-                    zip.insert(0,ZNode::Body);
+                    zip.insert(0, ZNode::Arg);
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip.clone());
@@ -1304,7 +1400,10 @@ fn get_zippers(
                     zids.push(*zid);
                     // TODO am I right that this is identical to the Lam case but without the
                     // shifting?
-                }            },
+                    let arg: Arg = arg_of_zid_node[*b_zid][&b].clone();
+                    arg_of_zid_node[*zid].insert(idx, arg);
+                }
+            },
         }
         zids_of_node.insert(idx, zids);
     }
@@ -1972,6 +2071,7 @@ pub fn compression_step(
 
             let pattern = Pattern {
                 holes: vec![],
+                loops: vec![],
                 arg_choices: vec![],
                 first_zid_of_ivar: vec![],
                 match_locations,
