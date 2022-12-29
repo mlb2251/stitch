@@ -141,6 +141,7 @@ pub fn rewrite_with_inventions(
     multistep_cfg.step.cost = cfg.clone();
     multistep_cfg.iterations = invs.len();
     multistep_cfg.step.max_arity = invs.iter().map(|inv| inv.arity).max().unwrap();
+    multistep_cfg.silent = true;
 
     // ugh somewhat gross to just set this to true
     multistep_cfg.step.rewritten_dreamcoder = true;
