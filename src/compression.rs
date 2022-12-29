@@ -293,7 +293,7 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>
                 curr_zip.pop();
             }
             Node::LoopChoice(_, b) => {
-                curr_zip.push(ZNode::Body);
+                curr_zip.push(ZNode::Arg);
                 helper(expr.get(*b), curr_zip, zids_of_ivar, zid_of_zip)?;
                 curr_zip.pop();
             }
@@ -1297,7 +1297,7 @@ fn get_zippers(
 
                 // Apps may also become loops (if they are recursive)
                 let mut depth: usize = 0;
-                let mut parent = idx;
+                //let mut parent = idx;
                 let mut curr_ptr = x;
                 loop {
                     match set.get(curr_ptr).node() {
@@ -1305,7 +1305,7 @@ fn get_zippers(
                             if ff == f {  // TODO is this a valid way of checking subtree
                                             // equality (given we're using structural hashing)?
                                 depth += 1;
-                                parent = curr_ptr;
+                                //parent = curr_ptr;
                                 curr_ptr = xx;
                             } else {
                                 break;
