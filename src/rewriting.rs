@@ -142,6 +142,10 @@ pub fn rewrite_with_inventions(
     multistep_cfg.iterations = invs.len();
     multistep_cfg.step.max_arity = invs.iter().map(|inv| inv.arity).max().unwrap();
 
+    // ugh somewhat gross to just set this to true
+    multistep_cfg.step.rewritten_dreamcoder = true;
+    multistep_cfg.step.rewritten_intermediates = true;
+
     let (step_results, json_res) = multistep_compression(programs, None, None, follow, &multistep_cfg);
 
     // return the last one - note that if an abstraction wasn't used anywhere it will not be included in the step_results so this
