@@ -35,7 +35,7 @@ fn main() {
 
     let input = args.fmt.load_programs_and_tasks(&args.file).unwrap();
 
-    let (step_results, json_res) = multistep_compression(&input.train_programs, input.tasks, input.anonymous_to_named, &args.multistep);
+    let (step_results, json_res) = multistep_compression(&input.train_programs, input.tasks, input.anonymous_to_named, None, &args.multistep);
 
     let out_path = &args.out;
     if let Some(out_path_dir) = out_path.parent() {

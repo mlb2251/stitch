@@ -23,6 +23,7 @@ fn run_compression(inputs: &Input, cfg: &MultistepCompressionConfig) -> Value {
         &inputs.train_programs,
         inputs.tasks.clone(),
         inputs.anonymous_to_named.clone(),
+        None,
         cfg,
         ).1
 }

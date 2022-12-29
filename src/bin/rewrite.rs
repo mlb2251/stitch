@@ -100,14 +100,8 @@ fn main() {
 
     let mut rewritten_frontiers: HashMap<String, Vec<String>> = HashMap::new();
 
-    let programs: Vec<ExprOwned> = input.train_programs.iter().map(|p|{
-        let mut set = ExprSet::empty(Order::ChildFirst, false, false);
-        let idx = set.parse_extend(p).unwrap();
-        ExprOwned::new(set,idx)
-    }).collect();
-    programs_info(&programs, &cost_fn);
-
-    let rewritten: Vec<ExprOwned> = rewrite_with_inventions(&programs, &inventions[..], &args.cost);
+    
+    let rewritten: Vec<String> = rewrite_with_inventions(&input.train_programs, &inventions[..], &args.cost).0;
 
     match args.fmt {
         InputFormat::Dreamcoder => {

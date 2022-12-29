@@ -126,14 +126,14 @@ pub fn rewrite_fast(
 
 // /// Rewrite with the given abstractions
 pub fn rewrite_with_inventions(
-    programs: &[ExprOwned],
+    programs: &[String],
     invs: &[Invention],
     cfg: &CostConfig,
-) -> Vec<ExprOwned> {
+) -> (Vec<String>, Vec<CompressionStepResult>, serde_json::Value) {
 
-    if invs.is_empty() {
-        return programs.to_vec()
-    }
+    // if invs.is_empty() {
+    //     return programs.to_vec()
+    // }
 
     // programs.to_vec()
     let follow = Some(invs.to_vec());
@@ -142,10 +142,11 @@ pub fn rewrite_with_inventions(
     multistep_cfg.iterations = invs.len();
     multistep_cfg.step.max_arity = invs.iter().map(|inv| inv.arity).max().unwrap();
 
-    let step_results = multistep_compression_internal(programs, None, None, follow, &multistep_cfg);
+    let (step_results, json_res) = multistep_compression(programs, None, None, follow, &multistep_cfg);
 
     // return the last one - note that if an abstraction wasn't used anywhere it will not be included in the step_results so this
     // may be shorter than invs.len(), however we do ensure that we continue searching for the rest of the abstractions if this happens
     // anyways.
-    step_results.last().map(|res|res.rewritten.clone()).unwrap_or_else(||programs.to_vec())
+    let rewritten = step_results.last().map(|res|res.rewritten.iter().map(|s|s.to_string()).collect()).unwrap_or_else(||programs.to_vec());
+    (rewritten, step_results, json_res)
 }

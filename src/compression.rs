@@ -1041,7 +1041,7 @@ fn stitch_search(
                     if shared.cfg.rewrite_check {
                         // run rewriting just to make sure the assert in it passes
                         let rw_fast = rewrite_fast(&finished_pattern, &shared, &Node::Prim("fake_inv".into()), &shared.cost_fn);
-                        let rw_slow = rewrite_with_inventions(&shared.programs, &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.cfg.cost);
+                        let (rw_slow, _, _) = rewrite_with_inventions(&shared.programs.iter().map(|p|p.to_string()).collect::<Vec<_>>(), &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.cfg.cost);
                         for (fast,slow) in rw_fast.iter().zip(rw_slow.iter()) {
                             assert_eq!(fast.to_string(), slow.to_string());
                         }
@@ -2097,7 +2097,7 @@ pub fn compression_step(
     results
 }
 
-pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, anonymous_to_named: Option<Vec<(String,String)>>, cfg: &MultistepCompressionConfig) -> (Vec<CompressionStepResult>, serde_json::Value) {
+pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, anonymous_to_named: Option<Vec<(String,String)>>, follow: Option<Vec<Invention>>, cfg: &MultistepCompressionConfig) -> (Vec<CompressionStepResult>, serde_json::Value) {
     let mut programs = programs.to_vec();
     let mut cfg = cfg.clone();
 
@@ -2140,11 +2140,19 @@ pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, an
         &train_programs, 
         tasks.clone(), 
         anonymous_to_named, 
-        None,
+        follow,
         &cfg, 
     );
 
-    let rewritten: &Vec<ExprOwned> = step_results.iter().last().map(|res| &res.rewritten).unwrap_or(&train_programs);
+    // write everything to json
+    let json_res = json_of_step_results(&step_results, &train_programs, tasks, &cost_fn, &cfg);
+
+    (step_results, json_res)
+}
+
+
+pub fn json_of_step_results(step_results: &[CompressionStepResult], train_programs: &Vec<ExprOwned>, tasks: Option<Vec<String>>, cost_fn: &ExprCost, cfg: &MultistepCompressionConfig) -> serde_json::Value {
+    let rewritten: &Vec<ExprOwned> = step_results.iter().last().map(|res| &res.rewritten).unwrap_or(train_programs);
     let original_cost = min_cost(&train_programs, &tasks, &cost_fn);
     let final_cost = min_cost(rewritten, &tasks, &cost_fn);
     let rewritten = step_results.iter().last().map(|res| &res.rewritten).unwrap_or(&train_programs).iter().map(|p| p.to_string()).collect::<Vec<String>>();
@@ -2152,9 +2160,7 @@ pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, an
         let rewritten_dreamcoder = step_results.iter().last().map(|res| res.rewritten_dreamcoder.clone().unwrap()).unwrap_or_else(||train_programs.iter().map(|p| p.to_string().replace("(lam ", "(lambda ")).collect::<Vec<String>>());
         Some(rewritten_dreamcoder)
     };
-    
-    // write everything to json
-    let json_res = json!({
+    json!({
         "cmd": std::env::args().join(" "),
         "args": cfg,
         "original_cost": original_cost,
@@ -2165,7 +2171,5 @@ pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, an
         "rewritten": rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>(),
         "rewritten_dreamcoder": rewritten_dreamcoder,
         "abstractions": step_results.iter().map(|inv| inv.json(&cfg.step)).collect::<Vec<serde_json::Value>>(),
-    });
-
-    (step_results, json_res)
+    })
 }
