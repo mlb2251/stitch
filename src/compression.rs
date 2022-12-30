@@ -2153,9 +2153,9 @@ pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, an
 
 pub fn json_of_step_results(step_results: &[CompressionStepResult], train_programs: &Vec<ExprOwned>, tasks: Option<Vec<String>>, cost_fn: &ExprCost, cfg: &MultistepCompressionConfig) -> serde_json::Value {
     let rewritten: &Vec<ExprOwned> = step_results.iter().last().map(|res| &res.rewritten).unwrap_or(train_programs);
-    let original_cost = min_cost(&train_programs, &tasks, &cost_fn);
-    let final_cost = min_cost(rewritten, &tasks, &cost_fn);
-    let rewritten = step_results.iter().last().map(|res| &res.rewritten).unwrap_or(&train_programs).iter().map(|p| p.to_string()).collect::<Vec<String>>();
+    let original_cost = min_cost(train_programs, &tasks, cost_fn);
+    let final_cost = min_cost(rewritten, &tasks, cost_fn);
+    let rewritten = step_results.iter().last().map(|res| &res.rewritten).unwrap_or(train_programs).iter().map(|p| p.to_string()).collect::<Vec<String>>();
     let rewritten_dreamcoder = if !cfg.step.rewritten_dreamcoder { None } else {
         let rewritten_dreamcoder = step_results.iter().last().map(|res| res.rewritten_dreamcoder.clone().unwrap()).unwrap_or_else(||train_programs.iter().map(|p| p.to_string().replace("(lam ", "(lambda ")).collect::<Vec<String>>());
         Some(rewritten_dreamcoder)

@@ -64,7 +64,6 @@ pub struct DcFrontier {
 
 fn main() {
     let args = RewriteArgs::parse();
-    let cost_fn = args.cost.expr_cost();
 
     // Read in the programs and any previous inventions from the DSL.
     let input = args
