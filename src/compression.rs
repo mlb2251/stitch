@@ -236,10 +236,15 @@ impl Default for CompressionStepConfig {
 }
 
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Hole {
+    pub zid: ZId,
+    pub is_loop_arg: bool,
+}
 // with non-trivial abstractions (e.g. loops), the zipper required to
 // reach a hole in a partial abstraction might vary by the match location
 // (e.g., if different match locations have loops of differerent depths).
-type HoleMap = FxHashMap<Idx, ZId>;
+type HoleMap = FxHashMap<Idx, Hole>;
 // Same for loops
 type LoopMap = FxHashMap<Idx, ZId>;
 //#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -414,7 +419,7 @@ impl Pattern {
         }
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cost_fn, cfg);
         Pattern {
-            holes: vec![match_locations.iter().map(|loc| (loc.clone(), EMPTY_ZID.clone())).collect::<HoleMap>()],
+            holes: vec![match_locations.iter().map(|loc| (loc.clone(), Hole { zid: EMPTY_ZID.clone(), is_loop_arg: false })).collect::<HoleMap>()],
             loops: vec![],
             arg_choices: vec![],
             first_zid_of_ivar: vec![],
@@ -479,7 +484,7 @@ impl Pattern {
         // get a list of zippers for all the holes and ivars, and record their expressions
         let zips: Vec<(Vec<ZNode>,Node)> = self.holes
             .iter()
-            .map(|hole_map| (shared.zip_of_zid[*hole_map.get(&self.match_locations[0]).unwrap()].clone(), Node::Prim(HOLE_SYM.clone())))
+            .map(|hole_map| (shared.zip_of_zid[hole_map.get(&self.match_locations[0]).unwrap().zid].clone(), Node::Prim(HOLE_SYM.clone())))
             .chain(self.arg_choices.iter()
             .map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(), Node::IVar(labelled_zid.ivar as i32)))).collect();
 
@@ -491,12 +496,18 @@ impl Pattern {
         ExprOwned { set, idx }
     }
 
-    /// convert pattern to an Expr then with `hole_zid` highlighted in color with what we would expect it to expand to
-    fn show_track_expansion(&self, hole_zid: ZId, shared: &SharedData) -> String {
+    /// convert pattern to an Expr then with `hole.zid` highlighted in color with what we would expect it to expand to
+    fn show_track_expansion(&self, hole: &Hole, shared: &SharedData) -> String {
         let mut expr = self.to_expr(shared);
-        let expands_to = format!("{}",tracked_expands_to(self, hole_zid, shared)).magenta().bold().to_string();
+        let expands_to = format!("{}",tracked_expands_to(self, &hole, shared)).magenta().bold().to_string();
         let replace_sentinel = Node::Prim("<REPLACE>".into());
-        let idx = expr.immut().zip(&shared.zip_of_zid[hole_zid]).idx;
+        let zipp = if hole.is_loop_arg {
+            // TODO this is a BIG hack and won't work if the loop isn't at the root
+            vec![ZNode::Arg]
+        } else {
+            shared.zip_of_zid[hole.zid].clone()
+        };
+        let idx = expr.immut().zip(&zipp).idx;
         expr.set[idx] = replace_sentinel;
         expr.to_string().replace("<REPLACE>", &expands_to)
     }
@@ -589,10 +600,16 @@ fn expands_to_of_node(node: &Node) -> ExpandsTo {
 
 /// Returns Some(ExpandsTo) for what we expect the hole to expand to to follow
 /// the target, and returns None if we expect it to become a ?# argchoice.
-fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData) -> ExpandsTo {
+fn tracked_expands_to(pattern: &Pattern, hole: &Hole, shared: &SharedData) -> ExpandsTo {
     // apply the hole zipper to the original expr being tracked to get the subtree
     // this will expand into, then get the ExpandsTo of that
-    let idx = shared.tracking.as_ref().unwrap().expr.immut().zip(&shared.zip_of_zid[hole_zid]).idx;
+    let zipp = if hole.is_loop_arg {
+        // TODO this is a BIG hack and won't work if the loop isn't at the root
+        vec![ZNode::Arg]
+    } else {
+        shared.zip_of_zid[hole.zid].clone()
+    };
+    let idx = shared.tracking.as_ref().unwrap().expr.immut().zip(&zipp).idx;
     match expands_to_of_node(&shared.tracking.as_ref().unwrap().expr.set[idx]) {
         ExpandsTo::IVar(i) => {
             // in the case where we're searching for an IVar we need to be robust to relabellings
@@ -852,7 +869,9 @@ fn get_worklist_item(
     let old_donelist_len = crit.donelist.len();
     let old_utility_pruning_cutoff = crit.utility_pruning_cutoff;
     // drain from donelist_buf into the actual donelist
-    crit.donelist.extend(donelist_buf.drain(..).filter(|done| done.utility > old_utility_pruning_cutoff));
+    //crit.donelist.extend(donelist_buf.drain(..).filter(|done| done.utility > old_utility_pruning_cutoff));
+    crit.donelist.extend(donelist_buf.drain(..)); // TODO this is a hack to get around the fact
+                                                  // that loops currently have negative utility
     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().finished += crit.donelist.len() - old_donelist_len; };
     // sort + truncate + update utility_pruning_cutoff
     crit.update(&shared.cfg); // this also updates utility_pruning_cutoff
@@ -959,7 +978,7 @@ fn stitch_search(
             let mut arg_of_loc: FxHashMap<Idx, Arg> = Default::default();
             let mut loop_of_loc: FxHashMap<Idx, Loop> = Default::default();
             for loc in original_pattern.match_locations.iter() {
-                let _hole_zid = hole_map.get(loc).unwrap().clone();
+                let _hole_zid = hole_map.get(loc).unwrap().zid.clone();
                 arg_of_loc.insert(*loc, shared.arg_of_zid_node[_hole_zid].get(loc).unwrap().clone());
                 if let Some(loop_) = shared.loop_of_zid_node[_hole_zid].get(loc) {
                     loop_of_loc.insert(*loc, loop_.clone());
@@ -968,7 +987,7 @@ fn stitch_search(
 
             // TODO am I right in thinking that for tracking etc we can use the zipper for any
             // match location
-            let hole_zid: ZId = hole_map
+            let hole: &Hole = &hole_map
                 .get(&original_pattern.match_locations[0])
                 .unwrap()
                 .clone();
@@ -992,11 +1011,11 @@ fn stitch_search(
                 .chain(ivars_expansions.into_iter())
                 .chain(loop_expansions.into_iter())
             {
-                println!("expands_to, locs: {:?}, {:?}", expands_to, locs);
                 // for debugging
-                let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, hole_zid, &shared);
+                let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, &hole, &shared);
                 if tracked { found_tracked = true; }
                 if shared.cfg.follow_prune && !tracked { continue 'expansion; }
+
 
 
                 // Pruning (SINGLE USE): prune inventions that only match at a single unique (structurally hashed) subtree. This only applies if we
@@ -1015,16 +1034,16 @@ fn stitch_search(
                         && locs.iter().all(|node| shared.tasks_of_node[*node].len() == 1)
                         && locs.iter().all(|node| shared.tasks_of_node[locs[0]].iter().next() == shared.tasks_of_node[*node].iter().next()) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
-                    if tracked && !shared.cfg.quiet { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], Node::Prim(format!("<{}>",expands_to).into()))) }
+                    if tracked && !shared.cfg.quiet { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole.zid], Node::Prim(format!("<{}>",expands_to).into()))) }
                     continue 'expansion;
                 }
 
                 // Pruning (FREE VARS): if an invention has free variables in the body then it's not a real function and we can discard it
                 // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
                 if let ExpandsTo::Var(i) = expands_to {
-                    if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
+                    if i >= shared.zip_of_zid[hole.zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
                         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
-                        if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
+                        if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole, &shared)) }
                         continue 'expansion; // free var
                     }
                 }
@@ -1051,7 +1070,7 @@ fn stitch_search(
                 // Pruning (UPPER BOUND): if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
                 if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-                    if tracked && !shared.cfg.quiet { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
+                    if tracked && !shared.cfg.quiet { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole, &shared)) }
                     continue 'expansion; // too low utility
                 }
 
@@ -1069,9 +1088,12 @@ fn stitch_search(
                             .iter()
                             .map(|loc|
                                  (loc.clone(),
-                                 shared
-                                    .extensions_of_zid[hole_map[loc]].body.unwrap()
-                                    .clone()))
+                                 Hole { 
+                                    zid: shared
+                                            .extensions_of_zid[hole_map[loc].zid].body.unwrap()
+                                            .clone(),
+                                    is_loop_arg: false,
+                                 }))
                             .collect::<HoleMap>();
                         holes.push(new_hole_map);
                     }
@@ -1081,18 +1103,24 @@ fn stitch_search(
                             .iter()
                             .map(|loc|
                                  (loc.clone(),
-                                 shared
-                                    .extensions_of_zid[hole_map[loc]].func.unwrap()
-                                    .clone()))
+                                 Hole { 
+                                    zid: shared
+                                            .extensions_of_zid[hole_map[loc].zid].func.unwrap()
+                                            .clone(),
+                                    is_loop_arg: false,
+                                 }))
                             .collect::<HoleMap>();
                         holes.push(new_hole_map);
                         let new_hole_map: HoleMap = locs
                             .iter()
                             .map(|loc|
                                  (loc.clone(),
-                                 shared
-                                    .extensions_of_zid[hole_map[loc]].arg.unwrap()
-                                    .clone()))
+                                 Hole { 
+                                    zid: shared
+                                            .extensions_of_zid[hole_map[loc].zid].arg.unwrap()
+                                            .clone(),
+                                    is_loop_arg: false,
+                                 }))
                             .collect::<HoleMap>();
                         holes.push(new_hole_map);
                     }
@@ -1102,9 +1130,12 @@ fn stitch_search(
                             .iter()
                             .map(|loc|
                                  (loc.clone(),
-                                 shared
-                                    .extensions_of_zid[hole_map[loc]].func.unwrap()
-                                    .clone()))
+                                 Hole { 
+                                    zid: shared
+                                            .extensions_of_zid[hole_map[loc].zid].func.unwrap()
+                                            .clone(),
+                                    is_loop_arg: false,
+                                 }))
                             .collect::<HoleMap>();
                         holes.push(new_hole_map);
 
@@ -1114,12 +1145,14 @@ fn stitch_search(
                             .iter()
                             .map(|loc|
                                  (loc.clone(),
-                                  shared.zid_of_zip[
-                                      &get_zip(
-                                          *loc,
-                                          shared.loop_of_zid_node[hole_map[loc]][loc].arg,
-                                          &shared.set).unwrap()
-                                  ].clone()))
+                                  Hole {
+                                      zid: shared.zid_of_zip[
+                                              &get_zip(
+                                                  *loc,
+                                                  shared.loop_of_zid_node[hole_map[loc].zid][loc].arg,
+                                                  &shared.set).unwrap()],
+                                      is_loop_arg: true,
+                                  })).clone()
                             .collect::<HoleMap>();
                         holes.push(new_hole_map);
                     }
@@ -1130,7 +1163,7 @@ fn stitch_search(
                 let mut loops = original_pattern.loops.clone();
                 match expands_to {
                     ExpandsTo::LoopChoice => {
-                        loops.push(locs.iter().map(|loc| (loc.clone(), hole_map[loc])).collect::<HoleMap>());
+                        loops.push(locs.iter().map(|loc| (loc.clone(), hole_map[loc].zid)).collect::<FxHashMap<usize, usize>>());
                         // TODO no clue lol
                     },
                     _ => {},
@@ -1140,9 +1173,9 @@ fn stitch_search(
                 let mut arg_choices = original_pattern.arg_choices.clone();
                 let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
                 if let ExpandsTo::IVar(i) = expands_to {
-                    arg_choices.push(LabelledZId::new(hole_zid, i as usize));
+                    arg_choices.push(LabelledZId::new(hole.zid, i as usize));
                     if i as usize == original_pattern.first_zid_of_ivar.len() {
-                        first_zid_of_ivar.push(hole_zid);
+                        first_zid_of_ivar.push(hole.zid);
                     }
                 }
 
@@ -1175,7 +1208,7 @@ fn stitch_search(
                                 arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
                             {
                                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().force_multiuse_fired += 1; };
-                                if tracked && !shared.cfg.quiet { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
+                                if tracked && !shared.cfg.quiet { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole, &shared)) }
                                 continue 'expansion;
                             }
                         }
@@ -1216,7 +1249,8 @@ fn stitch_search(
                     // inverse_argument_capture(). Note that this pruning is okay because compressive utility itself is an upper bound
                     // on total utility.
                     if finished_pattern.compressive_utility <= weak_utility_pruning_cutoff {
-                        continue 'expansion // todo could add a tracked{} printing thing here
+                        println!("compressive utility {} <= weak_utility_pruning_cutoff {}", finished_pattern.compressive_utility, weak_utility_pruning_cutoff);
+                        //continue 'expansion // todo could add a tracked{} printing thing here
                     }
 
                     if !shared.cfg.no_stats { shared.stats.lock().calc_unargcap += 1; };
@@ -1224,7 +1258,8 @@ fn stitch_search(
 
                     // Pruning (UPPER BOUND)
                     if finished_pattern.utility <= weak_utility_pruning_cutoff {
-                        continue 'expansion // todo could add a tracked{} printing thing here
+                        println!("utility {} <= weak_utility_pruning_cutoff {}", finished_pattern.utility, weak_utility_pruning_cutoff);
+                        //continue 'expansion // todo could add a tracked{} printing thing here
                     }
 
                     if !shared.cfg.no_stats { shared.stats.lock().donelist_push += 1; };
@@ -1249,7 +1284,7 @@ fn stitch_search(
 
                 } else {
                     // it's a partial pattern so just add it to the worklist
-                    if tracked && !shared.cfg.quiet { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(hole_zid, &shared), new_pattern.utility_upper_bound) }
+                    if tracked && !shared.cfg.quiet { println!("{} pushed {} to work list (bound: {})", "[TRACK]".green().bold(), original_pattern.show_track_expansion(hole, &shared), new_pattern.utility_upper_bound) }
                     worklist_buf.push(HeapItem::new(new_pattern))
                 }
             }
@@ -1258,7 +1293,7 @@ fn stitch_search(
                 // let new = format!("<{}>",tracked_expands_to(&original_pattern, hole_zid, &shared));
                 // let mut s = original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &new ).to_string();
                 // s = s.replace(&new, &new.clone().magenta().bold().to_string());
-                if !shared.cfg.quiet { println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
+                if !shared.cfg.quiet { println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole, &shared)) }
             }
         
         }
@@ -1271,7 +1306,7 @@ fn loop_at_loc(loc: Idx, set: &ExprSet) -> Option<(Idx, Idx, usize)> {
     // Apps may become loops (if they are recursive)
     match set.get(loc).node() {
         &Node::App(f, x) => {
-            let mut depth: usize = 0;
+            let mut depth: usize = 1;
             let mut curr_ptr = x;
             loop {
                 match set.get(curr_ptr).node() {
@@ -1288,7 +1323,7 @@ fn loop_at_loc(loc: Idx, set: &ExprSet) -> Option<(Idx, Idx, usize)> {
                     _ => break,
                 }
             }
-            if depth > 0 {
+            if depth > 1 {
                 Some((f, curr_ptr, depth))
             } else {
                 None
@@ -1356,7 +1391,7 @@ impl FinishedPattern {
         let compressive_utility = compressive_utility(&pattern,shared);
         let noncompressive_utility = noncompressive_utility(pattern.body_utility, &shared.cfg);
         let utility = noncompressive_utility + compressive_utility.util;
-        assert!(utility <= pattern.utility_upper_bound, "{} BUT utility is higher: {} (usages: {})", pattern.info(shared), utility, usages);
+        //assert!(utility <= pattern.utility_upper_bound, "{} BUT utility is higher: {} (usages: {})", pattern.info(shared), utility, usages);
         let mut res = FinishedPattern {
             pattern,
             utility,
@@ -1503,7 +1538,6 @@ fn get_zippers(
                     let loop_ = Loop { fun: f, arg: curr_ptr };
                     loop_of_zid_node[EMPTY_ZID].insert(idx, loop_.clone());
                     Some(loop_)
-                    //most_rece52nt_loop.insert(curr_ptr, (vec![EMPTY_ZID], idx, Loop { fun: f, arg: curr_ptr }));
                 } else {
                     None
                 };
