@@ -1536,6 +1536,7 @@ fn get_zippers(
 
                 let this_loop = if curr_ptr != x {
                     let loop_ = Loop { fun: f, arg: curr_ptr };
+                    println!("Found loop {:?}, adding with empty zip at {:?}", loop_, idx);
                     loop_of_zid_node[EMPTY_ZID].insert(idx, loop_.clone());
                     Some(loop_)
                 } else {
@@ -1560,6 +1561,7 @@ fn get_zippers(
                     let arg = arg_of_zid_node[*f_zid][&f].clone();
                     arg_of_zid_node[*zid].insert(idx, arg);
                     if let Some(loop_) = loop_of_zid_node[*f_zid].get(&f).cloned() {
+                        println!("Bubbling a loop from f: {:?} to {:?} from {:?}", loop_, idx, f);
                         loop_of_zid_node[*zid].insert(idx, loop_);
                     }
                 }
@@ -1582,6 +1584,7 @@ fn get_zippers(
                     let arg = arg_of_zid_node[*x_zid][&x].clone();
                     arg_of_zid_node[*zid].insert(idx, arg);
                     if let Some(loop_) = loop_of_zid_node[*x_zid].get(&x).cloned() {
+                        println!("Bubbling a loop from x: {:?} to {:?} from {:?}", loop_, idx, x);
                         if let Some(this_loop_) = this_loop.as_ref() {
                             // this should really be one joint condition but AFAIK that's
                             // not possible in Rust atm
@@ -1591,11 +1594,27 @@ fn get_zippers(
                                 // loop in the child, we delete it; note that an equivalent
                                 // but bigger loop has already been added with an empty zip
                                 // starting at this node
-                                assert!(loop_of_zid_node[*x_zid].remove(&x).is_some());
+                                // TODO this is rather broken due to the way structural hasing
+                                // works;
+                                // Say you have g (f (f x)),
+                                // h (f (f (f x))).
+                                // Then in the first prog, you want to record a loop as starting at
+                                // f (f x), but in the second prog, you want to record it as
+                                // starting at (f (f (f x))).
+                                // Yet, due to structural hashing, the two programs *share* f (f
+                                // x); so when you encounter it in the later program, you will
+                                // delete that loop match from the former. Which is really not what
+                                // you want.
+                                // TODO is it OK to just not delete the loop in the child? then
+                                // somehow while rewriting you need to account for this, I guess
+                                println!("deleting loop {:?} at {:?} with zipper {:?}", loop_, x, zip_of_zid[*x_zid]);
+                                //assert!(loop_of_zid_node[*x_zid].remove(&x).is_some());
                             } else {
+                                println!("The loops were not equal: {:?} != {:?}", loop_, this_loop_);
                                 loop_of_zid_node[*zid].insert(idx, loop_);
                             }
                         } else {
+                            println!("No loop rooted at this idx, so we're not deleting anything");
                             loop_of_zid_node[*zid].insert(idx, loop_);
                         }
                     }
@@ -1621,6 +1640,7 @@ fn get_zippers(
 
                     // give it the same loop
                     if let Some(loop_) = loop_of_zid_node[*b_zid].get(&b).cloned() {
+                        println!("Bubbling a loop from b: {:?} to {:?} from {:?}", loop_, idx, b);
                         loop_of_zid_node[*zid].insert(idx, loop_);
                     }
 
@@ -1650,6 +1670,9 @@ fn get_zippers(
         }
         zids_of_node.insert(idx, zids);
     }
+
+    println!("corpus span: {:?}", corpus_span.clone());
+    println!("loop_of_zid_node: {:?}", loop_of_zid_node);
     
 
     let extensions_of_zid = zip_of_zid.iter().map(|zip| {
