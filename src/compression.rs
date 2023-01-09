@@ -238,9 +238,17 @@ impl Default for CompressionStepConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Hole {
+    // When the abstraction contains one or more loops, there is a mismatch
+    // between the zipper used to get to a hole in the corpurs or programs
+    // and the zipper used to get to the corresponding hole in the abstraction;
+    // e.g., to get to "x" in "loop f x" it's just [Arg], but to get to "x" in
+    // "f (f x)" it would be [Arg, Arg].
+    // We keep track of both, since the first is required when expanding abstractions,
+    // and the latter is required when tracking and rewriting the programs.
     pub zid: ZId,
-    pub is_loop_arg: bool,
+    pub rewrite_zid: ZId,
 }
+
 // with non-trivial abstractions (e.g. loops), the zipper required to
 // reach a hole in a partial abstraction might vary by the match location
 // (e.g., if different match locations have loops of differerent depths).
@@ -419,7 +427,7 @@ impl Pattern {
         }
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cost_fn, cfg);
         Pattern {
-            holes: vec![match_locations.iter().map(|loc| (loc.clone(), Hole { zid: EMPTY_ZID.clone(), is_loop_arg: false })).collect::<HoleMap>()],
+            holes: vec![match_locations.iter().map(|loc| (loc.clone(), Hole { zid: EMPTY_ZID.clone(), rewrite_zid: EMPTY_ZID.clone() })).collect::<HoleMap>()],
             loops: vec![],
             arg_choices: vec![],
             first_zid_of_ivar: vec![],
@@ -501,13 +509,8 @@ impl Pattern {
         let mut expr = self.to_expr(shared);
         let expands_to = format!("{}",tracked_expands_to(self, &hole, shared)).magenta().bold().to_string();
         let replace_sentinel = Node::Prim("<REPLACE>".into());
-        let zipp = if hole.is_loop_arg {
-            // TODO this is a BIG hack and won't work if the loop isn't at the root
-            vec![ZNode::Arg]
-        } else {
-            shared.zip_of_zid[hole.zid].clone()
-        };
-        let idx = expr.immut().zip(&zipp).idx;
+        let zipp = &shared.zip_of_zid[hole.rewrite_zid];
+        let idx = expr.immut().zip(zipp).idx;
         expr.set[idx] = replace_sentinel;
         expr.to_string().replace("<REPLACE>", &expands_to)
     }
@@ -603,13 +606,8 @@ fn expands_to_of_node(node: &Node) -> ExpandsTo {
 fn tracked_expands_to(pattern: &Pattern, hole: &Hole, shared: &SharedData) -> ExpandsTo {
     // apply the hole zipper to the original expr being tracked to get the subtree
     // this will expand into, then get the ExpandsTo of that
-    let zipp = if hole.is_loop_arg {
-        // TODO this is a BIG hack and won't work if the loop isn't at the root
-        vec![ZNode::Arg]
-    } else {
-        shared.zip_of_zid[hole.zid].clone()
-    };
-    let idx = shared.tracking.as_ref().unwrap().expr.immut().zip(&zipp).idx;
+    let zipp = &shared.zip_of_zid[hole.rewrite_zid];
+    let idx = shared.tracking.as_ref().unwrap().expr.immut().zip(zipp).idx;
     match expands_to_of_node(&shared.tracking.as_ref().unwrap().expr.set[idx]) {
         ExpandsTo::IVar(i) => {
             // in the case where we're searching for an IVar we need to be robust to relabellings
@@ -1092,7 +1090,9 @@ fn stitch_search(
                                     zid: shared
                                             .extensions_of_zid[hole_map[loc].zid].body.unwrap()
                                             .clone(),
-                                    is_loop_arg: false,
+                                    rewrite_zid: shared
+                                            .extensions_of_zid[hole_map[loc].rewrite_zid].body.unwrap()
+                                            .clone(),
                                  }))
                             .collect::<HoleMap>();
                         holes.push(new_hole_map);
@@ -1107,7 +1107,9 @@ fn stitch_search(
                                     zid: shared
                                             .extensions_of_zid[hole_map[loc].zid].func.unwrap()
                                             .clone(),
-                                    is_loop_arg: false,
+                                    rewrite_zid: shared
+                                            .extensions_of_zid[hole_map[loc].rewrite_zid].func.unwrap()
+                                            .clone(),
                                  }))
                             .collect::<HoleMap>();
                         holes.push(new_hole_map);
@@ -1119,7 +1121,9 @@ fn stitch_search(
                                     zid: shared
                                             .extensions_of_zid[hole_map[loc].zid].arg.unwrap()
                                             .clone(),
-                                    is_loop_arg: false,
+                                    rewrite_zid: shared
+                                            .extensions_of_zid[hole_map[loc].rewrite_zid].arg.unwrap()
+                                            .clone(),
                                  }))
                             .collect::<HoleMap>();
                         holes.push(new_hole_map);
@@ -1134,7 +1138,9 @@ fn stitch_search(
                                     zid: shared
                                             .extensions_of_zid[hole_map[loc].zid].func.unwrap()
                                             .clone(),
-                                    is_loop_arg: false,
+                                    rewrite_zid: shared
+                                            .extensions_of_zid[hole_map[loc].rewrite_zid].func.unwrap()
+                                            .clone(),
                                  }))
                             .collect::<HoleMap>();
                         holes.push(new_hole_map);
@@ -1146,12 +1152,14 @@ fn stitch_search(
                             .map(|loc|
                                  (loc.clone(),
                                   Hole {
-                                      zid: shared.zid_of_zip[
-                                              &get_zip(
-                                                  *loc,
-                                                  shared.loop_of_zid_node[hole_map[loc].zid][loc].arg,
-                                                  &shared.set).unwrap()],
-                                      is_loop_arg: true,
+                                     zid: shared.zid_of_zip[
+                                             &get_zip(
+                                                 *loc,
+                                                 shared.loop_of_zid_node[hole_map[loc].zid][loc].arg,
+                                                 &shared.set).unwrap()],
+                                    rewrite_zid: shared
+                                            .extensions_of_zid[hole_map[loc].rewrite_zid].arg.unwrap()
+                                            .clone(),
                                   })).clone()
                             .collect::<HoleMap>();
                         holes.push(new_hole_map);
@@ -1607,7 +1615,7 @@ fn get_zippers(
                                 // you want.
                                 // TODO is it OK to just not delete the loop in the child? then
                                 // somehow while rewriting you need to account for this, I guess
-                                println!("deleting loop {:?} at {:?} with zipper {:?}", loop_, x, zip_of_zid[*x_zid]);
+                                //println!("deleting loop {:?} at {:?} with zipper {:?}", loop_, x, zip_of_zid[*x_zid]);
                                 //assert!(loop_of_zid_node[*x_zid].remove(&x).is_some());
                             } else {
                                 println!("The loops were not equal: {:?} != {:?}", loop_, this_loop_);
@@ -1950,7 +1958,9 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
                 .sum();
             let utility_with_rewrite = utility_of_args + utility_of_loc_once[idx];
 
-            let chose_to_rewrite = utility_with_rewrite > utility_without_rewrite;
+            let chose_to_rewrite = true; //utility_with_rewrite > utility_without_rewrite;
+
+            println!("Chose to rewrite at {:?}?: {:?}", idx, chose_to_rewrite);
 
             cumulative_utility_of_node[node] = std::cmp::max(utility_with_rewrite, utility_without_rewrite);
 
