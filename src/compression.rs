@@ -1150,18 +1150,19 @@ fn stitch_search(
                         // that it points to the "bottom" of the loop
                         let new_hole_map: HoleMap = locs
                             .iter()
-                            .map(|loc|
+                            .map(|loc| {
+                                let loop_ = &shared.loop_of_zid_node[hole_map[loc].zid][loc];
+                                let zip = &get_zip(
+                                                 *loc,
+                                                 loop_.arg,
+                                                 &shared.set).unwrap();
                                  (loc.clone(),
                                   Hole {
-                                     zid: shared.zid_of_zip[
-                                             &get_zip(
-                                                 *loc,
-                                                 shared.loop_of_zid_node[hole_map[loc].zid][loc].arg,
-                                                 &shared.set).unwrap()],
+                                    zid: shared.zid_of_zip[zip],
                                     rewrite_zid: shared
                                             .extensions_of_zid[hole_map[loc].rewrite_zid].arg.unwrap()
                                             .clone(),
-                                  })).clone()
+                                  })}).clone()
                             .collect::<HoleMap>();
                         holes.push(new_hole_map);
                     }
@@ -1460,10 +1461,10 @@ fn get_zip(from: Idx, to: Idx, set: &ExprSet) -> Option<Vec<ZNode>> {
         Node::Prim(_) | Node::Var(_) | Node::IVar(_) => return None,
         Node::App(f, x) => {
             if let Some(mut z) = get_zip(f, to, set) {
-                z.push(ZNode::Func);
+                z.insert(0, ZNode::Func);
                 return Some(z);
             } else if let Some(mut z) = get_zip(x, to, set) {
-                z.push(ZNode::Arg);
+                z.insert(0, ZNode::Arg);
                 return Some(z);
             } else {
                 return None;
@@ -1471,7 +1472,7 @@ fn get_zip(from: Idx, to: Idx, set: &ExprSet) -> Option<Vec<ZNode>> {
         },
         Node::Lam(b) => {
             if let Some(mut z) = get_zip(b, to, set) {
-                z.push(ZNode::Body);
+                z.insert(0, ZNode::Body);
                 return Some(z);
             } else {
                 return None;
@@ -1555,7 +1556,6 @@ fn get_zippers(
 
                 let this_loop = if curr_ptr != x {
                     let loop_ = Loop { fun: f, arg: curr_ptr };
-                    println!("Found loop {:?}, adding with empty zip at {:?}", loop_, idx);
                     loop_of_zid_node[EMPTY_ZID].insert(idx, loop_.clone());
                     Some(loop_)
                 } else {
@@ -1580,7 +1580,6 @@ fn get_zippers(
                     let arg = arg_of_zid_node[*f_zid][&f].clone();
                     arg_of_zid_node[*zid].insert(idx, arg);
                     if let Some(loop_) = loop_of_zid_node[*f_zid].get(&f).cloned() {
-                        println!("Bubbling a loop from f: {:?} to {:?} from {:?}", loop_, idx, f);
                         loop_of_zid_node[*zid].insert(idx, loop_);
                     }
                 }
@@ -1603,7 +1602,6 @@ fn get_zippers(
                     let arg = arg_of_zid_node[*x_zid][&x].clone();
                     arg_of_zid_node[*zid].insert(idx, arg);
                     if let Some(loop_) = loop_of_zid_node[*x_zid].get(&x).cloned() {
-                        println!("Bubbling a loop from x: {:?} to {:?} from {:?}", loop_, idx, x);
                         if let Some(this_loop_) = this_loop.as_ref() {
                             // this should really be one joint condition but AFAIK that's
                             // not possible in Rust atm
@@ -1629,11 +1627,9 @@ fn get_zippers(
                                 //println!("deleting loop {:?} at {:?} with zipper {:?}", loop_, x, zip_of_zid[*x_zid]);
                                 //assert!(loop_of_zid_node[*x_zid].remove(&x).is_some());
                             } else {
-                                println!("The loops were not equal: {:?} != {:?}", loop_, this_loop_);
                                 loop_of_zid_node[*zid].insert(idx, loop_);
                             }
                         } else {
-                            println!("No loop rooted at this idx, so we're not deleting anything");
                             loop_of_zid_node[*zid].insert(idx, loop_);
                         }
                     }
@@ -1659,7 +1655,6 @@ fn get_zippers(
 
                     // give it the same loop
                     if let Some(loop_) = loop_of_zid_node[*b_zid].get(&b).cloned() {
-                        println!("Bubbling a loop from b: {:?} to {:?} from {:?}", loop_, idx, b);
                         loop_of_zid_node[*zid].insert(idx, loop_);
                     }
 
@@ -1690,7 +1685,6 @@ fn get_zippers(
         zids_of_node.insert(idx, zids);
     }
 
-    println!("corpus span: {:?}", corpus_span.clone());
     println!("loop_of_zid_node: {:?}", loop_of_zid_node);
     
 
@@ -1971,7 +1965,6 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
 
             let chose_to_rewrite = utility_with_rewrite > utility_without_rewrite || pattern.loops.iter().filter(|loop_map| loop_map.get(&node).is_some()).count() > 0;
 
-            println!("Chose to rewrite at {:?}?: {:?}", idx, chose_to_rewrite);
 
             cumulative_utility_of_node[node] = std::cmp::max(utility_with_rewrite, utility_without_rewrite);
 
