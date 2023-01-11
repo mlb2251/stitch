@@ -307,8 +307,8 @@ type LoopMap = FxHashMap<Idx, ZId>;
 pub struct Pattern {
     pub holes: Vec<HoleMap>, // in order of when theyre added NOT left to right
     pub loops: Vec<LoopMap>,
-    arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an argchoice, again these are in order of when they were added
-    pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index of the first use of #i in arg_choices
+    arg_choices: Vec<FxHashMap<Idx, LabelledZId>>, // a hole gets moved into here when it becomes an argchoice, again these are in order of when they were added
+    pub first_zid_of_ivar: Vec<FxHashMap<Idx, ZId>>, //first_zid_of_ivar[i] gives the index of the first use of #i in arg_choices
     pub match_locations: Vec<Idx>, // places where it applies
     pub utility_upper_bound: i32,
     pub body_utility: i32, // the size (in `cost`) of a single use of the pattern body so far
@@ -494,7 +494,7 @@ impl Pattern {
             .iter()
             .map(|hole_map| (shared.zip_of_zid[hole_map.get(&self.match_locations[0]).unwrap().zid].clone(), Node::Prim(HOLE_SYM.clone())))
             .chain(self.arg_choices.iter()
-            .map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(), Node::IVar(labelled_zid.ivar as i32)))).collect();
+            .map(|labelled_zid_map| (shared.zip_of_zid[labelled_zid_map[&self.match_locations[0]].zid].clone(), Node::IVar(labelled_zid_map[&self.match_locations[0]].ivar as i32)))).collect();
 
         let loop_zids: FxHashSet<ZId> = self.loops.iter().map(|loop_map| loop_map[&self.match_locations[0]].clone()).collect();
 
@@ -617,8 +617,9 @@ fn tracked_expands_to(pattern: &Pattern, hole: &Hole, shared: &SharedData) -> Ex
             // must correspond to each other in the pattern and the tracked expr and we can just return
             // the pattern version (`j` below).
             let zids = shared.tracking.as_ref().unwrap().zids_of_ivar[i as usize].clone();
-            for (j,zid) in pattern.first_zid_of_ivar.iter().enumerate() {
-                if zids.contains(zid) {
+            for (j, zid_map) in pattern.first_zid_of_ivar.iter().enumerate() {
+                // TODO can we use any match location below
+                if zids.contains(&zid_map[&pattern.match_locations[0]]) {
                     return ExpandsTo::IVar(j as i32);
                 }
             }
@@ -732,7 +733,7 @@ impl CriticalMultithreadData {
     fn update(&mut self, cfg: &CompressionStepConfig) {
         // sort in decreasing order by utility primarily, and break ties using the argchoice zids (just in order to be deterministic!)
         // let old_best = self.donelist.first().map(|x|x.utility).unwrap_or(0);
-        self.donelist.sort_unstable_by(|a,b| (b.utility,&b.pattern.arg_choices).cmp(&(a.utility,&a.pattern.arg_choices)));
+        self.donelist.sort_unstable_by(|a,b| (b.utility,&b.pattern.arg_choices.iter().map(|m| m[&b.pattern.match_locations[0]].clone()).collect_vec()).cmp(&(a.utility,&a.pattern.arg_choices.iter().map(|m| m[&a.pattern.match_locations[0]].clone()).collect_vec())));
         self.donelist.truncate(cfg.inv_candidates);
         // the cutoff is the lowest utility
         self.utility_pruning_cutoff = if cfg.no_opt_upper_bound { 0 } else { std::cmp::max(0,self.donelist.last().map(|x|x.utility).unwrap_or(0)) };
@@ -1171,7 +1172,7 @@ fn stitch_search(
                 let mut loops = original_pattern.loops.clone();
                 match expands_to {
                     ExpandsTo::LoopChoice => {
-                        loops.push(locs.iter().map(|loc| (loc.clone(), hole_map[loc].zid)).collect::<FxHashMap<usize, usize>>());
+                        loops.push(locs.iter().map(|loc| (loc.clone(), hole_map[loc].zid)).collect::<FxHashMap<Idx, ZId>>());
                         // TODO no clue lol
                     },
                     _ => {},
@@ -1180,10 +1181,20 @@ fn stitch_search(
                 // update arg_choices and possibly first_zid_of_ivar if a new ivar was added
                 let mut arg_choices = original_pattern.arg_choices.clone();
                 let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
+                // TODO: this is a big source of bugs:
+                // - right now, hole always is at match_locations[0] - arg_choices probably needs
+                // to be set according to the match location, just like holes are
+                // - Matt soays sometimes this arg choice zipper will be used as "rewritten zid"
+                // and sometimes as "zid" - you onlY
+                // - better names: abstraction zid and corpus zid
                 if let ExpandsTo::IVar(i) = expands_to {
-                    arg_choices.push(LabelledZId::new(hole.zid, i as usize));
+                    arg_choices.push(
+                        locs.iter().map(|loc| (loc.clone(), LabelledZId::new(hole_map[&loc].zid, i as usize))).collect::<FxHashMap<Idx, LabelledZId>>());
                     if i as usize == original_pattern.first_zid_of_ivar.len() {
-                        first_zid_of_ivar.push(hole.zid);
+                        // TODO the below also needs to be a map then I guess
+                        first_zid_of_ivar.push(
+                            locs.iter().map(|loc| (loc.clone(), hole_map[loc].zid)).collect::<FxHashMap<Idx, ZId>>()
+                        );
                     }
                 }
 
@@ -1191,10 +1202,10 @@ fn stitch_search(
                 // because subsetting of match_locations can turn previously useful abstractions into useless ones. In the paper this is referred to as "argument capture"
                 if !shared.cfg.no_opt_useless_abstract {
                     // note I believe it'd be save to iterate over first_zid_of_ivar instead
-                    for argchoice in original_pattern.arg_choices.iter(){
+                    for argchoice_map in original_pattern.arg_choices.iter(){
                         // if its the same arg in every place, and doesnt have any free vars (ie it's safe to inline)
-                        if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
-                            && shared.analyzed_free_vars[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].is_empty()
+                        if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice_map[&loc].zid][loc].shifted_id).all_equal()
+                            && shared.analyzed_free_vars[shared.arg_of_zid_node[argchoice_map[&locs[0]].zid][&locs[0]].shifted_id].is_empty()
                         {
                             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
                             continue 'expansion; // useless abstraction
@@ -1209,12 +1220,12 @@ fn stitch_search(
                 if !shared.cfg.no_opt_force_multiuse {
                     // for all pairs of ivars #i and #j, get the first zipper and compare the arg value across all locations
                     for (i,ivar_zid_1) in first_zid_of_ivar.iter().enumerate() {
-                        let arg_of_loc_1 = &shared.arg_of_zid_node[*ivar_zid_1];
                         for ivar_zid_2 in first_zid_of_ivar.iter().skip(i+1) {
-                            let arg_of_loc_2 = &shared.arg_of_zid_node[*ivar_zid_2];
                             if locs.iter().all(|loc|
-                                arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
-                            {
+                                shared.arg_of_zid_node[ivar_zid_1[loc]][loc].shifted_id
+                                ==
+                                shared.arg_of_zid_node[ivar_zid_2[loc]][loc].shifted_id
+                            ) {
                                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().force_multiuse_fired += 1; };
                                 if tracked && !shared.cfg.quiet { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole, &shared)) }
                                 continue 'expansion;
@@ -1362,11 +1373,11 @@ fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,A
     let mut ivars_expansions = vec![];
     // consider all ivars used previously
     for ivar in 0..original_pattern.first_zid_of_ivar.len() {
-        let arg_of_loc_ivar = &shared.arg_of_zid_node[original_pattern.first_zid_of_ivar[ivar]];
         let locs: Vec<Idx> = original_pattern.match_locations.iter()
             .filter(|loc|
                 arg_of_loc[loc].shifted_id == 
-                arg_of_loc_ivar[loc].shifted_id).cloned().collect();
+                shared.arg_of_zid_node[original_pattern.first_zid_of_ivar[ivar][loc]][loc].shifted_id)
+            .cloned().collect();
         if locs.is_empty() { continue; }
         ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
     }
@@ -1744,8 +1755,8 @@ impl CompressionStepResult {
         let uses = done.usages;
         let use_exprs: Vec<Idx> = done.pattern.match_locations.clone();
         let use_args: Vec<Vec<Idx>> = done.pattern.match_locations.iter().map(|node|
-            done.pattern.first_zid_of_ivar.iter().map(|zid|
-                shared.arg_of_zid_node[*zid][node].shifted_id
+            done.pattern.first_zid_of_ivar.iter().map(|zid_map|
+                shared.arg_of_zid_node[zid_map[node]][node].shifted_id
             ).collect()).collect();
         
 
@@ -1902,15 +1913,15 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
     // Also an extra COST_NONTERMINAL for each argument that is refined (for the lambda).
     let app_penalty = - (shared.cost_fn.cost_prim_default + shared.cost_fn.cost_app * pattern.first_zid_of_ivar.len() as i32);
 
-    // get a list of (ivar,usages-1) filtering out things that are only used once, this will come in handy for adding multi-use utility later
-    let ivar_multiuses: Vec<(usize,i32)> = pattern.arg_choices.iter().map(|labelled|labelled.ivar).counts()
-        .iter().filter_map(|(ivar,count)| if *count > 1 { Some((*ivar, (*count-1) as i32)) } else { None }).collect();
 
     pattern.match_locations.iter().map(|loc| {
 
+        // get a list of (ivar,usages-1) filtering out things that are only used once, this will come in handy for adding multi-use utility later
+        let ivar_multiuses: Vec<(usize,i32)> = pattern.arg_choices.iter().map(|labelled_m| labelled_m[&loc].ivar).counts()
+            .iter().filter_map(|(ivar,count)| if *count > 1 { Some((*ivar, (*count-1) as i32)) } else { None }).collect();
         //  if there are any free ivars in the arg at this location then we can't apply this invention here so *total* util should be 0
-        for (_ivar,zid) in pattern.first_zid_of_ivar.iter().enumerate() {
-            let shifted_arg = shared.arg_of_zid_node[*zid][loc].shifted_id;
+        for (_ivar,zid_map) in pattern.first_zid_of_ivar.iter().enumerate() {
+            let shifted_arg = shared.arg_of_zid_node[zid_map[loc]][loc].shifted_id;
             if !shared.analyzed_ivars[shifted_arg].is_empty() {
                 return 0; // set whole util to 0 for this loc, causing an autoreject
             }
@@ -1925,7 +1936,7 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
         // extra utility. Note we use `first_zid_of_ivar` since it doesn't matter which
         // of the zids we use as long as it corresponds to the right ivar
         let multiuse_utility = ivar_multiuses.iter().map(|(ivar,count)|
-            count * shared.arg_of_zid_node[pattern.first_zid_of_ivar[*ivar]][loc].cost
+            count * shared.arg_of_zid_node[pattern.first_zid_of_ivar[*ivar][loc]][loc].cost
         ).sum::<i32>();
         // if !shared.cfg.quiet { println!("multiuse {}", multiuse_utility) }
 
@@ -1954,11 +1965,11 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
             // this node is a potential rewrite location
 
             let utility_of_args: i32 = pattern.first_zid_of_ivar.iter()
-                .map(|zid| cumulative_utility_of_node[shared.arg_of_zid_node[*zid][&node].unshifted_id])
+                .map(|zid_map| cumulative_utility_of_node[shared.arg_of_zid_node[zid_map[&node]][&node].unshifted_id])
                 .sum();
             let utility_with_rewrite = utility_of_args + utility_of_loc_once[idx];
 
-            let chose_to_rewrite = true; //utility_with_rewrite > utility_without_rewrite;
+            let chose_to_rewrite = utility_with_rewrite > utility_without_rewrite || pattern.loops.iter().filter(|loop_map| loop_map.get(&node).is_some()).count() > 0;
 
             println!("Chose to rewrite at {:?}?: {:?}", idx, chose_to_rewrite);
 
@@ -1998,28 +2009,56 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
     }
     let _max_num_to_add = cfg.max_arity - finished.arity;
 
+    let updated_util = false;
     while finished.arity < cfg.max_arity {
-    let counts = use_counts(&finished.pattern, zip_of_zid, arg_of_zid_node, extensions_of_zid, set, analyzed_ivars);
-    let possible_to_uninline = possible_to_uninline(counts, finished.usages, cost_fn);
-    
-    let best = possible_to_uninline.into_iter().max_by_key(|(delta, _compressive_delta, _noncompressive_delta, _cost, _zids)| *delta);
-    
-    if let Some((delta, compressive_delta, _noncompressive_delta, _cost, zids)) = best {
-        let ivar = finished.arity;
-        finished.pattern.arg_choices.extend(zids.iter().map(|&zid| LabelledZId { zid, ivar }));
-        finished.pattern.first_zid_of_ivar.push(zids[0]);
-        finished.compressive_utility += compressive_delta;
-        finished.util_calc.util += compressive_delta;
-        finished.utility += delta;
-        finished.arity +=1;
-        // println!("UNARG")
-    } else {
-        return
-    }
+        let dcz = finished.pattern.match_locations.iter().map(|loc| {
+            let counts = use_counts(&finished.pattern, zip_of_zid, arg_of_zid_node, extensions_of_zid, set, analyzed_ivars, *loc);
+            let possible_to_uninline = possible_to_uninline(counts, finished.usages, cost_fn);
+            
+            let best = possible_to_uninline.into_iter().max_by_key(|(delta, _compressive_delta, _noncompressive_delta, _cost, _zids)| *delta);
+            
+            if let Some((delta, compressive_delta, _noncompressive_delta, _cost, zids)) = best {
+                let ivar = finished.arity;
+                Some((delta, compressive_delta, zids.iter().map(|&zid| LabelledZId { zid, ivar }).collect_vec()))
+                // println!("UNARG")
+            } else {
+                None
+            }
+        }).collect_vec();
+
+        if !dcz.iter().filter(|entry| entry.is_none()).collect_vec().is_empty() {
+            return;
+        } else {
+            let dcz = dcz.iter().filter(|entry| entry.is_some()).map(|entry| entry.as_ref().unwrap()).collect_vec();
+            let unique_deltas = dcz.iter().map(|(delta, _, _)| delta).unique().collect_vec();
+            assert!(unique_deltas.len() == 1);
+            let unique_compressive_deltas = dcz.iter().map(|(_, compressive_delta, _)| compressive_delta).unique().collect_vec();
+            assert!(unique_compressive_deltas.len() == 1);
+            let delta = unique_deltas[0];
+            let compressive_delta = unique_compressive_deltas[0];
+            finished.compressive_utility += compressive_delta;
+            finished.util_calc.util += compressive_delta;
+            finished.utility += delta;
+            finished.arity +=1;
+
+            // TODO the below is incredibly convoluted as a result of the fact that an arg_choice
+            // is now a map from match loc to (labeled) zid
+            let zids: Vec<Vec<LabelledZId>> = dcz.iter().map(|(_, _, zids)| zids.clone()).collect_vec();
+            assert!(zids.iter().map(|zs| zs.len()).unique().count() == 1);
+            for i in 0..zids[0].len() {
+                finished.pattern.arg_choices.push(
+                    zids.iter().enumerate().map(|(j, zs)| (finished.pattern.match_locations[j], zs[i].clone())).collect::<FxHashMap<Idx, LabelledZId>>()
+                );
+            }
+            finished.pattern.first_zid_of_ivar.push(
+                zids.iter().enumerate().map(|(j, zs)| (finished.pattern.match_locations[j], zs[0].zid))
+                    .collect::<FxHashMap<Idx, ZId>>()
+            )
+        }
     }
 }
 
-fn possible_to_uninline(counts: FxHashMap<Idx, (i32, Vec<usize>)>, finished_usages: i32, cost_fn: &ExprCost) -> Vec<(i32,i32,i32,i32,Vec<ZId>)> {
+fn possible_to_uninline(counts: FxHashMap<Idx, (i32, Vec<ZId>)>, finished_usages: i32, cost_fn: &ExprCost) -> Vec<(i32,i32,i32,i32,Vec<ZId>)> {
     let possible_to_uninline = counts.values()
     // can only have a positive delta to compression if used more times within the abstraction than
     // there are usages of the abstraction in the corpus
@@ -2037,14 +2076,17 @@ fn possible_to_uninline(counts: FxHashMap<Idx, (i32, Vec<usize>)>, finished_usag
     possible_to_uninline.collect()
 }
 
-fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>) -> FxHashMap<Idx,(i32,Vec<ZId>)> {
+fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>,
+ match_loc: Idx
+ ) -> FxHashMap<Idx,(i32,Vec<ZId>)> {
     let mut curr_zip: Vec<ZNode> = vec![];
     let curr_zid: ZId = EMPTY_ZID;
-    let zids = &pattern.arg_choices[..];
+    let zids = &(pattern.arg_choices.iter().map(|m| m[&match_loc].clone()).collect::<Vec<_>>());
 
     // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
     let zips: Vec<Vec<ZNode>> = zids.iter()
-        .map(|labelled_zid| zip_of_zid[labelled_zid.zid].clone()).collect();
+        .map(|labelled_zid| zip_of_zid[labelled_zid.zid].clone())
+        .collect();
 
     let mut counts: FxHashMap<Idx,(i32,Vec<ZId>)> = Default::default();
 
@@ -2085,8 +2127,7 @@ fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[F
             _ => unreachable!(),
         }
     }
-    // we can pick any match location
-    helper(pattern.match_locations[0], pattern.match_locations[0], &mut curr_zip, curr_zid, &zips, zids, arg_of_zid_node, extensions_of_zid, set, &mut counts, analyzed_ivars);
+    helper(match_loc, match_loc, &mut curr_zip, curr_zid, &zips, zids, arg_of_zid_node, extensions_of_zid, set, &mut counts, analyzed_ivars);
     counts
 }
 
