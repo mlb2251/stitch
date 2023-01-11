@@ -1269,8 +1269,7 @@ fn stitch_search(
                     // inverse_argument_capture(). Note that this pruning is okay because compressive utility itself is an upper bound
                     // on total utility.
                     if finished_pattern.compressive_utility <= weak_utility_pruning_cutoff {
-                        println!("compressive utility {} <= weak_utility_pruning_cutoff {}", finished_pattern.compressive_utility, weak_utility_pruning_cutoff);
-                        //continue 'expansion // todo could add a tracked{} printing thing here
+                        continue 'expansion // todo could add a tracked{} printing thing here
                     }
 
                     if !shared.cfg.no_stats { shared.stats.lock().calc_unargcap += 1; };
@@ -1278,8 +1277,7 @@ fn stitch_search(
 
                     // Pruning (UPPER BOUND)
                     if finished_pattern.utility <= weak_utility_pruning_cutoff {
-                        println!("utility {} <= weak_utility_pruning_cutoff {}", finished_pattern.utility, weak_utility_pruning_cutoff);
-                        //continue 'expansion // todo could add a tracked{} printing thing here
+                        continue 'expansion // todo could add a tracked{} printing thing here
                     }
 
                     if !shared.cfg.no_stats { shared.stats.lock().donelist_push += 1; };
