@@ -98,10 +98,9 @@ pub fn rewrite_fast(
                 let b = helper(owned_set, pattern, shared, *unshifted_b, total_depth + 1, shift_rules, inv_name, refinements);
                 owned_set.add(Node::Lam(b))
             },
-            Node::LoopChoice(unshifted_f,unshifted_x) => {
-                let f = helper(owned_set, pattern, shared, *unshifted_f, total_depth, shift_rules, inv_name, refinements);
+            Node::LoopChoice(i, unshifted_x) => {
                 let x = helper(owned_set, pattern, shared, *unshifted_x, total_depth, shift_rules, inv_name, refinements);
-                owned_set.add(Node::LoopChoice(f,x))
+                owned_set.add(Node::LoopChoice(*i,x))
             },
             Node::IVar(_) => {
                 unreachable!()

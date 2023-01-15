@@ -7,13 +7,13 @@ use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
 use serde_json::json;
-use clap::{Parser};
+use clap::Parser;
 use serde::Serialize;
 use std::thread;
 use std::sync::Arc;
 use parking_lot::Mutex;
 use std::ops::DerefMut;
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, VecDeque};
 use rand::Rng;
 
 /// Multistep Compression
@@ -254,7 +254,7 @@ pub struct Hole {
 // (e.g., if different match locations have loops of differerent depths).
 type HoleMap = FxHashMap<Idx, Hole>;
 // Same for loops
-type LoopMap = FxHashMap<Idx, ZId>;
+type LoopMap = FxHashMap<Idx, Loop>;
 //#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 //enum Hole {
 //    // A normal hole, which is just identified by the zipper to it
@@ -351,12 +351,11 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>
                 helper(expr.get(*x), curr_zip, zids_of_ivar, zid_of_zip)?;
                 curr_zip.pop();
             }
-            Node::LoopChoice(f, x) => {
-                curr_zip.push(ZNode::Func);
-                helper(expr.get(*f), curr_zip, zids_of_ivar, zid_of_zip)?;
-                curr_zip.pop();
-                curr_zip.push(ZNode::Arg);
-                helper(expr.get(*x), curr_zip, zids_of_ivar, zid_of_zip)?;
+            Node::LoopChoice(_, b) => {
+                // TODO I'm switching from Arg to Body for the second arg of LoopChoice, since that
+                // seems more in line with the more complex loop formulation
+                curr_zip.push(ZNode::Body);
+                helper(expr.get(*b), curr_zip, zids_of_ivar, zid_of_zip)?;
                 curr_zip.pop();
             }
         }
@@ -417,7 +416,7 @@ impl CostConfig {
 
 impl Pattern {
     /// create a single hole pattern `??`
-    #[inline(never)]
+    //#[inline(never)]
     fn single_hole(corpus_span: &Span, cost_of_node_all: &[i32], num_paths_to_node: &[i32], set: &ExprSet, cost_fn: &ExprCost, cfg: &CompressionStepConfig) -> Self {
         let body_utility = 0;
         let mut match_locations: Vec<Idx> = corpus_span.clone().collect();
@@ -438,28 +437,23 @@ impl Pattern {
         }
     }
 
-    fn _to_expr_helper(&self, set: &mut ExprSet, curr_node: Idx, curr_zip: &mut Vec<ZNode>, zips: &[(Vec<ZNode>,Node)], loop_zids: &FxHashSet<ZId>, shared: &SharedData) -> Idx {
+    fn _to_expr_helper(&self, set: &mut ExprSet, curr_node: Idx, curr_zip: &mut Vec<ZNode>, zips: &[(Vec<ZNode>,Node)], loops: &[Loop], shared: &SharedData) -> Idx {
         if let Some((_,e)) = zips.iter().find(|(zip,_)| zip == curr_zip) {
             return set.add(e.clone()); // current zip matches a hole or ivar
         }
 
-        if loop_zids.contains(shared.zid_of_zip.get(curr_zip).unwrap()) {
-            // we are at the bottom of a loop
-            // add one Func to get the function being applied,
-            // add Arg * the depth of the loop to get the argument
-            let (f, x, depth) = loop_at_loc(curr_node, &shared.set).unwrap();
-            let mut new_zip = curr_zip.clone();
-            new_zip.push(ZNode::Func);
-            let f = self._to_expr_helper(set, f, &mut new_zip, zips, loop_zids, shared);
-            new_zip.pop();
-            for _ in 0..depth {
-                new_zip.push(ZNode::Arg);
-            }
-            let x = self._to_expr_helper(set, x, &mut new_zip, zips, loop_zids, shared);
-            for _ in 0..depth {
-                new_zip.pop();
-            }
-            return set.add(Node::LoopChoice(f,x));
+        if let Some(l) = loops.iter().find(|l| l.root_zid == shared.zid_of_zip[curr_zip]) {
+            // we are at the root of a loop
+            // TODO this needs rewritten - will still need to find x and the depth, I suppose, but
+            // f is now already handled since it will be the LHS of the application that has this
+            // loop as the RHS
+            let mut new_zip = shared.zip_of_zid[l.body_zid].clone();  // TODO does this work with nested loops?
+            let x = self._to_expr_helper(set, l.body_idx, &mut new_zip, zips, loops, shared);
+            // note we don't touch curr_zip so don't need to reset it
+            // TODO need to add an easy way to integrate "Loop depth x" and "Loop <node> x";
+            // the second seems way more useful internally, but the former is easier to write,
+            // read, parse, execute, etc
+            return set.add(Node::LoopChoice(1, x));
         }
         // no ivar zip match, so recurse
         match &shared.set[curr_node] {
@@ -467,22 +461,23 @@ impl Pattern {
             Node::Var(v) => set.add(Node::Var(*v)),
             Node::Lam(b) => {
                 curr_zip.push(ZNode::Body);
-                let b_idx = self._to_expr_helper(set, *b, curr_zip, zips, loop_zids, shared);
+                let b_idx = self._to_expr_helper(set, *b, curr_zip, zips, loops, shared);
                 curr_zip.pop();
                 set.add(Node::Lam(b_idx))
             }
             Node::App(f,x) => {
                 curr_zip.push(ZNode::Func);
-                let f_idx = self._to_expr_helper(set, *f, curr_zip, zips, loop_zids, shared);
+                let f_idx = self._to_expr_helper(set, *f, curr_zip, zips, loops, shared);
                 curr_zip.pop();
                 curr_zip.push(ZNode::Arg);
-                let x_idx = self._to_expr_helper(set, *x, curr_zip, zips, loop_zids, shared);
+                let x_idx = self._to_expr_helper(set, *x, curr_zip, zips, loops, shared);
                 curr_zip.pop();
                 set.add(Node::App(f_idx,x_idx))
             }
             _ => unreachable!(),
         }
     }
+
     /// convert pattern to an Expr with `??` in place of holes and `?#` in place of argchoices. Recursive top down
     /// approach, not particularly efficient.
     fn to_expr(&self, shared: &SharedData) -> ExprOwned {
@@ -496,11 +491,11 @@ impl Pattern {
             .chain(self.arg_choices.iter()
             .map(|labelled_zid_map| (shared.zip_of_zid[labelled_zid_map[&self.match_locations[0]].zid].clone(), Node::IVar(labelled_zid_map[&self.match_locations[0]].ivar as i32)))).collect();
 
-        let loop_zids: FxHashSet<ZId> = self.loops.iter().map(|loop_map| loop_map[&self.match_locations[0]].clone()).collect();
+        let loops: Vec<Loop> = self.loops.iter().map(|loop_map| loop_map[&self.match_locations[0]].clone()).collect();
 
         // note: we can pick any match location, since the expr looks the same regardless
         // (although note it must be the same as we used to construct the hole zippers above
-        let idx = self._to_expr_helper(&mut set, self.match_locations[0], &mut curr_zip, &zips, &loop_zids, shared);
+        let idx = self._to_expr_helper(&mut set, self.match_locations[0], &mut curr_zip, &zips, &loops, shared);
         ExprOwned { set, idx }
     }
 
@@ -525,7 +520,7 @@ impl Pattern {
 pub enum ExpandsTo {
     Lam,
     App,
-    LoopChoice,  // parameter is the depth of the loop
+    LoopChoice(ZId),  // parameter is the zip from abstraction root to the node to loop back to
     Var(i32),
     Prim(Symbol),
     IVar(i32),
@@ -539,7 +534,7 @@ impl ExpandsTo {
         match self {
             ExpandsTo::Lam => true,
             ExpandsTo::App => true,
-            ExpandsTo::LoopChoice => true,
+            ExpandsTo::LoopChoice(_) => true,
             ExpandsTo::Var(_) => false,
             ExpandsTo::Prim(_) => false,
             ExpandsTo::IVar(_) => false,
@@ -557,7 +552,7 @@ impl std::fmt::Display for ExpandsTo {
         match self {
             ExpandsTo::Lam => write!(f, "(lam ??)"),
             ExpandsTo::App => write!(f, "(?? ??)"),
-            ExpandsTo::LoopChoice => write!(f, "(loop ?? ??)"),
+            ExpandsTo::LoopChoice(_) => write!(f, "(loop <TODO> ??)"),
             ExpandsTo::Var(v) => write!(f, "${}", v),
             ExpandsTo::Prim(p) => write!(f, "{}", p),
             ExpandsTo::IVar(v) => write!(f, "#{}", v),
@@ -572,8 +567,10 @@ const EMPTY_ZID: ZId = 0;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Loop {
-    pub fun: Idx,
-    pub arg: Idx,
+    pub root_zid: ZId,
+    pub parent_zid: ZId,
+    pub body_zid: ZId,
+    pub body_idx: Idx,
 }
 
 /// an argument to an abstraction. `Idx` is the main field here, we can use
@@ -597,7 +594,7 @@ fn expands_to_of_node(node: &Node) -> ExpandsTo {
         Node::Lam(_) => ExpandsTo::Lam,
         Node::App(_,_) => ExpandsTo::App,
         Node::IVar(i) => ExpandsTo::IVar(*i),
-        Node::LoopChoice(f, x) => ExpandsTo::LoopChoice,
+        Node::LoopChoice(p, x) => unimplemented!() // TODO parse ptr to appropriate Idx ExpandsTo::LoopChoice(p),
     }
 }
 
@@ -676,7 +673,6 @@ pub struct SharedData {
     pub crit: Mutex<CriticalMultithreadData>,
     pub programs: Vec<ExprOwned>,
     pub arg_of_zid_node: Vec<FxHashMap<Idx,Arg>>,
-    pub loop_of_zid_node: Vec<FxHashMap<Idx,Loop>>,
     pub cost_fn: ExprCost,
     pub analyzed_free_vars: AnalyzedExpr<FreeVarAnalysis>,
     pub analyzed_ivars: AnalyzedExpr<IVarAnalysis>,
@@ -729,7 +725,7 @@ impl CriticalMultithreadData {
     }
     /// sort the donelist by utility, truncate to cfg.inv_candidates, update 
     /// update utility_pruning_cutoff to be the lowest utility
-    #[inline(never)]
+    //#[inline(never)]
     fn update(&mut self, cfg: &CompressionStepConfig) {
         // sort in decreasing order by utility primarily, and break ties using the argchoice zids (just in order to be deterministic!)
         // let old_best = self.donelist.first().map(|x|x.utility).unwrap_or(0);
@@ -802,7 +798,7 @@ pub enum HoleChoice {
 }
 
 impl HoleChoice {
-    #[inline(never)]
+    //#[inline(never)]
     fn choose_hole(&self, pattern: &Pattern, shared: &SharedData) -> usize {
         if pattern.holes.len() == 1 {
             return 0;
@@ -853,7 +849,7 @@ pub struct ZIdExtension {
 
 /// empties worklist_buf and donelist_buf into the shared worklist while holding the mutex, updates
 /// the donelist and cutoffs, and grabs and returns a new worklist item along with new cutoff bounds.
-#[inline(never)]
+//#[inline(never)]
 fn get_worklist_item(
     worklist_buf: &mut Vec<HeapItem>,
     donelist_buf: &mut Vec<FinishedPattern>,
@@ -933,7 +929,7 @@ fn get_worklist_item(
     // * MULTITHREADING: CRITICAL SECTION END *
 }
 
-#[inline(never)]
+//#[inline(never)]
 fn matt(holes: &Vec<HoleMap>) -> Vec<HoleMap> {
     holes.clone()
 }
@@ -981,13 +977,9 @@ fn stitch_search(
             // depend on the match location. So we can't just copy the existing data structures;
             // instead, we have to reconstruct them based on the different zippers.
             let mut arg_of_loc: FxHashMap<Idx, Arg> = Default::default();
-            let mut loop_of_loc: FxHashMap<Idx, Loop> = Default::default();
             for loc in original_pattern.match_locations.iter() {
                 let _hole_zid = hole_map.get(loc).unwrap().zid.clone();
                 arg_of_loc.insert(*loc, shared.arg_of_zid_node[_hole_zid].get(loc).unwrap().clone());
-                if let Some(loop_) = shared.loop_of_zid_node[_hole_zid].get(loc) {
-                    loop_of_loc.insert(*loc, loop_.clone());
-                }
             }
 
             // TODO am I right in thinking that for tracking etc we can use the zipper for any
@@ -1002,8 +994,10 @@ fn stitch_search(
             let mut match_locations = original_pattern.match_locations.clone();
             match_locations.sort_by_cached_key(|loc| (&arg_of_loc[loc].expands_to, *loc));
 
+            println!("Getting expansions");
             let ivars_expansions = get_ivars_expansions(&original_pattern, &arg_of_loc, &shared);
-            let loop_expansions = get_loop_expansions(&original_pattern, &loop_of_loc, &shared);
+            let (loop_bodies, loop_expansions) = get_loop_expansions(&hole_map, &original_pattern, &shared);
+            println!("Got expansions");
 
             let mut found_tracked = false;
 
@@ -1015,6 +1009,7 @@ fn stitch_search(
                 .chain(ivars_expansions.into_iter())
                 .chain(loop_expansions.into_iter())
             {
+                println!("Expanding to {:?}", expands_to);
                 // for debugging
                 let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, &hole, &shared);
                 if tracked { found_tracked = true; }
@@ -1056,7 +1051,7 @@ fn stitch_search(
                 let body_utility = original_pattern.body_utility +  match &expands_to {
                     ExpandsTo::Lam => shared.cost_fn.cost_lam,
                     ExpandsTo::App => shared.cost_fn.cost_app,
-                    ExpandsTo::LoopChoice => shared.cost_fn.cost_loop_choice,
+                    ExpandsTo::LoopChoice(_) => shared.cost_fn.cost_loop_choice,
                     ExpandsTo::Var(_) => shared.cost_fn.cost_var,
                     ExpandsTo::Prim(p) => *shared.cost_fn.cost_prim.get(p).unwrap_or(&shared.cost_fn.cost_prim_default),
                     ExpandsTo::IVar(_) => 0,
@@ -1134,38 +1129,34 @@ fn stitch_search(
                             .collect::<HoleMap>();
                         holes.push(new_hole_map);
                     }
-                    ExpandsTo::LoopChoice => {
-                        // for loops, the first hole is the same as for apps:
-                        let new_hole_map: HoleMap = locs
-                            .iter()
-                            .map(|loc| {
-                                let mut r_zip = hole_map[loc].rewrite_zip.clone();
-                                r_zip.push(ZNode::Func);
-                                (loc.clone(),
-                                Hole { 
-                                   zid: shared
-                                           .extensions_of_zid[hole_map[loc].zid].func.unwrap()
-                                           .clone(),
-                                   rewrite_zip: r_zip,
-                                })})
-                            .collect::<HoleMap>();
-                        holes.push(new_hole_map);
+                    ExpandsTo::LoopChoice(loop_root_zid) => {
+                        // TODO for more expressive loop choice:
+                        // - only one hole needed, for the body/root/anchor/bottom/whatever you
+                        //   want to call it of the loop
+                        // - Will still need to keep track of both a zipper to the hole *in the
+                        //   corpus* (which will still vary by match location as well) and a zipper
+                        //   to the hole *in the abstraction*
+                        // - getting the former could presumably still be done with pre-computed
+                        //   tables, or it could be done on the fly (we should probably move to
+                        //   doing everything on the fly, with caching - unless that adds too much
+                        //   synchronization overhead)
+                        // - actually: prec-computing it is a bit challenging since the loop may be
+                        //   more complex than just f f f f x, so probably have to compute it on
+                        //   the fly. I don't think this would be too expensive, though; it would
+                        //   essentially just be something like, keep adding to the zipper until
+                        //   you no longer reach a match location, get the first child of the most
+                        //   recent match
+                        //   TODO does the below work?
 
-                        // the second hole is the trickier case; we need each zipper to be such
-                        // that it points to the "bottom" of the loop
                         let new_hole_map: HoleMap = locs
                             .iter()
                             .map(|loc| {
-                                let loop_ = &shared.loop_of_zid_node[hole_map[loc].zid][loc];
-                                let zip = &get_zip(
-                                                 *loc,
-                                                 loop_.arg,
-                                                 &shared.set).unwrap();
+                                let (c_zid, _) = loop_bodies[&(*loc, loop_root_zid)];
                                 let mut r_zip = hole_map[loc].rewrite_zip.clone();
-                                r_zip.push(ZNode::Arg);
+                                r_zip.push(ZNode::Body);
                                 (loc.clone(),
                                  Hole {
-                                   zid: shared.zid_of_zip[zip],
+                                   zid: c_zid,
                                    rewrite_zip: r_zip,
                                  })}).clone()
                             .collect::<HoleMap>();
@@ -1177,9 +1168,16 @@ fn stitch_search(
                 // add any new loops to the list of loops
                 let mut loops = original_pattern.loops.clone();
                 match expands_to {
-                    ExpandsTo::LoopChoice => {
-                        loops.push(locs.iter().map(|loc| (loc.clone(), hole_map[loc].zid)).collect::<FxHashMap<Idx, ZId>>());
-                        // TODO no clue lol
+                    ExpandsTo::LoopChoice(loop_root_zid) => {
+                        loops.push(locs.iter().map(|loc| {
+                            let (b_zid, b_idx) = loop_bodies[&(*loc, loop_root_zid)];
+                            (loc.clone(),
+                             Loop { root_zid: hole_map[loc].zid,
+                                    parent_zid: loop_root_zid,
+                                    body_zid: b_zid,
+                                    body_idx: b_idx
+                             })
+                        }).collect::<LoopMap>());
                     },
                     _ => {},
                 }
@@ -1187,17 +1185,14 @@ fn stitch_search(
                 // update arg_choices and possibly first_zid_of_ivar if a new ivar was added
                 let mut arg_choices = original_pattern.arg_choices.clone();
                 let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
-                // TODO: this is a big source of bugs:
-                // - right now, hole always is at match_locations[0] - arg_choices probably needs
-                // to be set according to the match location, just like holes are
-                // - Matt soays sometimes this arg choice zipper will be used as "rewritten zid"
-                // and sometimes as "zid" - you onlY
-                // - better names: abstraction zid and corpus zid
+                // Arg choices, first_zid_of_ivar need to be set per match location since holes are
+                // (due to loops). The below does so, but it is slow/expensive.
+                // TODO we still need to do this with the more complex loop choice formulation.
+                // I think the below should work as-is.
                 if let ExpandsTo::IVar(i) = expands_to {
                     arg_choices.push(
                         locs.iter().map(|loc| (loc.clone(), LabelledZId::new(hole_map[&loc].zid, i as usize))).collect::<FxHashMap<Idx, LabelledZId>>());
                     if i as usize == original_pattern.first_zid_of_ivar.len() {
-                        // TODO the below also needs to be a map then I guess
                         first_zid_of_ivar.push(
                             locs.iter().map(|loc| (loc.clone(), hole_map[loc].zid)).collect::<FxHashMap<Idx, ZId>>()
                         );
@@ -1324,55 +1319,140 @@ fn stitch_search(
 
 }
 
-#[inline(never)]
-fn loop_at_loc(loc: Idx, set: &ExprSet) -> Option<(Idx, Idx, usize)> {
-    // Apps may become loops (if they are recursive)
-    match set.get(loc).node() {
-        &Node::App(f, x) => {
-            let mut depth: usize = 1;
-            let mut curr_ptr = x;
-            loop {
-                match set.get(curr_ptr).node() {
-                    &Node::App(ff, xx) => {
-                        if ff == f {  // TODO is this a valid way of checking subtree
-                                        // equality (given we're using structural hashing)?
-                            depth += 1;
-                            //parent = curr_ptr;
-                            curr_ptr = xx;
-                        } else {
-                            break;
-                        }
+//#[inline(never)]
+fn get_loop_expansions(hole_map: &HoleMap, pattern: &Pattern, shared: &Arc<SharedData>) ->  (FxHashMap<(Idx, ZId), (ZId, Idx)>, Vec<(ExpandsTo, Vec<Idx>)>) {
+    println!("Getting loop expansions for pattern: {}", pattern.to_expr(&shared));
+    // A loop pointing to a parent node N matches at a node M if, upon starting at M and then
+    // following the same zipper as would take you from N to M, you arrive at a location which
+    // matches the pattern rooted in N - that is, the zipper takes you from one match location to
+    // another
+    //
+    // So, calculating the different loop expansions will require:
+    // - loop over the potential loop depths, i.e. the number of apps in the abstraction so far
+    //   that are ancestors of this hole
+    // - for each such ancestor, get the zipper from that ancestor to the hole (this should just be
+    //   the zipper from the root of the hole "minus" the zipper from the root to that ancestor)
+    // - append that zipper to this hole's zipper - call the resulting zipper Z
+    // - apply Z to each match location of the abstraction; note down those at which you arrive at
+    //   another match location *of the sub-abstraction rooted in that ancestor* (NOT of the
+    //   overall current abstraction) - this is the tricky part, I suppose, because we will need to
+    //   recompute this every time and/or cache the results (which means you need to be careful
+    //   about using a synchronized/consistent caching mechanism and so on)
+    // - return [(loop of depth d, match_locations.filiter(loop of depth d matches here))]
+    let mut loop_extensions: Vec<(ExpandsTo, Vec<Idx>)> = vec![];
+    let mut loop_bodies: FxHashMap<(Idx, ZId), (ZId, Idx)> = Default::default();
+
+    fn potential_loop_zids_helper(
+        root: Idx,
+        hole_zip: &[ZNode], shared: &Arc<SharedData>,
+        potential_loop_zids: &mut FxHashSet<ZId>,
+    ) {
+        // Problem: because abstractions are represented as Patterns internally, we need to
+        // apply the pattern at some match location in the corpus to figure out how many apps
+        // we have as ancestors - however, what we want is the number of apps we have as
+        // ancestors *in the abstraction*; this isn't the same thing at all!
+        // In particular, if one of our ancestors is itself a loop, the expr we will traverse
+        // through in the corpus will have many apps that, in the abstraction, are only
+        // represented by the loop.
+        // TODO address the above
+        
+        let mut curr_zip = vec![];
+        let mut curr_node = root;
+        for znode in hole_zip {
+            match &shared.set[curr_node] {
+                Node::Prim(_) | Node::Var(_) | Node::IVar(_) => {
+                    return;
+                },
+                Node::LoopChoice(_, _) => unimplemented!(),
+                Node::Lam(b) => {
+                    assert!(matches!(znode, ZNode::Body));
+                    curr_node = *b;
+                },
+                Node::App(f, x) => {
+                    potential_loop_zids.insert(shared.zid_of_zip[&curr_zip]);
+                    match znode {
+                        ZNode::Func => curr_node = *f,
+                        ZNode::Arg  => curr_node = *x,
+                        z           => panic!("At app but znode is {:?}", z),
                     }
-                    _ => break,
                 }
             }
-            if depth > 1 {
-                Some((f, curr_ptr, depth))
-            } else {
-                None
-            }
-        },
-        _ => None,
+            curr_zip.push(znode.clone());
+        }
     }
+
+    let mut loops_at_locs: Vec<(ZId, Idx)> = vec![];
+    // TODO I should be able to use any match location below, right?
+    for loc in pattern.match_locations.as_slice() {
+        let hole_zip = &shared.zip_of_zid[hole_map[&loc].zid];
+        let mut potential_loop_zids: FxHashSet<ZId> = Default::default();
+        potential_loop_zids_helper(*loc, hole_zip, shared, &mut potential_loop_zids);
+
+        for loop_zid in potential_loop_zids {
+            //let subpattern = TODO();
+            //let subpattern_match_locs = get_pattern_match_locs(&subpattern);
+            let subpattern_match_locs = pattern.match_locations.clone(); // TODO
+            let mut zip = VecDeque::from(shared.zip_of_zid[hole_map[&loc].zid].clone());
+            //let minus_zip = get_zip(*loc, loop_loc, &shared.set);
+            //if minus_zip.is_none() { panic!(); }
+            //let mut minus_zip = VecDeque::from(minus_zip.unwrap());
+            //println!("zip: {:?}", zip);
+            //println!("minus_zip: {:?}", minus_zip);
+            //loop {
+            //    if minus_zip.is_empty() {
+            //        break;
+            //    } else {
+            //        let a = zip.pop_back();
+            //        let b = minus_zip.pop_back();
+            //        assert_eq!(a, b);
+            //    }
+            //}
+            //// zip now only consists of the zipper from the loop root to the hole
+            let zip = Vec::from(zip);
+            println!("zip: {:?}", zip);
+            let mut prev_loc = *loc;
+            let mut loc_trav = *loc;
+            loop {
+                let res_loc = apply_zip_at_loc(&zip, loc_trav, &shared.set);
+                println!("Loop loc {}, zip {:?}, res_loc {}", loc_trav, zip, res_loc);
+                prev_loc = loc_trav;
+                loc_trav = res_loc;
+                println!("Loop loc {}, zip {:?}, res_loc {}", loc_trav, zip, res_loc);
+                if subpattern_match_locs.contains(&res_loc) {
+                    // Going from match loc -> hole -> (zipper from loop root to hole) lead us to a
+                    // match location for the loop - that is, this choice of loop is valid at this
+                    // match location
+                    // we update the traverser and keep going until we find the body of the loop
+                    //continue;
+                } else {
+                    break;
+                }
+            }
+
+            if prev_loc != *loc {
+                // if the prev pointer has been updated at least once, then we must have seen at
+                // least one loop iteration - furthermore, loc_trav now points to the *body* of the
+                // loop, i.e. the x in f f f f f x.
+                loops_at_locs.push((loop_zid, *loc));
+                let body_zipper = get_zip(*loc, loc_trav, &shared.set).unwrap();  // TODO this is wasteful
+                let body_zid = shared.zid_of_zip[&body_zipper];
+                loop_bodies.insert((*loc, loop_zid), (body_zid, loc_trav));
+            }
+            //
+            // TODO the above could really use some serious optimizing lmao
+            // also jfk I'm hacking a lot here
+        }
+
+        for (loop_zid, l_match_locs) in loops_at_locs.iter().group_by(|(zid, _)| *zid).into_iter() {
+            let match_locs: Vec<Idx> = l_match_locs.map(|(_, loc)| *loc).collect();
+            loop_extensions.push((ExpandsTo::LoopChoice(loop_zid), match_locs));
+        }
+    }
+
+    return (loop_bodies, loop_extensions);
 }
 
-#[inline(never)]
-fn get_loop_expansions(original_pattern: &Pattern, loop_of_loc: &FxHashMap<Idx, Loop>, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<Idx>)> {
-    //let mut loop_expansions = vec![];
-    //for (idxs, _) in loop_of_loc.iter().group_by(|(loc, lp)| (lp.fun, lp.arg)).into_iter() {
-    //    println!("loop expansion: {:?}", idxs);
-    //    loop_expansions.push((ExpandsTo::LoopChoice, idxs));
-    //}
-    //loop_expansions
-    let mut loops: Vec<(ExpandsTo, Vec<Idx>)> = vec![];
-
-    // new loops -- I don't think this is right?
-    loops.push((ExpandsTo::LoopChoice, original_pattern.match_locations.iter().filter(|loc| loop_of_loc.keys().contains(loc)).cloned().collect()));
-
-    return loops;
-}
-
-#[inline(never)]
+//#[inline(never)]
 fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,Arg>, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<Idx>)> {
     let mut ivars_expansions = vec![];
     // consider all ivars used previously
@@ -1407,7 +1487,7 @@ pub struct FinishedPattern {
 }
 
 impl FinishedPattern {
-    #[inline(never)]
+    //#[inline(never)]
     fn new(pattern: Pattern, shared: &SharedData) -> Self {
         let arity = pattern.first_zid_of_ivar.len();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum();
@@ -1485,12 +1565,43 @@ fn get_zip(from: Idx, to: Idx, set: &ExprSet) -> Option<Vec<ZNode>> {
     }
 }
 
+fn apply_zip_at_loc(zip: &[ZNode], loc: Idx, set: &ExprSet) -> Idx {
+
+    println!("apply_zip_at_loc: zip={:?}, loc={}", zip, loc);
+
+    let mut res = loc;
+    for znode in zip {
+        let node = set.get(res).node().clone();
+        match node {
+            Node::Prim(_) | Node::Var(_) | Node::IVar(_) => {
+                //panic!("reached leaf before zipper ran out");
+                return res;
+            }
+            Node::App(f, x) => {
+                match znode {
+                    ZNode::Func => res = f,
+                    ZNode::Arg => res = x,
+                    _ => panic!("can't apply {:?} to app", znode),
+                }
+            },
+            Node::Lam(b) => {
+                match znode {
+                    ZNode::Body => res = b,
+                    _ => panic!("can't apply {:?} to lam", znode),
+                }
+            },
+            Node::LoopChoice(f, x) => unimplemented!(),
+        }
+    }
+    res
+}
+
 
 /// figure out all the N^2 zippers from choosing any given node and then choosing a descendant and returning the zipper from
 /// the node to the descendant. We also collect a bunch of other useful stuff like the argument you would get if you abstracted
 /// the descendant and introduced an invention rooted at the ancestor node.
 #[allow(clippy::type_complexity)]
-#[inline(never)]
+//#[inline(never)]
 fn get_zippers(
     corpus_span: &Span,
     analyzed_cost: &AnalyzedExpr<ExprCost>,
@@ -1500,7 +1611,6 @@ fn get_zippers(
     FxHashMap<Vec<ZNode>, ZId>,
     Vec<Vec<ZNode>>,
     Vec<FxHashMap<Idx,Arg>>,
-    Vec<FxHashMap<Idx,Loop>>,
     FxHashMap<Idx,Vec<ZId>>,
     Vec<ZIdExtension>
 ) {
@@ -1508,14 +1618,12 @@ fn get_zippers(
     let mut zid_of_zip: FxHashMap<Vec<ZNode>, ZId> = Default::default();
     let mut zip_of_zid: Vec<Vec<ZNode>> = Default::default();
     let mut arg_of_zid_node: Vec<FxHashMap<Idx,Arg>> = Default::default();
-    let mut loop_of_zid_node: Vec<FxHashMap<Idx,Loop>> = Default::default();
     let mut zids_of_node: FxHashMap<Idx,Vec<ZId>> = Default::default();
                                                                                 // zipper from node to node
 
     zid_of_zip.insert(vec![], EMPTY_ZID);
     zip_of_zid.push(vec![]);
     arg_of_zid_node.push(FxHashMap::default());
-    loop_of_zid_node.push(FxHashMap::default());
     
     // loop over all nodes in all programs in bottom up order
     for idx in corpus_span.clone() {
@@ -1535,36 +1643,6 @@ fn get_zippers(
             Node::IVar(_) => { unreachable!() }
             Node::Var(_) | Node::Prim(_) => {},
             Node::App(f,x) => {
-                // apps may be the root of a loop.
-                // We need to check this first, because if the
-                // the current app is *not* the root of a loop,
-                // we need to make sure that we proprogate up
-                // the loop information from the children.
-                // TODO I think this breaks in the case where
-                // you have nested loops
-                let mut curr_ptr = x;
-                loop {
-                    match set.get(curr_ptr).node() {
-                        &Node::App(ff, xx) => {
-                            if ff == f {  // TODO is this a valid way of checking subtree
-                                            // equality (given we're using structural hashing)?
-                                curr_ptr = xx;
-                            } else {
-                                break;
-                            }
-                        }
-                        _ => break,
-                    }
-                }
-
-                let this_loop = if curr_ptr != x {
-                    let loop_ = Loop { fun: f, arg: curr_ptr };
-                    loop_of_zid_node[EMPTY_ZID].insert(idx, loop_.clone());
-                    Some(loop_)
-                } else {
-                    None
-                };
-
                 // bubble from `f`
                 for f_zid in zids_of_node[&f].iter() {
                     // clone and extend zip to get new zid for this node
@@ -1574,17 +1652,13 @@ fn get_zippers(
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
                         arg_of_zid_node.push(FxHashMap::default());
-                        loop_of_zid_node.push(FxHashMap::default());
                         zid
                     });
                     // add new zid to this node
                     zids.push(*zid);
-                    // give it the same arg and loop
+                    // give it the same arg
                     let arg = arg_of_zid_node[*f_zid][&f].clone();
                     arg_of_zid_node[*zid].insert(idx, arg);
-                    if let Some(loop_) = loop_of_zid_node[*f_zid].get(&f).cloned() {
-                        loop_of_zid_node[*zid].insert(idx, loop_);
-                    }
                 }
 
                 // bubble from `x`
@@ -1596,7 +1670,6 @@ fn get_zippers(
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
                         arg_of_zid_node.push(FxHashMap::default());
-                        loop_of_zid_node.push(FxHashMap::default());
                         zid
                     });
                     // add new zid to this node
@@ -1604,40 +1677,7 @@ fn get_zippers(
                     // give it the same arg and loop
                     let arg = arg_of_zid_node[*x_zid][&x].clone();
                     arg_of_zid_node[*zid].insert(idx, arg);
-                    if let Some(loop_) = loop_of_zid_node[*x_zid].get(&x).cloned() {
-                        if let Some(this_loop_) = this_loop.as_ref() {
-                            // this should really be one joint condition but AFAIK that's
-                            // not possible in Rust atm
-                            if loop_ == *this_loop_ {
-                                // if we have f (f (f x)), we only want the topmost f to be
-                                // identified as a possible loop. So, instead of copying the
-                                // loop in the child, we delete it; note that an equivalent
-                                // but bigger loop has already been added with an empty zip
-                                // starting at this node
-                                // TODO this is rather broken due to the way structural hasing
-                                // works;
-                                // Say you have g (f (f x)),
-                                // h (f (f (f x))).
-                                // Then in the first prog, you want to record a loop as starting at
-                                // f (f x), but in the second prog, you want to record it as
-                                // starting at (f (f (f x))).
-                                // Yet, due to structural hashing, the two programs *share* f (f
-                                // x); so when you encounter it in the later program, you will
-                                // delete that loop match from the former. Which is really not what
-                                // you want.
-                                // TODO is it OK to just not delete the loop in the child? then
-                                // somehow while rewriting you need to account for this, I guess
-                                //println!("deleting loop {:?} at {:?} with zipper {:?}", loop_, x, zip_of_zid[*x_zid]);
-                                //assert!(loop_of_zid_node[*x_zid].remove(&x).is_some());
-                            } else {
-                                loop_of_zid_node[*zid].insert(idx, loop_);
-                            }
-                        } else {
-                            loop_of_zid_node[*zid].insert(idx, loop_);
-                        }
-                    }
                 }
-
             },
             Node::Lam(b) => {
                 for b_zid in zids_of_node[&b].iter() {
@@ -1649,17 +1689,11 @@ fn get_zippers(
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip.clone());
                         arg_of_zid_node.push(FxHashMap::default());
-                        loop_of_zid_node.push(FxHashMap::default());
                         zid
                     });
 
                     // add new zid to this node
                     zids.push(*zid);
-
-                    // give it the same loop
-                    if let Some(loop_) = loop_of_zid_node[*b_zid].get(&b).cloned() {
-                        loop_of_zid_node[*zid].insert(idx, loop_);
-                    }
 
                     // shift the arg but keep the unshifted part the same
                     let mut arg: Arg = arg_of_zid_node[*b_zid][&b].clone();
@@ -1688,8 +1722,6 @@ fn get_zippers(
         zids_of_node.insert(idx, zids);
     }
 
-    println!("loop_of_zid_node: {:?}", loop_of_zid_node);
-    
 
     let extensions_of_zid = zip_of_zid.iter().map(|zip| {
         let mut zip_body = zip.clone();
@@ -1708,7 +1740,6 @@ fn get_zippers(
     (zid_of_zip,
     zip_of_zid,
     arg_of_zid_node,
-    loop_of_zid_node,
     zids_of_node,
     extensions_of_zid)
 }
@@ -1821,7 +1852,7 @@ impl fmt::Display for CompressionStepResult {
 }
 
 /// calculates the total upper bound on compressive + noncompressive utility
-#[inline(never)]
+//#[inline(never)]
 fn utility_upper_bound(
     match_locations: &[Idx],
     body_utility_lower_bound: i32,
@@ -1836,7 +1867,7 @@ fn utility_upper_bound(
 
 /// This utility is just for any utility terms that we care about that don't directly correspond
 /// to changes in size that come from rewriting with an invention
-#[inline(never)]
+//#[inline(never)]
 fn noncompressive_utility(
     body_utility: i32,
     cfg: &CompressionStepConfig,
@@ -1850,7 +1881,7 @@ fn noncompressive_utility(
 
 /// This takes a partial invention and gives an upper bound on the maximum
 /// compressive_utility() that any completed offspring of this partial invention could have.
-#[inline(never)]
+//#[inline(never)]
 fn compressive_utility_upper_bound(
     match_locations: &[Idx],
     cost_of_node_all: &[i32],
@@ -1869,7 +1900,7 @@ fn compressive_utility_upper_bound(
 
 /// This takes a partial invention and gives an upper bound on the maximum
 /// other_utility() that any completed offspring of this partial invention could have.
-#[inline(never)]
+//#[inline(never)]
 fn noncompressive_utility_upper_bound(
     _body_utility_lower_bound: i32,
     cfg: &CompressionStepConfig,
@@ -1883,7 +1914,7 @@ fn noncompressive_utility_upper_bound(
     
 }
 
-#[inline(never)]
+//#[inline(never)]
 fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
     // * BASIC CALCULATION
@@ -1903,7 +1934,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     UtilityCalculation { util: compressive_utility, corrected_utils }
 }
 
-#[inline(never)]
+//#[inline(never)]
 fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
     // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
     // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
@@ -1941,7 +1972,7 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
     }).collect()
 }
 
-#[inline(never)]
+//#[inline(never)]
 fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_of_loc_once: &[i32]) -> (Vec<i32>,FxHashMap<Idx,bool>) {
     let mut cumulative_utility_of_node: Vec<i32> = vec![0; shared.corpus_span.len()];
     let mut corrected_utils: FxHashMap<Idx,bool> = Default::default();
@@ -1950,7 +1981,7 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
 
         let utility_without_rewrite: i32 = match &shared.set[node] {
             Node::Lam(b) => cumulative_utility_of_node[*b],
-            Node::LoopChoice(f, x) => cumulative_utility_of_node[*f] + cumulative_utility_of_node[*x],
+            Node::LoopChoice(_, x) => cumulative_utility_of_node[*x],
             Node::App(f,x) => cumulative_utility_of_node[*f] + cumulative_utility_of_node[*x],
             Node::Prim(_) | Node::Var(_) => 0,
             Node::IVar(_) => unreachable!(),
@@ -2005,7 +2036,6 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
     }
     let _max_num_to_add = cfg.max_arity - finished.arity;
 
-    let updated_util = false;
     while finished.arity < cfg.max_arity {
         let dcz = finished.pattern.match_locations.iter().map(|loc| {
             let counts = use_counts(&finished.pattern, zip_of_zid, arg_of_zid_node, extensions_of_zid, set, analyzed_ivars, *loc);
@@ -2292,7 +2322,6 @@ pub fn compression_step(
     let (zid_of_zip,
         zip_of_zid,
         arg_of_zid_node,
-        loop_of_zid_node,
         zids_of_node,
         extensions_of_zid) = get_zippers(&corpus_span, &analyzed_cost, &mut set, &mut analyzed_free_vars);
     
@@ -2432,7 +2461,6 @@ pub fn compression_step(
         crit: Mutex::new(crit),
         programs: programs.to_vec(),
         arg_of_zid_node,
-        loop_of_zid_node,
         cost_fn: cost_fn.clone(),
         analyzed_free_vars,
         analyzed_ivars,
