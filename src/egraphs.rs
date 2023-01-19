@@ -1,11 +1,6 @@
 use lambdas::*;
 use rustc_hash::{FxHashSet};
 
-/// does a child first traversal of the egraph and returns a Vec<Idx> in that
-/// order. Notably an Idx will never show up twice (if it showed up earlier
-/// it wont show up again). Assumes no cycles in the EGraph.
-/// Note that I'm pretty usre this will just return 0,1,2,3,... since due to structural
-/// hashing that is a topological ordering
 pub fn topological_ordering(root: Idx, set: &ExprSet) -> Vec<Idx> {
     let mut vec = Vec::new();
     topological_ordering_rec(root, set, &mut vec);
@@ -14,7 +9,6 @@ pub fn topological_ordering(root: Idx, set: &ExprSet) -> Vec<Idx> {
     vec
 }
 
-/// see `topological_ordering`
 fn topological_ordering_rec(root: Idx, set: &ExprSet, vec: &mut Vec<Idx>) {
     for child in set.get(root).children(){
         topological_ordering_rec(child, set, vec);
@@ -53,7 +47,6 @@ fn associate_task_rec(node: Idx, set: &ExprSet, task_id: usize, tasks_of_node: &
     }
 }
 
-/// replace all references to $0 with IVar(set_to)
 #[inline]
 pub fn insert_arg_ivars(e: &mut ExprMut, set_to: i32, init_depth: i32, analyzed_free_vars: &mut AnalyzedExpr<FreeVarAnalysis>) -> Idx {
     analyzed_free_vars.analyze_to(e.set, e.idx);
