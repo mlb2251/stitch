@@ -35,7 +35,7 @@ pub fn rewrite_fast(
         if pattern.pattern.match_locations.binary_search(&unshifted_id).is_ok() // if the pattern matches here
            && (!pattern.util_calc.corrected_utils.contains_key(&unshifted_id) // and either we have no conflict (ie corrected_utils doesnt have an entry)
              || pattern.util_calc.corrected_utils[&unshifted_id]) // or we have a conflict but we choose to accept it (which is contextless in this top down approach so its the right move)
-           && refinements.is_none() // AND we can't currently be in a refinement where rewriting is forbidden
+           && refinements.is_none() // this is always true in practice - leftover from an experimental feature
         //    && !pattern.pattern.first_zid_of_ivar.iter().any(|zid| // and there are no negative vars anywhere in the arguments
         //         shared.egraph[shared.arg_of_zid_node[*zid][&unshifted_id].Idx].data.free_vars.iter().any(|var| *var < 0))
         {
@@ -78,6 +78,7 @@ pub fn rewrite_fast(
                         j += rule.shift;
                     }
                 }
+                // this is always None in practice - leftover from an experimental feature
                 if let Some((refinements,arg_depth)) = refinements.as_ref() {
                     // we're inside the *shifted arg* of a refinement so this var has already been shifted a bit btw
                     // tho thats kinda irrelevant right here
@@ -124,7 +125,8 @@ pub fn rewrite_fast(
     rewritten_exprs
 }
 
-// /// Rewrite with the given abstractions
+/// Rewrite with the given abstractions by performing a ultra heavily pruned version of the compression search
+/// using follow/track.
 pub fn rewrite_with_inventions(
     programs: &[String],
     invs: &[Invention],

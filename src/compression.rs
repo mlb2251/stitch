@@ -235,27 +235,19 @@ impl Default for CompressionStepConfig {
     }
 }
 
-/// A Pattern is a partial invention with holes. The simplest pattern is the single hole `??` which
-/// matches at all nodes in the program set. From this single hole in a top-down manner we grow more complex
-/// patterns like `(+ ?? ??)` and `(+ 3 (* ?? ??))`. Expanding a hole in a pattern always results in a pattern
-/// that matches at a subset of the places that the original pattern matched.
-/// 
-/// `match_locations` is the list of structurally hashed nodes where the pattern matches.
-/// `holes` is the list of zippers that point from the root of the pattern to the holes.
-/// `arg_choices` is the same as `holes` but for the invention arguments like #i
-/// `body_utility` is the cost of the non-hole non-argchoice parts of the pattern so far
+/// A Pattern is a partial abstraction which may have holes
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Pattern {
-    pub holes: Vec<ZId>, // in order of when theyre added NOT left to right
-    arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an argchoice, again these are in order of when they were added
-    pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index of the first use of #i in arg_choices
+    pub holes: Vec<ZId>, // zipper to hole in order of when theyre added NOT left to right
+    arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
+    pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
     pub match_locations: Vec<Idx>, // places where it applies
     pub utility_upper_bound: i32,
     pub body_utility: i32, // the size (in `cost`) of a single use of the pattern body so far
     pub tracked: bool, // for debugging
 }
 
-/// returns the vec of zippers to each ivar
+/// only used during tracking - gets the zippers to args of a pattern
 fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>) -> Option<Vec<Vec<ZId>>> {
 
     // quickly determine arity
@@ -363,8 +355,7 @@ impl Pattern {
             tracked: cfg.follow.is_some(),
         }
     }
-    /// convert pattern to an Expr with `??` in place of holes and `?#` in place of argchoices. Recursive top down
-    /// approach, not particularly efficient.
+    /// convert pattern to an Expr
     fn to_expr(&self, shared: &SharedData) -> ExprOwned {
         let mut set = ExprSet::empty(Order::ChildFirst, false, false);
 
@@ -419,8 +410,7 @@ impl Pattern {
     }
 }
 
-/// The child-ignoring value of a node in the original set of programs. This tells us
-/// what the hole will expand into at this node.
+/// Tells us what a hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum ExpandsTo {
     Lam,
@@ -462,25 +452,19 @@ impl std::fmt::Display for ExpandsTo {
     }
 }
 
-/// a list of znodes, representing a path through a tree (a zipper)
-// pub type Vec<ZId> = Vec<ZNode>;
-/// the index of the empty zid `[]` in the list of zippers
+/// the index of the empty zipper `[]` in the list of zippers
 const EMPTY_ZID: ZId = 0;
 
-/// an argument to an abstraction. `Idx` is the main field here, we can use
-/// it to lookup the corresponding tree using egraph[Idx]
+/// an argument to an abstraction.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Arg {
-    pub shifted_id: Idx,
-    pub unshifted_id: Idx, // in case `Idx` was shifted to make it an arg not sure if this will end up being useful
-    pub shift: i32,
+    pub shifted_id: Idx, // post-shifting node - this tells you what the actual argument is
+    pub unshifted_id: Idx, // tells you which node in the original corpus this was before it was possibly shifted
+    pub shift: i32, // how much was it shifted?
     pub cost: i32,
     pub expands_to: ExpandsTo,
 }
 
-/// ExpandsTo from a &Node node. Returns None if this is
-/// and IVar (which is not considered a node type) and crashes
-/// on Programs node.
 fn expands_to_of_node(node: &Node) -> ExpandsTo {
     match node {
         Node::Var(i) => ExpandsTo::Var(*i),
@@ -491,8 +475,7 @@ fn expands_to_of_node(node: &Node) -> ExpandsTo {
     }
 }
 
-/// Returns Some(ExpandsTo) for what we expect the hole to expand to to follow
-/// the target, and returns None if we expect it to become a ?# argchoice.
+/// Used in debugging - tells you what you'd expect the next hole expansion to be
 fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData) -> ExpandsTo {
     // apply the hole zipper to the original expr being tracked to get the subtree
     // this will expand into, then get the ExpandsTo of that
@@ -630,7 +613,7 @@ impl CriticalMultithreadData {
 
 /// At the end of the day we convert our Inventions into InventionExprs to make
 /// them standalone without needing to carry the EGraph around to figure out what
-/// the body Idx points to.–
+/// the body Idx points to.
 #[derive(Debug, Clone)]
 pub struct Invention {
     pub body: ExprOwned, // invention body (not wrapped in lambdas)
@@ -727,8 +710,8 @@ impl HoleChoice {
     }
 }
 
-/// tells you which zid if any you would get if you extended the depth
-/// (of whatever the current zid is) with any of these znodes.
+/// tells you which zipper if any you would get if you extended the depth
+/// of whatever the current zipper is in any of these directions.
 #[derive(Clone,Debug)]
 pub struct ZIdExtension {
     body: Option<ZId>,
@@ -852,7 +835,8 @@ fn stitch_search(
             let mut holes_after_pop: Vec<ZId> = original_pattern.holes.clone();
             let hole_zid: ZId = holes_after_pop.remove(hole_idx);
 
-            // get the hashmap of args for this hole
+            // get the hashmap for looking up the Arg struct for this hole based on match location. The Arg
+            // struct has a bunch of info about the hole, including what it expands into at each match location
             let arg_of_loc = &shared.arg_of_zid_node[hole_zid];
 
             // sort the match locations by node type (ie what theyll expand into) so that we can do a group_by() on
@@ -1076,6 +1060,10 @@ fn stitch_search(
 }
 
 //#[inline(never)]
+/// Return options for what abstraction arguments (aka ivars, #i) can expand into. When expanding to an ivar that
+/// already exists in the expression the match locations get subset to enforce the equality constraint - for example
+/// in (* #0 #0) both #0s must be the same within each match location. For a fresh ivar that doesn't yet exist in a pattern,
+/// we only allow if it is within our max arity limit.
 fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,Arg>, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<Idx>)> {
     let mut ivars_expansions = vec![];
     // consider all ivars used previously
@@ -1098,7 +1086,7 @@ fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,A
 }
 
 
-/// A finished invention
+/// A finished abstraction
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FinishedPattern {
     pub pattern: Pattern,
@@ -1416,7 +1404,8 @@ fn utility_upper_bound(
 }
 
 /// This utility is just for any utility terms that we care about that don't directly correspond
-/// to changes in size that come from rewriting with an invention
+/// to changes in size that come from rewriting with an invention. Currently this is just the
+/// size of the abstraction itself
 //#[inline(never)]
 fn noncompressive_utility(
     body_utility: i32,
@@ -1523,6 +1512,8 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
 }
 
 //#[inline(never)]
+/// calculate correction factor for the utility that comes from mutually exclusive match locations, where we need
+/// to pick only one of the locations to apply the invention at.
 fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_of_loc_once: &[i32]) -> (Vec<i32>,FxHashMap<Idx,bool>) {
     let mut cumulative_utility_of_node: Vec<i32> = vec![0; shared.corpus_span.len()];
     let mut corrected_utils: FxHashMap<Idx,bool> = Default::default();
@@ -1567,12 +1558,14 @@ pub struct UtilityCalculation {
     pub corrected_utils: FxHashMap<Idx,bool>, // whether to accept
 }
 
+// (not used in popl code - experimental)
 pub fn inverse_delta(cost_once: i32, usages: i32, arg_uses: usize, cost_fn: &ExprCost) -> (i32, i32, i32) {
     let compressive_delta = - (cost_once + cost_fn.cost_app) * usages;
     let noncompressive_delta = arg_uses as i32 * (cost_once - cost_fn.cost_prim_default) ;
     (compressive_delta,noncompressive_delta, compressive_delta+noncompressive_delta)
 }
 
+// (not used in popl code - experimental; always exists at the first return statement unless --inv-arg-cap is turned on)
 #[allow(clippy::too_many_arguments)]
 pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &CompressionStepConfig, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>, cost_fn: &ExprCost) {
     if !cfg.inv_arg_cap || cfg.no_other_util {
@@ -1605,6 +1598,7 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
     }
 }
 
+/// not used in popl code - experimental
 fn possible_to_uninline(counts: FxHashMap<Idx, (i32, Vec<usize>)>, finished_usages: i32, cost_fn: &ExprCost) -> Vec<(i32,i32,i32,i32,Vec<ZId>)> {
     let possible_to_uninline = counts.values()
     // can only have a positive delta to compression if used more times within the abstraction than
@@ -1623,6 +1617,7 @@ fn possible_to_uninline(counts: FxHashMap<Idx, (i32, Vec<usize>)>, finished_usag
     possible_to_uninline.collect()
 }
 
+/// not used in popl code - experimental
 fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>) -> FxHashMap<Idx,(i32,Vec<ZId>)> {
     let mut curr_zip: Vec<ZNode> = vec![];
     let curr_zid: ZId = EMPTY_ZID;
@@ -1676,7 +1671,7 @@ fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[F
     counts
 }
 
-/// Multistep compression. See `compression_step` if you'd just like to do a single step of compression.
+/// Multistep compression
 pub fn multistep_compression_internal(
     train_programs: &[ExprOwned],
     tasks: Option<Vec<String>>,
@@ -1771,9 +1766,7 @@ pub fn multistep_compression_internal(
     step_results
 }
 
-/// Takes a set of programs as an Expr with Programs as its root, and does one full step of compresison.
-/// Returns the top Inventions and the Expr rewritten under that invention along with other useful info in CompressionStepResult
-/// The number of inventions returned is based on cfg.inv_candidates
+/// Takes a set of programs and does one full step of compresison.
 pub fn compression_step(
     programs: &[ExprOwned],
     new_inv_name: &str, // name of the new invention, like "inv4"
@@ -2097,6 +2090,7 @@ pub fn compression_step(
     results
 }
 
+/// toplevel entrypoint to compression used by most apis
 pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, anonymous_to_named: Option<Vec<(String,String)>>, follow: Option<Vec<Invention>>, cfg: &MultistepCompressionConfig) -> (Vec<CompressionStepResult>, serde_json::Value) {
     let mut programs = programs.to_vec();
     let mut cfg = cfg.clone();
@@ -2149,7 +2143,6 @@ pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, an
 
     (step_results, json_res)
 }
-
 
 pub fn json_of_step_results(step_results: &[CompressionStepResult], train_programs: &Vec<ExprOwned>, tasks: Option<Vec<String>>, cost_fn: &ExprCost, cfg: &MultistepCompressionConfig) -> serde_json::Value {
     let rewritten: &Vec<ExprOwned> = step_results.iter().last().map(|res| &res.rewritten).unwrap_or(train_programs);
