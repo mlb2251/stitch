@@ -84,6 +84,13 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub dynamic_batch: bool,
 
+    /// Puts result into eta-long form when rewriting (also requires beta-normal form). This
+    /// can be useful for programs that will be used to train top down synthesizers, but it also
+    /// restricts what abstractions can be found a bit (i.e. only those that can be put in beta-normal
+    /// eta-long form are allowed).
+    #[clap(long)]
+    pub eta_long: bool,
+
     /// [currently not used] Number of invention candidates compression_step should return in a *single* step. Note that
     /// these will be the top n optimal candidates modulo subsumption pruning (and the top-1 is guaranteed
     /// to be globally optimal)
@@ -344,6 +351,45 @@ impl Pattern {
         if cfg.no_top_lambda {
             match_locations.retain(|node| expands_to_of_node(&set[*node]) != ExpandsTo::Lam);
         }
+        if cfg.eta_long {
+
+            assert!(cfg.utility_by_rewrite || cfg.no_mismatch_check, "eta long form requires utility_by_rewrite or no_mismatch_check");
+
+            let match_locations_before = match_locations.clone();
+
+            for node in corpus_span.clone() {
+                if let Node::App(f,_) = &set[node] {
+                    // this for eta long form / dreamcoder compatability: no appzipper bodies can be rooted to the left of an App
+                    // because that means the body is a function type, which isnt allowed. For example an arity 2 invention with a
+                    // function type body would be effectively arity 3 and dreamcoder doesnt support this sort of thing.
+                    match_locations.retain(|node| node != f);
+
+                    if let Node::Lam(_) = &set[*f] {
+                        panic!("corpus was not in beta-normal form")
+                    }
+                }
+            }
+            // check that original corpus was in eta long form, or at least that if a term appears to the left of an
+            // app it never also appears to the right of an app. If it's to the left of an app it must be a function type
+            for node in match_locations_before {
+                match &set[node] {
+                    Node::App(_,x) => {
+                        if !AnalyzedExpr::new(FreeVarAnalysis).analyze_get(set.get(*x)).is_empty() {
+                            // continue if there are free vars in the expression - eg $0 can validly appear to either the left or right of an app
+                            continue 
+                        }
+                        assert!(match_locations.contains(x), "corpus was not in eta long form (?). This appeared both to the left and right of an app: {}; for example it is to the right in: {}", set.get(*x), set.get(node));
+                    },
+                    Node::Lam(b) => {
+                        if !AnalyzedExpr::new(FreeVarAnalysis).analyze_get(set.get(*b)).is_empty() {
+                            continue
+                        }
+                        assert!(match_locations.contains(b), "corpus was not in eta long form (?)");
+                    },
+                    _ => {}
+                }
+            }
+        }
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cost_fn, cfg);
         Pattern {
             holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
@@ -582,11 +628,7 @@ pub struct Tracking {
 impl CriticalMultithreadData {
     /// Create a new mutable multithread data struct with
     /// a worklist that just has a single hole on it
-    fn new(donelist: Vec<FinishedPattern>, corpus_span: &Span, cost_of_node_all: &[i32], num_paths_to_node: &[i32], set: &ExprSet, cost_fn: &ExprCost, cfg: &CompressionStepConfig) -> Self {
-        // push an empty hole onto a new worklist
-        let mut worklist = BinaryHeap::new();
-        worklist.push(HeapItem::new(Pattern::single_hole(corpus_span, cost_of_node_all, num_paths_to_node, set, cost_fn, cfg)));
-        
+    fn new(donelist: Vec<FinishedPattern>, worklist: BinaryHeap<HeapItem>, cfg: &CompressionStepConfig) -> Self {        
         let mut res = CriticalMultithreadData {
             donelist,
             worklist,
@@ -1239,24 +1281,25 @@ fn get_zippers(
                     let mut arg: Arg = arg_of_zid_node[*b_zid][&b].clone();
 
                     if !analyzed_free_vars.analyze_get(set.get(arg.shifted_id)).is_empty() {
-                        // if !shared.cfg.quiet { println!("stepping from child: {}", extract(b, egraph)) }
-                        // if !shared.cfg.quiet { println!("stepping to parent : {}", extract(*treenode, egraph)) }
-                        // if !shared.cfg.quiet { println!("b_zid: {}; b_zip: {:?}", b_zid, zip_of_zid[*b_zid]) }
-                        // if !shared.cfg.quiet { println!("shift from: {}", extract(arg.Idx, egraph)) }
-                        // if !shared.cfg.quiet { println!("shift to:   {}", extract(arg.Idx, egraph)) }
-                        // if !shared.cfg.quiet { println!("total shift: {}", arg.shift) }
+                        // the arg has free vars so we should actually downshift it by 1
                         if analyzed_free_vars[arg.shifted_id].contains(&0) {
-                            // we  go one less than the depth from the root to the arg. That way $0 when we're hopping
-                            // the only  lambda in existence will map to depth_root_to_arg-1 = 1-1 = 0 -> #0 which will then
-                            // be transformed back #0 -> $0 + depth = $0 + 0 = $0 if we thread it directly for example.
+                            // furthermore one of those vars is a 0 then it will get shifted to -1, so we handle that slightly specially
+                            // by inserting an IVar to indicate this
+
+                            // how many lambdas are along this zipper? (including most recent one)
                             let depth_root_to_arg = zip.iter().filter(|x| **x == ZNode::Body).count() as i32;
+
+                            // find all pointers to $0 (this is the `init_depth` parameter) and replace then with #(num_lams - 1) that is
+                            // point past all lambdas except the newly added one. For example if there were no lambdas other than the
+                            // newly added one this would be num_lams=1 so it'd be #0.
                             arg.shifted_id = insert_arg_ivars(&mut set.get_mut(arg.shifted_id), depth_root_to_arg-1, 0, analyzed_free_vars);
                         }
                         arg.shifted_id = set.get_mut(arg.shifted_id).shift(-1, 0, analyzed_free_vars);
                         arg.shift -= 1;
                     }
                     arg_of_zid_node[*zid].insert(idx, arg);
-                }            },
+                }
+            },
         }
         zids_of_node.insert(idx, zids);
     }
@@ -1880,11 +1923,15 @@ pub fn compression_step(
     // define all the important data structures for compression
     let mut donelist: Vec<FinishedPattern> = Default::default(); // completed inventions will go here    
 
+    let single_hole = Pattern::single_hole(&corpus_span, &cost_of_node_all, &num_paths_to_node, &set, cost_fn, cfg);
+
     let mut azero_pruning_cutoff = 0;
 
     // arity 0 inventions
     if !cfg.no_opt_arity_zero {
-        for node in corpus_span.clone() {
+
+        // we use single hole match locations in case they were pruned down from corpus_span by single_hole()
+        for node in single_hole.match_locations.clone() {
 
             // Pruning (FREE VARS): inventions with free vars in the body are not well-defined functions
             // and should thus be discarded
@@ -1967,7 +2014,10 @@ pub fn compression_step(
 
     if !cfg.quiet { println!("got {} arity zero inventions", donelist.len()) }
 
-    let crit = CriticalMultithreadData::new(donelist, &corpus_span, &cost_of_node_all, &num_paths_to_node, &set, cost_fn, cfg);
+    let mut worklist = BinaryHeap::new();
+    worklist.push(HeapItem::new(single_hole));
+
+    let crit = CriticalMultithreadData::new(donelist, worklist, cfg);
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
         programs: programs.to_vec(),
