@@ -75,7 +75,7 @@ pub fn rewrite_fast(
 
                         // wrap like: f => (f $1 $0)
                         for i in 0..arity_of_arg {
-                            let var = owned_set.add(Node::Var((arity_of_arg-i) as i32));
+                            let var = owned_set.add(Node::Var((arity_of_arg-i-1) as i32));
                             shifted_rewritten_arg = owned_set.add(Node::App(shifted_rewritten_arg, var));
                         }
                         // wrap in lambdas: (f $1 $0) => (lam (lam (f $1 $0)))
