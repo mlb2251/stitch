@@ -348,9 +348,7 @@ impl Pattern {
         let body_utility = 0;
         let mut match_locations: Vec<Idx> = corpus_span.clone().collect();
         match_locations.sort(); // we assume match_locations is always sorted
-        if cfg.no_top_lambda {
-            match_locations.retain(|node| expands_to_of_node(&set[*node]) != ExpandsTo::Lam);
-        }
+        
         if cfg.eta_long {
 
             assert!(cfg.utility_by_rewrite || cfg.no_mismatch_check, "eta long form requires utility_by_rewrite or no_mismatch_check");
@@ -390,6 +388,11 @@ impl Pattern {
                 }
             }
         }
+
+        if cfg.no_top_lambda {
+            match_locations.retain(|node| expands_to_of_node(&set[*node]) != ExpandsTo::Lam);
+        }
+
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cost_fn, cfg);
         Pattern {
             holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
