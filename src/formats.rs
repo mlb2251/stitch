@@ -16,7 +16,7 @@ pub enum InputFormat {
 pub struct Input {
     pub train_programs: Vec<String>, // Program strings. 
     pub tasks: Option<Vec<String>>, // Task names for each corresponding string.
-    pub anonymous_to_named: Option<Vec<(String, String)>>, // Vec of [#Dreamcoder invention, fn_i] tuples for any existing inventions in the DSL.
+    pub name_mapping: Option<Vec<(String, String)>>, // Vec of [#Dreamcoder invention, fn_i] tuples for any existing inventions in the DSL.
 }
 
 impl InputFormat {
@@ -55,7 +55,7 @@ impl InputFormat {
                 let input = Input {
                     train_programs: programs,
                     tasks: Some(tasks),
-                    anonymous_to_named: Some(inv_dc_strs),
+                    name_mapping: Some(inv_dc_strs),
                 };
                 Ok(input)
             }
@@ -64,7 +64,7 @@ impl InputFormat {
                 let input = Input {
                     train_programs: programs,
                     tasks: None,
-                    anonymous_to_named: None,
+                    name_mapping: None,
                 };
                 Ok(input)
             }

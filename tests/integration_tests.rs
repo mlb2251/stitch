@@ -22,7 +22,7 @@ fn run_compression(inputs: &Input, cfg: &MultistepCompressionConfig) -> Value {
     multistep_compression(
         &inputs.train_programs,
         inputs.tasks.clone(),
-        inputs.anonymous_to_named.clone(),
+        inputs.name_mapping.clone(),
         None,
         cfg,
         ).1
@@ -33,7 +33,7 @@ fn compare_out_jsons(file: &str, expected_out_file: &str, args: &str, input_form
 
     let mut cfg = MultistepCompressionConfig::parse_from(format!("compress {}",args).split_whitespace());
 
-    cfg.previous_abstractions = input.anonymous_to_named.clone().unwrap_or_default().len();
+    cfg.previous_abstractions = input.name_mapping.clone().unwrap_or_default().len();
 
     let output = run_compression(&input, &cfg);
 

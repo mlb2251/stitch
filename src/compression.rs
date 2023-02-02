@@ -1349,12 +1349,12 @@ pub struct CompressionStepResult {
     pub use_args: Vec<Vec<Idx>>,
     pub dc_inv_str: String,
     pub initial_cost: i32,
-    pub anonymous_to_named: Vec<(String,String)>,
+    pub name_mapping: Vec<(String,String)>,
     pub dc_comparison_millis: Option<usize>,
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, very_first_cost: i32, anonymous_to_named: &[(String,String)], dc_comparison_millis: Option<usize>) -> Self {
+    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, very_first_cost: i32, name_mapping: &[(String,String)], dc_comparison_millis: Option<usize>) -> Self {
 
         let inv = done.to_invention(inv_name, shared);
         let rewritten = rewrite_fast(&done, shared, &Node::Prim(inv.name.clone().into()), &shared.cost_fn);
@@ -1376,19 +1376,19 @@ impl CompressionStepResult {
         
 
         // dreamcoder compatability
-        let dc_inv_str: String = dc_inv_str(&inv, anonymous_to_named);
+        let dc_inv_str: String = dc_inv_str(&inv, name_mapping);
         // Rewrite to dreamcoder syntax with all past invention
         // we rewrite "inv1)" and "inv1 " instead of just "inv1" because we dont want to match on "inv10"
 
         // Combine the past_invs with the existing dreamcoder inventions.
-        let mut anonymous_to_named = anonymous_to_named.to_vec();
-        anonymous_to_named.push((inv.name.clone(), dc_inv_str.clone()));
+        let mut name_mapping = name_mapping.to_vec();
+        name_mapping.push((inv.name.clone(), dc_inv_str.clone()));
         
 
         let rewritten_dreamcoder: Option<Vec<String>> = if !shared.cfg.rewritten_dreamcoder { None } else {
             Some(rewritten.iter().map(|p|{
             let mut res: String = p.to_string();
-            for (name, anonymous) in &anonymous_to_named {
+            for (name, anonymous) in &name_mapping {
                 res = replace_prim_with(&res, name, anonymous);
             }
 
@@ -1398,7 +1398,7 @@ impl CompressionStepResult {
             res
         }).collect())};
 
-        CompressionStepResult { set: shared.set.clone(), inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost: shared.init_cost, anonymous_to_named, dc_comparison_millis }
+        CompressionStepResult { set: shared.set.clone(), inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost: shared.init_cost, name_mapping, dc_comparison_millis }
     }
     pub fn json(&self, cfg: &CompressionStepConfig) -> serde_json::Value {        
         let all_uses: Vec<serde_json::Value> = {
@@ -1724,7 +1724,7 @@ fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[F
 pub fn multistep_compression_internal(
     train_programs: &[ExprOwned],
     tasks: Option<Vec<String>>,
-    anonymous_to_named: Option<Vec<(String, String)>>,
+    name_mapping: Option<Vec<(String, String)>>,
     follow: Option<Vec<Invention>>,
     cfg: &MultistepCompressionConfig
 ) -> Vec<CompressionStepResult> {
@@ -1755,7 +1755,7 @@ pub fn multistep_compression_internal(
             .collect()
     });
 
-    let mut anonymous_to_named = anonymous_to_named.unwrap_or_default();
+    let mut name_mapping = name_mapping.unwrap_or_default();
 
 
 
@@ -1776,14 +1776,14 @@ pub fn multistep_compression_internal(
             &cfg,
             &tasks,
             very_first_cost,
-            &anonymous_to_named,
+            &name_mapping,
             );
 
         if !res.is_empty() {
             // rewrite with the invention
             let res: CompressionStepResult = res[0].clone();
             rewritten = res.rewritten.clone();
-            anonymous_to_named = res.anonymous_to_named.clone();
+            name_mapping = res.name_mapping.clone();
             if !cfg.step.quiet { println!("Chose Invention {}: {}", res.inv.name, res) }
             step_results.push(res);
         } else if follow.is_some() {
@@ -1824,7 +1824,7 @@ pub fn compression_step(
     multistep_cfg: &MultistepCompressionConfig,
     tasks: &[String],
     very_first_cost: i32,
-    anonymous_to_named: &[(String, String)],
+    name_mapping: &[(String, String)],
 ) -> Vec<CompressionStepResult> {
 
     let cfg = &multistep_cfg.step.clone();
@@ -2135,7 +2135,7 @@ pub fn compression_step(
     // construct CompressionStepResults and print some info about them)
     if !shared.cfg.quiet { println!("Cost before: {}", shared.init_cost) }
     for (i,done) in donelist.iter().enumerate() {
-        let res = CompressionStepResult::new(done.clone(), new_inv_name, &mut shared, very_first_cost, anonymous_to_named, dc_comparison_millis);
+        let res = CompressionStepResult::new(done.clone(), new_inv_name, &mut shared, very_first_cost, name_mapping, dc_comparison_millis);
         if !shared.cfg.quiet { println!("{}: {}", i, res) }
         results.push(res);
     }
@@ -2152,7 +2152,7 @@ pub fn compression_step(
 }
 
 /// toplevel entrypoint to compression used by most apis
-pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, anonymous_to_named: Option<Vec<(String,String)>>, follow: Option<Vec<Invention>>, cfg: &MultistepCompressionConfig) -> (Vec<CompressionStepResult>, serde_json::Value) {
+pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, name_mapping: Option<Vec<(String,String)>>, follow: Option<Vec<Invention>>, cfg: &MultistepCompressionConfig) -> (Vec<CompressionStepResult>, serde_json::Value) {
     let mut programs = programs.to_vec();
     let mut cfg = cfg.clone();
 
@@ -2194,7 +2194,7 @@ pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, an
     let step_results = multistep_compression_internal(
         &train_programs, 
         tasks.clone(), 
-        anonymous_to_named, 
+        name_mapping, 
         follow,
         &cfg, 
     );
