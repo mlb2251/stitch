@@ -1744,7 +1744,9 @@ pub fn multistep_compression_internal(
         assert_eq!(follow.len(), cfg.iterations);
         cfg.step.follow_prune = true;
         cfg.step.rewrite_check = false; // this will cause a loop
-        cfg.step.quiet = true;
+        if !cfg.verbose_rewrite{
+            cfg.step.quiet = true;
+        }
         cfg.step.no_opt();
     }
 
