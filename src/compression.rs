@@ -114,10 +114,6 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_mismatch_check: bool,
 
-    /// Makes it so inventions cant start with a lambda at the top
-    #[clap(long)]
-    pub no_top_lambda: bool,
-
     /// Pattern or abstraction to follow and give prinouts about. If `follow_prune=True` we will aggressively prune to
     /// only follow this pattern, otherwise we will just verbosely print when ancestors of this pattern
     /// are encountered.
@@ -394,7 +390,8 @@ impl Pattern {
             }
         }
 
-        if cfg.no_top_lambda {
+        // to guarantee eta long we cant allow abstractions to start with a lambda at the top
+        if cfg.eta_long {
             match_locations.retain(|node| expands_to_of_node(&set[*node]) != ExpandsTo::Lam);
         }
 
