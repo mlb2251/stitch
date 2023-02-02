@@ -51,7 +51,7 @@ fn main() {
     let (mean_depth, std_depth) = get_stats(&depths);
 
     println!("Number of programs: {}", programs.len());
-    println!("Costs: mean={:.2}, std={:.2}", mean_cost, std_cost);
-    println!("Lengths: mean={:.2}, std={:.2}", mean_length, std_length);
-    println!("Depths: mean={:.2}, std={:.2}", mean_depth, std_depth);
+    println!("Costs: mean={mean_cost:.2}, std={std_cost:.2}");
+    println!("Lengths: mean={mean_length:.2}, std={std_length:.2}");
+    println!("Depths: mean={mean_depth:.2}, std={std_depth:.2}");
 }

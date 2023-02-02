@@ -35,7 +35,7 @@ impl InputFormat {
                 let inv_dc_strs: Vec<(String, String)> = dc_invs
                     .into_iter()
                     .enumerate()
-                    .map(|(i, dc_str)| (format!("dreamcoder_abstraction_{}", i), dc_str)) // TODO: determine if we need to replace these in the future.
+                    .map(|(i, dc_str)| (format!("dreamcoder_abstraction_{i}"), dc_str)) // TODO: determine if we need to replace these in the future.
                     .collect();
                 let mut programs: Vec<String> = Vec::default();
                 let mut tasks: Vec<String> = Vec::default();
@@ -60,7 +60,7 @@ impl InputFormat {
                 Ok(input)
             }
             InputFormat::ProgramsList => {
-                let programs: Vec<String> = from_reader(File::open(path).map_err(|e| format!("file not found, error code {:?}", e))?).map_err(|e| format!("json parser error, are you sure you wanted format {:?}? Error code was {:?}", self, e))?;
+                let programs: Vec<String> = from_reader(File::open(path).map_err(|e| format!("file not found, error code {e:?}"))?).map_err(|e| format!("json parser error, are you sure you wanted format {self:?}? Error code was {e:?}"))?;
                 let input = Input {
                     train_programs: programs,
                     tasks: None,

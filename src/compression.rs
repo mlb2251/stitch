@@ -496,9 +496,9 @@ impl std::fmt::Display for ExpandsTo {
         match self {
             ExpandsTo::Lam => write!(f, "(lam ??)"),
             ExpandsTo::App => write!(f, "(?? ??)"),
-            ExpandsTo::Var(v) => write!(f, "${}", v),
-            ExpandsTo::Prim(p) => write!(f, "{}", p),
-            ExpandsTo::IVar(v) => write!(f, "#{}", v),
+            ExpandsTo::Var(v) => write!(f, "${v}"),
+            ExpandsTo::Prim(p) => write!(f, "{p}"),
+            ExpandsTo::IVar(v) => write!(f, "#{v}"),
         }
     }
 }
@@ -926,7 +926,7 @@ fn stitch_search(
                         && locs.iter().all(|node| shared.tasks_of_node[*node].len() == 1)
                         && locs.iter().all(|node| shared.tasks_of_node[locs[0]].iter().next() == shared.tasks_of_node[*node].iter().next()) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
-                    if tracked && !shared.cfg.quiet { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], Node::Prim(format!("<{}>",expands_to).into()))) }
+                    if tracked && !shared.cfg.quiet { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], Node::Prim(format!("<{expands_to}>").into()))) }
                     continue 'expansion;
                 }
 
@@ -1364,7 +1364,7 @@ impl CompressionStepResult {
         let final_cost = shared.root_idxs_of_task.iter().map(|root_idxs|
             root_idxs.iter().map(|idx| rewritten[*idx].cost(&shared.cost_fn)).min().unwrap()
         ).sum::<i32>();
-        if expected_cost != final_cost && !shared.cfg.quiet { println!("*** expected cost {} != final cost {}", expected_cost, final_cost) }
+        if expected_cost != final_cost && !shared.cfg.quiet { println!("*** expected cost {expected_cost} != final cost {final_cost}") }
         let multiplier = shared.init_cost as f64 / final_cost as f64;
         let multiplier_wrt_orig = very_first_cost as f64 / final_cost as f64;
         let uses = done.usages;
@@ -1761,7 +1761,7 @@ pub fn multistep_compression_internal(
 
 
     for i in 0..cfg.iterations {
-        if !cfg.step.quiet { println!("{}",format!("\n=======Iteration {}=======",i).blue().bold()) }
+        if !cfg.step.quiet { println!("{}",format!("\n=======Iteration {i}=======").blue().bold()) }
         let inv_name = if let Some(follow) = &follow {
             cfg.step.follow = Some(follow[i].body.to_string());
             follow[i].name.clone()
@@ -1790,7 +1790,7 @@ pub fn multistep_compression_internal(
             // if `follow` was given then we will keep going for the full set of iterations
             if !cfg.step.quiet { println!("Invention not found: {}", cfg.step.follow.as_ref().unwrap() ) }
         } else {
-            if !cfg.step.quiet { println!("No inventions found at iteration {}",i) }
+            if !cfg.step.quiet { println!("No inventions found at iteration {i}") }
             break;    
         }
     }
@@ -2136,7 +2136,7 @@ pub fn compression_step(
     if !shared.cfg.quiet { println!("Cost before: {}", shared.init_cost) }
     for (i,done) in donelist.iter().enumerate() {
         let res = CompressionStepResult::new(done.clone(), new_inv_name, &mut shared, very_first_cost, name_mapping, dc_comparison_millis);
-        if !shared.cfg.quiet { println!("{}: {}", i, res) }
+        if !shared.cfg.quiet { println!("{i}: {res}") }
         results.push(res);
     }
 

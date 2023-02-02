@@ -45,9 +45,9 @@ fn main() {
     }
 
     std::fs::write(out_path, serde_json::to_string_pretty(&json_res).unwrap()).unwrap();
-    if !args.multistep.silent{ println!("Wrote to {:?}", out_path) };
+    if !args.multistep.silent{ println!("Wrote to {out_path:?}") };
     if let Some(out_path) = args.save_rewritten {
-        if !args.multistep.silent{ println!("Wrote rewritten things to {:?}", out_path) };
+        if !args.multistep.silent{ println!("Wrote rewritten things to {out_path:?}") };
         std::fs::write(&out_path, serde_json::to_string_pretty(&step_results.iter().last().unwrap().rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>()).unwrap()).unwrap();
     }
 
