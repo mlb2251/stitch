@@ -170,6 +170,11 @@ pub fn rewrite_with_inventions(
     cfg.step.max_arity = invs.iter().map(|inv| inv.arity).max().unwrap();
     cfg.silent = true;
 
+    if cfg.verbose_rewrite {
+        cfg.silent = false;
+        cfg.step.quiet = false;
+    }
+
     // ugh somewhat gross to just set this to true
     cfg.step.rewritten_dreamcoder = true;
     cfg.step.rewritten_intermediates = true;

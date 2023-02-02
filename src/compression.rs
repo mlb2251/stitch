@@ -54,6 +54,11 @@ pub struct MultistepCompressionConfig {
     #[clap(long)]
     pub silent: bool,
 
+    /// Very verbose when rewriting happens - turns off --silent and --quiet which are usually forced on
+    /// in rewriting
+    #[clap(long)]
+    pub verbose_rewrite: bool,
+
     #[clap(flatten)]
     pub step: CompressionStepConfig,
 }
