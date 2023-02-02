@@ -155,26 +155,26 @@ pub fn rewrite_fast(
 pub fn rewrite_with_inventions(
     programs: &[String],
     invs: &[Invention],
-    cfg: &CostConfig,
+    cfg: &MultistepCompressionConfig,
 ) -> (Vec<String>, Vec<CompressionStepResult>, serde_json::Value) {
 
     // if invs.is_empty() {
     //     return programs.to_vec()
     // }
 
+    let mut cfg = cfg.clone();
+
     // programs.to_vec()
     let follow = Some(invs.to_vec());
-    let mut multistep_cfg = MultistepCompressionConfig::new();
-    multistep_cfg.step.cost = cfg.clone();
-    multistep_cfg.iterations = invs.len();
-    multistep_cfg.step.max_arity = invs.iter().map(|inv| inv.arity).max().unwrap();
-    multistep_cfg.silent = true;
+    cfg.iterations = invs.len();
+    cfg.step.max_arity = invs.iter().map(|inv| inv.arity).max().unwrap();
+    cfg.silent = true;
 
     // ugh somewhat gross to just set this to true
-    multistep_cfg.step.rewritten_dreamcoder = true;
-    multistep_cfg.step.rewritten_intermediates = true;
+    cfg.step.rewritten_dreamcoder = true;
+    cfg.step.rewritten_intermediates = true;
 
-    let (step_results, json_res) = multistep_compression(programs, None, None, follow, &multistep_cfg);
+    let (step_results, json_res) = multistep_compression(programs, None, None, follow, &cfg);
 
     // return the last one - note that if an abstraction wasn't used anywhere it will not be included in the step_results so this
     // may be shorter than invs.len(), however we do ensure that we continue searching for the rest of the abstractions if this happens

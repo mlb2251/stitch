@@ -618,6 +618,7 @@ pub struct SharedData {
     pub first_train_cost: i32,
     pub stats: Mutex<Stats>,
     pub cfg: CompressionStepConfig,
+    pub multistep_cfg: MultistepCompressionConfig,
     pub tracking: Option<Tracking>,
 }
 
@@ -1070,7 +1071,7 @@ fn stitch_search(
                     if shared.cfg.rewrite_check {
                         // run rewriting just to make sure the assert in it passes
                         let rw_fast = rewrite_fast(&finished_pattern, &shared, &Node::Prim("fake_inv".into()), &shared.cost_fn);
-                        let (rw_slow, _, _) = rewrite_with_inventions(&shared.programs.iter().map(|p|p.to_string()).collect::<Vec<_>>(), &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.cfg.cost);
+                        let (rw_slow, _, _) = rewrite_with_inventions(&shared.programs.iter().map(|p|p.to_string()).collect::<Vec<_>>(), &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.multistep_cfg);
                         for (fast,slow) in rw_fast.iter().zip(rw_slow.iter()) {
                             assert_eq!(fast.to_string(), slow.to_string());
                         }
@@ -1768,7 +1769,7 @@ pub fn multistep_compression_internal(
         let res: Vec<CompressionStepResult> = compression_step(
             &rewritten,
             &inv_name,
-            &cfg.step,
+            &cfg,
             &tasks,
             very_first_cost,
             &anonymous_to_named,
@@ -1816,11 +1817,13 @@ pub fn multistep_compression_internal(
 pub fn compression_step(
     programs: &[ExprOwned],
     new_inv_name: &str, // name of the new invention, like "inv4"
-    cfg: &CompressionStepConfig,
+    multistep_cfg: &MultistepCompressionConfig,
     tasks: &[String],
     very_first_cost: i32,
     anonymous_to_named: &[(String, String)],
 ) -> Vec<CompressionStepResult> {
+
+    let cfg = &multistep_cfg.step.clone();
 
     let cost_fn = &cfg.cost.expr_cost();
 
@@ -2048,6 +2051,7 @@ pub fn compression_step(
         first_train_cost,
         stats: Mutex::new(stats),
         cfg: cfg.clone(),
+        multistep_cfg: multistep_cfg.clone(),
         tracking,
     });
 

@@ -43,12 +43,12 @@ pub struct RewriteArgs {
     #[clap(long, arg_enum, default_value = "programs-list")]
     pub fmt: InputFormat,
 
-    #[clap(flatten)]
-    pub cost: CostConfig,
-
     /// return the rewritten programs in dreamcoder (#(lambda)) format
     #[clap(long)]
     pub dreamcoder_output: bool,
+
+    #[clap(flatten)]
+    pub cost: MultistepCompressionConfig,
 }
 
 // Match the relevant input format.
