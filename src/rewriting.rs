@@ -176,8 +176,8 @@ pub fn rewrite_with_inventions(
     }
 
     // ugh somewhat gross to just set this to true
-    cfg.step.rewritten_dreamcoder = true;
-    cfg.step.rewritten_intermediates = true;
+    // cfg.step.rewritten_dreamcoder = true;
+    // cfg.step.rewritten_intermediates = true;
 
     let (step_results, json_res) = multistep_compression(programs, None, None, follow, &cfg);
 
