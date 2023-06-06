@@ -21,8 +21,8 @@ pub fn programs_info(programs: &[ExprOwned], cost_fn: &ExprCost) {
     let max_depth = programs.iter().map(|e| e.depth()).max().unwrap();
     println!("Programs:");
     println!("\t num: {}",programs.len());
-    println!("\t max cost: {}",max_cost);
-    println!("\t max depth: {}",max_depth); 
+    println!("\t max cost: {max_cost}");
+    println!("\t max depth: {max_depth}"); 
 }
 
 /// provides a timestamp as a string in a format you can use for file/folder names: YYYY-MM-DD_HH-MM-SS
@@ -61,7 +61,7 @@ pub fn dc_inv_str(inv: &Invention, dreamcoder_translations: &[(String, String)])
         body.idx = body.set.add(Node::Lam(body.idx));
     }
     // add the "#" that dreamcoder wants and change lam -> lambda
-    let mut res: String = format!("#{}", body);
+    let mut res: String = format!("#{body}");
     res = res.replace("(lam ", "(lambda ");
     // inline any past inventions using their dc_inv_str. Match on "fn_i)" and "fn_i " to avoid matching fn_1 on fn_10 or any other prefix
     for (inv_name, dc_translation) in dreamcoder_translations.iter() {
@@ -74,17 +74,17 @@ pub fn dc_inv_str(inv: &Invention, dreamcoder_translations: &[(String, String)])
 
 pub fn replace_prim_with(s: &str, prim: &str, new: &str) -> String {
     let mut res: String = s.to_string();
-    res = res.replace(&format!(" {})",prim), &format!(" {})",new));
+    res = res.replace(&format!(" {prim})"), &format!(" {new})"));
     // we need to do the " {} " case twice to handle multioverlaps like fn_i fn_i fn_i fn_i which will replace at locations 1 and 3
     // in the first replace() and 2 and 4 in the second replace due to overlapping matches.
-    res = res.replace(&format!(" {} ",prim), &format!(" {} ",new));
-    res = res.replace(&format!(" {} ",prim), &format!(" {} ",new));
-    assert!(!res.contains(&format!(" {} ",prim)));
-    res = res.replace(&format!("({} ",prim), &format!("({} ",new));
-    if res.starts_with(&format!("{} ",prim)) {
+    res = res.replace(&format!(" {prim} "), &format!(" {new} "));
+    res = res.replace(&format!(" {prim} "), &format!(" {new} "));
+    assert!(!res.contains(&format!(" {prim} ")));
+    res = res.replace(&format!("({prim} "), &format!("({new} "));
+    if res.starts_with(&format!("{prim} ")) {
         res = format!("{} {}", new, &res[prim.len()..]);
     }
-    if res.ends_with(&format!(" {}",prim)) {
+    if res.ends_with(&format!(" {prim}")) {
         res = format!("{} {}", &res[..res.len()-prim.len()], new);
     }
     if res == prim {

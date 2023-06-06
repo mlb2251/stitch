@@ -43,12 +43,12 @@ pub struct RewriteArgs {
     #[clap(long, arg_enum, default_value = "programs-list")]
     pub fmt: InputFormat,
 
-    #[clap(flatten)]
-    pub cost: CostConfig,
-
     /// return the rewritten programs in dreamcoder (#(lambda)) format
     #[clap(long)]
     pub dreamcoder_output: bool,
+
+    #[clap(flatten)]
+    pub cost: MultistepCompressionConfig,
 }
 
 // Match the relevant input format.
@@ -79,9 +79,9 @@ fn main() {
     let inventions = inventions_data["abstractions"].as_array().unwrap();
 
 
-    let mut anonymous_to_named = input.anonymous_to_named.clone().unwrap_or_default();
-    anonymous_to_named.extend(inventions.iter().map(|invention| (invention["name"].as_str().unwrap().to_string(),invention["dreamcoder"].as_str().unwrap().to_string())));
-    anonymous_to_named.sort_by_key(|(_, dc_name)| dc_name.len());
+    let mut name_mapping = input.name_mapping.clone().unwrap_or_default();
+    name_mapping.extend(inventions.iter().map(|invention| (invention["name"].as_str().unwrap().to_string(),invention["dreamcoder"].as_str().unwrap().to_string())));
+    name_mapping.sort_by_key(|(_, dc_name)| dc_name.len());
 
     let inventions: Vec<Invention> = inventions
         .iter()
@@ -110,7 +110,7 @@ fn main() {
                 let task_name = input.tasks.clone().map(|tasks| tasks[i].clone()).unwrap_or_else(||i.to_string());
                 let mut pretty_program = pretty_program.to_string();
                 if args.dreamcoder_output {
-                    for (name, dc_translation) in anonymous_to_named.iter().rev() {
+                    for (name, dc_translation) in name_mapping.iter().rev() {
                         pretty_program = replace_prim_with(&pretty_program, name, dc_translation);
                     }
                 }

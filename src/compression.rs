@@ -54,6 +54,11 @@ pub struct MultistepCompressionConfig {
     #[clap(long)]
     pub silent: bool,
 
+    /// Very verbose when rewriting happens - turns off --silent and --quiet which are usually forced on
+    /// in rewriting
+    #[clap(long)]
+    pub verbose_rewrite: bool,
+
     #[clap(flatten)]
     pub step: CompressionStepConfig,
 }
@@ -84,6 +89,13 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub dynamic_batch: bool,
 
+    /// Puts result into eta-long form when rewriting (also requires beta-normal form). This
+    /// can be useful for programs that will be used to train top down synthesizers, but it also
+    /// restricts what abstractions can be found a bit (i.e. only those that can be put in beta-normal
+    /// eta-long form are allowed).
+    #[clap(long)]
+    pub eta_long: bool,
+
     /// [currently not used] Number of invention candidates compression_step should return in a *single* step. Note that
     /// these will be the top n optimal candidates modulo subsumption pruning (and the top-1 is guaranteed
     /// to be globally optimal)
@@ -101,10 +113,6 @@ pub struct CompressionStepConfig {
     /// to do this if you truly dont mind unsoundness for a minute
     #[clap(long)]
     pub no_mismatch_check: bool,
-
-    /// Makes it so inventions cant start with a lambda at the top
-    #[clap(long)]
-    pub no_top_lambda: bool,
 
     /// Pattern or abstraction to follow and give prinouts about. If `follow_prune=True` we will aggressively prune to
     /// only follow this pattern, otherwise we will just verbosely print when ancestors of this pattern
@@ -341,9 +349,52 @@ impl Pattern {
         let body_utility = 0;
         let mut match_locations: Vec<Idx> = corpus_span.clone().collect();
         match_locations.sort(); // we assume match_locations is always sorted
-        if cfg.no_top_lambda {
+        
+        if cfg.eta_long {
+
+            assert!(cfg.utility_by_rewrite || cfg.no_mismatch_check, "eta long form requires utility_by_rewrite or no_mismatch_check");
+
+            let match_locations_before = match_locations.clone();
+
+            for node in corpus_span.clone() {
+                if let Node::App(f,_) = &set[node] {
+                    // this for eta long form / dreamcoder compatability: no appzipper bodies can be rooted to the left of an App
+                    // because that means the body is a function type, which isnt allowed. For example an arity 2 invention with a
+                    // function type body would be effectively arity 3 and dreamcoder doesnt support this sort of thing.
+                    match_locations.retain(|node| node != f);
+
+                    if let Node::Lam(_) = &set[*f] {
+                        panic!("corpus was not in beta-normal form")
+                    }
+                }
+            }
+            // check that original corpus was in eta long form, or at least that if a term appears to the left of an
+            // app it never also appears to the right of an app. If it's to the left of an app it must be a function type
+            for node in match_locations_before {
+                match &set[node] {
+                    Node::App(_,x) => {
+                        if !AnalyzedExpr::new(FreeVarAnalysis).analyze_get(set.get(*x)).is_empty() {
+                            // continue if there are free vars in the expression - eg $0 can validly appear to either the left or right of an app
+                            continue 
+                        }
+                        assert!(match_locations.contains(x), "corpus was not in eta long form (?). This appeared both to the left and right of an app: {}; for example it is to the right in: {}", set.get(*x), set.get(node));
+                    },
+                    Node::Lam(b) => {
+                        if !AnalyzedExpr::new(FreeVarAnalysis).analyze_get(set.get(*b)).is_empty() {
+                            continue
+                        }
+                        assert!(match_locations.contains(b), "corpus was not in eta long form (?)");
+                    },
+                    _ => {}
+                }
+            }
+        }
+
+        // to guarantee eta long we cant allow abstractions to start with a lambda at the top
+        if cfg.eta_long {
             match_locations.retain(|node| expands_to_of_node(&set[*node]) != ExpandsTo::Lam);
         }
+
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cost_fn, cfg);
         Pattern {
             holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
@@ -445,9 +496,9 @@ impl std::fmt::Display for ExpandsTo {
         match self {
             ExpandsTo::Lam => write!(f, "(lam ??)"),
             ExpandsTo::App => write!(f, "(?? ??)"),
-            ExpandsTo::Var(v) => write!(f, "${}", v),
-            ExpandsTo::Prim(p) => write!(f, "{}", p),
-            ExpandsTo::IVar(v) => write!(f, "#{}", v),
+            ExpandsTo::Var(v) => write!(f, "${v}"),
+            ExpandsTo::Prim(p) => write!(f, "{p}"),
+            ExpandsTo::IVar(v) => write!(f, "#{v}"),
         }
     }
 }
@@ -569,6 +620,7 @@ pub struct SharedData {
     pub first_train_cost: i32,
     pub stats: Mutex<Stats>,
     pub cfg: CompressionStepConfig,
+    pub multistep_cfg: MultistepCompressionConfig,
     pub tracking: Option<Tracking>,
 }
 
@@ -582,11 +634,7 @@ pub struct Tracking {
 impl CriticalMultithreadData {
     /// Create a new mutable multithread data struct with
     /// a worklist that just has a single hole on it
-    fn new(donelist: Vec<FinishedPattern>, corpus_span: &Span, cost_of_node_all: &[i32], num_paths_to_node: &[i32], set: &ExprSet, cost_fn: &ExprCost, cfg: &CompressionStepConfig) -> Self {
-        // push an empty hole onto a new worklist
-        let mut worklist = BinaryHeap::new();
-        worklist.push(HeapItem::new(Pattern::single_hole(corpus_span, cost_of_node_all, num_paths_to_node, set, cost_fn, cfg)));
-        
+    fn new(donelist: Vec<FinishedPattern>, worklist: BinaryHeap<HeapItem>, cfg: &CompressionStepConfig) -> Self {        
         let mut res = CriticalMultithreadData {
             donelist,
             worklist,
@@ -878,7 +926,7 @@ fn stitch_search(
                         && locs.iter().all(|node| shared.tasks_of_node[*node].len() == 1)
                         && locs.iter().all(|node| shared.tasks_of_node[locs[0]].iter().next() == shared.tasks_of_node[*node].iter().next()) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
-                    if tracked && !shared.cfg.quiet { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], Node::Prim(format!("<{}>",expands_to).into()))) }
+                    if tracked && !shared.cfg.quiet { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], Node::Prim(format!("<{expands_to}>").into()))) }
                     continue 'expansion;
                 }
 
@@ -1025,7 +1073,7 @@ fn stitch_search(
                     if shared.cfg.rewrite_check {
                         // run rewriting just to make sure the assert in it passes
                         let rw_fast = rewrite_fast(&finished_pattern, &shared, &Node::Prim("fake_inv".into()), &shared.cost_fn);
-                        let (rw_slow, _, _) = rewrite_with_inventions(&shared.programs.iter().map(|p|p.to_string()).collect::<Vec<_>>(), &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.cfg.cost);
+                        let (rw_slow, _, _) = rewrite_with_inventions(&shared.programs.iter().map(|p|p.to_string()).collect::<Vec<_>>(), &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.multistep_cfg);
                         for (fast,slow) in rw_fast.iter().zip(rw_slow.iter()) {
                             assert_eq!(fast.to_string(), slow.to_string());
                         }
@@ -1239,24 +1287,25 @@ fn get_zippers(
                     let mut arg: Arg = arg_of_zid_node[*b_zid][&b].clone();
 
                     if !analyzed_free_vars.analyze_get(set.get(arg.shifted_id)).is_empty() {
-                        // if !shared.cfg.quiet { println!("stepping from child: {}", extract(b, egraph)) }
-                        // if !shared.cfg.quiet { println!("stepping to parent : {}", extract(*treenode, egraph)) }
-                        // if !shared.cfg.quiet { println!("b_zid: {}; b_zip: {:?}", b_zid, zip_of_zid[*b_zid]) }
-                        // if !shared.cfg.quiet { println!("shift from: {}", extract(arg.Idx, egraph)) }
-                        // if !shared.cfg.quiet { println!("shift to:   {}", extract(arg.Idx, egraph)) }
-                        // if !shared.cfg.quiet { println!("total shift: {}", arg.shift) }
+                        // the arg has free vars so we should actually downshift it by 1
                         if analyzed_free_vars[arg.shifted_id].contains(&0) {
-                            // we  go one less than the depth from the root to the arg. That way $0 when we're hopping
-                            // the only  lambda in existence will map to depth_root_to_arg-1 = 1-1 = 0 -> #0 which will then
-                            // be transformed back #0 -> $0 + depth = $0 + 0 = $0 if we thread it directly for example.
+                            // furthermore one of those vars is a 0 then it will get shifted to -1, so we handle that slightly specially
+                            // by inserting an IVar to indicate this
+
+                            // how many lambdas are along this zipper? (including most recent one)
                             let depth_root_to_arg = zip.iter().filter(|x| **x == ZNode::Body).count() as i32;
+
+                            // find all pointers to $0 (this is the `init_depth` parameter) and replace then with #(num_lams - 1) that is
+                            // point past all lambdas except the newly added one. For example if there were no lambdas other than the
+                            // newly added one this would be num_lams=1 so it'd be #0.
                             arg.shifted_id = insert_arg_ivars(&mut set.get_mut(arg.shifted_id), depth_root_to_arg-1, 0, analyzed_free_vars);
                         }
                         arg.shifted_id = set.get_mut(arg.shifted_id).shift(-1, 0, analyzed_free_vars);
                         arg.shift -= 1;
                     }
                     arg_of_zid_node[*zid].insert(idx, arg);
-                }            },
+                }
+            },
         }
         zids_of_node.insert(idx, zids);
     }
@@ -1300,12 +1349,12 @@ pub struct CompressionStepResult {
     pub use_args: Vec<Vec<Idx>>,
     pub dc_inv_str: String,
     pub initial_cost: i32,
-    pub anonymous_to_named: Vec<(String,String)>,
+    pub name_mapping: Vec<(String,String)>,
     pub dc_comparison_millis: Option<usize>,
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, very_first_cost: i32, anonymous_to_named: &[(String,String)], dc_comparison_millis: Option<usize>) -> Self {
+    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, very_first_cost: i32, name_mapping: &[(String,String)], dc_comparison_millis: Option<usize>) -> Self {
 
         let inv = done.to_invention(inv_name, shared);
         let rewritten = rewrite_fast(&done, shared, &Node::Prim(inv.name.clone().into()), &shared.cost_fn);
@@ -1315,7 +1364,7 @@ impl CompressionStepResult {
         let final_cost = shared.root_idxs_of_task.iter().map(|root_idxs|
             root_idxs.iter().map(|idx| rewritten[*idx].cost(&shared.cost_fn)).min().unwrap()
         ).sum::<i32>();
-        if expected_cost != final_cost && !shared.cfg.quiet { println!("*** expected cost {} != final cost {}", expected_cost, final_cost) }
+        if expected_cost != final_cost && !shared.cfg.quiet { println!("*** expected cost {expected_cost} != final cost {final_cost}") }
         let multiplier = shared.init_cost as f64 / final_cost as f64;
         let multiplier_wrt_orig = very_first_cost as f64 / final_cost as f64;
         let uses = done.usages;
@@ -1327,19 +1376,19 @@ impl CompressionStepResult {
         
 
         // dreamcoder compatability
-        let dc_inv_str: String = dc_inv_str(&inv, anonymous_to_named);
+        let dc_inv_str: String = dc_inv_str(&inv, name_mapping);
         // Rewrite to dreamcoder syntax with all past invention
         // we rewrite "inv1)" and "inv1 " instead of just "inv1" because we dont want to match on "inv10"
 
         // Combine the past_invs with the existing dreamcoder inventions.
-        let mut anonymous_to_named = anonymous_to_named.to_vec();
-        anonymous_to_named.push((inv.name.clone(), dc_inv_str.clone()));
+        let mut name_mapping = name_mapping.to_vec();
+        name_mapping.push((inv.name.clone(), dc_inv_str.clone()));
         
 
         let rewritten_dreamcoder: Option<Vec<String>> = if !shared.cfg.rewritten_dreamcoder { None } else {
             Some(rewritten.iter().map(|p|{
             let mut res: String = p.to_string();
-            for (name, anonymous) in &anonymous_to_named {
+            for (name, anonymous) in &name_mapping {
                 res = replace_prim_with(&res, name, anonymous);
             }
 
@@ -1349,7 +1398,7 @@ impl CompressionStepResult {
             res
         }).collect())};
 
-        CompressionStepResult { set: shared.set.clone(), inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost: shared.init_cost, anonymous_to_named, dc_comparison_millis }
+        CompressionStepResult { set: shared.set.clone(), inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost: shared.init_cost, name_mapping, dc_comparison_millis }
     }
     pub fn json(&self, cfg: &CompressionStepConfig) -> serde_json::Value {        
         let all_uses: Vec<serde_json::Value> = {
@@ -1675,7 +1724,7 @@ fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[F
 pub fn multistep_compression_internal(
     train_programs: &[ExprOwned],
     tasks: Option<Vec<String>>,
-    anonymous_to_named: Option<Vec<(String, String)>>,
+    name_mapping: Option<Vec<(String, String)>>,
     follow: Option<Vec<Invention>>,
     cfg: &MultistepCompressionConfig
 ) -> Vec<CompressionStepResult> {
@@ -1692,7 +1741,9 @@ pub fn multistep_compression_internal(
         assert_eq!(follow.len(), cfg.iterations);
         cfg.step.follow_prune = true;
         cfg.step.rewrite_check = false; // this will cause a loop
-        cfg.step.quiet = true;
+        if !cfg.verbose_rewrite{
+            cfg.step.quiet = true;
+        }
         cfg.step.no_opt();
     }
 
@@ -1704,13 +1755,13 @@ pub fn multistep_compression_internal(
             .collect()
     });
 
-    let mut anonymous_to_named = anonymous_to_named.unwrap_or_default();
+    let mut name_mapping = name_mapping.unwrap_or_default();
 
 
 
 
     for i in 0..cfg.iterations {
-        if !cfg.step.quiet { println!("{}",format!("\n=======Iteration {}=======",i).blue().bold()) }
+        if !cfg.step.quiet { println!("{}",format!("\n=======Iteration {i}=======").blue().bold()) }
         let inv_name = if let Some(follow) = &follow {
             cfg.step.follow = Some(follow[i].body.to_string());
             follow[i].name.clone()
@@ -1722,24 +1773,24 @@ pub fn multistep_compression_internal(
         let res: Vec<CompressionStepResult> = compression_step(
             &rewritten,
             &inv_name,
-            &cfg.step,
+            &cfg,
             &tasks,
             very_first_cost,
-            &anonymous_to_named,
+            &name_mapping,
             );
 
         if !res.is_empty() {
             // rewrite with the invention
             let res: CompressionStepResult = res[0].clone();
             rewritten = res.rewritten.clone();
-            anonymous_to_named = res.anonymous_to_named.clone();
+            name_mapping = res.name_mapping.clone();
             if !cfg.step.quiet { println!("Chose Invention {}: {}", res.inv.name, res) }
             step_results.push(res);
         } else if follow.is_some() {
             // if `follow` was given then we will keep going for the full set of iterations
             if !cfg.step.quiet { println!("Invention not found: {}", cfg.step.follow.as_ref().unwrap() ) }
         } else {
-            if !cfg.step.quiet { println!("No inventions found at iteration {}",i) }
+            if !cfg.step.quiet { println!("No inventions found at iteration {i}") }
             break;    
         }
     }
@@ -1770,11 +1821,13 @@ pub fn multistep_compression_internal(
 pub fn compression_step(
     programs: &[ExprOwned],
     new_inv_name: &str, // name of the new invention, like "inv4"
-    cfg: &CompressionStepConfig,
+    multistep_cfg: &MultistepCompressionConfig,
     tasks: &[String],
     very_first_cost: i32,
-    anonymous_to_named: &[(String, String)],
+    name_mapping: &[(String, String)],
 ) -> Vec<CompressionStepResult> {
+
+    let cfg = &multistep_cfg.step.clone();
 
     let cost_fn = &cfg.cost.expr_cost();
 
@@ -1880,11 +1933,15 @@ pub fn compression_step(
     // define all the important data structures for compression
     let mut donelist: Vec<FinishedPattern> = Default::default(); // completed inventions will go here    
 
+    let single_hole = Pattern::single_hole(&corpus_span, &cost_of_node_all, &num_paths_to_node, &set, cost_fn, cfg);
+
     let mut azero_pruning_cutoff = 0;
 
     // arity 0 inventions
     if !cfg.no_opt_arity_zero {
-        for node in corpus_span.clone() {
+
+        // we use single hole match locations in case they were pruned down from corpus_span by single_hole()
+        for node in single_hole.match_locations.clone() {
 
             // Pruning (FREE VARS): inventions with free vars in the body are not well-defined functions
             // and should thus be discarded
@@ -1967,7 +2024,10 @@ pub fn compression_step(
 
     if !cfg.quiet { println!("got {} arity zero inventions", donelist.len()) }
 
-    let crit = CriticalMultithreadData::new(donelist, &corpus_span, &cost_of_node_all, &num_paths_to_node, &set, cost_fn, cfg);
+    let mut worklist = BinaryHeap::new();
+    worklist.push(HeapItem::new(single_hole));
+
+    let crit = CriticalMultithreadData::new(donelist, worklist, cfg);
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
         programs: programs.to_vec(),
@@ -1995,6 +2055,7 @@ pub fn compression_step(
         first_train_cost,
         stats: Mutex::new(stats),
         cfg: cfg.clone(),
+        multistep_cfg: multistep_cfg.clone(),
         tracking,
     });
 
@@ -2074,8 +2135,8 @@ pub fn compression_step(
     // construct CompressionStepResults and print some info about them)
     if !shared.cfg.quiet { println!("Cost before: {}", shared.init_cost) }
     for (i,done) in donelist.iter().enumerate() {
-        let res = CompressionStepResult::new(done.clone(), new_inv_name, &mut shared, very_first_cost, anonymous_to_named, dc_comparison_millis);
-        if !shared.cfg.quiet { println!("{}: {}", i, res) }
+        let res = CompressionStepResult::new(done.clone(), new_inv_name, &mut shared, very_first_cost, name_mapping, dc_comparison_millis);
+        if !shared.cfg.quiet { println!("{i}: {res}") }
         results.push(res);
     }
 
@@ -2091,7 +2152,7 @@ pub fn compression_step(
 }
 
 /// toplevel entrypoint to compression used by most apis
-pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, anonymous_to_named: Option<Vec<(String,String)>>, follow: Option<Vec<Invention>>, cfg: &MultistepCompressionConfig) -> (Vec<CompressionStepResult>, serde_json::Value) {
+pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, name_mapping: Option<Vec<(String,String)>>, follow: Option<Vec<Invention>>, cfg: &MultistepCompressionConfig) -> (Vec<CompressionStepResult>, serde_json::Value) {
     let mut programs = programs.to_vec();
     let mut cfg = cfg.clone();
 
@@ -2133,7 +2194,7 @@ pub fn multistep_compression(programs: &[String], tasks: Option<Vec<String>>, an
     let step_results = multistep_compression_internal(
         &train_programs, 
         tasks.clone(), 
-        anonymous_to_named, 
+        name_mapping, 
         follow,
         &cfg, 
     );

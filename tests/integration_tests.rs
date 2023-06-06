@@ -13,16 +13,16 @@ fn write_json_for_diff(out: &Value, expected_out_path: &str) {
         }
     }
     std::fs::write(out_path, serde_json::to_string_pretty(&out).unwrap()).unwrap();
-    println!("Wrote test output to {:?} diff with expected out path {:?}", out_path, expected_out_path);
+    println!("Wrote test output to {out_path:?} diff with expected out path {expected_out_path:?}");
     println!("Command to replace:");
-    println!("cp {:?} {:?}", out_path, expected_out_path);
+    println!("cp {out_path:?} {expected_out_path:?}");
 }
 
 fn run_compression(inputs: &Input, cfg: &MultistepCompressionConfig) -> Value {
     multistep_compression(
         &inputs.train_programs,
         inputs.tasks.clone(),
-        inputs.anonymous_to_named.clone(),
+        inputs.name_mapping.clone(),
         None,
         cfg,
         ).1
@@ -31,9 +31,9 @@ fn run_compression(inputs: &Input, cfg: &MultistepCompressionConfig) -> Value {
 fn compare_out_jsons(file: &str, expected_out_file: &str, args: &str, input_format: InputFormat) {
     let input = input_format.load_programs_and_tasks(std::path::Path::new(file)).unwrap();
 
-    let mut cfg = MultistepCompressionConfig::parse_from(format!("compress {}",args).split_whitespace());
+    let mut cfg = MultistepCompressionConfig::parse_from(format!("compress {args}").split_whitespace());
 
-    cfg.previous_abstractions = input.anonymous_to_named.clone().unwrap_or_default().len();
+    cfg.previous_abstractions = input.name_mapping.clone().unwrap_or_default().len();
 
     let output = run_compression(&input, &cfg);
 
@@ -85,7 +85,7 @@ fn check_eq(actual: &Value, expected: &Value, path: Vec<String>, out: &Value, ex
             }
             for (i,(a,e)) in actual.iter().zip(expected.iter()).enumerate() {
                 let mut new_path = path.clone();
-                new_path.push(format!("{}",i));
+                new_path.push(format!("{i}"));
                 check_eq(a,e, new_path, out, expected_out_path);
             }
         }

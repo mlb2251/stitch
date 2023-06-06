@@ -16,7 +16,7 @@ pub enum InputFormat {
 pub struct Input {
     pub train_programs: Vec<String>, // Program strings. 
     pub tasks: Option<Vec<String>>, // Task names for each corresponding string.
-    pub anonymous_to_named: Option<Vec<(String, String)>>, // Vec of [#Dreamcoder invention, fn_i] tuples for any existing inventions in the DSL.
+    pub name_mapping: Option<Vec<(String, String)>>, // Vec of [#Dreamcoder invention, fn_i] tuples for any existing inventions in the DSL.
 }
 
 impl InputFormat {
@@ -35,7 +35,7 @@ impl InputFormat {
                 let inv_dc_strs: Vec<(String, String)> = dc_invs
                     .into_iter()
                     .enumerate()
-                    .map(|(i, dc_str)| (format!("dreamcoder_abstraction_{}", i), dc_str)) // TODO: determine if we need to replace these in the future.
+                    .map(|(i, dc_str)| (format!("dreamcoder_abstraction_{i}"), dc_str)) // TODO: determine if we need to replace these in the future.
                     .collect();
                 let mut programs: Vec<String> = Vec::default();
                 let mut tasks: Vec<String> = Vec::default();
@@ -55,16 +55,16 @@ impl InputFormat {
                 let input = Input {
                     train_programs: programs,
                     tasks: Some(tasks),
-                    anonymous_to_named: Some(inv_dc_strs),
+                    name_mapping: Some(inv_dc_strs),
                 };
                 Ok(input)
             }
             InputFormat::ProgramsList => {
-                let programs: Vec<String> = from_reader(File::open(path).map_err(|e| format!("file not found, error code {:?}", e))?).map_err(|e| format!("json parser error, are you sure you wanted format {:?}? Error code was {:?}", self, e))?;
+                let programs: Vec<String> = from_reader(File::open(path).map_err(|e| format!("file not found, error code {e:?}"))?).map_err(|e| format!("json parser error, are you sure you wanted format {self:?}? Error code was {e:?}"))?;
                 let input = Input {
                     train_programs: programs,
                     tasks: None,
-                    anonymous_to_named: None,
+                    name_mapping: None,
                 };
                 Ok(input)
             }

@@ -35,7 +35,7 @@ fn main() {
 
     let input = args.fmt.load_programs_and_tasks(&args.file).unwrap();
 
-    let (step_results, json_res) = multistep_compression(&input.train_programs, input.tasks, input.anonymous_to_named, None, &args.multistep);
+    let (step_results, json_res) = multistep_compression(&input.train_programs, input.tasks, input.name_mapping, None, &args.multistep);
 
     let out_path = &args.out;
     if let Some(out_path_dir) = out_path.parent() {
@@ -45,9 +45,9 @@ fn main() {
     }
 
     std::fs::write(out_path, serde_json::to_string_pretty(&json_res).unwrap()).unwrap();
-    if !args.multistep.silent{ println!("Wrote to {:?}", out_path) };
+    if !args.multistep.silent{ println!("Wrote to {out_path:?}") };
     if let Some(out_path) = args.save_rewritten {
-        if !args.multistep.silent{ println!("Wrote rewritten things to {:?}", out_path) };
+        if !args.multistep.silent{ println!("Wrote rewritten things to {out_path:?}") };
         std::fs::write(&out_path, serde_json::to_string_pretty(&step_results.iter().last().unwrap().rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>()).unwrap()).unwrap();
     }
 
