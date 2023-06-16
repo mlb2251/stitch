@@ -1760,6 +1760,8 @@ pub fn multistep_compression_internal(
     cfg: &MultistepCompressionConfig
 ) -> Vec<CompressionStepResult> {
 
+    println!("This is LAVA Stitch");
+
     let mut rewritten: Vec<ExprOwned> = train_programs.to_vec();
     let mut step_results: Vec<CompressionStepResult> = Default::default();
     let cost_fn = &cfg.step.cost.expr_cost();
