@@ -67,6 +67,12 @@ pub struct MultistepCompressionConfig {
 #[derive(Parser, Debug, Serialize, Clone)]
 #[clap(name = "Stitch")]
 pub struct CompressionStepConfig {
+
+    /// Disable all LAVA stuff
+    #[clap(long)]
+    pub no_lava: bool,
+
+
     /// Max arity of abstractions to find (will find arities from 0 to this number inclusive).
     /// Note that scaling with arity can be very expensive
     #[clap(short='a', long, default_value = "2")]
@@ -396,34 +402,36 @@ impl Pattern {
         }
 
         // lava time!
-        let allowed = [("M",4), ("C",2), ("T",2), ("r_s",2), ("r",0), ("c",0)];
-        match_locations.retain(|node| {
-            let mut num_args = 0;
-            let mut curr_node = node;
-            loop {
-                if let Node::App(f,_) = &set[*curr_node] {
-                    curr_node = f;
-                    num_args += 1;
+        if !cfg.no_lava {
+            let allowed = [("M",4), ("C",2), ("T",2), ("r_s",2), ("r",0), ("c",0)];
+            match_locations.retain(|node| {
+                let mut num_args = 0;
+                let mut curr_node = node;
+                loop {
+                    if let Node::App(f,_) = &set[*curr_node] {
+                        curr_node = f;
+                        num_args += 1;
+                    } else {
+                        break
+                    }
+                }
+                if let Node::Prim(p) = &set[*curr_node] {
+                    if let Some(max_args) = allowed.iter()
+                        .find(|(name,_)| p == *name)
+                        .map(|(_,max_args)| *max_args)
+                    {
+                        num_args == max_args
+                    }
+                    else if p.starts_with("fn_") {
+                        true
+                    } else{
+                        false
+                    }
                 } else {
-                    break
+                    true // allow anything if it's a non-prim on the left 
                 }
-            }
-            if let Node::Prim(p) = &set[*curr_node] {
-                if let Some(max_args) = allowed.iter()
-                    .find(|(name,_)| p == *name)
-                    .map(|(_,max_args)| *max_args)
-                {
-                    num_args == max_args
-                }
-                else if p.starts_with("fn_") {
-                    true
-                } else{
-                    false
-                }
-            } else {
-                true // allow anything if it's a non-prim on the left 
-            }
-        });
+            });
+        }
 
 
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cost_fn, cfg);
