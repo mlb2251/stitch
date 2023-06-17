@@ -68,9 +68,9 @@ pub struct MultistepCompressionConfig {
 #[clap(name = "Stitch")]
 pub struct CompressionStepConfig {
 
-    /// Disable all LAVA stuff
+    /// Enable all LAVA stuff
     #[clap(long)]
-    pub no_lava: bool,
+    pub lava: bool,
 
 
     /// Max arity of abstractions to find (will find arities from 0 to this number inclusive).
@@ -402,7 +402,7 @@ impl Pattern {
         }
 
         // lava time!
-        if !cfg.no_lava {
+        if cfg.lava {
             let allowed = [("M",4), ("C",2), ("T",2), ("r_s",2), ("r",0), ("c",0)];
             match_locations.retain(|node| {
                 let mut num_args = 0;
