@@ -405,17 +405,8 @@ impl Pattern {
         if cfg.lava {
             let allowed = [("M",4), ("C",2), ("T",2), ("r_s",2), ("r",0), ("c",0)];
             match_locations.retain(|node| {
-                let mut num_args = 0;
-                let mut curr_node = node;
-                loop {
-                    if let Node::App(f,_) = &set[*curr_node] {
-                        curr_node = f;
-                        num_args += 1;
-                    } else {
-                        break
-                    }
-                }
-                if let Node::Prim(p) = &set[*curr_node] {
+                let (num_args, curr_node) = walk_apps(*node, set);
+                if let Node::Prim(p) = &set[curr_node] {
                     if let Some(max_args) = allowed.iter()
                         .find(|(name,_)| p == *name)
                         .map(|(_,max_args)| *max_args)
@@ -500,6 +491,23 @@ impl Pattern {
     }
 }
 
+
+/// walks down the left of a chain of apps, returning how many args there are
+/// and also what the leftmost node in the chain is
+fn walk_apps(node: usize, set: &ExprSet) -> (i32, usize) {
+    let mut num_args = 0;
+    let mut curr_node = node;
+    loop {
+        if let Node::App(f,_) = &set[curr_node] {
+            curr_node = *f;
+            num_args += 1;
+        } else {
+            break
+        }
+    }
+    (num_args, curr_node)
+}
+
 /// Tells us what a hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum ExpandsTo {
@@ -553,6 +561,7 @@ pub struct Arg {
     pub shift: i32, // how much was it shifted?
     pub cost: i32,
     pub expands_to: ExpandsTo,
+    pub lava_forbid_arg: bool
 }
 
 fn expands_to_of_node(node: &Node) -> ExpandsTo {
@@ -1156,18 +1165,27 @@ fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,A
     // consider all ivars used previously
     for ivar in 0..original_pattern.first_zid_of_ivar.len() {
         let arg_of_loc_ivar = &shared.arg_of_zid_node[original_pattern.first_zid_of_ivar[ivar]];
-        let locs: Vec<Idx> = original_pattern.match_locations.iter()
+        let mut locs: Vec<Idx> = original_pattern.match_locations.iter()
             .filter(|loc|
                 arg_of_loc[loc].shifted_id == 
                 arg_of_loc_ivar[loc].shifted_id).cloned().collect();
+        
+        if shared.cfg.lava {
+            locs.retain(|loc| !arg_of_loc[loc].lava_forbid_arg)
+        }
         if locs.is_empty() { continue; }
         ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
     }
     // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
     if original_pattern.first_zid_of_ivar.len() < shared.cfg.max_arity {
         let ivar = original_pattern.first_zid_of_ivar.len();
-        let locs = original_pattern.match_locations.clone();
-        ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
+        let mut locs = original_pattern.match_locations.clone();
+        if shared.cfg.lava {
+            locs.retain(|loc| !arg_of_loc[loc].lava_forbid_arg)
+        }
+        if !locs.is_empty() {
+            ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
+        }
     }
     ivars_expansions
 }
@@ -1242,6 +1260,7 @@ fn get_zippers(
     analyzed_cost: &AnalyzedExpr<ExprCost>,
     set: &mut ExprSet,
     analyzed_free_vars: &mut AnalyzedExpr<FreeVarAnalysis>,
+    cfg: &CompressionStepConfig,
 ) -> (FxHashMap<Vec<ZNode>, ZId>, Vec<Vec<ZNode>>, Vec<FxHashMap<Idx,Arg>>, FxHashMap<Idx,Vec<ZId>>,  Vec<ZIdExtension>) {
 
     let mut zid_of_zip: FxHashMap<Vec<ZNode>, ZId> = Default::default();
@@ -1265,12 +1284,24 @@ fn get_zippers(
         let node = set.get(idx).node().clone();
 
         arg_of_zid_node[EMPTY_ZID].insert(idx,
-            Arg { shifted_id: idx, unshifted_id: idx, shift: 0, cost: analyzed_cost[idx], expands_to: expands_to_of_node(&node) });
+            Arg { shifted_id: idx, unshifted_id: idx, shift: 0, cost: analyzed_cost[idx], expands_to: expands_to_of_node(&node), lava_forbid_arg: false });
 
         match node {
             Node::IVar(_) => { unreachable!() }
             Node::Var(_) | Node::Prim(_) => {},
             Node::App(f,x) => {
+
+                // used by LAVA to forbid any args showing up under certain constructs like M and T
+                let mut lava_forbid_arg = false;
+                if cfg.lava{
+                    let (_,leftmost_f) = walk_apps(f, set);
+                    if let Node::Prim(p) = set.get(leftmost_f).node() {
+                        if [Symbol::from("M"), Symbol::from("T"), Symbol::from("repeat")].contains(p) {
+                            lava_forbid_arg = true;
+                        }
+                    }
+                }
+
                 // bubble from `f`
                 for f_zid in zids_of_node[&f].iter() {
                     // clone and extend zip to get new zid for this node
@@ -1285,7 +1316,10 @@ fn get_zippers(
                     // add new zid to this node
                     zids.push(*zid);
                     // give it the same arg
-                    let arg = arg_of_zid_node[*f_zid][&f].clone();
+                    let mut arg = arg_of_zid_node[*f_zid][&f].clone();
+                    if lava_forbid_arg {
+                        arg.lava_forbid_arg = lava_forbid_arg;
+                    }
                     arg_of_zid_node[*zid].insert(idx, arg);
                 }
 
@@ -1303,7 +1337,10 @@ fn get_zippers(
                     // add new zid to this node
                     zids.push(*zid);
                     // give it the same arg
-                    let arg = arg_of_zid_node[*x_zid][&x].clone();
+                    let mut arg = arg_of_zid_node[*x_zid][&x].clone();
+                    if lava_forbid_arg {
+                        arg.lava_forbid_arg = lava_forbid_arg;
+                    }
                     arg_of_zid_node[*zid].insert(idx, arg);
 
                 }
@@ -1929,7 +1966,7 @@ pub fn compression_step(
         zip_of_zid,
         arg_of_zid_node,
         zids_of_node,
-        extensions_of_zid) = get_zippers(&corpus_span, &analyzed_cost, &mut set, &mut analyzed_free_vars);
+        extensions_of_zid) = get_zippers(&corpus_span, &analyzed_cost, &mut set, &mut analyzed_free_vars, &cfg);
     
     if !cfg.quiet { println!("get_zippers(): {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
