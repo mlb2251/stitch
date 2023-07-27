@@ -1766,7 +1766,7 @@ pub fn multistep_compression_internal(
             cfg.step.follow = Some(follow[i].body.to_string());
             follow[i].name.clone()
         } else {
-            format!("fn_{}", cfg.previous_abstractions + step_results.len())
+            format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len())
         };
 
         // call actual compression
