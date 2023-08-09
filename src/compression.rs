@@ -1296,9 +1296,12 @@ fn get_zippers(
                 if cfg.lava{
                     let (_,leftmost_f) = walk_apps(f, set);
                     if let Node::Prim(p) = set.get(leftmost_f).node() {
-                        if [Symbol::from("M"), Symbol::from("T"), Symbol::from("repeat")].contains(p) {
+                        if [Symbol::from("M")].contains(p) {
                             lava_forbid_arg = true;
                         }
+                        // if [Symbol::from("M"), Symbol::from("T"), Symbol::from("repeat")].contains(p) {
+                        //     lava_forbid_arg = true;
+                        // }
                     }
                 }
 
