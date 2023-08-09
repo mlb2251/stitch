@@ -638,7 +638,8 @@ impl CriticalMultithreadData {
         let mut res = CriticalMultithreadData {
             donelist,
             worklist,
-            utility_pruning_cutoff: 0,
+            // we allow negative utilities in follow_prune case
+            utility_pruning_cutoff: if !cfg.follow_prune { 0 } else { std::i32::MIN },
             active_threads: FxHashSet::default(),
         };
         res.update(cfg);
@@ -653,7 +654,9 @@ impl CriticalMultithreadData {
         self.donelist.sort_unstable_by(|a,b| (b.utility,&b.pattern.arg_choices).cmp(&(a.utility,&a.pattern.arg_choices)));
         self.donelist.truncate(cfg.inv_candidates);
         // the cutoff is the lowest utility
-        self.utility_pruning_cutoff = if cfg.no_opt_upper_bound { 0 } else { std::cmp::max(0,self.donelist.last().map(|x|x.utility).unwrap_or(0)) };
+        // we allow negative utilities in follow_prune case
+        let default_bound = if !cfg.follow_prune { 0 } else { std::i32::MIN };
+        self.utility_pruning_cutoff = if cfg.no_opt_upper_bound { default_bound } else { std::cmp::max(0,self.donelist.last().map(|x|x.utility).unwrap_or(0)) };
     }
 }
 
@@ -781,7 +784,7 @@ fn get_worklist_item(
     let mut shared_guard = shared.crit.lock();
     let mut crit: &mut CriticalMultithreadData = shared_guard.deref_mut();
     let old_best_utility = crit.donelist.first().map(|x|x.utility).unwrap_or(0);
-    let old_donelist_len = crit.donelist.len();
+    let old_donelist_len: usize = crit.donelist.len();
     let old_utility_pruning_cutoff = crit.utility_pruning_cutoff;
     // drain from donelist_buf into the actual donelist
     crit.donelist.extend(donelist_buf.drain(..).filter(|done| done.utility > old_utility_pruning_cutoff));
