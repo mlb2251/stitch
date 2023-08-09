@@ -169,6 +169,7 @@ pub fn rewrite_with_inventions(
     cfg.iterations = invs.len();
     cfg.step.max_arity = invs.iter().map(|inv| inv.arity).max().unwrap();
     cfg.silent = true;
+    cfg.no_opt = true;
 
     if cfg.verbose_rewrite {
         cfg.silent = false;
