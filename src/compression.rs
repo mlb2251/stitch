@@ -96,6 +96,14 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub eta_long: bool,
 
+    /// Forbid metavariables to the left of an app
+    #[clap(long)]
+    pub no_curried_metavars: bool,
+
+    /// Forbid abstraction bodies rooted to the left of an app (see also no_curried_metavars and eta_long)
+    #[clap(long)]
+    pub no_curried_bodies: bool,
+
     /// [currently not used] Number of invention candidates compression_step should return in a *single* step. Note that
     /// these will be the top n optimal candidates modulo subsumption pruning (and the top-1 is guaranteed
     /// to be globally optimal)
@@ -349,12 +357,21 @@ impl Pattern {
         let body_utility = 0;
         let mut match_locations: Vec<Idx> = corpus_span.clone().collect();
         match_locations.sort(); // we assume match_locations is always sorted
+
+        let match_locations_before = match_locations.clone();
+
+        if cfg.no_curried_bodies {
+            for node in corpus_span.clone() {
+                if let Node::App(f,_) = &set[node] {
+                    // similar to eta_long, no appzipper bodies are allowed to be rooted to the left of an App
+                    match_locations.retain(|node| node != f);
+                }
+            }
+        }
         
         if cfg.eta_long {
 
             assert!(cfg.utility_by_rewrite || cfg.no_mismatch_check, "eta long form requires utility_by_rewrite or no_mismatch_check");
-
-            let match_locations_before = match_locations.clone();
 
             for node in corpus_span.clone() {
                 if let Node::App(f,_) = &set[node] {
@@ -896,7 +913,7 @@ fn stitch_search(
             let mut match_locations = original_pattern.match_locations.clone();
             match_locations.sort_by_cached_key(|loc| (&arg_of_loc[loc].expands_to, *loc));
 
-            let ivars_expansions = get_ivars_expansions(&original_pattern, arg_of_loc, &shared);
+            let ivars_expansions = get_ivars_expansions(&original_pattern, arg_of_loc, hole_zid, &shared);
 
             let mut found_tracked = false;
             // for each way of expanding the hole...
@@ -1115,8 +1132,16 @@ fn stitch_search(
 /// already exists in the expression the match locations get subset to enforce the equality constraint - for example
 /// in (* #0 #0) both #0s must be the same within each match location. For a fresh ivar that doesn't yet exist in a pattern,
 /// we only allow if it is within our max arity limit.
-fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,Arg>, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<Idx>)> {
+fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,Arg>, hole_zid: ZId, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<Idx>)> {
     let mut ivars_expansions = vec![];
+
+    if shared.cfg.no_curried_metavars {
+        // dont allow any expansions that result in a metavar to the left of an app
+        if let Some(ZNode::Func) = shared.zip_of_zid[hole_zid].last(){
+            return ivars_expansions;
+        }
+    }
+
     // consider all ivars used previously
     for ivar in 0..original_pattern.first_zid_of_ivar.len() {
         let arg_of_loc_ivar = &shared.arg_of_zid_node[original_pattern.first_zid_of_ivar[ivar]];
