@@ -124,6 +124,21 @@ fn simple2_a1_i1() {
 }
 
 #[test]
+fn simple3_a1_i1() {
+    compare_out_jsons("data/basic/simple3.json", "data/expected_outputs/simple3-a1-i1.json", "-i1 -a1 --rewrite-check", InputFormat::ProgramsList);
+}
+
+#[test]
+fn simple4_a1_i1() {
+    compare_out_jsons("data/basic/simple4.json", "data/expected_outputs/simple4-a1-i1.json", "-i1 -a1 --rewrite-check", InputFormat::ProgramsList);
+}
+
+#[test]
+fn simple5_a1_i1() {
+    compare_out_jsons("data/basic/simple5.json", "data/expected_outputs/simple5-a1-i1.json", "-i1 -a1 --rewrite-check", InputFormat::ProgramsList);
+}
+
+#[test]
 fn nuts_bolts_a3_i10() {
     compare_out_jsons("data/cogsci/nuts-bolts.json", "data/expected_outputs/nuts-bolts-a3-i10.json", "-i10 -a3 --rewrite-check", InputFormat::ProgramsList);
 }

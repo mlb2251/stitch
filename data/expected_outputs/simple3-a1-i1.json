@@ -1,0 +1,41 @@
+{
+  "cmd": null,
+  "args": null,
+  "original_cost": 606,
+  "final_cost": 402,
+  "compression_ratio": 1.507462686567164,
+  "num_abstractions": 1,
+  "original": [
+    "(a (lam_1 (a a)))",
+    "(b (lam_1 (b b)))"
+  ],
+  "rewritten": [
+    "(fn_0 a)",
+    "(fn_0 b)"
+  ],
+  "rewritten_dreamcoder": null,
+  "test_output": null,
+  "abstractions": [
+    {
+      "body": "(#0 (lam_1 (#0 #0)))",
+      "dreamcoder": "#(lambda ($0 (lambda_1 ($1 $1))))",
+      "arity": 1,
+      "name": "fn_0",
+      "utility": 201,
+      "final_cost": 402,
+      "compression_ratio": 1.507462686567164,
+      "cumulative_compression_ratio": 1.507462686567164,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_0 a": "(a (lam_1 (a a)))"
+        },
+        {
+          "fn_0 b": "(b (lam_1 (b b)))"
+        }
+      ]
+    }
+  ]
+}

@@ -38,14 +38,15 @@ pub fn compression_factor(original: i32, compressed: i32) -> f64 {
 /// Replace the ivars in an expr with vars
 pub fn ivar_to_dc(e: &mut ExprMut, depth: i32, arity: i32) {
     match e.node().clone() {
-        Node::IVar(i) => *e.node() = Node::Var(depth + (arity - 1 - i)), // the higher the ivar the smaller the var
-        Node::Var(_) => {},
+        // dreamcoder doesn't care about the tags, so just use -1 for all of them
+        Node::IVar(i) => *e.node() = Node::Var(depth + (arity - 1 - i), -1), // the higher the ivar the smaller the var
+        Node::Var(_, _) => {},
         Node::Prim(_) => {},
         Node::App(f,x) => {
             ivar_to_dc(&mut e.get(f), depth, arity);
             ivar_to_dc(&mut e.get(x), depth, arity);
         },
-        Node::Lam(b) => {
+        Node::Lam(b, _) => {
             ivar_to_dc(&mut e.get(b), depth+1, arity);
         },
     }
@@ -58,11 +59,12 @@ pub fn dc_inv_str(inv: &Invention, dreamcoder_translations: &[(String, String)])
 
     // wrap in lambdas for dremacoder
     for _ in 0..inv.arity {
-        body.idx = body.set.add(Node::Lam(body.idx));
+        // dreamcoder doesn't care about the tags, so just use -1 for all of them
+        body.idx = body.set.add(Node::Lam(body.idx, -1));
     }
     // add the "#" that dreamcoder wants and change lam -> lambda
     let mut res: String = format!("#{body}");
-    res = res.replace("(lam ", "(lambda ");
+    res = res.replace("(lam ", "(lambda ").replace("(lam_", "(lambda_");
     // inline any past inventions using their dc_inv_str. Match on "fn_i)" and "fn_i " to avoid matching fn_1 on fn_10 or any other prefix
     for (inv_name, dc_translation) in dreamcoder_translations.iter() {
         res = replace_prim_with(&res, inv_name, dc_translation);

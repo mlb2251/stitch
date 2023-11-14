@@ -1,0 +1,16 @@
+{
+  "original_cost": 808,
+  "final_cost": 808,
+  "compression_ratio": 1.0,
+  "num_abstractions": 0,
+  "original": [
+    "(a (lam_1 (a $0_1 $0_1)))",
+    "(b (lam_1 (b $0_2 $0_2)))"
+  ],
+  "rewritten": [
+    "(a (lam_1 (a $0_1 $0_1)))",
+    "(b (lam_1 (b $0_2 $0_2)))"
+  ],
+  "rewritten_dreamcoder": null,
+  "abstractions": []
+}
