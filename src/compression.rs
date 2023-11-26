@@ -414,10 +414,7 @@ impl Pattern {
 
         // to guarantee eta long we cant allow abstractions to start with a lambda at the top
         if cfg.eta_long {
-            match_locations.retain(|node| match expands_to_of_node(&set[*node]) {
-                ExpandsTo::Lam(_) => false,
-                _ => true,
-            });
+            match_locations.retain(|node| !matches!(expands_to_of_node(&set[*node]), ExpandsTo::Lam(_)));
         }
 
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cost_fn, cfg);
