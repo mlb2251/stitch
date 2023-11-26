@@ -18,6 +18,9 @@ The rest of this ReadMe is not relevant to the Python API, but instead focuses o
 - ensure that `cargo run --release --bin=compress -- data/cogsci/nuts-bolts.json` runs without crashing
 - For a more thorough test, run `make test`
 
+# Benchmarking (changes to Stitch)
+See [benchmarking.md](benchmarking.md)
+
 ## Quickstart (non-Python)
 
 Lets take a look at some simple examples of the `stitch` input format. Put the following in a new file `data/basic/ex1.json`:

@@ -201,6 +201,11 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_other_util: bool,
 
+    /// DreamCoder style structure penalty - must be positive. Overall utility is this
+    /// difference in corpus size minus structure_penalty * abstraction_size
+    #[clap(long, default_value = "1.0")]
+    pub structure_penalty: f32,
+
     /// Used for soundness testing. Whenever you finish an invention do a full rewrite to check
     /// that rewriting doesnt raise a cost mismatch exception. 
     #[clap(long)]
@@ -592,7 +597,7 @@ pub struct HeapItem {
 }
 impl PartialOrd for HeapItem {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.key.partial_cmp(&other.key)
+        Some(self.cmp(other))
     }
 }
 impl Ord for HeapItem {
@@ -1507,7 +1512,7 @@ fn noncompressive_utility(
     // this is a bit like the structure penalty from dreamcoder except that
     // that penalty uses inlined versions of nested inventions.
     // 0
-    - body_utility
+    - (body_utility as f32 * cfg.structure_penalty) as i32
 }
 
 /// This takes a partial invention and gives an upper bound on the maximum
