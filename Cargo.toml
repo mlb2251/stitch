@@ -23,8 +23,8 @@ rustc-hash = "1.1.0"
 lambdas = { git = "https://github.com/mlb2251/lambdas", rev = "b8d4868"}
 
 
-[patch.crates-io]
-lambdas = { path = "../lambdas"}
+# [patch.crates-io]
+# lambdas = { path = "../lambdas"}
 
 
 # enable for flamegraphs
