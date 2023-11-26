@@ -58,16 +58,16 @@ pub fn insert_arg_ivars(e: &mut ExprMut, set_to: i32, init_depth: i32, analyzed_
 
     match e.node().clone() {
         Node::Prim(_) => e.idx,
-        Node::Var(i) => if i == init_depth { e.set.add(Node::IVar(set_to)) } else { e.idx },
+        Node::Var(i, _) => if i == init_depth { e.set.add(Node::IVar(set_to)) } else { e.idx },
         Node::IVar(_) => e.idx,
         Node::App(f, x) => {
             let f = insert_arg_ivars(&mut e.get(f), set_to, init_depth, analyzed_free_vars);
             let x = insert_arg_ivars(&mut e.get(x), set_to, init_depth, analyzed_free_vars);
             e.set.add(Node::App(f, x))
         },
-        Node::Lam(b) => {
+        Node::Lam(b, tag) => {
             let b = insert_arg_ivars(&mut e.get(b), set_to, init_depth + 1, analyzed_free_vars);
-            e.set.add(Node::Lam(b))
+            e.set.add(Node::Lam(b, tag))
         },
     }
 }

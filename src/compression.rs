@@ -287,11 +287,11 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>
     fn helper(expr: Expr, curr_zip: &mut Vec<ZNode>, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &FxHashMap<Vec<ZNode>,ZId>) -> Result<(), ()> {
         match expr.node() {
             Node::Prim(_) => {},
-            Node::Var(_) => {},
+            Node::Var(_, _) => {},
             Node::IVar(i) => {
                 zids_of_ivar[*i as usize].push(zid_of_zip.get(curr_zip).cloned().ok_or(())?);
             },
-            Node::Lam(b) => {
+            Node::Lam(b, _) => {
                 curr_zip.push(ZNode::Body);
                 helper(expr.get(*b), curr_zip, zids_of_ivar, zid_of_zip)?;
                 curr_zip.pop();
@@ -385,7 +385,7 @@ impl Pattern {
                     // function type body would be effectively arity 3 and dreamcoder doesnt support this sort of thing.
                     match_locations.retain(|node| node != f);
 
-                    if let Node::Lam(_) = &set[*f] {
+                    if let Node::Lam(_, _) = &set[*f] {
                         panic!("corpus was not in beta-normal form")
                     }
                 }
@@ -401,7 +401,7 @@ impl Pattern {
                         }
                         assert!(match_locations.contains(x), "corpus was not in eta long form (?). This appeared both to the left and right of an app: {}; for example it is to the right in: {}", set.get(*x), set.get(node));
                     },
-                    Node::Lam(b) => {
+                    Node::Lam(b, _) => {
                         if !AnalyzedExpr::new(FreeVarAnalysis).analyze_get(set.get(*b)).is_empty() {
                             continue
                         }
@@ -414,7 +414,7 @@ impl Pattern {
 
         // to guarantee eta long we cant allow abstractions to start with a lambda at the top
         if cfg.eta_long {
-            match_locations.retain(|node| expands_to_of_node(&set[*node]) != ExpandsTo::Lam);
+            match_locations.retain(|node| !matches!(expands_to_of_node(&set[*node]), ExpandsTo::Lam(_)));
         }
 
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cost_fn, cfg);
@@ -445,12 +445,12 @@ impl Pattern {
             // no ivar zip match, so recurse
             match &shared.set[curr_node] {
                 Node::Prim(p) => set.add(Node::Prim(p.clone())),
-                Node::Var(v) => set.add(Node::Var(*v)),
-                Node::Lam(b) => {
+                Node::Var(v, tag) => set.add(Node::Var(*v, *tag)),
+                Node::Lam(b, tag) => {
                     curr_zip.push(ZNode::Body);
                     let b_idx = helper(set, *b, curr_zip, zips, shared);
                     curr_zip.pop();
-                    set.add(Node::Lam(b_idx))
+                    set.add(Node::Lam(b_idx, *tag))
                 }
                 Node::App(f,x) => {
                     curr_zip.push(ZNode::Func);
@@ -486,9 +486,9 @@ impl Pattern {
 /// Tells us what a hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum ExpandsTo {
-    Lam,
+    Lam(Tag),
     App,
-    Var(i32),
+    Var(i32, Tag),
     Prim(Symbol),
     IVar(i32),
 }
@@ -499,9 +499,9 @@ impl ExpandsTo {
     #[allow(dead_code)]
     fn has_holes(&self) -> bool {
         match self {
-            ExpandsTo::Lam => true,
+            ExpandsTo::Lam(_) => true,
             ExpandsTo::App => true,
-            ExpandsTo::Var(_) => false,
+            ExpandsTo::Var(_, _) => false,
             ExpandsTo::Prim(_) => false,
             ExpandsTo::IVar(_) => false,
         }
@@ -516,9 +516,21 @@ impl ExpandsTo {
 impl std::fmt::Display for ExpandsTo {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            ExpandsTo::Lam => write!(f, "(lam ??)"),
+            ExpandsTo::Lam(tag) => {
+                write!(f, "(lam")?;
+                if *tag != -1 {
+                    write!(f, "_{}", tag)?;
+                }
+                write!(f, " ??)")
+            },
             ExpandsTo::App => write!(f, "(?? ??)"),
-            ExpandsTo::Var(v) => write!(f, "${v}"),
+            ExpandsTo::Var(v, tag) => {
+                write!(f, "${v}")?;
+                if *tag != -1 {
+                    write!(f, "_{}", tag)?;
+                }
+                Ok(())
+            },
             ExpandsTo::Prim(p) => write!(f, "{p}"),
             ExpandsTo::IVar(v) => write!(f, "#{v}"),
         }
@@ -540,9 +552,9 @@ pub struct Arg {
 
 fn expands_to_of_node(node: &Node) -> ExpandsTo {
     match node {
-        Node::Var(i) => ExpandsTo::Var(*i),
+        Node::Var(i, tag) => ExpandsTo::Var(*i, *tag),
         Node::Prim(p) => ExpandsTo::Prim(p.clone()),
-        Node::Lam(_) => ExpandsTo::Lam,
+        Node::Lam(_, tag) => ExpandsTo::Lam(*tag),
         Node::App(_,_) => ExpandsTo::App,
         Node::IVar(i) => ExpandsTo::IVar(*i),
     }
@@ -957,7 +969,7 @@ fn stitch_search(
 
                 // Pruning (FREE VARS): if an invention has free variables in the body then it's not a real function and we can discard it
                 // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
-                if let ExpandsTo::Var(i) = expands_to {
+                if let ExpandsTo::Var(i, _) = expands_to {
                     if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
                         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
                         if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
@@ -967,9 +979,9 @@ fn stitch_search(
 
                 // update the body utility
                 let body_utility = original_pattern.body_utility +  match &expands_to {
-                    ExpandsTo::Lam => shared.cost_fn.cost_lam,
+                    ExpandsTo::Lam(_) => shared.cost_fn.cost_lam,
                     ExpandsTo::App => shared.cost_fn.cost_app,
-                    ExpandsTo::Var(_) => shared.cost_fn.cost_var,
+                    ExpandsTo::Var(_, _) => shared.cost_fn.cost_var,
                     ExpandsTo::Prim(p) => *shared.cost_fn.cost_prim.get(p).unwrap_or(&shared.cost_fn.cost_prim_default),
                     ExpandsTo::IVar(_) => 0,
                 };
@@ -993,7 +1005,7 @@ fn stitch_search(
                 // add any new holes to the list of holes
                 let mut holes = holes_after_pop.clone();
                 match expands_to {
-                    ExpandsTo::Lam => {
+                    ExpandsTo::Lam(_) => {
                         // add new holes
                         holes.push(shared.extensions_of_zid[hole_zid].body.unwrap());
                     }
@@ -1263,7 +1275,7 @@ fn get_zippers(
 
         match node {
             Node::IVar(_) => { unreachable!() }
-            Node::Var(_) | Node::Prim(_) => {},
+            Node::Var(_, _) | Node::Prim(_) => {},
             Node::App(f,x) => {
                 // bubble from `f`
                 for f_zid in zids_of_node[&f].iter() {
@@ -1302,7 +1314,7 @@ fn get_zippers(
 
                 }
             },
-            Node::Lam(b) => {
+            Node::Lam(b, _) => {
                 for b_zid in zids_of_node[&b].iter() {
 
                     // clone and extend zip to get new zid for this node
@@ -1603,9 +1615,9 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
     for node in shared.corpus_span.clone() {
 
         let utility_without_rewrite: i32 = match &shared.set[node] {
-            Node::Lam(b) => cumulative_utility_of_node[*b],
+            Node::Lam(b, _) => cumulative_utility_of_node[*b],
             Node::App(f,x) => cumulative_utility_of_node[*f] + cumulative_utility_of_node[*x],
-            Node::Prim(_) | Node::Var(_) => 0,
+            Node::Prim(_) | Node::Var(_, _) => 0,
             Node::IVar(_) => unreachable!(),
         };
 
@@ -1728,8 +1740,8 @@ fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[F
         }
         match &set[curr_node] {
             Node::Prim(_) => {},
-            Node::Var(_) => {},
-            Node::Lam(b) => {
+            Node::Var(_, _) => {},
+            Node::Lam(b, _) => {
                 curr_zip.push(ZNode::Body);
                 let new_zid = extensions_of_zid[curr_zid].body.unwrap();
                 helper(*b, match_loc, curr_zip, new_zid, zips, zids,  arg_of_zid_node, extensions_of_zid, set, counts, analyzed_ivars);
@@ -2244,7 +2256,9 @@ pub fn json_of_step_results(step_results: &[CompressionStepResult], train_progra
     let final_cost = min_cost(rewritten, &tasks, cost_fn);
     let rewritten = step_results.iter().last().map(|res| &res.rewritten).unwrap_or(train_programs).iter().map(|p| p.to_string()).collect::<Vec<String>>();
     let rewritten_dreamcoder = if !cfg.step.rewritten_dreamcoder { None } else {
-        let rewritten_dreamcoder = step_results.iter().last().map(|res| res.rewritten_dreamcoder.clone().unwrap()).unwrap_or_else(||train_programs.iter().map(|p| p.to_string().replace("(lam ", "(lambda ")).collect::<Vec<String>>());
+        let rewritten_dreamcoder = step_results.iter().last().map(|res| res.rewritten_dreamcoder.clone().unwrap()).unwrap_or_else(||train_programs.iter().map(
+            |p| p.to_string().replace("(lam ", "(lambda ").replace("(lam_", "(lambda_")
+        ).collect::<Vec<String>>());
         Some(rewritten_dreamcoder)
     };
     json!({

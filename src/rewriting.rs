@@ -75,12 +75,16 @@ pub fn rewrite_fast(
 
                         // wrap like: f => (f $1 $0)
                         for i in 0..arity_of_arg {
-                            let var = owned_set.add(Node::Var((arity_of_arg-i-1) as i32));
+                            // Just hardcode -1 here, there's no way to infer the tag of the new var
+                            // In practice, eta long form should not be used with tagged inputs
+                            let var = owned_set.add(Node::Var((arity_of_arg-i-1) as i32, -1));
                             shifted_rewritten_arg = owned_set.add(Node::App(shifted_rewritten_arg, var));
                         }
                         // wrap in lambdas: (f $1 $0) => (lam (lam (f $1 $0)))
                         for _ in 0..arity_of_arg {
-                            shifted_rewritten_arg = owned_set.add(Node::Lam(shifted_rewritten_arg));
+                            // Just hardcode -1 here, there's no way to infer the tag of the new var
+                            // In practice, eta long form should not be used with tagged inputs
+                            shifted_rewritten_arg = owned_set.add(Node::Lam(shifted_rewritten_arg, -1));
                         }
 
                         rewritten_arg = shifted_rewritten_arg;
@@ -99,7 +103,7 @@ pub fn rewrite_fast(
 
         match &shared.set[unshifted_id] {
             Node::Prim(p) => owned_set.add(Node::Prim(p.clone())),
-            Node::Var(i) => {
+            Node::Var(i, tag) => {
                 let mut j = *i;
                 for rule in shift_rules.iter() {
                     // take "i" steps upward from current depth and see if you meet or pass the cutoff.
@@ -112,16 +116,16 @@ pub fn rewrite_fast(
                 }
 
                 assert!(j >= 0);
-                owned_set.add(Node::Var(j))
+                owned_set.add(Node::Var(j, *tag))
             }, // we extract from the *shifted* one since thats the real one
             Node::App(unshifted_f,unshifted_x) => {
                 let f = helper(owned_set, pattern, shared, *unshifted_f, total_depth, shift_rules, inv_name);
                 let x = helper(owned_set, pattern, shared, *unshifted_x, total_depth, shift_rules, inv_name);
                 owned_set.add(Node::App(f,x))
             },
-            Node::Lam(unshifted_b) => {
+            Node::Lam(unshifted_b, tag) => {
                 let b = helper(owned_set, pattern, shared, *unshifted_b, total_depth + 1, shift_rules, inv_name);
-                owned_set.add(Node::Lam(b))
+                owned_set.add(Node::Lam(b, *tag))
             },
             Node::IVar(_) => {
                 unreachable!()

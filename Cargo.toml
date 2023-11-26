@@ -19,7 +19,8 @@ rand = "0.8.4"
 parking_lot = "0.12.0"
 colorful = "0.2.1"
 rustc-hash = "1.1.0"
-lambdas = { git = "https://github.com/mlb2251/lambdas", rev = "56bc9ee"}
+# lambdas = "0.2.0"
+lambdas = { git = "https://github.com/mlb2251/lambdas", rev = "b8d4868"}
 
 
 # [patch.crates-io]
