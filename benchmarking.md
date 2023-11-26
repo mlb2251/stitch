@@ -1,7 +1,3 @@
-
-
-
-
 # Testing and Benchmarking Stitch (written Nov 26 2023)
 
 There are two relevant repos, both of which are relevant to running these benchmarks even when only the core version of Stitch is changed:
@@ -57,11 +53,11 @@ Of these graphs you'll want to look at:
     - `binary_runtime` This can be ignored. If curious, this sanity check is the wall clock time on the whole binary running, taken at the same points as memory measurement (ie when the subprocess is launched), so this includes python overhead. In practice this isn't a big overhead thankfully.
 - `mem_peak_kb`. This is the memory usage. *This includes Python's memory overhead* which raises memory use slightly. The difference is the Rust version gets around 10^4 KB for all benchmarks while the Python version gets around 3 * 10^4 KB for all benchmarks (on M1, and a bit less on Ubuntu as in the paper figures). Instructions are given below for recreating this graph within the pure rust stitch repo – though for most use cases just making sure the Python version stays about the same should be fine. 
 
-![[compression_ratio_min.png|400]]
+![[benchmark_plot_examples/compression_ratio_min.png|400]]
 Time (runtime_internal):
-![[runtime_internal.png|400]]
+![[benchmark_plot_examples/runtime_internal.png|400]]
 Memory:
-![[mem_peak_kb.png|400]]
+![[benchmark_plot_examples/mem_peak_kb.png|400]]
 
 For a version of the memory usage graph that doesn't involve python's memory overhead, you can use the stitch repo's version of `make claim-1`
 
@@ -75,9 +71,9 @@ wrote to plots/benches_compression_ratio_min.png and pdf
 The other graphs will be identical to the stitch_bindings ones since there's no Python overhead for time measurements which are taken internally in Rust. These are the graphs for the paper, except `benches_time_per_inv_no_rewrite` which doesn't really offer much insight so it can be ignored.
 
 The expected graphs for m1 macs are given in `experiments/expected_plots_m1` as of Nov 26 2023 and are also included below. However to properly evaluate that this claim is consistent you want to run it before and after your change on your own machine since the time and memory stats vary across machines. For reference, here are the graphs from an M1 mac on Nov 26 2023 (note that compared to the paper figures run on an Ubuntu machine, the M1 uses slightly more memory but is slightly faster):
-![[benches_compression_ratio_min.png|400]]
-![[benches_mem_peak_kb.png|400]]
-![[benches_time_per_inv_with_rewrite.png|400]]
+![[benchmark_plot_examples/benches_compression_ratio_min.png|400]]
+![[benchmark_plot_examples/benches_mem_peak_kb.png|400]]
+![[benchmark_plot_examples/benches_time_per_inv_with_rewrite.png|400]]
 
 
 
@@ -128,7 +124,7 @@ stitch repo: `make claim-2`
 
 stitch repo: `make claim-3` 
 This will write to `experiments/plots/claim-3.png` and on nov 26 2023 looks like:
-![[claim-3.png|400]]
+![[benchmark_plot_examples/claim-3.png|400]]
 
 This hasn't been ported over the the stitch_bindings repo.
 
