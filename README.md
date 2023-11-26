@@ -293,6 +293,7 @@ Installation:
 cargo install flamegraph
 ```
 
+
 Running:
 ```
 cargo flamegraph --root --open --deterministic --output=out/flamegraph.svg --bin=compress -- data/cogsci/nuts-bolts.json
