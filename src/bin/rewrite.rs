@@ -117,7 +117,7 @@ fn main() {
 
                 rewritten_frontiers
                     .entry(task_name)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(
                         pretty_program
                             .replace("(lam ", "(lambda ")
