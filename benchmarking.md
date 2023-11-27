@@ -8,11 +8,12 @@ Here are the the at-a-glance instructions for comparing two versions of stitch. 
 
 1. `cd path/to/stitch_bindings`
 2. change `Cargo.toml`'s `stitch_core` entry to say `rev = abcd`
-3. `make benchmark` (. Alt: `make benchmark-minimal` skips slowest two tower domains (total: X min), or `make benchmark-tiny` skips all tower domains (total: 2min).
+3. `make benchmark`. Alt: `make benchmark-minimal` skips slowest two tower domains (total: X min), or `make benchmark-tiny` skips all tower domains (total: 2min).
 4. `make plots-old`
 5. change `Cargo.toml`'s `stitch_core` entry to say `rev = wxyz`
 3. `make benchmark` this will take <10 min. Alt: `benchmark-minimal` skips slowest two tower domains to save 3 minutes, or `benchmark-tiny` skips all tower domains to reduce the whole thing to around 2 minutes.
 7. Open `stitch_bindings/experiments/results.html` in a browser to see a comparison of the two.
+8. Feel free to rerun individual components for example `make claim-2-tiny SEEDS=5` to rerun `claim-2-tiny` with more seeds if you think something might have been a fluke.
 
 ## Detailed instructions
 

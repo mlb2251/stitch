@@ -20,4 +20,7 @@ claim-2:
 claim-3:
 	cd experiments && make claim-3
 
+flamegraph:
+	CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph --root --open --deterministic --output=out/flamegraph.svg --bin=compress -- data/cogsci/furniture.json -a3
+
 .PHONY: build test test-update claim-1 claim-2 claim-3 claims
