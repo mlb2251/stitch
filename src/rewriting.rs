@@ -144,9 +144,9 @@ pub fn rewrite_fast(
     if !shared.cfg.no_mismatch_check && !shared.cfg.utility_by_rewrite {
         assert_eq!(
             shared.root_idxs_of_task.iter().map(|root_idxs|
-                root_idxs.iter().map(|idx| rewritten_exprs[*idx].cost(cost_fn)).min().unwrap()
+                root_idxs.iter().map(|idx| (rewritten_exprs[*idx].cost(cost_fn) as f32 * shared.weight_by_root_idx[*idx]).round() as i32).min().unwrap()
             ).sum::<i32>(),
-            shared.init_cost - pattern.util_calc.util,
+            shared.init_cost_weighted - pattern.util_calc.util,
             "\n{}\n", pattern.info(shared)
         );
     }
@@ -185,7 +185,7 @@ pub fn rewrite_with_inventions(
     // cfg.step.rewritten_dreamcoder = true;
     // cfg.step.rewritten_intermediates = true;
 
-    let (step_results, json_res) = multistep_compression(programs, None, None, follow, &cfg);
+    let (step_results, json_res) = multistep_compression(programs, None, None, None, follow, &cfg);
 
     // return the last one - note that if an abstraction wasn't used anywhere it will not be included in the step_results so this
     // may be shorter than invs.len(), however we do ensure that we continue searching for the rest of the abstractions if this happens
