@@ -2,16 +2,18 @@ use crate::*;
 use lambdas::*;
 
 
-pub fn min_cost(programs: &[ExprOwned], tasks: &Option<Vec<String>>, cost_fn: &ExprCost) -> i32 {
+pub fn min_cost(programs: &[ExprOwned], weights: &Option<Vec<f32>>, tasks: &Option<Vec<String>>, cost_fn: &ExprCost) -> i32 {
+    let weights = weights.clone().unwrap_or(vec![1.0; programs.len()]);
     if let Some(tasks) = tasks {
         let mut unique_tasks = tasks.to_vec();
         unique_tasks.sort();
         unique_tasks.dedup();
         unique_tasks.iter().map(|task|
-            tasks.iter().zip(programs.iter()).filter_map(|(t,p)| if task == t { Some(p.cost(cost_fn)) } else { None }).min().unwrap()
+            tasks.iter().zip(programs.iter().zip(weights.iter())).filter_map(|(t,(p,w))| if task == t { Some((p.cost(cost_fn) as f32 * w).round() as i32) } else { None })
+            .min().unwrap()
         ).sum::<i32>()
     } else {
-        programs.iter().map(|e| e.cost(cost_fn)).sum::<i32>()
+        programs.iter().zip(weights.iter()).map(|(e,w)| (e.cost(cost_fn) as f32 * w).round() as i32).sum::<i32>()
     }
 }
 
