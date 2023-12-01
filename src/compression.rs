@@ -241,7 +241,7 @@ impl std::str::FromStr for FusedLambdaTags {
         if s.is_empty() {
             return Ok(FusedLambdaTags { tags: None })
         }
-        let tags = s.split(",").map(|s| s.parse::<Tag>().unwrap()).collect();
+        let tags = s.split(',').map(|s| s.parse::<Tag>().unwrap()).collect();
         Ok(FusedLambdaTags { tags: Some(tags) })
     }
 }
