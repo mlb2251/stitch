@@ -38,6 +38,8 @@ fn compare_out_jsons(file: &str, expected_out_file: &str, args: &str, input_form
 
     let output = run_compression(&input, &cfg);
 
+    println!("{}", serde_json::to_string(&output).unwrap());
+
     let expected_output: Value = serde_json::from_str(&std::fs::read_to_string(std::path::Path::new(expected_out_file)).unwrap()).unwrap();
 
     check_eq(&output["original"], &expected_output["original"], vec!["original".into()], &output, expected_out_file);
@@ -195,6 +197,18 @@ fn origami_1_a3_i10() {
 #[test]
 fn origami_2_a3_i10() {
     compare_out_jsons("data/dc/origami/iteration_2_1.json", "data/expected_outputs/origami_2-a3-i10.json", "-i10 -a3 --rewrite-check", InputFormat::Dreamcoder);
+}
+
+#[test]
+fn neurosym_match_at_tag() {
+    compare_out_jsons("data/neurosym/match_at_tag.json", "data/expected_outputs/neurosym_match_at_tag.json", "", InputFormat::ProgramsList);
+    compare_out_jsons("data/neurosym/match_at_tag.json", "data/expected_outputs/neurosym_match_at_tag_excluded.json", "--fused-lambda-tags 2", InputFormat::ProgramsList);
+}
+
+#[test]
+fn neurosym_metavariable_with_tag() {
+    compare_out_jsons("data/neurosym/metavariable_with_tag.json", "data/expected_outputs/neurosym_metavariable_with_tag.json", "", InputFormat::ProgramsList);
+    compare_out_jsons("data/neurosym/metavariable_with_tag.json", "data/expected_outputs/neurosym_metavariable_with_tag_excluded.json", "--fused-lambda-tags 2", InputFormat::ProgramsList);
 }
 
 // todo disabled bc nondeterminism with 2 equal things on the first invention (usually threading prevents that, but here for some reason you always get the same result when running from commandline and a diff result when running from test)
