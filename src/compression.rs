@@ -688,7 +688,7 @@ pub struct SharedData {
     pub fused_lambda_tags: Option<FxHashSet<Tag>>,
 }
 
-fn invalid_metavar_location(shared : &Arc<SharedData>, node: Idx) -> bool {
+fn invalid_metavar_location(shared : &SharedData, node: Idx) -> bool {
     fused_lambda_location(&shared.set, &shared.fused_lambda_tags, node)
 }
 
