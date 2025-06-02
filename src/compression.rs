@@ -2173,7 +2173,7 @@ pub fn construct_shared(
 
     if !shared.cfg.quiet { println!("built SharedData: {:?}ms", tstart.elapsed().as_millis()) }
 
-    return Some(shared);
+    Some(shared)
 }
 
 /// Takes a set of programs and does one full step of compresison.
