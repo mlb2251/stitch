@@ -1,4 +1,4 @@
-use std::iter::{repeat};
+use std::iter::{repeat_n};
 use std::path::Path;
 use std::fs::File;
 use clap::ArgEnum;
@@ -48,7 +48,7 @@ impl InputFormat {
                         Some(name) => name.to_string(),
                         None => i.to_string()
                     };
-                    let task_repeated: Vec<String> = repeat(task).take(programs_in_frontier.len()).collect();
+                    let task_repeated: Vec<String> = repeat_n(task, programs_in_frontier.len()).collect();
                     programs.extend(programs_in_frontier);
                     tasks.extend(task_repeated);
                 }

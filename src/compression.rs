@@ -722,7 +722,7 @@ impl CriticalMultithreadData {
             donelist,
             worklist,
             // we allow negative utilities in follow_prune case
-            utility_pruning_cutoff: if !cfg.follow_prune { 0 } else { std::i32::MIN },
+            utility_pruning_cutoff: if !cfg.follow_prune { 0 } else { i32::MIN },
             active_threads: FxHashSet::default(),
         };
         res.update(cfg);
@@ -738,7 +738,7 @@ impl CriticalMultithreadData {
         self.donelist.truncate(cfg.inv_candidates);
         // the cutoff is the lowest utility
         // we allow negative utilities in follow_prune case
-        let default_bound = if !cfg.follow_prune { 0 } else { std::i32::MIN };
+        let default_bound = if !cfg.follow_prune { 0 } else { i32::MIN };
         self.utility_pruning_cutoff = if cfg.no_opt_upper_bound { default_bound } else { std::cmp::max(0,self.donelist.last().map(|x|x.utility).unwrap_or(0)) };
     }
 }
@@ -1633,7 +1633,7 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
     pattern.match_locations.iter().map(|loc| {
 
         //  if there are any free ivars in the arg at this location then we can't apply this invention here so *total* util should be 0
-        for (_ivar,zid) in pattern.first_zid_of_ivar.iter().enumerate() {
+        for zid in pattern.first_zid_of_ivar.iter() {
             let shifted_arg = shared.arg_of_zid_node[*zid][loc].shifted_id;
             if !shared.analyzed_ivars[shifted_arg].is_empty() {
                 return 0; // set whole util to 0 for this loc, causing an autoreject
