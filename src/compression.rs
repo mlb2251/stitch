@@ -990,139 +990,24 @@ fn stitch_search(
                 .map(|(expands_to, locs)| (expands_to.clone(), locs.collect::<Vec<Idx>>()))
                 .chain(ivars_expansions.into_iter())
             {
-                // for debugging
-                let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, hole_zid, &shared);
-                if tracked { found_tracked = true; }
-                if shared.cfg.follow_prune && !tracked { continue 'expansion; }
 
-
-                // Pruning (SINGLE USE): prune inventions that only match at a single unique (structurally hashed) subtree. This only applies if we
-                // also are priming with arity 0 inventions. Basically if something only matches at one subtree then the best you can
-                // do is the arity zero invention which is the whole subtree, and since we already primed with arity 0 inventions we can
-                // prune here. The exception is when there are free variables so arity 0 wouldn't have applied.
-                // Also, note that upper bounding + arity 0 priming does nearly perfectly handle this already, but there are cases where
-                // you can't improve your structure penalty bound enough to catch everything hence this separate single_use thing.
-                if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.analyzed_free_vars[locs[0]].is_empty() {
-                    if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_fired += 1; }
+                let Some (new_pattern) = perform_expansion(
+                    &original_pattern,
+                    &shared,
+                    &holes_after_pop,
+                    hole_zid,
+                    expands_to,
+                    locs,
+                    weak_utility_pruning_cutoff,
+                ) else {
                     continue 'expansion;
-                }
-
-                // Pruning (SINGLE TASK): prune inventions that are only used in one task
-                if !shared.cfg.allow_single_task
-                        && locs.iter().all(|node| shared.tasks_of_node[*node].len() == 1)
-                        && locs.iter().all(|node| shared.tasks_of_node[locs[0]].iter().next() == shared.tasks_of_node[*node].iter().next()) {
-                    if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
-                    if tracked && !shared.cfg.quiet { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], Node::Prim(format!("<{expands_to}>").into()))) }
-                    continue 'expansion;
-                }
-
-                // Pruning (FREE VARS): if an invention has free variables in the body then it's not a real function and we can discard it
-                // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
-                if let ExpandsTo::Var(i, _) = expands_to {
-                    if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
-                        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
-                        if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
-                        continue 'expansion; // free var
-                    }
-                }
-
-                // update the body utility
-                let body_utility = original_pattern.body_utility +  match &expands_to {
-                    ExpandsTo::Lam(_) => shared.cost_fn.cost_lam,
-                    ExpandsTo::App => shared.cost_fn.cost_app,
-                    ExpandsTo::Var(_, _) => shared.cost_fn.cost_var,
-                    ExpandsTo::Prim(p) => *shared.cost_fn.cost_prim.get(p).unwrap_or(&shared.cost_fn.cost_prim_default),
-                    ExpandsTo::IVar(_) => 0,
                 };
 
-                // update the upper bound
-                let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cost_fn, &shared.cfg);
-                assert!(util_upper_bound <= original_pattern.utility_upper_bound);
+                let tracked = new_pattern.tracked;
 
-                // Pruning (UPPER BOUND): if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
-                if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
-                    if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-                    if tracked && !shared.cfg.quiet { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
-                    continue 'expansion; // too low utility
+                if tracked {
+                    found_tracked = true;
                 }
-
-                // assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_ivar(),
-                        // "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
-                // assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
-                //         "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
-
-                // add any new holes to the list of holes
-                let mut holes = holes_after_pop.clone();
-                match expands_to {
-                    ExpandsTo::Lam(_) => {
-                        // add new holes
-                        holes.push(shared.extensions_of_zid[hole_zid].body.unwrap());
-                    }
-                    ExpandsTo::App => {
-                        // add new holes
-                            holes.push(shared.extensions_of_zid[hole_zid].func.unwrap());
-                            holes.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
-                    }
-                    _ => {}
-                }
-
-                // update arg_choices and possibly first_zid_of_ivar if a new ivar was added
-                let mut arg_choices = original_pattern.arg_choices.clone();
-                let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
-                if let ExpandsTo::IVar(i) = expands_to {
-                    arg_choices.push(LabelledZId::new(hole_zid, i as usize));
-                    if i as usize == original_pattern.first_zid_of_ivar.len() {
-                        first_zid_of_ivar.push(hole_zid);
-                    }
-                }
-
-                // Pruning (ARGUMENT CAPTURE): check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
-                // because subsetting of match_locations can turn previously useful abstractions into useless ones. In the paper this is referred to as "argument capture"
-                if !shared.cfg.no_opt_useless_abstract {
-                    // note I believe it'd be save to iterate over first_zid_of_ivar instead
-                    for argchoice in original_pattern.arg_choices.iter(){
-                        // if its the same arg in every place, and doesnt have any free vars (ie it's safe to inline)
-                        if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
-                            && shared.analyzed_free_vars[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].is_empty()
-                        {
-                            if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
-                            continue 'expansion; // useless abstraction
-                        }
-                    }
-                }
-
-                // PRUNING (REDUNDANT ARGUMENT) if two different ivars #i and #j have the same arg at every location, then we can prune this pattern
-                // because there must exist another pattern where theyre just both the same ivar. Note that this pruning
-                // happens here and not just at the ivar creation point because new subsetting can happen. In this paper this is referred to as
-                // "redundant argument elimination".
-                if !shared.cfg.no_opt_force_multiuse {
-                    // for all pairs of ivars #i and #j, get the first zipper and compare the arg value across all locations
-                    for (i,ivar_zid_1) in first_zid_of_ivar.iter().enumerate() {
-                        let arg_of_loc_1 = &shared.arg_of_zid_node[*ivar_zid_1];
-                        for ivar_zid_2 in first_zid_of_ivar.iter().skip(i+1) {
-                            let arg_of_loc_2 = &shared.arg_of_zid_node[*ivar_zid_2];
-                            if locs.iter().all(|loc|
-                                arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
-                            {
-                                if !shared.cfg.no_stats { shared.stats.lock().deref_mut().force_multiuse_fired += 1; };
-                                if tracked && !shared.cfg.quiet { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
-                                continue 'expansion;
-                            }
-                        }
-                    }
-                }
-
-                // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
-                // from the old pattern.
-                let new_pattern = Pattern {
-                    holes,
-                    arg_choices,
-                    first_zid_of_ivar,
-                    match_locations: locs,
-                    utility_upper_bound: util_upper_bound,
-                    body_utility,
-                    tracked
-                };
 
                 // new_pattern.utility_upper_bound = utility_upper_bound_with_conflicts(&new_pattern, body_utility_no_refinement + refinement_body_utility, &shared);
                 // // branch and bound again
@@ -1191,6 +1076,150 @@ fn stitch_search(
         }
     }
 
+}
+
+fn perform_expansion(
+    original_pattern: &Pattern,
+    shared: &SharedData,
+    holes_after_pop: &Vec<ZId>,
+    hole_zid: ZId,
+    expands_to: ExpandsTo,
+    locs: Vec<Idx>,
+    weak_utility_pruning_cutoff: i32,
+) -> Option<Pattern> {
+    // for debugging
+    let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, hole_zid, &shared);
+    // if tracked { found_tracked = true; }
+    if shared.cfg.follow_prune && !tracked { return None; }
+
+    // Pruning (SINGLE USE): prune inventions that only match at a single unique (structurally hashed) subtree. This only applies if we
+    // also are priming with arity 0 inventions. Basically if something only matches at one subtree then the best you can
+    // do is the arity zero invention which is the whole subtree, and since we already primed with arity 0 inventions we can
+    // prune here. The exception is when there are free variables so arity 0 wouldn't have applied.
+    // Also, note that upper bounding + arity 0 priming does nearly perfectly handle this already, but there are cases where
+    // you can't improve your structure penalty bound enough to catch everything hence this separate single_use thing.
+    if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.analyzed_free_vars[locs[0]].is_empty() {
+        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_fired += 1; }
+        return None;
+    }
+
+    // Pruning (SINGLE TASK): prune inventions that are only used in one task
+    if !shared.cfg.allow_single_task
+            && locs.iter().all(|node| shared.tasks_of_node[*node].len() == 1)
+            && locs.iter().all(|node| shared.tasks_of_node[locs[0]].iter().next() == shared.tasks_of_node[*node].iter().next()) {
+        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
+        if tracked && !shared.cfg.quiet { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], Node::Prim(format!("<{expands_to}>").into()))) }
+        return None;
+    }
+
+    // Pruning (FREE VARS): if an invention has free variables in the body then it's not a real function and we can discard it
+    // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
+    if let ExpandsTo::Var(i, _) = expands_to {
+        if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
+            if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
+            if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
+            return None; // free var
+        }
+    }
+
+    // update the body utility
+    let body_utility = original_pattern.body_utility +  match &expands_to {
+        ExpandsTo::Lam(_) => shared.cost_fn.cost_lam,
+        ExpandsTo::App => shared.cost_fn.cost_app,
+        ExpandsTo::Var(_, _) => shared.cost_fn.cost_var,
+        ExpandsTo::Prim(p) => *shared.cost_fn.cost_prim.get(p).unwrap_or(&shared.cost_fn.cost_prim_default),
+        ExpandsTo::IVar(_) => 0,
+    };
+
+    // update the upper bound
+    let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cost_fn, &shared.cfg);
+    assert!(util_upper_bound <= original_pattern.utility_upper_bound);
+
+    // Pruning (UPPER BOUND): if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
+    if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
+        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
+        if tracked && !shared.cfg.quiet { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
+        return None; // too low utility
+    }
+
+    // assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_ivar(),
+            // "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
+    // assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
+    //         "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
+
+    // add any new holes to the list of holes
+    let mut holes = holes_after_pop.clone();
+    match expands_to {
+        ExpandsTo::Lam(_) => {
+            // add new holes
+            holes.push(shared.extensions_of_zid[hole_zid].body.unwrap());
+        }
+        ExpandsTo::App => {
+            // add new holes
+                holes.push(shared.extensions_of_zid[hole_zid].func.unwrap());
+                holes.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
+        }
+        _ => {}
+    }
+
+    // update arg_choices and possibly first_zid_of_ivar if a new ivar was added
+    let mut arg_choices = original_pattern.arg_choices.clone();
+    let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
+    if let ExpandsTo::IVar(i) = expands_to {
+        arg_choices.push(LabelledZId::new(hole_zid, i as usize));
+        if i as usize == original_pattern.first_zid_of_ivar.len() {
+            first_zid_of_ivar.push(hole_zid);
+        }
+    }
+
+    // Pruning (ARGUMENT CAPTURE): check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
+    // because subsetting of match_locations can turn previously useful abstractions into useless ones. In the paper this is referred to as "argument capture"
+    if !shared.cfg.no_opt_useless_abstract {
+        // note I believe it'd be save to iterate over first_zid_of_ivar instead
+        for argchoice in original_pattern.arg_choices.iter(){
+            // if its the same arg in every place, and doesnt have any free vars (ie it's safe to inline)
+            if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
+                && shared.analyzed_free_vars[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].is_empty()
+            {
+                if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
+                return None; // useless abstraction
+            }
+        }
+    }
+
+    // PRUNING (REDUNDANT ARGUMENT) if two different ivars #i and #j have the same arg at every location, then we can prune this pattern
+    // because there must exist another pattern where theyre just both the same ivar. Note that this pruning
+    // happens here and not just at the ivar creation point because new subsetting can happen. In this paper this is referred to as
+    // "redundant argument elimination".
+    if !shared.cfg.no_opt_force_multiuse {
+        // for all pairs of ivars #i and #j, get the first zipper and compare the arg value across all locations
+        for (i,ivar_zid_1) in first_zid_of_ivar.iter().enumerate() {
+            let arg_of_loc_1 = &shared.arg_of_zid_node[*ivar_zid_1];
+            for ivar_zid_2 in first_zid_of_ivar.iter().skip(i+1) {
+                let arg_of_loc_2 = &shared.arg_of_zid_node[*ivar_zid_2];
+                if locs.iter().all(|loc|
+                    arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
+                {
+                    if !shared.cfg.no_stats { shared.stats.lock().deref_mut().force_multiuse_fired += 1; };
+                    if tracked && !shared.cfg.quiet { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
+                    return None;
+                }
+            }
+        }
+    }
+
+    // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
+    // from the old pattern.
+    let new_pattern = Pattern {
+        holes,
+        arg_choices,
+        first_zid_of_ivar,
+        match_locations: locs,
+        utility_upper_bound: util_upper_bound,
+        body_utility,
+        tracked
+    };
+    Some (new_pattern)
 }
 
 //#[inline(never)]
