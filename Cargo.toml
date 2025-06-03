@@ -21,6 +21,7 @@ colorful = "0.2.1"
 rustc-hash = "1.1.0"
 # lambdas = "0.2.0"
 lambdas = { git = "https://github.com/mlb2251/lambdas", rev = "b8d4868"}
+modppl = "0.3.0"
 
 
 # [patch.crates-io]
