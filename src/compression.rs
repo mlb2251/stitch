@@ -1021,7 +1021,6 @@ fn stitch_search(
 
                 println!("new pattern: {}", new_pattern.to_expr(&shared));
                 println!("new pattern: {:?}", new_pattern);
-                panic!("abc");
 
                 let tracked = new_pattern.tracked;
 
@@ -1921,17 +1920,25 @@ pub fn multistep_compression_internal(
         } else {
             format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len())
         };
-
-        // call actual compression
-        let res: Vec<CompressionStepResult> = smc::compression_step_smc(
-            &rewritten,
-            &inv_name,
-            &cfg,
-            &tasks,
-            &weights,
-            very_first_cost,
-            &name_mapping,
-            );
+        let use_smc = true;
+        let res: Vec<CompressionStepResult> = if use_smc {
+            smc::compression_step_smc(
+                &rewritten,
+                &cfg,
+                &tasks,
+                &weights,
+            )
+        } else {
+            compression_step(
+                &rewritten,
+                &inv_name,
+                &cfg,
+                &tasks,
+                &weights,
+                very_first_cost,
+                &name_mapping,
+            )
+        };
 
         if !res.is_empty() {
             // rewrite with the invention

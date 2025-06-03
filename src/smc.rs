@@ -1,20 +1,7 @@
 use crate::*;
 use lambdas::*;
-use rand::seq::SliceRandom;
-use rustc_hash::{FxHashMap,FxHashSet};
-use std::convert::TryInto;
-use std::fmt::{self, Formatter, Display};
-use std::hash::Hash;
-use itertools::Itertools;
-use serde_json::json;
-use clap::{Parser};
-use serde::Serialize;
-use std::thread;
-use std::sync::Arc;
-use parking_lot::Mutex;
+use rustc_hash::{FxHashMap};
 use std::ops::DerefMut;
-use std::collections::BinaryHeap;
-use rand::Rng;
 
 
 
@@ -29,7 +16,7 @@ pub fn smc_expand(
         return None
     }
     let hole_idx: usize = shared.cfg.hole_choice.choose_hole(&original_pattern, &shared);
-    let (mut holes_after_pop, hole_zid, arg_of_loc) = pop_hole(
+    let (holes_after_pop, hole_zid, arg_of_loc) = pop_hole(
         &original_pattern,
         &shared,
         hole_idx,
@@ -65,7 +52,6 @@ pub fn smc_expand_all(
 }
 
 const TEMPERATURE: f64 = 1.0;
-const ADDTL_WEIGHT: f64 = 1e-10;
 
 fn compute_logweight(p: &Pattern) -> f64 {
     // TODO better utility function, probably should just be a field
@@ -108,7 +94,7 @@ fn resample(
             weights[i] -= 1.0;
         }
     }
-    if (result.len() == number) {
+    if result.len() == number {
         return result;
     }
     let weight_sum = weights.iter().sum::<f64>();
@@ -136,12 +122,9 @@ fn weighted_choice(weights: &[f64], rng: &mut impl rand::Rng) -> usize {
 
 pub fn compression_step_smc(
     programs: &[ExprOwned],
-    new_inv_name: &str, // name of the new invention, like "inv4"
     multistep_cfg: &MultistepCompressionConfig,
     tasks: &[String],
     weights: &[f32],
-    very_first_cost: i32,
-    name_mapping: &[(String, String)],
 ) -> Vec<CompressionStepResult> {
     let Some(shared) = construct_shared(
         programs,
@@ -156,7 +139,7 @@ pub fn compression_step_smc(
 
     let mut patterns = {
         let mut shared_guard = shared.crit.lock();
-        let mut crit = shared_guard.deref_mut();
+        let crit = shared_guard.deref_mut();
         let worklist = crit.worklist.clone();
         worklist.iter().map(|item| item.pattern.clone()).collect::<Vec<_>>()
     };
