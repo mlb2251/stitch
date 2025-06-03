@@ -999,6 +999,7 @@ fn stitch_search(
                     expands_to,
                     locs,
                     weak_utility_pruning_cutoff,
+                    false,
                 ) else {
                     continue 'expansion;
                 };
@@ -1086,7 +1087,9 @@ fn perform_expansion(
     expands_to: ExpandsTo,
     locs: Vec<Idx>,
     weak_utility_pruning_cutoff: i32,
+    no_pruning: bool,
 ) -> Option<Pattern> {
+    assert!(!no_pruning || !shared.cfg.follow_prune, "no_pruning should only be false if follow_prune is false, otherwise we don't prune anything");
     // for debugging
     let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, hole_zid, &shared);
     // if tracked { found_tracked = true; }
@@ -1098,13 +1101,13 @@ fn perform_expansion(
     // prune here. The exception is when there are free variables so arity 0 wouldn't have applied.
     // Also, note that upper bounding + arity 0 priming does nearly perfectly handle this already, but there are cases where
     // you can't improve your structure penalty bound enough to catch everything hence this separate single_use thing.
-    if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.analyzed_free_vars[locs[0]].is_empty() {
+    if !no_pruning && !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.analyzed_free_vars[locs[0]].is_empty() {
         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_fired += 1; }
         return None;
     }
 
     // Pruning (SINGLE TASK): prune inventions that are only used in one task
-    if !shared.cfg.allow_single_task
+    if !no_pruning && !shared.cfg.allow_single_task
             && locs.iter().all(|node| shared.tasks_of_node[*node].len() == 1)
             && locs.iter().all(|node| shared.tasks_of_node[locs[0]].iter().next() == shared.tasks_of_node[*node].iter().next()) {
         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
@@ -1114,11 +1117,13 @@ fn perform_expansion(
 
     // Pruning (FREE VARS): if an invention has free variables in the body then it's not a real function and we can discard it
     // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
-    if let ExpandsTo::Var(i, _) = expands_to {
-        if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
-            if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
-            if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
-            return None; // free var
+    if !no_pruning {
+        if let ExpandsTo::Var(i, _) = expands_to {
+            if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
+                if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
+                if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
+                return None; // free var
+            }
         }
     }
 
@@ -1136,7 +1141,7 @@ fn perform_expansion(
     assert!(util_upper_bound <= original_pattern.utility_upper_bound);
 
     // Pruning (UPPER BOUND): if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
-    if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
+    if !no_pruning && !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
         if tracked && !shared.cfg.quiet { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
         return None; // too low utility
@@ -1174,7 +1179,7 @@ fn perform_expansion(
 
     // Pruning (ARGUMENT CAPTURE): check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
     // because subsetting of match_locations can turn previously useful abstractions into useless ones. In the paper this is referred to as "argument capture"
-    if !shared.cfg.no_opt_useless_abstract {
+    if !no_pruning && !shared.cfg.no_opt_useless_abstract {
         // note I believe it'd be save to iterate over first_zid_of_ivar instead
         for argchoice in original_pattern.arg_choices.iter(){
             // if its the same arg in every place, and doesnt have any free vars (ie it's safe to inline)
@@ -1191,7 +1196,7 @@ fn perform_expansion(
     // because there must exist another pattern where theyre just both the same ivar. Note that this pruning
     // happens here and not just at the ivar creation point because new subsetting can happen. In this paper this is referred to as
     // "redundant argument elimination".
-    if !shared.cfg.no_opt_force_multiuse {
+    if !no_pruning && !shared.cfg.no_opt_force_multiuse {
         // for all pairs of ivars #i and #j, get the first zipper and compare the arg value across all locations
         for (i,ivar_zid_1) in first_zid_of_ivar.iter().enumerate() {
             let arg_of_loc_1 = &shared.arg_of_zid_node[*ivar_zid_1];
