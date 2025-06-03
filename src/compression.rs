@@ -1918,23 +1918,16 @@ pub fn multistep_compression_internal(
     step_results
 }
 
-/// Takes a set of programs and does one full step of compresison.
-pub fn compression_step(
+pub fn construct_shared(
     programs: &[ExprOwned],
-    new_inv_name: &str, // name of the new invention, like "inv4"
     multistep_cfg: &MultistepCompressionConfig,
     tasks: &[String],
     weights: &[f32],
-    very_first_cost: i32,
-    name_mapping: &[(String, String)],
-) -> Vec<CompressionStepResult> {
-
+) -> Option<Arc<SharedData>> {
     let cfg = &multistep_cfg.step.clone();
 
     let cost_fn = &cfg.cost.expr_cost();
 
-    let tstart_total = std::time::Instant::now();
-    let tstart_prep = std::time::Instant::now();
     let mut tstart = std::time::Instant::now();
 
     // structurally hashed exprset
@@ -2012,7 +2005,7 @@ pub fn compression_step(
                 Some(Tracking { expr, zids_of_ivar })
             } else {
                 if !cfg.quiet { println!("Tracking: can't possibly find a match for this in corpus because one if the necessary zippers ZIDs doesnt exist in corpus")}
-                return vec![];
+                return None;
             }
         } else {
             None
@@ -2179,15 +2172,42 @@ pub fn compression_step(
     });
 
     if !shared.cfg.quiet { println!("built SharedData: {:?}ms", tstart.elapsed().as_millis()) }
-    tstart = std::time::Instant::now();
 
-    if cfg.verbose_best {
+    Some(shared)
+}
+
+/// Takes a set of programs and does one full step of compresison.
+pub fn compression_step(
+    programs: &[ExprOwned],
+    new_inv_name: &str, // name of the new invention, like "inv4"
+    multistep_cfg: &MultistepCompressionConfig,
+    tasks: &[String],
+    weights: &[f32],
+    very_first_cost: i32,
+    name_mapping: &[(String, String)],
+) -> Vec<CompressionStepResult> {
+
+    let tstart_total = std::time::Instant::now();
+    let tstart_prep = std::time::Instant::now();
+
+    let Some(shared) = construct_shared(
+        programs,
+        multistep_cfg,
+        tasks,
+        weights,
+    ) else {
+        return vec![];
+    };
+
+    let mut tstart = std::time::Instant::now();
+
+    if shared.cfg.verbose_best {
         let mut crit = shared.crit.lock();
         if !crit.deref_mut().donelist.is_empty() {
             let best_util = crit.deref_mut().donelist.first().unwrap().utility;
             let best_expr: String = crit.deref_mut().donelist.first().unwrap().info(&shared);
-            let new_expected_cost = first_train_cost - crit.donelist.first().unwrap().compressive_utility + crit.donelist.first().unwrap().to_expr(&shared).cost(&shared.cost_fn);
-            let trainratio = first_train_cost as f64/new_expected_cost as f64;
+            let new_expected_cost = shared.first_train_cost - crit.donelist.first().unwrap().compressive_utility + crit.donelist.first().unwrap().to_expr(&shared).cost(&shared.cost_fn);
+            let trainratio = shared.first_train_cost as f64/new_expected_cost as f64;
             if !shared.cfg.quiet { println!("{} @ step=0 util={} trainratio={:.2} for {}", "[new best utility]".blue(), best_util, trainratio, best_expr) }
         }
     }
@@ -2199,13 +2219,13 @@ pub fn compression_step(
     // *****************
     // * STITCH SEARCH *
     // *****************
-    if cfg.threads == 1 {
+    if shared.cfg.threads == 1 {
         // Single threaded
         stitch_search(Arc::clone(&shared));
     } else {
         // Multithreaded
         let mut handles = vec![];
-        for _ in 0..cfg.threads {
+        for _ in 0..shared.cfg.threads {
             // clone the Arcs to have copies for this thread
             let shared = Arc::clone(&shared);
             
@@ -2230,18 +2250,18 @@ pub fn compression_step(
     let mut shared: SharedData = Arc::try_unwrap(shared).unwrap();
 
     // one last .update()
-    shared.crit.lock().deref_mut().update(cfg);
+    shared.crit.lock().deref_mut().update(&shared.cfg);
 
     if !shared.cfg.quiet { println!("{:?}", shared.stats.lock().deref_mut()) }
     assert!(shared.crit.lock().deref_mut().worklist.is_empty());
 
     let donelist: Vec<FinishedPattern> = shared.crit.lock().deref_mut().donelist.clone();
 
-    let dc_comparison_millis = if cfg.dreamcoder_comparison {
+    let dc_comparison_millis = if shared.cfg.dreamcoder_comparison {
         if !shared.cfg.quiet { println!("Timing point 1 (from the start of compression_step to final donelist): {:?}ms", tstart_total.elapsed().as_millis()) }
         if !shared.cfg.quiet { println!("Timing Comparison Point A (search) (millis): {}", tstart_total.elapsed().as_millis()) }
         let tstart_rewrite = std::time::Instant::now();
-        rewrite_fast(&donelist[0], &shared, &Node::Prim(new_inv_name.into()), cost_fn);
+        rewrite_fast(&donelist[0], &shared, &Node::Prim(new_inv_name.into()), &shared.cost_fn);
         if !shared.cfg.quiet { println!("Timing point 2 (rewriting the candidate): {:?}ms", tstart_rewrite.elapsed().as_millis()) }
         if !shared.cfg.quiet { println!("Timing Comparison Point B (search+rewrite) (millis): {}", tstart_total.elapsed().as_millis()) }
         Some(tstart_total.elapsed().as_millis() as usize)
@@ -2259,8 +2279,8 @@ pub fn compression_step(
         results.push(res);
     }
 
-    if cfg.follow_prune && !results.is_empty() {
-        if let Some(follow) = &cfg.follow {
+    if shared.cfg.follow_prune && !results.is_empty() {
+        if let Some(follow) = &shared.cfg.follow {
             assert_eq!(follow, &results[0].inv.body.to_string(), "found something other than the followed abstraction somehow");
         }
     }
