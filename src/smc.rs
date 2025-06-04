@@ -53,9 +53,12 @@ pub fn smc_expand_all(
 
 const TEMPERATURE: f64 = 1.0;
 
+fn calculate_utility(p: &Pattern) -> usize {
+    p.body_utility as usize * (p.match_locations.len() - 1)
+}
+
 fn compute_logweight(p: &Pattern) -> f64 {
-    // TODO better utility function, probably should just be a field
-    let utility = p.body_utility as usize * (p.match_locations.len() - 1);
+    let utility = calculate_utility(p);
     let logweight = (utility as f64).ln() * TEMPERATURE;
     logweight
 }
