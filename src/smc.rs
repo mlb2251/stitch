@@ -139,6 +139,7 @@ pub fn compression_step_smc(
     };
 
     let num_particles = 10;
+    let top_k = 5; // Define K for top patterns
 
     let mut patterns = {
         let mut shared_guard = shared.crit.lock();
@@ -156,6 +157,8 @@ pub fn compression_step_smc(
     
     let rng = &mut rand::thread_rng();
 
+    let mut top_patterns = vec![];
+
     loop {
         println!("patterns in worklist: {:?}", patterns.iter().map(|p| p.info(&shared)).collect::<Vec<_>>());
         patterns = smc_expand_all(&patterns, &shared, rng);
@@ -163,7 +166,15 @@ pub fn compression_step_smc(
             break;
         }
         patterns = resample(&patterns, rng, num_particles);
+
+        // Add current patterns to top_patterns and keep only the top K
+        top_patterns.extend(patterns.iter().cloned());
+        top_patterns.sort_by_key(|p| calculate_utility(p));
+        top_patterns.reverse();
+        top_patterns.truncate(top_k);
     }
+
+    println!("Top {} patterns seen: {:?}", top_k, top_patterns.iter().map(|p| p.info(&shared)).collect::<Vec<_>>());
 
     panic!("compression_step_smc is not implemented in this version of the code. Use compression_step instead.");
 }
