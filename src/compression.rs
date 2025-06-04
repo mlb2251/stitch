@@ -1296,7 +1296,7 @@ pub struct FinishedPattern {
 
 impl FinishedPattern {
     //#[inline(never)]
-    fn new(pattern: Pattern, shared: &SharedData) -> Self {
+    pub fn new(pattern: Pattern, shared: &SharedData) -> Self {
         let arity = pattern.first_zid_of_ivar.len();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum();
         let compressive_utility = compressive_utility(&pattern,shared);
@@ -1503,7 +1503,7 @@ pub struct CompressionStepResult {
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, very_first_cost: i32, name_mapping: &[(String,String)], dc_comparison_millis: Option<usize>) -> Self {
+    pub fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, very_first_cost: i32, name_mapping: &[(String,String)], dc_comparison_millis: Option<usize>) -> Self {
 
         let inv = done.to_invention(inv_name, shared);
         let rewritten = rewrite_fast(&done, shared, &Node::Prim(inv.name.clone().into()), &shared.cost_fn);

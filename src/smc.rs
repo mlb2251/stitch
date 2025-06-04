@@ -2,6 +2,7 @@ use crate::*;
 use lambdas::*;
 use rustc_hash::{FxHashMap};
 use std::ops::DerefMut;
+use std::sync::Arc;
 
 
 
@@ -138,7 +139,7 @@ pub fn compression_step_smc(
         return vec![];
     };
 
-    let num_particles = 10;
+    let num_particles = 1000;
     let top_k = 5; // Define K for top patterns
 
     let mut patterns = {
@@ -160,7 +161,7 @@ pub fn compression_step_smc(
     let mut top_patterns = vec![];
 
     loop {
-        println!("patterns in worklist: {:?}", patterns.iter().map(|p| p.info(&shared)).collect::<Vec<_>>());
+        // println!("patterns in worklist: {:?}", patterns.iter().map(|p| p.info(&shared)).collect::<Vec<_>>());
         patterns = smc_expand_all(&patterns, &shared, rng);
         if patterns.is_empty() {
             break;
@@ -169,12 +170,37 @@ pub fn compression_step_smc(
 
         // Add current patterns to top_patterns and keep only the top K
         top_patterns.extend(patterns.iter().cloned());
+        top_patterns = top_patterns.into_iter().collect::<std::collections::HashSet<_>>().into_iter().collect();
         top_patterns.sort_by_key(|p| calculate_utility(p));
         top_patterns.reverse();
         top_patterns.truncate(top_k);
     }
 
-    println!("Top {} patterns seen: {:?}", top_k, top_patterns.iter().map(|p| p.info(&shared)).collect::<Vec<_>>());
+    for p in &top_patterns {
+        println!("Utility: {}", calculate_utility(p));
+        println!("Pattern: {}", p.info(&shared));
+    }
 
-    panic!("compression_step_smc is not implemented in this version of the code. Use compression_step instead.");
+
+
+    let mut shared: SharedData = Arc::try_unwrap(shared).unwrap();
+
+    let very_first_cost = shared.init_cost;
+
+    let mut results = vec![];
+    for (i, pattern) in top_patterns.iter().enumerate() {
+        let finished_pattern = FinishedPattern::new(pattern.clone(), &shared);
+        let invention_name = format!("inv{}", i);
+        let result = CompressionStepResult::new(
+            finished_pattern,
+            &invention_name,
+            &mut shared,
+            very_first_cost,
+            &[],
+            None,
+        );
+        results.push(result);
+    }
+
+    results
 }
