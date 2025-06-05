@@ -952,21 +952,6 @@ fn get_worklist_item(
     // * MULTITHREADING: CRITICAL SECTION END *
 }
 
-pub fn pop_hole<'a>(
-    original_pattern: &'a Pattern,
-    shared: &'a SharedData,
-    hole_idx: usize,
-) -> (Vec<ZId>, ZId, &'a FxHashMap<Idx, Arg>) {
-    // pop that hole from the list of holes
-    let mut holes_after_pop: Vec<ZId> = original_pattern.holes.clone();
-    let hole_zid: ZId = holes_after_pop.remove(hole_idx);
-
-    // get the hashmap for looking up the Arg struct for this hole based on match location. The Arg
-    // struct has a bunch of info about the hole, including what it expands into at each match location
-    let arg_of_loc = &shared.arg_of_zid_node[hole_zid];
-    return (holes_after_pop, hole_zid, arg_of_loc);
-}
-
 /// The core top down branch and bound search
 fn stitch_search(
     shared: Arc<SharedData>,
@@ -989,8 +974,6 @@ fn stitch_search(
                 None => return,
         };
 
-        println!("HI HI HI HI HI {:?} {:?}", patterns, weak_utility_pruning_cutoff);
-
         for original_pattern in patterns {
 
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
@@ -1001,11 +984,13 @@ fn stitch_search(
             // choose which hole we're going to expand
             let hole_idx: usize = shared.cfg.hole_choice.choose_hole(&original_pattern, &shared);
 
-            let (mut holes_after_pop, hole_zid, arg_of_loc) = pop_hole(
-                &original_pattern,
-                &shared,
-                hole_idx,
-            );
+            // pop that hole from the list of holes
+            let mut holes_after_pop: Vec<ZId> = original_pattern.holes.clone();
+            let hole_zid: ZId = holes_after_pop.remove(hole_idx);
+
+            // get the hashmap for looking up the Arg struct for this hole based on match location. The Arg
+            // struct has a bunch of info about the hole, including what it expands into at each match location
+            let arg_of_loc = &shared.arg_of_zid_node[hole_zid];
 
             // sort the match locations by node type (ie what theyll expand into) so that we can do a group_by() on
             // node type in order to iterate over all the different expansions
@@ -1033,13 +1018,9 @@ fn stitch_search(
                     expands_to,
                     locs,
                     weak_utility_pruning_cutoff,
-                    false,
                 ) else {
                     continue 'expansion;
                 };
-
-                println!("new pattern: {}", new_pattern.to_expr(&shared));
-                println!("new pattern: {:?}", new_pattern);
 
                 let tracked = new_pattern.tracked;
 
@@ -1116,14 +1097,20 @@ fn stitch_search(
 
 }
 
-fn should_be_pruned_basic(
+fn perform_expansion(
     original_pattern: &Pattern,
     shared: &SharedData,
+    holes_after_pop: &Vec<ZId>,
     hole_zid: ZId,
     expands_to: ExpandsTo,
-    locs: &Vec<Idx>,
-    tracked: bool,
-) -> bool {
+    locs: Vec<Idx>,
+    weak_utility_pruning_cutoff: i32,
+) -> Option<Pattern> {
+    // for debugging
+    let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, hole_zid, &shared);
+    // if tracked { found_tracked = true; }
+    if shared.cfg.follow_prune && !tracked { return None; }
+
     // Pruning (SINGLE USE): prune inventions that only match at a single unique (structurally hashed) subtree. This only applies if we
     // also are priming with arity 0 inventions. Basically if something only matches at one subtree then the best you can
     // do is the arity zero invention which is the whole subtree, and since we already primed with arity 0 inventions we can
@@ -1132,7 +1119,7 @@ fn should_be_pruned_basic(
     // you can't improve your structure penalty bound enough to catch everything hence this separate single_use thing.
     if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.analyzed_free_vars[locs[0]].is_empty() {
         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_fired += 1; }
-        return true;
+        return None;
     }
 
     // Pruning (SINGLE TASK): prune inventions that are only used in one task
@@ -1141,7 +1128,7 @@ fn should_be_pruned_basic(
             && locs.iter().all(|node| shared.tasks_of_node[locs[0]].iter().next() == shared.tasks_of_node[*node].iter().next()) {
         if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
         if tracked && !shared.cfg.quiet { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], Node::Prim(format!("<{expands_to}>").into()))) }
-        return true;
+        return None;
     }
 
     // Pruning (FREE VARS): if an invention has free variables in the body then it's not a real function and we can discard it
@@ -1150,15 +1137,62 @@ fn should_be_pruned_basic(
         if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
             if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
-            return true; // free var
+            return None; // free var
         }
     }
-    return false;
 
+    // update the body utility
+    let body_utility = original_pattern.body_utility +  match &expands_to {
+        ExpandsTo::Lam(_) => shared.cost_fn.cost_lam,
+        ExpandsTo::App => shared.cost_fn.cost_app,
+        ExpandsTo::Var(_, _) => shared.cost_fn.cost_var,
+        ExpandsTo::Prim(p) => *shared.cost_fn.cost_prim.get(p).unwrap_or(&shared.cost_fn.cost_prim_default),
+        ExpandsTo::IVar(_) => 0,
+    };
 
-}
+    // update the upper bound
+    let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cost_fn, &shared.cfg);
+    assert!(util_upper_bound <= original_pattern.utility_upper_bound);
 
-fn should_be_pruned_argument(original_pattern: &Pattern, shared: &SharedData, hole_zid: usize, locs: &Vec<usize>, tracked: bool, first_zid_of_ivar: &Vec<usize>) -> bool {
+    // Pruning (UPPER BOUND): if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
+    if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
+        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
+        if tracked && !shared.cfg.quiet { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
+        return None; // too low utility
+    }
+
+    // assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_ivar(),
+            // "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
+    // assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
+    //         "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
+
+    // add any new holes to the list of holes
+    let mut holes = holes_after_pop.clone();
+    match expands_to {
+        ExpandsTo::Lam(_) => {
+            // add new holes
+            holes.push(shared.extensions_of_zid[hole_zid].body.unwrap());
+        }
+        ExpandsTo::App => {
+            // add new holes
+                holes.push(shared.extensions_of_zid[hole_zid].func.unwrap());
+                holes.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
+        }
+        _ => {}
+    }
+
+    // update arg_choices and possibly first_zid_of_ivar if a new ivar was added
+    let mut arg_choices = original_pattern.arg_choices.clone();
+    let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
+    if let ExpandsTo::IVar(i) = expands_to {
+        arg_choices.push(LabelledZId::new(hole_zid, i as usize));
+        if i as usize == original_pattern.first_zid_of_ivar.len() {
+            first_zid_of_ivar.push(hole_zid);
+        }
+    }
+
+    // Pruning (ARGUMENT CAPTURE): check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
+    // because subsetting of match_locations can turn previously useful abstractions into useless ones. In the paper this is referred to as "argument capture"
     if !shared.cfg.no_opt_useless_abstract {
         // note I believe it'd be save to iterate over first_zid_of_ivar instead
         for argchoice in original_pattern.arg_choices.iter(){
@@ -1167,12 +1201,10 @@ fn should_be_pruned_argument(original_pattern: &Pattern, shared: &SharedData, ho
                 && shared.analyzed_free_vars[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].is_empty()
             {
                 if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
-                return true; // useless abstraction
+                return None; // useless abstraction
             }
         }
     }
-    // Pruning (ARGUMENT CAPTURE): check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
-    // because subsetting of match_locations can turn previously useful abstractions into useless ones. In the paper this is referred to as "argument capture"
 
     // PRUNING (REDUNDANT ARGUMENT) if two different ivars #i and #j have the same arg at every location, then we can prune this pattern
     // because there must exist another pattern where theyre just both the same ivar. Note that this pruning
@@ -1189,13 +1221,26 @@ fn should_be_pruned_argument(original_pattern: &Pattern, shared: &SharedData, ho
                 {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().force_multiuse_fired += 1; };
                     if tracked && !shared.cfg.quiet { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
-                    return true;
+                    return None;
                 }
             }
         }
     }
-    false
+
+    // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
+    // from the old pattern.
+    let new_pattern = Pattern {
+        holes,
+        arg_choices,
+        first_zid_of_ivar,
+        match_locations: locs,
+        utility_upper_bound: util_upper_bound,
+        body_utility,
+        tracked
+    };
+    Some (new_pattern)
 }
+
 
 fn compute_body_utility_change(shared: &SharedData, expands_to: &ExpandsTo) -> i32 {
     match expands_to {
@@ -1205,83 +1250,6 @@ fn compute_body_utility_change(shared: &SharedData, expands_to: &ExpandsTo) -> i
         ExpandsTo::Prim(p) => *shared.cost_fn.cost_prim.get(p).unwrap_or(&shared.cost_fn.cost_prim_default),
         ExpandsTo::IVar(_) => 0,
     }
-}
-
-pub fn perform_expansion(
-    original_pattern: &Pattern,
-    shared: &SharedData,
-    holes_after_pop: &Vec<ZId>,
-    hole_zid: ZId,
-    expands_to: ExpandsTo,
-    locs: Vec<Idx>,
-    weak_utility_pruning_cutoff: i32,
-    no_pruning: bool,
-) -> Option<Pattern> {
-    assert!(!no_pruning || !shared.cfg.follow_prune, "no_pruning should only be false if follow_prune is false, otherwise we don't prune anything");
-    // for debugging
-    let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, hole_zid, &shared);
-    // if tracked { found_tracked = true; }
-    if shared.cfg.follow_prune && !tracked { return None; }
-
-    if !no_pruning && should_be_pruned_basic(original_pattern, shared, hole_zid, expands_to.clone(), &locs, tracked) {
-        return None;
-    }
-
-    // update the body utility
-    let body_utility = original_pattern.body_utility +  compute_body_utility_change(shared, &expands_to);
-
-    // update the upper bound
-    let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cost_fn, &shared.cfg);
-    assert!(util_upper_bound <= original_pattern.utility_upper_bound);
-
-    // Pruning (UPPER BOUND): if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
-    if !no_pruning && !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
-        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().upper_bound_fired += 1; };
-        if tracked && !shared.cfg.quiet { println!("{} upper bound ({} < {}) pruned when expanding {} to {}", "[TRACK]".red().bold(), util_upper_bound, weak_utility_pruning_cutoff, original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
-        return None; // too low utility
-    }
-
-    // assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_ivar(),
-            // "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
-    // assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
-    //         "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
-
-    // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
-    // from the old pattern.
-    let mut new_pattern = Pattern {
-        holes: holes_after_pop.clone(),
-        arg_choices: original_pattern.arg_choices.clone(),
-        first_zid_of_ivar: original_pattern.first_zid_of_ivar.clone(),
-        match_locations: locs,
-        utility_upper_bound: util_upper_bound,
-        body_utility,
-        tracked
-    };
-
-
-    // add any new holes to the list of holes
-    match expands_to {
-        ExpandsTo::Lam(_) => {
-            // add new holes
-            new_pattern.holes.push(shared.extensions_of_zid[hole_zid].body.unwrap());
-        }
-        ExpandsTo::App => {
-            // add new holes
-                new_pattern.holes.push(shared.extensions_of_zid[hole_zid].func.unwrap());
-                new_pattern.holes.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
-        }
-        _ => {}
-    }
-
-    if let ExpandsTo::IVar(i) = expands_to {
-        add_variable_at(&mut new_pattern, hole_zid, i);
-    }
-
-    if !no_pruning && should_be_pruned_argument(original_pattern, shared, hole_zid, &new_pattern.match_locations, tracked, &new_pattern.first_zid_of_ivar) {
-        return None;
-    }
-
-    Some (new_pattern)
 }
 
 fn add_variable_at(p: &mut Pattern, at_loc: usize, var_id: i32) {
