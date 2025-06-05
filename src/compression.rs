@@ -454,6 +454,25 @@ impl Pattern {
             tracked: cfg.follow.is_some(),
         }
     }
+
+    fn single_var(corpus_span: &Span, cost_of_node_all: &[i32], num_paths_to_node: &[i32], set: &ExprSet, cost_fn: &ExprCost, cfg: &CompressionStepConfig) -> Self {
+        let mut pattern = Self::single_hole(corpus_span, cost_of_node_all, num_paths_to_node, set, cost_fn, cfg);
+        let hole_zid = pattern.holes.pop().unwrap();
+        add_variable_at(&mut pattern, hole_zid, 0);
+        pattern
+    }
+
+    pub fn single_var_from_shared(shared: &SharedData) -> Self {
+        Self::single_var(
+            &shared.corpus_span,
+            &shared.cost_of_node_all,
+            &shared.num_paths_to_node,
+            &shared.set,
+            &shared.cost_fn,
+            &shared.cfg
+        )
+    }
+
     /// convert pattern to an Expr
     fn to_expr(&self, shared: &SharedData) -> ExprOwned {
         let mut set = ExprSet::empty(Order::ChildFirst, false, false);
@@ -1255,15 +1274,136 @@ pub fn perform_expansion(
     }
 
     if let ExpandsTo::IVar(i) = expands_to {
-        new_pattern.arg_choices.push(LabelledZId::new(hole_zid, i as usize));
-        if i as usize == original_pattern.first_zid_of_ivar.len() {
-            new_pattern.first_zid_of_ivar.push(hole_zid);
-        }
+        add_variable_at(&mut new_pattern, hole_zid, i);
     }
 
     if !no_pruning && should_be_pruned_argument(original_pattern, shared, hole_zid, &new_pattern.match_locations, tracked, &new_pattern.first_zid_of_ivar) {
         return None;
     }
+
+    Some (new_pattern)
+}
+
+fn add_variable_at(p: &mut Pattern, at_loc: usize, var_id: i32) {
+    p.arg_choices.push(LabelledZId::new(at_loc, var_id as usize));
+    if var_id as usize ==  p.first_zid_of_ivar.len() {
+        p.first_zid_of_ivar.push(at_loc);
+    }
+}
+
+fn remove_variable_at(p: &mut Pattern, var_id: usize) -> Vec<ZId> {
+    let mut zids = Vec::new();
+    // remove the variable from the arg choices
+    p.arg_choices.retain(|x: &LabelledZId| {
+        if (x.ivar as usize) == var_id {
+            // if this is the variable we're removing, add its zid to the list of zids to remove
+            // and return false to remove it from the arg choices
+            zids.push(x.zid);
+            return false;
+        }
+        return true; // keep this arg choice
+    });
+    p.arg_choices.iter_mut().for_each(|x: &mut LabelledZId| {
+        if x.ivar > var_id {
+            x.ivar -= 1; // decrement the ivar index for all variables after the one we're removing
+        }
+    });
+    // remove the variable from the first_zid_of_ivar
+    p.first_zid_of_ivar.remove(var_id);
+    zids
+}
+
+pub fn get_num_variables(pattern: &Pattern) -> usize {
+    // the number of variables is the number of first_zid_of_ivar entries
+    pattern.first_zid_of_ivar.len()
+}
+
+pub fn get_zid_for_ivar(pattern: &Pattern, ivar: usize) -> ZId {
+    // get the first zid of the ivar
+    pattern.first_zid_of_ivar[ivar]
+}
+
+
+pub fn check_consistency(shared: &SharedData, p: &Pattern) {
+    // let num_vars: usize = get_num_variables(p);
+    for labeled in p.arg_choices.iter() {
+        // check that the ivar is within bounds
+        let arg_of_loc = &shared.arg_of_zid_node[labeled.zid];
+        for loc in p.match_locations.iter() {
+            assert!(arg_of_loc.contains_key(loc), "Variable {} at location {} is not consistent with shared data", labeled.ivar, loc);
+        }
+    }
+    // for i in 0..num_vars {
+    //     let variable_zid = get_zid_for_ivar(p, i);
+    //     let arg_of_loc = &shared.arg_of_zid_node[variable_zid];
+    //     for loc in p.match_locations.iter() {
+    //         assert!(arg_of_loc.contains_key(loc), "Variable {} at location {} is not consistent with shared data", i, loc);
+    //     }
+    // }
+}
+
+pub fn perform_expansion_variable(
+    original_pattern: &Pattern,
+    shared: &SharedData,
+    variable_ivar: usize,
+    expands_to: ExpandsTo,
+    locs: Vec<Idx>,
+) -> Option<Pattern> {
+    // for debugging
+    // TODO double check
+    // let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, variable_zid, &shared);
+    // if tracked { found_tracked = true; }
+    // if shared.cfg.follow_prune && !tracked { return None; }
+
+
+    check_consistency(shared, original_pattern);
+    // update the body utility
+    let body_utility = original_pattern.body_utility +  compute_body_utility_change(shared, &expands_to);
+
+    // assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_ivar(),
+            // "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
+    // assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
+    //         "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
+
+    // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
+    // from the old pattern.
+    let mut new_pattern = original_pattern.clone();
+    new_pattern.match_locations = locs;
+    new_pattern.body_utility = body_utility;
+
+    // println!("targeting ivar: {}", variable_ivar);
+    // println!("expands_to: {:?}", expands_to);
+    // println!("original: {:?}", new_pattern);
+    let variable_zids: Vec<usize> = remove_variable_at(&mut new_pattern, variable_ivar);
+    // println!("after removing variable: {:?}", new_pattern);
+    // println!("variable_zids: {:?}", variable_zids);
+
+    let num_vars = new_pattern.first_zid_of_ivar.len() as i32;
+
+    for variable_zid in variable_zids {
+        // add any new holes to the list of holes
+        match expands_to {
+            ExpandsTo::Lam(_) => {
+                // add new holes
+                add_variable_at(&mut new_pattern, shared.extensions_of_zid[variable_zid].body.unwrap(), num_vars); 
+            }
+            ExpandsTo::App => {
+                // add new holes
+                add_variable_at(&mut new_pattern, shared.extensions_of_zid[variable_zid].func.unwrap(), num_vars);
+                add_variable_at(&mut new_pattern, shared.extensions_of_zid[variable_zid].arg.unwrap(), num_vars + 1);
+            }
+            _ => {}
+        }
+
+        if let ExpandsTo::IVar(i) = expands_to {
+            add_variable_at(&mut new_pattern, variable_zid, i);
+        }
+    }
+
+    // println!("after adding variable: {:?}", new_pattern);
+
+    check_consistency(shared, &new_pattern);
+
 
     Some (new_pattern)
 }
@@ -2258,7 +2398,6 @@ pub fn construct_shared(
 
     Some(shared)
 }
-
 
 /// Takes a set of programs and does one full step of compresison.
 pub fn compression_step(

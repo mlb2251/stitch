@@ -4,37 +4,41 @@ use rustc_hash::{FxHashMap};
 use std::ops::DerefMut;
 use std::sync::Arc;
 
-
-
 pub fn smc_expand(
     original_pattern: &Pattern,
     shared: &SharedData,
     rng: &mut impl rand::Rng,
 ) -> Option<Pattern> {
+    // println!("Expanding pattern: {}", original_pattern.info(shared));
+    check_consistency(shared, original_pattern);
     let match_location = original_pattern.match_locations[rng.gen_range(0..original_pattern.match_locations.len())];
-    let num_holes = original_pattern.holes.len();
-    if num_holes == 0 {
+    // println!("Match locations: {:?}", original_pattern.match_locations);
+    // println!("Match location: {}", match_location);
+    let num_vars = get_num_variables(original_pattern);
+    if num_vars == 0 {
         return None
     }
-    let hole_idx: usize = shared.cfg.hole_choice.choose_hole(&original_pattern, &shared);
-    let (holes_after_pop, hole_zid, arg_of_loc) = pop_hole(
-        &original_pattern,
-        &shared,
-        hole_idx,
-    );
+    let variable_ivar: usize = rng.gen_range(0..num_vars);
+    // println!("Variable index chosen: {}", variable_ivar);
+    // let (holes_after_pop, hole_zid, arg_of_loc) = pop_hole(
+    //     &original_pattern,
+    //     &shared,
+    //     hole_idx,
+    // );e
+    let variable_zid = get_zid_for_ivar(original_pattern, variable_ivar);
+    // println!("Variable ZID: {}", variable_zid);
+    let arg_of_loc = &shared.arg_of_zid_node[variable_zid];
+    // println!("Argument of location: {:?}", arg_of_loc);
     let expands_to = arg_of_loc[&match_location].expands_to.clone();
-    let locs = original_pattern.match_locations.iter().filter(
+    let locs: Vec<usize> = original_pattern.match_locations.iter().filter(
         |&&loc| arg_of_loc[&loc].expands_to == expands_to
     ).cloned().collect::<Vec<_>>();
-    perform_expansion(
+    perform_expansion_variable(
         &original_pattern,
         &shared,
-        &holes_after_pop,
-        hole_zid,
+        variable_ivar,
         expands_to,
         locs,
-        0,
-        true,
     )
 }
 
@@ -142,19 +146,8 @@ pub fn compression_step_smc(
     let num_particles = 1000;
     let top_k = 5; // Define K for top patterns
 
-    let mut patterns = {
-        let mut shared_guard = shared.crit.lock();
-        let crit = shared_guard.deref_mut();
-        let worklist = crit.worklist.clone();
-        worklist.iter().map(|item| item.pattern.clone()).collect::<Vec<_>>()
-    };
-
-    assert!(patterns.len() == 1);
-    for _ in 2..num_particles {
-        // clone the first pattern to create a new particle
-        let first_pattern = patterns[0].clone();
-        patterns.push(first_pattern)
-    }
+    let pattern = Pattern::single_var_from_shared(&shared);
+    let mut patterns = vec![pattern; num_particles];
     
     let rng = &mut rand::thread_rng();
 
