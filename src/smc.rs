@@ -143,8 +143,8 @@ pub fn compression_step_smc(
         return vec![];
     };
 
-    let num_particles = 1000;
-    let top_k = 5; // Define K for top patterns
+    let num_particles = 100;
+    let top_k = 1; // Define K for top patterns
 
     let pattern = Pattern::single_var_from_shared(&shared);
     let mut patterns = vec![pattern; num_particles];
