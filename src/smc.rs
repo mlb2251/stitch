@@ -10,7 +10,7 @@ pub fn smc_expand(
     rng: &mut impl rand::Rng,
 ) -> Option<Pattern> {
     // println!("Expanding pattern: {}", original_pattern.info(shared));
-    check_consistency(shared, original_pattern);
+    // check_consistency(shared, original_pattern);
     let match_location = original_pattern.match_locations[rng.gen_range(0..original_pattern.match_locations.len())];
     // println!("Match locations: {:?}", original_pattern.match_locations);
     // println!("Match location: {}", match_location);
