@@ -1142,13 +1142,10 @@ fn perform_expansion(
     }
 
     // update the body utility
-    let body_utility = original_pattern.body_utility +  match &expands_to {
-        ExpandsTo::Lam(_) => shared.cost_fn.cost_lam,
-        ExpandsTo::App => shared.cost_fn.cost_app,
-        ExpandsTo::Var(_, _) => shared.cost_fn.cost_var,
-        ExpandsTo::Prim(p) => *shared.cost_fn.cost_prim.get(p).unwrap_or(&shared.cost_fn.cost_prim_default),
-        ExpandsTo::IVar(_) => 0,
-    };
+    let body_utility = original_pattern.body_utility + compute_body_utility_change(
+        &shared,
+        &expands_to,
+    );
 
     // update the upper bound
     let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cost_fn, &shared.cfg);
