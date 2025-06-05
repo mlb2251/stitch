@@ -106,7 +106,15 @@ fn resample(
         return result;
     }
     let weight_sum = weights.iter().sum::<f64>();
+    if weight_sum == 0.0 {
+        weights = vec![1.0 / deduplicated.len() as f64; deduplicated.len()];
+    }
     weights.iter_mut().for_each(|w| *w /= weight_sum);
+    let mut accum = 0.0;
+    for i in 0..weights.len() {
+        accum += weights[i];
+        weights[i] = accum;
+    }
     for _ in result.len()..number {
         let idx = weighted_choice(&weights, rng);
         result.push(deduplicated[idx].clone());
@@ -114,18 +122,14 @@ fn resample(
     return result;
 }
 
-fn weighted_choice(weights: &[f64], rng: &mut impl rand::Rng) -> usize {
-    let mut cumulative = 0.0;
-    let mut choice = 0;
+fn weighted_choice(cum_weights: &[f64], rng: &mut impl rand::Rng) -> usize {
+    // println!("Choosing from weights: {:?}", cum_weights);
     let r: f64 = rng.gen();
-    for (i, &weight) in weights.iter().enumerate() {
-        cumulative += weight;
-        if r < cumulative {
-            choice = i;
-            break;
-        }
-    }
-    choice
+    // println!("r: {:?}", r);
+    return match cum_weights.binary_search_by(|&w| w.partial_cmp(&r).unwrap()) {
+        Ok(idx) => idx,
+        Err(idx) => idx,
+    };
 }
 
 pub fn compression_step_smc(
@@ -150,7 +154,7 @@ pub fn compression_step_smc(
     
     let rng = &mut rand::rngs::StdRng::seed_from_u64(shared.cfg.seed);
 
-    let mut top_patterns = vec![];
+    let mut best = patterns[0].clone();
 
     loop {
         // println!("patterns in worklist: {:?}", patterns.iter().map(|p| p.info(&shared)).collect::<Vec<_>>());
@@ -159,19 +163,15 @@ pub fn compression_step_smc(
             break;
         }
         patterns = resample(&patterns, rng, shared.cfg.smc_particles);
-
-        // Add current patterns to top_patterns and keep only the top K
-        top_patterns.extend(patterns.iter().cloned());
-        top_patterns = top_patterns.into_iter().collect::<std::collections::HashSet<_>>().into_iter().collect();
-        top_patterns.sort_by_key(|p| calculate_utility(p));
-        top_patterns.reverse();
-        top_patterns.truncate(top_k);
+        for p in &patterns {
+            if calculate_utility(p) > calculate_utility(&best) {
+                best = p.clone();
+            }
+        }
     }
 
-    for p in &top_patterns {
-        println!("Utility: {}", calculate_utility(p));
-        println!("Pattern: {}", p.info(&shared));
-    }
+    // println!("Utility: {}", calculate_utility(p));
+    // println!("Pattern: {}", p.info(&shared));
 
 
 
@@ -180,7 +180,7 @@ pub fn compression_step_smc(
     let very_first_cost = shared.init_cost;
 
     let mut results = vec![];
-    for (i, pattern) in top_patterns.iter().enumerate() {
+    for (i, pattern) in [best].iter().enumerate() {
         let finished_pattern = FinishedPattern::new(pattern.clone(), &shared);
         let invention_name = format!("inv{}", i);
         let result = CompressionStepResult::new(
