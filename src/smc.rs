@@ -1,7 +1,6 @@
 use crate::*;
 use lambdas::*;
 use rustc_hash::{FxHashMap};
-use std::ops::DerefMut;
 use std::sync::Arc;
 
 pub fn smc_expand(
