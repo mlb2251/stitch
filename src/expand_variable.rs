@@ -59,22 +59,23 @@ pub fn check_consistency(shared: &SharedData, p: &Pattern) {
 }
 
 pub fn perform_expansion_variable(
-    original_pattern: &Pattern,
+    pattern: Pattern,
     shared: &SharedData,
     variable_ivar: usize,
     expands_to: ExpandsTo,
-    locs: Vec<Idx>,
+    // locs: Vec<Idx>,
 ) -> Option<Pattern> {
     // for debugging
     // TODO double check
     // let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, variable_zid, &shared);
     // if tracked { found_tracked = true; }
     // if shared.cfg.follow_prune && !tracked { return None; }
+    let mut pattern = pattern;
 
 
     // check_consistency(shared, original_pattern);
     // update the body utility
-    let body_utility = original_pattern.body_utility +  compute_body_utility_change(shared, &expands_to);
+    let body_utility = pattern.body_utility +  compute_body_utility_change(shared, &expands_to);
 
     // assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_ivar(),
             // "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
@@ -83,36 +84,35 @@ pub fn perform_expansion_variable(
 
     // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
     // from the old pattern.
-    let mut new_pattern = original_pattern.clone();
-    new_pattern.match_locations = locs;
-    new_pattern.body_utility = body_utility;
+    // new_pattern.match_locations = locs;
+    pattern.body_utility = body_utility;
 
     // println!("targeting ivar: {}", variable_ivar);
     // println!("expands_to: {:?}", expands_to);
     // println!("original: {:?}", new_pattern);
-    let variable_zids: Vec<usize> = remove_variable_at(&mut new_pattern, variable_ivar);
+    let variable_zids: Vec<usize> = remove_variable_at(&mut pattern, variable_ivar);
     // println!("after removing variable: {:?}", new_pattern);
     // println!("variable_zids: {:?}", variable_zids);
 
-    let num_vars = new_pattern.first_zid_of_ivar.len() as i32;
+    let num_vars = pattern.first_zid_of_ivar.len() as i32;
 
     for variable_zid in variable_zids {
         // add any new holes to the list of holes
         match expands_to {
             ExpandsTo::Lam(_) => {
                 // add new holes
-                add_variable_at(&mut new_pattern, shared.extensions_of_zid[variable_zid].body.unwrap(), num_vars); 
+                add_variable_at(&mut pattern, shared.extensions_of_zid[variable_zid].body.unwrap(), num_vars); 
             }
             ExpandsTo::App => {
                 // add new holes
-                add_variable_at(&mut new_pattern, shared.extensions_of_zid[variable_zid].func.unwrap(), num_vars);
-                add_variable_at(&mut new_pattern, shared.extensions_of_zid[variable_zid].arg.unwrap(), num_vars + 1);
+                add_variable_at(&mut pattern, shared.extensions_of_zid[variable_zid].func.unwrap(), num_vars);
+                add_variable_at(&mut pattern, shared.extensions_of_zid[variable_zid].arg.unwrap(), num_vars + 1);
             }
             _ => {}
         }
 
         if let ExpandsTo::IVar(i) = expands_to {
-            add_variable_at(&mut new_pattern, variable_zid, i);
+            add_variable_at(&mut pattern, variable_zid, i);
         }
     }
 
@@ -121,5 +121,5 @@ pub fn perform_expansion_variable(
     // check_consistency(shared, &new_pattern);
 
 
-    Some (new_pattern)
+    Some (pattern)
 }

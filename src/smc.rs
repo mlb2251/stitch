@@ -30,15 +30,16 @@ pub fn smc_expand(
     let arg_of_loc = &shared.arg_of_zid_node[variable_zid];
     // println!("Argument of location: {:?}", arg_of_loc);
     let expands_to = arg_of_loc[&match_location].expands_to.clone();
-    let locs: Vec<usize> = original_pattern.match_locations.iter().filter(
-        |&&loc| arg_of_loc[&loc].expands_to == expands_to
-    ).cloned().collect::<Vec<_>>();
+    let mut pattern = original_pattern.clone();
+    pattern.match_locations.retain(
+        |loc| arg_of_loc[&loc].expands_to == expands_to
+    );
     perform_expansion_variable(
-        &original_pattern,
+        pattern,
         &shared,
         variable_ivar,
         expands_to,
-        locs,
+        // locs,
     )
 }
 
@@ -73,18 +74,7 @@ fn resample(
     rng: &mut impl rand::Rng,
     number: usize,
 ) -> Vec<Pattern> {
-    let mut deduplicated = vec![];
-    let mut counts = vec![];
-    let mut deduplicated_pattern_to_idx: FxHashMap<Pattern, usize> = FxHashMap::default();
-    for pattern in patterns {
-        if let Some(idx) = deduplicated_pattern_to_idx.get_mut(pattern) {
-            counts[*idx] += 1;
-        } else {
-            deduplicated.push(pattern.clone());
-            counts.push(1);
-            deduplicated_pattern_to_idx.insert(pattern.clone(), deduplicated.len() - 1);
-        }
-    }
+    let (deduplicated, counts) = do_deduplication(patterns);
     let logweights: Vec<f64> = deduplicated.iter().enumerate().map(|(i, p)|
         compute_logweight(p) + (counts[i] as f64).ln()
     ).collect();
@@ -105,9 +95,39 @@ fn resample(
     if result.len() == number {
         return result;
     }
+
+    compute_cumulative_weights(&mut weights);
+    
+    for _ in result.len()..number {
+        let idx = weighted_choice(&weights, rng);
+        result.push(deduplicated[idx].clone());
+    }
+    return result;
+}
+
+fn do_deduplication(patterns: &[Pattern]) -> (Vec<Pattern>, Vec<i32>) {
+    let mut deduplicated = vec![];
+    let mut counts = vec![];
+    let mut deduplicated_pattern_to_idx: FxHashMap<Pattern, usize> = FxHashMap::default();
+    for pattern in patterns {
+        if let Some(idx) = deduplicated_pattern_to_idx.get_mut(pattern) {
+            counts[*idx] += 1;
+        } else {
+            deduplicated.push(pattern.clone());
+            counts.push(1);
+            deduplicated_pattern_to_idx.insert(pattern.clone(), deduplicated.len() - 1);
+        }
+    }
+    (deduplicated, counts)
+}
+
+fn compute_cumulative_weights(
+    weights: &mut Vec<f64>,
+) {
     let weight_sum = weights.iter().sum::<f64>();
     if weight_sum == 0.0 {
-        weights = vec![1.0 / deduplicated.len() as f64; deduplicated.len()];
+        let len= weights.len();
+        weights.fill(1.0 / len as f64);
     }
     weights.iter_mut().for_each(|w| *w /= weight_sum);
     let mut accum = 0.0;
@@ -115,11 +135,6 @@ fn resample(
         accum += weights[i];
         weights[i] = accum;
     }
-    for _ in result.len()..number {
-        let idx = weighted_choice(&weights, rng);
-        result.push(deduplicated[idx].clone());
-    }
-    return result;
 }
 
 fn weighted_choice(cum_weights: &[f64], rng: &mut impl rand::Rng) -> usize {
