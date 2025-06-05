@@ -227,6 +227,15 @@ pub struct CompressionStepConfig {
     // Fused lambda tags
     #[clap(long, value_parser = clap::value_parser!(FusedLambdaTags), default_value="")]
     pub fused_lambda_tags: FusedLambdaTags,
+
+    #[clap(long, default_value = "0")]
+    pub seed: u64,
+
+    #[clap(long)]
+    pub smc: bool, // whether to run the SMC version of compression step
+
+    #[clap(long, default_value = "1000")]
+    pub smc_particles: usize, // number of particles to use in SMC
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1924,8 +1933,7 @@ pub fn multistep_compression_internal(
         } else {
             format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len())
         };
-        let use_smc = true;
-        let res: Vec<CompressionStepResult> = if use_smc {
+        let res: Vec<CompressionStepResult> = if cfg.step.smc {
             smc::compression_step_smc(
                 &rewritten,
                 &cfg,

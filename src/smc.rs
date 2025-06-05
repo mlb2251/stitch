@@ -1,5 +1,6 @@
 use crate::*;
 use lambdas::*;
+use rand::SeedableRng;
 use rustc_hash::{FxHashMap};
 use std::sync::Arc;
 
@@ -142,13 +143,12 @@ pub fn compression_step_smc(
         return vec![];
     };
 
-    let num_particles = 100;
     let top_k = 1; // Define K for top patterns
 
     let pattern = Pattern::single_var_from_shared(&shared);
-    let mut patterns = vec![pattern; num_particles];
+    let mut patterns = vec![pattern; shared.cfg.smc_particles];
     
-    let rng = &mut rand::thread_rng();
+    let rng = &mut rand::rngs::StdRng::seed_from_u64(shared.cfg.seed);
 
     let mut top_patterns = vec![];
 
@@ -158,7 +158,7 @@ pub fn compression_step_smc(
         if patterns.is_empty() {
             break;
         }
-        patterns = resample(&patterns, rng, num_particles);
+        patterns = resample(&patterns, rng, shared.cfg.smc_particles);
 
         // Add current patterns to top_patterns and keep only the top K
         top_patterns.extend(patterns.iter().cloned());
