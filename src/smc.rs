@@ -83,7 +83,7 @@ fn resample(
         // if the total is infinite, we can't normalize, so we just return the patterns as is
         vec![1.0 * number as f64 / deduplicated.len() as f64; deduplicated.len()]
     } else {
-        logweights.iter().map(|&w| (w - total).exp()).collect()
+        logweights.iter().map(|&w| number as f64 * (w - total).exp()).collect()
     };
     let mut result = vec![];
     for i in 0..weights.len() {
