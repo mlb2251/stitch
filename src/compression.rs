@@ -4,7 +4,7 @@ use rand::seq::SliceRandom;
 use rustc_hash::{FxHashMap,FxHashSet};
 use std::convert::TryInto;
 use std::fmt::{self, Formatter, Display};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use itertools::Itertools;
 use serde_json::json;
 use clap::{Parser};
@@ -227,6 +227,15 @@ pub struct CompressionStepConfig {
     // Fused lambda tags
     #[clap(long, value_parser = clap::value_parser!(FusedLambdaTags), default_value="")]
     pub fused_lambda_tags: FusedLambdaTags,
+
+    #[clap(long, default_value = "0")]
+    pub seed: u64,
+
+    #[clap(long)]
+    pub smc: bool, // whether to run the SMC version of compression step
+
+    #[clap(long, default_value = "1000")]
+    pub smc_particles: usize, // number of particles to use in SMC
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -277,15 +286,29 @@ impl Default for CompressionStepConfig {
 }
 
 /// A Pattern is a partial abstraction which may have holes
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pattern {
     pub holes: Vec<ZId>, // zipper to hole in order of when theyre added NOT left to right
-    arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
+    pub arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
     pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
     pub match_locations: Vec<Idx>, // places where it applies
     pub utility_upper_bound: i32,
     pub body_utility: i32, // the size (in `cost`) of a single use of the pattern body so far
     pub tracked: bool, // for debugging
+}
+
+impl Hash for Pattern {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Only hash the structural components of the pattern
+        self.holes.hash(state);
+        self.arg_choices.hash(state);
+        self.first_zid_of_ivar.hash(state);
+        // Intentionally skip:
+        // - match_locations (dynamic)
+        // - utility_upper_bound (computed)
+        // - body_utility (computed)
+        // - tracked (debug flag)
+    }
 }
 
 /// only used during tracking - gets the zippers to args of a pattern
@@ -454,6 +477,25 @@ impl Pattern {
             tracked: cfg.follow.is_some(),
         }
     }
+
+    fn single_var(corpus_span: &Span, cost_of_node_all: &[i32], num_paths_to_node: &[i32], set: &ExprSet, cost_fn: &ExprCost, cfg: &CompressionStepConfig) -> Self {
+        let mut pattern = Self::single_hole(corpus_span, cost_of_node_all, num_paths_to_node, set, cost_fn, cfg);
+        let hole_zid = pattern.holes.pop().unwrap();
+        add_variable_at(&mut pattern, hole_zid, 0);
+        pattern
+    }
+
+    pub fn single_var_from_shared(shared: &SharedData) -> Self {
+        Self::single_var(
+            &shared.corpus_span,
+            &shared.cost_of_node_all,
+            &shared.num_paths_to_node,
+            &shared.set,
+            &shared.cost_fn,
+            &shared.cfg
+        )
+    }
+
     /// convert pattern to an Expr
     fn to_expr(&self, shared: &SharedData) -> ExprOwned {
         let mut set = ExprSet::empty(Order::ChildFirst, false, false);
@@ -616,7 +658,7 @@ fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData) -> 
 #[derive(Debug,Clone, Eq, PartialEq)]
 pub struct HeapItem {
     key: i32,
-    pattern: Pattern,
+    pub pattern: Pattern,
 }
 impl PartialOrd for HeapItem {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -645,7 +687,7 @@ impl HeapItem {
 #[derive(Debug, Clone)]
 pub struct CriticalMultithreadData {
     donelist: Vec<FinishedPattern>,
-    worklist: BinaryHeap<HeapItem>,
+    pub worklist: BinaryHeap<HeapItem>,
     utility_pruning_cutoff: i32,
     active_threads: FxHashSet<std::thread::ThreadId>, // list of threads currently holding worklist items
 }
@@ -806,7 +848,7 @@ pub enum HoleChoice {
 
 impl HoleChoice {
     //#[inline(never)]
-    fn choose_hole(&self, pattern: &Pattern, shared: &SharedData) -> usize {
+    pub fn choose_hole(&self, pattern: &Pattern, shared: &SharedData) -> usize {
         if pattern.holes.len() == 1 {
             return 0;
         }
@@ -848,9 +890,9 @@ impl HoleChoice {
 /// of whatever the current zipper is in any of these directions.
 #[derive(Clone,Debug)]
 pub struct ZIdExtension {
-    body: Option<ZId>,
-    arg: Option<ZId>,
-    func: Option<ZId>,
+    pub body: Option<ZId>,
+    pub arg: Option<ZId>,
+    pub func: Option<ZId>,
 }
 
 /// empties worklist_buf and donelist_buf into the shared worklist while holding the mutex, updates
@@ -1123,13 +1165,10 @@ fn perform_expansion(
     }
 
     // update the body utility
-    let body_utility = original_pattern.body_utility +  match &expands_to {
-        ExpandsTo::Lam(_) => shared.cost_fn.cost_lam,
-        ExpandsTo::App => shared.cost_fn.cost_app,
-        ExpandsTo::Var(_, _) => shared.cost_fn.cost_var,
-        ExpandsTo::Prim(p) => *shared.cost_fn.cost_prim.get(p).unwrap_or(&shared.cost_fn.cost_prim_default),
-        ExpandsTo::IVar(_) => 0,
-    };
+    let body_utility = original_pattern.body_utility + compute_body_utility_change(
+        &shared,
+        &expands_to,
+    );
 
     // update the upper bound
     let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cost_fn, &shared.cfg);
@@ -1222,6 +1261,17 @@ fn perform_expansion(
     Some (new_pattern)
 }
 
+
+pub fn compute_body_utility_change(shared: &SharedData, expands_to: &ExpandsTo) -> i32 {
+    match expands_to {
+        ExpandsTo::Lam(_) => shared.cost_fn.cost_lam,
+        ExpandsTo::App => shared.cost_fn.cost_app,
+        ExpandsTo::Var(_, _) => shared.cost_fn.cost_var,
+        ExpandsTo::Prim(p) => *shared.cost_fn.cost_prim.get(p).unwrap_or(&shared.cost_fn.cost_prim_default),
+        ExpandsTo::IVar(_) => 0,
+    }
+}
+
 //#[inline(never)]
 /// Return options for what abstraction arguments (aka ivars, #i) can expand into. When expanding to an ivar that
 /// already exists in the expression the match locations get subset to enforce the equality constraint - for example
@@ -1273,7 +1323,7 @@ pub struct FinishedPattern {
 
 impl FinishedPattern {
     //#[inline(never)]
-    fn new(pattern: Pattern, shared: &SharedData) -> Self {
+    pub fn new(pattern: Pattern, shared: &SharedData) -> Self {
         let arity = pattern.first_zid_of_ivar.len();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum();
         let compressive_utility = compressive_utility(&pattern,shared);
@@ -1480,7 +1530,7 @@ pub struct CompressionStepResult {
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, very_first_cost: i32, name_mapping: &[(String,String)], dc_comparison_millis: Option<usize>) -> Self {
+    pub fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, very_first_cost: i32, name_mapping: &[(String,String)], dc_comparison_millis: Option<usize>) -> Self {
 
         let inv = done.to_invention(inv_name, shared);
         let rewritten = rewrite_fast(&done, shared, &Node::Prim(inv.name.clone().into()), &shared.cost_fn);
@@ -1897,17 +1947,24 @@ pub fn multistep_compression_internal(
         } else {
             format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len())
         };
-
-        // call actual compression
-        let res: Vec<CompressionStepResult> = compression_step(
-            &rewritten,
-            &inv_name,
-            &cfg,
-            &tasks,
-            &weights,
-            very_first_cost,
-            &name_mapping,
-            );
+        let res: Vec<CompressionStepResult> = if cfg.step.smc {
+            smc::compression_step_smc(
+                &rewritten,
+                &cfg,
+                &tasks,
+                &weights,
+            )
+        } else {
+            compression_step(
+                &rewritten,
+                &inv_name,
+                &cfg,
+                &tasks,
+                &weights,
+                very_first_cost,
+                &name_mapping,
+            )
+        };
 
         if !res.is_empty() {
             // rewrite with the invention

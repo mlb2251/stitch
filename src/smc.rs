@@ -1,0 +1,211 @@
+use crate::*;
+use lambdas::*;
+use rand::SeedableRng;
+use rustc_hash::{FxHashMap};
+use std::sync::Arc;
+
+pub fn smc_expand(
+    original_pattern: &Pattern,
+    shared: &SharedData,
+    rng: &mut impl rand::Rng,
+) -> Option<Pattern> {
+    // println!("Expanding pattern: {}", original_pattern.info(shared));
+    // check_consistency(shared, original_pattern);
+    let match_location = original_pattern.match_locations[rng.gen_range(0..original_pattern.match_locations.len())];
+    // println!("Match locations: {:?}", original_pattern.match_locations);
+    // println!("Match location: {}", match_location);
+    let num_vars = get_num_variables(original_pattern);
+    if num_vars == 0 {
+        return None
+    }
+    let variable_ivar: usize = rng.gen_range(0..num_vars);
+    // println!("Variable index chosen: {}", variable_ivar);
+    // let (holes_after_pop, hole_zid, arg_of_loc) = pop_hole(
+    //     &original_pattern,
+    //     &shared,
+    //     hole_idx,
+    // );e
+    let variable_zid = get_zid_for_ivar(original_pattern, variable_ivar);
+    // println!("Variable ZID: {}", variable_zid);
+    let arg_of_loc = &shared.arg_of_zid_node[variable_zid];
+    // println!("Argument of location: {:?}", arg_of_loc);
+    let expands_to = arg_of_loc[&match_location].expands_to.clone();
+    let mut pattern = original_pattern.clone();
+    pattern.match_locations.retain(
+        |loc| arg_of_loc[&loc].expands_to == expands_to
+    );
+    perform_expansion_variable(
+        pattern,
+        &shared,
+        variable_ivar,
+        expands_to,
+        // locs,
+    )
+}
+
+pub fn smc_expand_all(
+    original_pattern: &Vec<Pattern>,
+    shared: &SharedData,
+    rng: &mut impl rand::Rng,
+) -> Vec<Pattern> {
+    let mut expanded_patterns = vec![];
+    for pattern in original_pattern {
+        if let Some(expanded) = smc_expand(pattern, shared, rng) {
+            expanded_patterns.push(expanded);
+        }
+    }
+    expanded_patterns
+}
+
+const TEMPERATURE: f64 = 1.0;
+
+fn calculate_utility(p: &Pattern) -> usize {
+    p.body_utility as usize * (p.match_locations.len() - 1)
+}
+
+fn compute_logweight(p: &Pattern) -> f64 {
+    let utility = calculate_utility(p);
+    let logweight = (utility as f64).ln() * TEMPERATURE;
+    logweight
+}
+
+fn resample(
+    patterns: &[Pattern],
+    rng: &mut impl rand::Rng,
+    number: usize,
+) -> Vec<Pattern> {
+    let (deduplicated, counts) = do_deduplication(patterns);
+    let logweights: Vec<f64> = deduplicated.iter().enumerate().map(|(i, p)|
+        compute_logweight(p) + (counts[i] as f64).ln()
+    ).collect();
+    let total = modppl::logsumexp(&logweights);
+    let mut weights = if total.is_infinite() {
+        // if the total is infinite, we can't normalize, so we just return the patterns as is
+        vec![1.0 * number as f64 / deduplicated.len() as f64; deduplicated.len()]
+    } else {
+        logweights.iter().map(|&w| number as f64 * (w - total).exp()).collect()
+    };
+    let mut result = vec![];
+    for i in 0..weights.len() {
+        while weights[i] >= 1.0 {
+            result.push(deduplicated[i].clone());
+            weights[i] -= 1.0;
+        }
+    }
+    if result.len() == number {
+        return result;
+    }
+
+    compute_cumulative_weights(&mut weights);
+    
+    for _ in result.len()..number {
+        let idx = weighted_choice(&weights, rng);
+        result.push(deduplicated[idx].clone());
+    }
+    return result;
+}
+
+fn do_deduplication(patterns: &[Pattern]) -> (Vec<Pattern>, Vec<i32>) {
+    let mut deduplicated = vec![];
+    let mut counts = vec![];
+    let mut deduplicated_pattern_to_idx: FxHashMap<Pattern, usize> = FxHashMap::default();
+    for pattern in patterns {
+        if let Some(idx) = deduplicated_pattern_to_idx.get_mut(pattern) {
+            counts[*idx] += 1;
+        } else {
+            deduplicated.push(pattern.clone());
+            counts.push(1);
+            deduplicated_pattern_to_idx.insert(pattern.clone(), deduplicated.len() - 1);
+        }
+    }
+    (deduplicated, counts)
+}
+
+fn compute_cumulative_weights(
+    weights: &mut Vec<f64>,
+) {
+    let weight_sum = weights.iter().sum::<f64>();
+    if weight_sum == 0.0 {
+        let len= weights.len();
+        weights.fill(1.0 / len as f64);
+    }
+    weights.iter_mut().for_each(|w| *w /= weight_sum);
+    let mut accum = 0.0;
+    for i in 0..weights.len() {
+        accum += weights[i];
+        weights[i] = accum;
+    }
+}
+
+fn weighted_choice(cum_weights: &[f64], rng: &mut impl rand::Rng) -> usize {
+    // println!("Choosing from weights: {:?}", cum_weights);
+    let r: f64 = rng.gen();
+    // println!("r: {:?}", r);
+    return match cum_weights.binary_search_by(|&w| w.partial_cmp(&r).unwrap()) {
+        Ok(idx) => idx,
+        Err(idx) => idx,
+    };
+}
+
+pub fn compression_step_smc(
+    programs: &[ExprOwned],
+    multistep_cfg: &MultistepCompressionConfig,
+    tasks: &[String],
+    weights: &[f32],
+) -> Vec<CompressionStepResult> {
+    let Some(shared) = construct_shared(
+        programs,
+        multistep_cfg,
+        tasks,
+        weights,
+    ) else {
+        return vec![];
+    };
+
+    let pattern = Pattern::single_var_from_shared(&shared);
+    let mut patterns = vec![pattern; shared.cfg.smc_particles];
+    
+    let rng = &mut rand::rngs::StdRng::seed_from_u64(shared.cfg.seed);
+
+    let mut best = patterns[0].clone();
+
+    loop {
+        // println!("patterns in worklist: {:?}", patterns.iter().map(|p| p.info(&shared)).collect::<Vec<_>>());
+        patterns = smc_expand_all(&patterns, &shared, rng);
+        if patterns.is_empty() {
+            break;
+        }
+        patterns = resample(&patterns, rng, shared.cfg.smc_particles);
+        for p in &patterns {
+            if calculate_utility(p) > calculate_utility(&best) {
+                best = p.clone();
+            }
+        }
+    }
+
+    // println!("Utility: {}", calculate_utility(p));
+    // println!("Pattern: {}", p.info(&shared));
+
+
+
+    let mut shared: SharedData = Arc::try_unwrap(shared).unwrap();
+
+    let very_first_cost = shared.init_cost;
+
+    let mut results = vec![];
+    for (i, pattern) in [best].iter().enumerate() {
+        let finished_pattern = FinishedPattern::new(pattern.clone(), &shared);
+        let invention_name = format!("inv{}", i);
+        let result = CompressionStepResult::new(
+            finished_pattern,
+            &invention_name,
+            &mut shared,
+            very_first_cost,
+            &[],
+            None,
+        );
+        results.push(result);
+    }
+
+    results
+}
