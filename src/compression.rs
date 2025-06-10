@@ -1308,14 +1308,19 @@ fn _add_variable_reuse_to_buf(
     for ivar in 0..original_pattern.first_zid_of_ivar.len() {
         // println!("Zid considered for ivar {}: {}", ivar, original_pattern.first_zid_of_ivar[ivar]);
         let arg_of_loc_ivar = &shared.arg_of_zid_node[original_pattern.first_zid_of_ivar[ivar]];
-        let locs: Vec<Idx> = original_pattern.match_locations.iter()
-            .filter(|loc:&&Idx| arg_of_loc[loc].shifted_id == 
-                arg_of_loc_ivar[loc].shifted_id
-                && !invalid_metavar_location(shared, arg_of_loc[loc].shifted_id)
-            ).cloned().collect();
+        let locs = compatible_locations(shared, original_pattern, arg_of_loc, arg_of_loc_ivar);
         if locs.is_empty() { continue; }
         out.push((ExpandsTo::IVar(ivar as i32), locs));
     }
+}
+
+pub fn compatible_locations(shared: &SharedData, original_pattern: &Pattern, arg_of_loc_1:  &FxHashMap<Idx,Arg>, arg_of_loc_2:  &FxHashMap<Idx,Arg>) -> Vec<usize> {
+    let locs: Vec<Idx> = original_pattern.match_locations.iter()
+        .filter(|loc:&&Idx| arg_of_loc_1[loc].shifted_id == 
+            arg_of_loc_2[loc].shifted_id
+            && !invalid_metavar_location(shared, arg_of_loc_1[loc].shifted_id)
+        ).cloned().collect();
+    locs
 }
 
 pub fn get_ivars_variable_reuse(

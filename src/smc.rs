@@ -15,26 +15,43 @@ fn sample_expands_to(
     rng: &mut impl rand::Rng,
 ) -> (Pattern, ExpandsTo) {
     let mut pattern = original_pattern.clone();
-    if rng.gen::<f64>() < P_REUSE {
-        let mut results = get_ivars_variable_reuse(
-            original_pattern,
-            arg_of_loc,
-            shared,
-        );
-        results.retain(|(expands_to, _)| {
-            // filter out expansions that are not valid for the current match location
-            if let ExpandsTo::IVar(ivar) = expands_to {
-                if *ivar == variable_ivar as i32 {
-                    return false; // don't reuse the same variable
-                }
-            }
-            return true;
-        });
-        if !results.is_empty() {
-            let (expands_to, locs) = &results[rng.gen_range(0..results.len())];
-            pattern.match_locations = locs.clone();
-            return (pattern, expands_to.clone());
+    if get_num_variables(original_pattern) > 1 && rng.gen::<f64>() < P_REUSE {
+        let mut new_ivar = rng.gen_range(0..get_num_variables(original_pattern) - 1);
+        if new_ivar >= variable_ivar {
+            new_ivar += 1; // skip the variable we are expanding
         }
+        let zid_original = get_zid_for_ivar(original_pattern, variable_ivar);
+        let zid_new = get_zid_for_ivar(original_pattern, new_ivar);
+        let locs = compatible_locations(
+            shared,
+            original_pattern,
+            &shared.arg_of_zid_node[zid_original],
+            &shared.arg_of_zid_node[zid_new],
+        );
+        if !locs.is_empty() {
+            pattern.match_locations = locs;
+            let expands_to = ExpandsTo::IVar(new_ivar as i32);
+            return (pattern, expands_to);
+        }
+        // let mut results: Vec<(ExpandsTo, Vec<usize>)> = get_ivars_variable_reuse(
+        //     original_pattern,
+        //     arg_of_loc,
+        //     shared,
+        // );
+        // results.retain(|(expands_to, _)| {
+        //     // filter out expansions that are not valid for the current match location
+        //     if let ExpandsTo::IVar(ivar) = expands_to {
+        //         if *ivar == variable_ivar as i32 {
+        //             return false; // don't reuse the same variable
+        //         }
+        //     }
+        //     return true;
+        // });
+        // if !results.is_empty() {
+        //     let (expands_to, locs) = &results[rng.gen_range(0..results.len())];
+        //     pattern.match_locations = locs.clone();
+        //     return (pattern, expands_to.clone());
+        // }
     }
     let expands_to = arg_of_loc[&match_location].expands_to.clone();
     pattern.match_locations.retain(
