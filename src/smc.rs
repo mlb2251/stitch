@@ -4,6 +4,45 @@ use rand::SeedableRng;
 use rustc_hash::{FxHashMap};
 use std::sync::Arc;
 
+const P_REUSE: f64 = 0.2;
+
+fn sample_expands_to(
+    original_pattern: &Pattern,
+    shared: &SharedData,
+    arg_of_loc: &FxHashMap<Idx,Arg>,
+    match_location: usize,
+    variable_ivar: usize,
+    rng: &mut impl rand::Rng,
+) -> (Pattern, ExpandsTo) {
+    let mut pattern = original_pattern.clone();
+    if rng.gen::<f64>() < P_REUSE {
+        let mut results = get_ivars_variable_reuse(
+            original_pattern,
+            arg_of_loc,
+            shared,
+        );
+        results.retain(|(expands_to, _)| {
+            // filter out expansions that are not valid for the current match location
+            if let ExpandsTo::IVar(ivar) = expands_to {
+                if *ivar == variable_ivar as i32 {
+                    return false; // don't reuse the same variable
+                }
+            }
+            return true;
+        });
+        if !results.is_empty() {
+            let (expands_to, locs) = &results[rng.gen_range(0..results.len())];
+            pattern.match_locations = locs.clone();
+            return (pattern, expands_to.clone());
+        }
+    }
+    let expands_to = arg_of_loc[&match_location].expands_to.clone();
+    pattern.match_locations.retain(
+        |loc| arg_of_loc[&loc].expands_to == expands_to
+    );
+    return (pattern, expands_to);
+}
+
 pub fn smc_expand(
     original_pattern: &Pattern,
     shared: &SharedData,
@@ -26,14 +65,11 @@ pub fn smc_expand(
     //     hole_idx,
     // );e
     let variable_zid = get_zid_for_ivar(original_pattern, variable_ivar);
+    // println!("Original variable zid for ivar={}: {}", variable_ivar, variable_zid);
     // println!("Variable ZID: {}", variable_zid);
     let arg_of_loc = &shared.arg_of_zid_node[variable_zid];
     // println!("Argument of location: {:?}", arg_of_loc);
-    let expands_to = arg_of_loc[&match_location].expands_to.clone();
-    let mut pattern = original_pattern.clone();
-    pattern.match_locations.retain(
-        |loc| arg_of_loc[&loc].expands_to == expands_to
-    );
+    let (pattern, expands_to) = sample_expands_to(original_pattern, shared, arg_of_loc, match_location, variable_ivar, rng);
     perform_expansion_variable(
         pattern,
         &shared,
