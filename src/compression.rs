@@ -1309,15 +1309,9 @@ fn _add_variable_reuse_to_buf(
         // println!("Zid considered for ivar {}: {}", ivar, original_pattern.first_zid_of_ivar[ivar]);
         let arg_of_loc_ivar = &shared.arg_of_zid_node[original_pattern.first_zid_of_ivar[ivar]];
         let locs: Vec<Idx> = original_pattern.match_locations.iter()
-            .filter(|loc:&&Idx|
-                {
-                    // if **loc == 9usize {
-                    //     // println!("Checking loc {}: {} vs {}", loc, arg_of_loc[loc].shifted_id, arg_of_loc_ivar[loc].shifted_id);
-                    // }
-                    return arg_of_loc[loc].shifted_id == 
+            .filter(|loc:&&Idx| arg_of_loc[loc].shifted_id == 
                 arg_of_loc_ivar[loc].shifted_id
                 && !invalid_metavar_location(shared, arg_of_loc[loc].shifted_id)
-                }
             ).cloned().collect();
         if locs.is_empty() { continue; }
         out.push((ExpandsTo::IVar(ivar as i32), locs));

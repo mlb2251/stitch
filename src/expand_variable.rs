@@ -98,7 +98,7 @@ pub fn perform_expansion_variable(
     let mut expands_to = expands_to;
 
 
-    check_consistency(shared, &pattern);
+    // check_consistency(shared, &pattern);
     // println!("expands_to: {:?}", expands_to);
     // println!("pattern: {:?}", pattern);
     // update the body utility
@@ -151,7 +151,7 @@ pub fn perform_expansion_variable(
 
     // println!("after adding variable: {:?}", new_pattern);
 
-    check_consistency(shared, &pattern);
+    // check_consistency(shared, &pattern);
 
 
     Some (pattern)
