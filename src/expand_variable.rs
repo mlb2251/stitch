@@ -98,11 +98,10 @@ pub fn perform_expansion_variable(
     let mut expands_to = expands_to;
 
 
-    // check_consistency(shared, &pattern);
+    check_consistency(shared, &pattern);
     // println!("expands_to: {:?}", expands_to);
     // println!("pattern: {:?}", pattern);
     // update the body utility
-    let body_utility = pattern.body_utility +  compute_body_utility_change(shared, &expands_to);
 
     // assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_ivar(),
             // "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
@@ -112,12 +111,14 @@ pub fn perform_expansion_variable(
     // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
     // from the old pattern.
     // new_pattern.match_locations = locs;
-    pattern.body_utility = body_utility;
 
     // println!("targeting ivar: {}", variable_ivar);
     // println!("expands_to: {:?}", expands_to);
     // println!("original: {:?}", new_pattern);
     let variable_zids: Vec<usize> = remove_variable_at(&mut pattern, variable_ivar, &mut expands_to);
+
+    let body_utility = pattern.body_utility +  compute_body_utility_change(shared, &expands_to) * variable_zids.len() as i32;
+    pattern.body_utility = body_utility;
 
     // println!("pattern after remove: {:?}", pattern);
     // println!("expands_to after remove: {:?}", expands_to);
@@ -150,7 +151,7 @@ pub fn perform_expansion_variable(
 
     // println!("after adding variable: {:?}", new_pattern);
 
-    // check_consistency(shared, &pattern);
+    check_consistency(shared, &pattern);
 
 
     Some (pattern)
