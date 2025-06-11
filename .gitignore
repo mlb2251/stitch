@@ -5,7 +5,6 @@ flamegraph.svg
 *.svg
 .DS_Store
 perf.data
-perf.data.old
 
 out/
 
