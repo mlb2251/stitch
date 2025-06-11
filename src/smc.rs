@@ -232,6 +232,7 @@ fn weighted_choice(cum_weights: &[f64], rng: &mut impl rand::Rng) -> usize {
 
 pub fn compression_step_smc(
     programs: &[ExprOwned],
+    inv_name: &str,
     multistep_cfg: &MultistepCompressionConfig,
     tasks: &[String],
     weights: &[f32],
@@ -269,20 +270,14 @@ pub fn compression_step_smc(
 
     let very_first_cost = shared.init_cost;
 
-    let mut results = vec![];
-    for (i, pattern) in [best].iter().enumerate() {
-        let finished_pattern = FinishedPattern::new(pattern.clone(), &shared);
-        let invention_name = format!("inv{}", i);
-        let result = CompressionStepResult::new(
-            finished_pattern,
-            &invention_name,
-            &mut shared,
-            very_first_cost,
-            &[],
-            None,
-        );
-        results.push(result);
-    }
-
-    results
+    let finished_pattern = FinishedPattern::new(best.clone(), &shared);
+    let result = CompressionStepResult::new(
+        finished_pattern,
+        inv_name,
+        &mut shared,
+        very_first_cost,
+        &[],
+        None,
+    );
+    vec![result]
 }

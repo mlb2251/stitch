@@ -1929,6 +1929,7 @@ pub fn multistep_compression_internal(
         let res: Vec<CompressionStepResult> = if cfg.step.smc {
             smc::compression_step_smc(
                 &rewritten,
+                &inv_name,
                 &cfg,
                 &tasks,
                 &weights,
