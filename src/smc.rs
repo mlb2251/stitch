@@ -145,7 +145,7 @@ fn compute_logweight(p: &Pattern) -> f64 {
 }
 
 fn resample(
-    patterns: &[Pattern],
+    patterns: Vec<Pattern>,
     rng: &mut impl rand::Rng,
     number: usize,
 ) -> Vec<Pattern> {
@@ -179,17 +179,36 @@ fn resample(
     result
 }
 
-fn do_deduplication(patterns: &[Pattern]) -> (Vec<Pattern>, Vec<i32>) {
-    let mut deduplicated = vec![];
+fn do_deduplication(mut patterns: Vec<Pattern>) -> (Vec<Pattern>, Vec<i32>) {
+    // let mut deduplicated_pattern_to_idx: FxHashMap<Pattern, usize> = FxHashMap::default();
+    // for pattern in patterns {
+    //     if let Some(idx) = deduplicated_pattern_to_idx.get_mut(pattern) {
+    //         counts[*idx] += 1;
+    //     } else {
+    //         deduplicated.push(pattern.clone());
+    //         counts.push(1);
+    //         deduplicated_pattern_to_idx.insert(pattern.clone(), deduplicated.len() - 1);
+    //     }
+    // }
+    patterns.sort_by(
+        |pat1, pat2|
+            pat1.arg_choices.cmp(&pat2.arg_choices)
+            .then_with(|| pat1.holes.cmp(&pat2.holes))
+    );
     let mut counts = vec![];
-    let mut deduplicated_pattern_to_idx: FxHashMap<Pattern, usize> = FxHashMap::default();
+    if patterns.is_empty() {
+        return (patterns, counts);
+    }
+    let mut current_pattern = patterns[0].clone();
+    let mut deduplicated = vec![current_pattern.clone()];
+    counts.push(1);
     for pattern in patterns {
-        if let Some(idx) = deduplicated_pattern_to_idx.get_mut(pattern) {
-            counts[*idx] += 1;
+        if pattern == current_pattern {
+            *counts.last_mut().unwrap() += 1;
         } else {
-            deduplicated.push(pattern.clone());
+            current_pattern = pattern;
+            deduplicated.push(current_pattern.clone());
             counts.push(1);
-            deduplicated_pattern_to_idx.insert(pattern.clone(), deduplicated.len() - 1);
         }
     }
     (deduplicated, counts)
@@ -248,7 +267,7 @@ pub fn compression_step_smc(
         if patterns.is_empty() {
             break;
         }
-        patterns = resample(&patterns, rng, shared.cfg.smc_particles);
+        patterns = resample(patterns, rng, shared.cfg.smc_particles);
         for p in &patterns {
             if calculate_utility(p) > calculate_utility(&best) {
                 best = p.clone();
