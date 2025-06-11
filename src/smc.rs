@@ -27,7 +27,7 @@ fn sample_new_ivar(
     return None;
 }
 
-fn sample_variable_reuse(
+fn sample_variable_reuse_expansion(
     pattern: &Pattern,
     shared: &SharedData,
     variable_ivar: usize,
@@ -74,7 +74,7 @@ fn sample_expands_to(
     variable_ivar: usize,
     rng: &mut impl rand::Rng,
 ) -> (Pattern, ExpandsTo) {
-    if let Some(out) = sample_variable_reuse(
+    if let Some(out) = sample_variable_reuse_expansion(
         original_pattern,
         shared,
         variable_ivar,
@@ -95,34 +95,20 @@ pub fn smc_expand(
     shared: &SharedData,
     rng: &mut impl rand::Rng,
 ) -> Option<Pattern> {
-    // println!("Expanding pattern: {}", original_pattern.info(shared));
-    // check_consistency(shared, original_pattern);
     let match_location = original_pattern.match_locations[rng.gen_range(0..original_pattern.match_locations.len())];
-    // println!("Match locations: {:?}", original_pattern.match_locations);
-    // println!("Match location: {}", match_location);
     let num_vars = get_num_variables(original_pattern);
     if num_vars == 0 {
         return None
     }
     let variable_ivar: usize = rng.gen_range(0..num_vars);
-    // println!("Variable index chosen: {}", variable_ivar);
-    // let (holes_after_pop, hole_zid, arg_of_loc) = pop_hole(
-    //     &original_pattern,
-    //     &shared,
-    //     hole_idx,
-    // );e
     let variable_zid = get_zid_for_ivar(original_pattern, variable_ivar);
-    // println!("Original variable zid for ivar={}: {}", variable_ivar, variable_zid);
-    // println!("Variable ZID: {}", variable_zid);
     let arg_of_loc = &shared.arg_of_zid_node[variable_zid];
-    // println!("Argument of location: {:?}", arg_of_loc);
     let (pattern, expands_to) = sample_expands_to(original_pattern, shared, arg_of_loc, match_location, variable_ivar, rng);
     perform_expansion_variable(
         pattern,
         &shared,
         variable_ivar,
         expands_to,
-        // locs,
     )
 }
 
@@ -163,7 +149,6 @@ fn resample(
     ).collect();
     let total = modppl::logsumexp(&logweights);
     let mut weights = if total.is_infinite() {
-        // if the total is infinite, we can't normalize, so we just return the patterns as is
         vec![1.0 * number as f64 / deduplicated.len() as f64; deduplicated.len()]
     } else {
         logweights.iter().map(|&w| number as f64 * (w - total).exp()).collect()
@@ -253,7 +238,6 @@ pub fn compression_step_smc(
     let mut best = patterns[0].clone();
 
     loop {
-        // println!("patterns in worklist: {:?}", patterns.iter().map(|p| p.info(&shared)).collect::<Vec<_>>());
         patterns = smc_expand_all(&patterns, &shared, rng);
         if patterns.is_empty() {
             break;
@@ -265,11 +249,6 @@ pub fn compression_step_smc(
             }
         }
     }
-
-    // println!("Utility: {}", calculate_utility(p));
-    // println!("Pattern: {}", p.info(&shared));
-
-
 
     let mut shared: SharedData = Arc::try_unwrap(shared).unwrap();
 
