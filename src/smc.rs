@@ -180,16 +180,6 @@ fn resample(
 }
 
 fn do_deduplication(mut patterns: Vec<Pattern>) -> (Vec<Pattern>, Vec<i32>) {
-    // let mut deduplicated_pattern_to_idx: FxHashMap<Pattern, usize> = FxHashMap::default();
-    // for pattern in patterns {
-    //     if let Some(idx) = deduplicated_pattern_to_idx.get_mut(pattern) {
-    //         counts[*idx] += 1;
-    //     } else {
-    //         deduplicated.push(pattern.clone());
-    //         counts.push(1);
-    //         deduplicated_pattern_to_idx.insert(pattern.clone(), deduplicated.len() - 1);
-    //     }
-    // }
     patterns.sort_by(
         |pat1, pat2|
             pat1.arg_choices.cmp(&pat2.arg_choices)
