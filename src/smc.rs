@@ -24,7 +24,7 @@ fn sample_new_ivar(
     if shared.arg_of_zid_node[zid_original][match_loc].shifted_id == shared.arg_of_zid_node[zid_new][match_loc].shifted_id {
         return Some(new_ivar);
     }
-    return None;
+    None
 }
 
 fn sample_variable_reuse_expansion(
@@ -62,7 +62,7 @@ fn sample_syntactic_expansion(
     let pattern = Pattern {
         holes: original_pattern.holes.clone(),
         match_locations: original_pattern.match_locations.iter().filter(
-            |&loc| arg_of_loc[&loc].expands_to == expands_to
+            |&loc| arg_of_loc[loc].expands_to == expands_to
         ).cloned().collect(),
         first_zid_of_ivar: original_pattern.first_zid_of_ivar.clone(),
         arg_choices: original_pattern.arg_choices.clone(),
@@ -70,7 +70,7 @@ fn sample_syntactic_expansion(
         utility_upper_bound: original_pattern.utility_upper_bound,
         tracked: original_pattern.tracked,
     };
-    return (pattern, expands_to);
+    (pattern, expands_to)
 }
 
 fn sample_expands_to(
@@ -90,11 +90,11 @@ fn sample_expands_to(
     ) {
         return out;
     }
-    return sample_syntactic_expansion(
+    sample_syntactic_expansion(
         original_pattern,
         arg_of_loc,
         match_location,
-    );
+    )
 }
 
 pub fn smc_expand(
@@ -113,7 +113,7 @@ pub fn smc_expand(
     let (pattern, expands_to) = sample_expands_to(original_pattern, shared, arg_of_loc, match_location, variable_ivar, rng);
     perform_expansion_variable(
         pattern,
-        &shared,
+        shared,
         variable_ivar,
         expands_to,
     )
@@ -141,8 +141,7 @@ fn calculate_utility(p: &Pattern) -> usize {
 
 fn compute_logweight(p: &Pattern) -> f64 {
     let utility = calculate_utility(p);
-    let logweight = (utility as f64).ln() * TEMPERATURE;
-    logweight
+    (utility as f64).ln() * TEMPERATURE
 }
 
 fn resample(
@@ -177,7 +176,7 @@ fn resample(
         let idx = weighted_choice(&weights, rng);
         result.push(deduplicated[idx].clone());
     }
-    return result;
+    result
 }
 
 fn do_deduplication(patterns: &[Pattern]) -> (Vec<Pattern>, Vec<i32>) {
@@ -206,9 +205,9 @@ fn compute_cumulative_weights(
     }
     weights.iter_mut().for_each(|w| *w /= weight_sum);
     let mut accum = 0.0;
-    for i in 0..weights.len() {
-        accum += weights[i];
-        weights[i] = accum;
+    for w in weights {
+        accum += *w;
+        *w = accum;
     }
 }
 
@@ -216,10 +215,10 @@ fn weighted_choice(cum_weights: &[f64], rng: &mut impl rand::Rng) -> usize {
     // println!("Choosing from weights: {:?}", cum_weights);
     let r: f64 = rng.gen();
     // println!("r: {:?}", r);
-    return match cum_weights.binary_search_by(|&w| w.partial_cmp(&r).unwrap()) {
+    match cum_weights.binary_search_by(|&w| w.partial_cmp(&r).unwrap()) {
         Ok(idx) => idx,
         Err(idx) => idx,
-    };
+    }
 }
 
 pub fn compression_step_smc(

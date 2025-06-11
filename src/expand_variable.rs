@@ -11,13 +11,13 @@ pub fn remove_variable_at(p: &mut Pattern, var_id: usize, expands_to: &mut Expan
     let mut zids = Vec::new();
     // remove the variable from the arg choices
     p.arg_choices.retain(|x: &LabelledZId| {
-        if (x.ivar as usize) == var_id {
+        if x.ivar == var_id {
             // if this is the variable we're removing, add its zid to the list of zids to remove
             // and return false to remove it from the arg choices
             zids.push(x.zid);
             return false;
         }
-        return true; // keep this arg choice
+        true
     });
     p.arg_choices.iter_mut().for_each(|x: &mut LabelledZId| {
         if x.ivar > var_id {
