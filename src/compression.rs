@@ -1312,6 +1312,15 @@ fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,A
     ivars_expansions
 }
 
+pub fn compatible_locations(shared: &SharedData, original_pattern: &Pattern, arg_of_loc_1:  &FxHashMap<Idx,Arg>, arg_of_loc_2:  &FxHashMap<Idx,Arg>) -> Vec<usize> {
+    let locs: Vec<Idx> = original_pattern.match_locations.iter()
+        .filter(|loc:&&Idx| arg_of_loc_1[loc].shifted_id == 
+            arg_of_loc_2[loc].shifted_id
+            && !invalid_metavar_location(shared, arg_of_loc_1[loc].shifted_id)
+        ).cloned().collect();
+    locs
+}
+
 
 /// A finished abstraction
 #[derive(Debug, Clone, PartialEq, Eq)]

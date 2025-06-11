@@ -7,7 +7,7 @@ pub fn add_variable_at(p: &mut Pattern, at_loc: usize, var_id: i32) {
     }
 }
 
-pub fn remove_variable_at(p: &mut Pattern, var_id: usize) -> Vec<ZId> {
+pub fn remove_variable_at(p: &mut Pattern, var_id: usize, expands_to: &mut ExpandsTo) -> Vec<ZId> {
     let mut zids = Vec::new();
     // remove the variable from the arg choices
     p.arg_choices.retain(|x: &LabelledZId| {
@@ -24,6 +24,12 @@ pub fn remove_variable_at(p: &mut Pattern, var_id: usize) -> Vec<ZId> {
             x.ivar -= 1; // decrement the ivar index for all variables after the one we're removing
         }
     });
+    if let ExpandsTo::IVar(i) = expands_to {
+        assert!(*i != var_id as i32, "ExpandsTo::IVar should not be the variable we're removing");
+        if *i > var_id as i32 {
+            *i -= 1;
+        }
+    }
     // remove the variable from the first_zid_of_ivar
     p.first_zid_of_ivar.remove(var_id);
     zids
@@ -46,7 +52,25 @@ pub fn check_consistency(shared: &SharedData, p: &Pattern) {
         // check that the ivar is within bounds
         let arg_of_loc = &shared.arg_of_zid_node[labeled.zid];
         for loc in p.match_locations.iter() {
-            assert!(arg_of_loc.contains_key(loc), "Variable {} at location {} is not consistent with shared data", labeled.ivar, loc);
+            assert!(arg_of_loc.contains_key(loc), "Variable id={}, zid={} at location {} is not consistent with shared data", labeled.ivar, labeled.zid, loc);
+        }
+    }
+    for (ivar, zid) in p.first_zid_of_ivar.iter().enumerate() {
+        for labeled in p.arg_choices.iter() {
+            if labeled.ivar == ivar {
+                // check that they expand to the same thing
+                let arg_of_loc_1 = &shared.arg_of_zid_node[labeled.zid];
+                let arg_of_loc_2 = &shared.arg_of_zid_node[*zid];
+                // println!("Checking consistency for variable id={} (zid={} vs zid={})", ivar, zid, labeled.zid);
+                for loc in p.match_locations.iter() {
+                    assert!(arg_of_loc_1.contains_key(loc) && arg_of_loc_2.contains_key(loc), 
+                        "Variable id={} at location {} is not consistent with shared data: {:?} vs {:?}", ivar, loc, arg_of_loc_1.get(loc), arg_of_loc_2.get(loc));
+                    assert_eq!(arg_of_loc_1[loc].shifted_id, arg_of_loc_2[loc].shifted_id,
+                        "Variable id={} at location {} has different shifted ids: {} vs {}", ivar, loc, arg_of_loc_1[loc].shifted_id, arg_of_loc_2[loc].shifted_id);
+                    assert_eq!(arg_of_loc_1[loc].expands_to, arg_of_loc_2[loc].expands_to,
+                        "Variable id={} at location {} expands to different things: {} vs {}", ivar, loc, arg_of_loc_1[loc].expands_to, arg_of_loc_2[loc].expands_to);
+                }
+            }
         }
     }
     // for i in 0..num_vars {
@@ -71,11 +95,13 @@ pub fn perform_expansion_variable(
     // if tracked { found_tracked = true; }
     // if shared.cfg.follow_prune && !tracked { return None; }
     let mut pattern = pattern;
+    let mut expands_to = expands_to;
 
 
-    // check_consistency(shared, original_pattern);
+    // check_consistency(shared, &pattern);
+    // println!("expands_to: {:?}", expands_to);
+    // println!("pattern: {:?}", pattern);
     // update the body utility
-    let body_utility = pattern.body_utility +  compute_body_utility_change(shared, &expands_to);
 
     // assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_ivar(),
             // "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
@@ -85,12 +111,18 @@ pub fn perform_expansion_variable(
     // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
     // from the old pattern.
     // new_pattern.match_locations = locs;
-    pattern.body_utility = body_utility;
 
     // println!("targeting ivar: {}", variable_ivar);
     // println!("expands_to: {:?}", expands_to);
     // println!("original: {:?}", new_pattern);
-    let variable_zids: Vec<usize> = remove_variable_at(&mut pattern, variable_ivar);
+    let variable_zids: Vec<usize> = remove_variable_at(&mut pattern, variable_ivar, &mut expands_to);
+
+    let body_utility = pattern.body_utility +  compute_body_utility_change(shared, &expands_to) * variable_zids.len() as i32;
+    pattern.body_utility = body_utility;
+
+    // println!("pattern after remove: {:?}", pattern);
+    // println!("expands_to after remove: {:?}", expands_to);
+    // println!("variable_zids: {:?}", variable_zids);
     // println!("after removing variable: {:?}", new_pattern);
     // println!("variable_zids: {:?}", variable_zids);
 
@@ -115,10 +147,11 @@ pub fn perform_expansion_variable(
             add_variable_at(&mut pattern, variable_zid, i);
         }
     }
+    // println!("pattern after add: {:?}", pattern);
 
     // println!("after adding variable: {:?}", new_pattern);
 
-    // check_consistency(shared, &new_pattern);
+    // check_consistency(shared, &pattern);
 
 
     Some (pattern)
