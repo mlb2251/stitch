@@ -224,18 +224,21 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub quiet: bool,
 
-    // Fused lambda tags
+    /// Fused lambda tags
     #[clap(long, value_parser = clap::value_parser!(FusedLambdaTags), default_value="")]
     pub fused_lambda_tags: FusedLambdaTags,
 
+    /// If true, we will use Sequential Monte Carlo (SMC) to sample patterns
+    #[clap(long)]
+    pub smc: bool,
+
+    /// Seed for the random number generator used in SMC
     #[clap(long, default_value = "0")]
     pub seed: u64,
 
-    #[clap(long)]
-    pub smc: bool, // whether to run the SMC version of compression step
-
+    /// Number of particles to use in SMC
     #[clap(long, default_value = "1000")]
-    pub smc_particles: usize, // number of particles to use in SMC
+    pub smc_particles: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
