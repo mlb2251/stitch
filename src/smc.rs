@@ -58,11 +58,18 @@ fn sample_syntactic_expansion(
     arg_of_loc: &FxHashMap<Idx, Arg>,
     match_location: usize,
 ) -> (Pattern, ExpandsTo) {
-    let mut pattern = original_pattern.clone();
     let expands_to = arg_of_loc[&match_location].expands_to.clone();
-    pattern.match_locations.retain(
-        |loc| arg_of_loc[&loc].expands_to == expands_to
-    );
+    let pattern = Pattern {
+        holes: original_pattern.holes.clone(),
+        match_locations: original_pattern.match_locations.iter().filter(
+            |&loc| arg_of_loc[&loc].expands_to == expands_to
+        ).cloned().collect(),
+        first_zid_of_ivar: original_pattern.first_zid_of_ivar.clone(),
+        arg_choices: original_pattern.arg_choices.clone(),
+        body_utility: original_pattern.body_utility,
+        utility_upper_bound: original_pattern.utility_upper_bound,
+        tracked: original_pattern.tracked,
+    };
     return (pattern, expands_to);
 }
 
