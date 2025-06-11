@@ -1611,7 +1611,7 @@ fn utility_upper_bound(
 /// to changes in size that come from rewriting with an invention. Currently this is just the
 /// size of the abstraction itself
 //#[inline(never)]
-fn noncompressive_utility(
+pub fn noncompressive_utility(
     body_utility: i32,
     cfg: &CompressionStepConfig,
 ) -> i32 {
@@ -1658,7 +1658,7 @@ fn noncompressive_utility_upper_bound(
 }
 
 //#[inline(never)]
-fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
+pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
     // * BASIC CALCULATION
     // Roughly speaking compressive utility is num_usages(invention) * size(invention), however there are a few extra

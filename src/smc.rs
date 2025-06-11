@@ -2,6 +2,7 @@ use crate::*;
 use lambdas::*;
 use rand::SeedableRng;
 use rustc_hash::{FxHashMap};
+use core::num;
 use std::sync::Arc;
 
 fn sample_new_ivar(
@@ -133,32 +134,54 @@ pub fn smc_expand_all(
     expanded_patterns
 }
 
-const TEMPERATURE: f64 = 1.0;
+const TEMPERATURE: f64 = 1.5;
+const USE_COMPRESSIVE_UTILITY: bool = false;
 
-fn calculate_utility(p: &Pattern) -> usize {
-    p.body_utility as usize * (p.match_locations.len() - 1)
+fn calculate_utility(p: &Pattern, shared: &SharedData) -> usize {
+    let cost_leaf = shared.cfg.cost.cost_prim_default as i32;
+    let cost_app: i32 = shared.cfg.cost.cost_app as i32;
+    let util = if USE_COMPRESSIVE_UTILITY {
+        compressive_utility(p, shared).util + noncompressive_utility(p.body_utility, &shared.cfg)
+    } else {
+        let updated_util = p.body_utility - cost_leaf - cost_app * get_num_variables(p) as i32;
+        updated_util * ((p.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc])).sum::<i32>() - 1)
+    };
+    if util < cost_leaf {
+        return cost_leaf as usize; // no utility if the compressive utility is negative
+    }
+    return util as usize;
 }
 
-fn compute_logweight(p: &Pattern) -> f64 {
-    let utility = calculate_utility(p);
-    (utility as f64).ln() * TEMPERATURE
+fn compute_logweight(p: &Pattern, shared: &SharedData) -> f64 {
+    let utility = calculate_utility(p, shared);
+    (utility as f64).ln()
 }
 
 fn resample(
     patterns: Vec<Pattern>,
     rng: &mut impl rand::Rng,
     number: usize,
+    shared: &SharedData,
 ) -> Vec<Pattern> {
     let (deduplicated, counts) = do_deduplication(patterns);
+    // println!("Counts after deduplication: {:?}", counts);
+    // for i in 0..deduplicated.len() {
+    //     if counts[i] > 1 {
+    //         println!("Count: {} for pattern: {:?}", counts[i], deduplicated[i].info(shared));
+    //     }
+    // }
     let logweights: Vec<f64> = deduplicated.iter().enumerate().map(|(i, p)|
-        compute_logweight(p) + (counts[i] as f64).ln()
+        (compute_logweight(p, &shared) + (counts[i] as f64).ln()) / TEMPERATURE
     ).collect();
+    // println!("utilities: {:?}", deduplicated.iter().map(|x| calculate_utility(x, &shared)).collect::<Vec<_>>());
+    // println!("Log weights: {:?}", logweights);
     let total = modppl::logsumexp(&logweights);
     let mut weights = if total.is_infinite() {
         vec![1.0 * number as f64 / deduplicated.len() as f64; deduplicated.len()]
     } else {
         logweights.iter().map(|&w| number as f64 * (w - total).exp()).collect()
     };
+    // println!("Weights after normalization: {:?}", weights);
     let mut result = vec![];
     for i in 0..weights.len() {
         while weights[i] >= 1.0 {
@@ -211,8 +234,9 @@ fn compute_cumulative_weights(
     if weight_sum == 0.0 {
         let len= weights.len();
         weights.fill(1.0 / len as f64);
+    } else {
+        weights.iter_mut().for_each(|w| *w /= weight_sum);
     }
-    weights.iter_mut().for_each(|w| *w /= weight_sum);
     let mut accum = 0.0;
     for w in weights {
         accum += *w;
@@ -226,7 +250,7 @@ fn weighted_choice(cum_weights: &[f64], rng: &mut impl rand::Rng) -> usize {
     // println!("r: {:?}", r);
     match cum_weights.binary_search_by(|&w| w.partial_cmp(&r).unwrap()) {
         Ok(idx) => idx,
-        Err(idx) => idx,
+        Err(idx) => idx, // it could be inserted at idx, which means it's <= cum_weights[idx]
     }
 }
 
@@ -258,9 +282,9 @@ pub fn compression_step_smc(
         if patterns.is_empty() {
             break;
         }
-        patterns = resample(patterns, rng, shared.cfg.smc_particles);
+        patterns = resample(patterns, rng, shared.cfg.smc_particles, &shared);
         for p in &patterns {
-            if calculate_utility(p) > calculate_utility(&best) {
+            if calculate_utility(p, &shared) > calculate_utility(&best, &shared) {
                 best = p.clone();
             }
         }
