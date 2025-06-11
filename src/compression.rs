@@ -1290,7 +1290,18 @@ fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,A
         }
     }
 
-    _add_variable_reuse_to_buf(original_pattern, arg_of_loc, shared, &mut ivars_expansions);
+    // consider all ivars used previously
+    for ivar in 0..original_pattern.first_zid_of_ivar.len() {
+        let arg_of_loc_ivar = &shared.arg_of_zid_node[original_pattern.first_zid_of_ivar[ivar]];
+        let locs: Vec<Idx> = original_pattern.match_locations.iter()
+            .filter(|loc:&&Idx|
+                arg_of_loc[loc].shifted_id == 
+                arg_of_loc_ivar[loc].shifted_id
+                && !invalid_metavar_location(shared, arg_of_loc[loc].shifted_id)
+            ).cloned().collect();
+        if locs.is_empty() { continue; }
+        ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
+    }
     // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
     if original_pattern.first_zid_of_ivar.len() < shared.cfg.max_arity {
         let ivar = original_pattern.first_zid_of_ivar.len();
@@ -1301,22 +1312,6 @@ fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,A
     ivars_expansions
 }
 
-fn _add_variable_reuse_to_buf(
-    original_pattern: &Pattern,
-    arg_of_loc: &FxHashMap<Idx,Arg>,
-    shared: &SharedData,
-    out: &mut Vec<(ExpandsTo, Vec<usize>)>
-) {
-    // consider all ivars used previously
-    for ivar in 0..original_pattern.first_zid_of_ivar.len() {
-        // println!("Zid considered for ivar {}: {}", ivar, original_pattern.first_zid_of_ivar[ivar]);
-        let arg_of_loc_ivar = &shared.arg_of_zid_node[original_pattern.first_zid_of_ivar[ivar]];
-        let locs = compatible_locations(shared, original_pattern, arg_of_loc, arg_of_loc_ivar);
-        if locs.is_empty() { continue; }
-        out.push((ExpandsTo::IVar(ivar as i32), locs));
-    }
-}
-
 pub fn compatible_locations(shared: &SharedData, original_pattern: &Pattern, arg_of_loc_1:  &FxHashMap<Idx,Arg>, arg_of_loc_2:  &FxHashMap<Idx,Arg>) -> Vec<usize> {
     let locs: Vec<Idx> = original_pattern.match_locations.iter()
         .filter(|loc:&&Idx| arg_of_loc_1[loc].shifted_id == 
@@ -1324,17 +1319,6 @@ pub fn compatible_locations(shared: &SharedData, original_pattern: &Pattern, arg
             && !invalid_metavar_location(shared, arg_of_loc_1[loc].shifted_id)
         ).cloned().collect();
     locs
-}
-
-pub fn get_ivars_variable_reuse(
-    original_pattern: &Pattern,
-    arg_of_loc: &FxHashMap<Idx,Arg>,
-    // shared: &Arc<SharedData>,
-    shared: &SharedData,
-) -> Vec<(ExpandsTo, Vec<Idx>)> {
-    let mut ivars_expansions = vec![];
-    _add_variable_reuse_to_buf(original_pattern, arg_of_loc, shared, &mut ivars_expansions);
-    ivars_expansions
 }
 
 
