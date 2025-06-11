@@ -4,7 +4,7 @@ There are two relevant repos, both of which are relevant to running these benchm
 - stitch: [GitHub - mlb2251/stitch: A scalable abstraction learning library](https://github.com/mlb2251/stitch/)
 - stitch_bindings: [GitHub - mlb2251/stitch\_bindings: Bindings for stitch](https://github.com/mlb2251/stitch_bindings/)
 
-Here are the the at-a-glance instructions for comparing two versions of stitch. We'll assume one is pushed as commit `abcd` and the other is pushed as commit `wxyz` (local versions work too, just use `path=` when changing Cargo.toml as explained in detailed instructions).
+Here are the the at-a-glance instructions for comparing two versions of stitch. We'll assume one is pushed as commit `abcd` and the other is pushed as commit `wxyz` (local versions work too, just use `path=` when changing Cargo.toml as explained in detailed instructions). You can also use the command `./benchmark_compare.sh abcd wxyz`.
 
 1. `cd path/to/stitch_bindings`
 2. change `Cargo.toml`'s `stitch_core` entry to say `rev = abcd`
