@@ -362,16 +362,13 @@ pub struct CostConfig {
     pub cost_prim_default: usize,
 
     /// Sets cost for primitives like `+` and `*` in the form of a dictionary, json encoded
-    #[clap(long, default_value = "")]
+    #[clap(long, default_value = "{}")]
     pub cost_prim: String,
 }
 
 impl CostConfig {
 
     fn compute_cost_prim(&self) -> HashMap<Symbol, i32> {
-        if self.cost_prim.is_empty() {
-            return HashMap::new();
-        }
         let cost_prim: serde_json::Value = serde_json::from_str(&self.cost_prim).unwrap_or_else(|_| {
             panic!("Invalid JSON for argument --cost-prim: {}", self.cost_prim);
         });
