@@ -2,6 +2,7 @@ use crate::*;
 use lambdas::*;
 use rand::seq::SliceRandom;
 use rustc_hash::{FxHashMap,FxHashSet};
+use core::panic;
 use std::convert::TryInto;
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
@@ -13,7 +14,7 @@ use std::thread;
 use std::sync::Arc;
 use parking_lot::Mutex;
 use std::ops::DerefMut;
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashMap};
 use rand::Rng;
 
 /// Multistep Compression
@@ -359,18 +360,47 @@ pub struct CostConfig {
     /// Sets cost for primitives like `+` and `*`
     #[clap(long, default_value = "100")]
     pub cost_prim_default: usize,
+
+    /// Sets cost for primitives like `+` and `*` in the form of a dictionary, json encoded
+    #[clap(long, default_value = "")]
+    pub cost_prim: String,
 }
 
 impl CostConfig {
-    pub fn expr_cost(&self) -> ExprCost {
-        ExprCost {
-            cost_lam: self.cost_lam.try_into().unwrap(),
-            cost_app: self.cost_app.try_into().unwrap(),
-            cost_var: self.cost_var.try_into().unwrap(),
-            cost_ivar: self.cost_ivar.try_into().unwrap(),
-            cost_prim_default: self.cost_prim_default.try_into().unwrap(),
-            cost_prim: Default::default(),
+
+    fn compute_cost_prim(&self) -> HashMap<Symbol, i32> {
+        if self.cost_prim == "" {
+            return HashMap::new();
         }
+        let cost_prim: serde_json::Value = serde_json::from_str(&self.cost_prim).unwrap_or_else(|_| {
+            panic!("Invalid JSON for argument --cost-prim: {}", self.cost_prim);
+        });
+        let serde_json::Value::Object(map_obj) = cost_prim else {
+            panic!("Expected a JSON object for --cost-prim, got: {}", self.cost_prim);
+        };
+        let mut map: HashMap<Symbol, i32> = HashMap::default();
+        for (k, v) in map_obj {
+            if let serde_json::Value::Number(num) = v {
+                if let Some(cost) = num.as_i64() {
+                    map.insert(Symbol::from(k), cost as i32);
+                }
+            } else {
+                panic!("Expected a number for cost of primitive '{}', got: {}", k, v);
+            }
+        }
+        println!("Parsed cost_prim: {:?}", map);
+        map
+    }
+
+    pub fn expr_cost(&self) -> ExprCost {
+        ExprCost::new(
+            self.cost_lam.try_into().unwrap(),
+            self.cost_app.try_into().unwrap(),
+            self.cost_var.try_into().unwrap(),
+            self.cost_ivar.try_into().unwrap(),
+            self.compute_cost_prim(),
+            self.cost_prim_default.try_into().unwrap(),
+        )
     }
 }
 
@@ -1031,7 +1061,7 @@ fn stitch_search(
                     ExpandsTo::Lam(_) => shared.cost_fn.cost_lam,
                     ExpandsTo::App => shared.cost_fn.cost_app,
                     ExpandsTo::Var(_, _) => shared.cost_fn.cost_var,
-                    ExpandsTo::Prim(p) => *shared.cost_fn.cost_prim.get(p).unwrap_or(&shared.cost_fn.cost_prim_default),
+                    ExpandsTo::Prim(p) => shared.cost_fn.compute_cost_prim(p),
                     ExpandsTo::IVar(_) => 0,
                 };
 
@@ -1575,7 +1605,7 @@ fn compressive_utility_upper_bound(
 ) -> i32 {
     match_locations.iter().map(|node|
         cost_of_node_all[*node] 
-        - num_paths_to_node[*node] * cost_fn.cost_prim_default).sum::<i32>()
+        - num_paths_to_node[*node] * cost_fn.compute_cost_prim_lower_bound()).sum::<i32>()
     
     // shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
     //     root_idxs.iter().map(|idx| shared.init_cost_by_root_idx[*idx] - adjusted_util_by_root_idx[*idx]).min().unwrap()
@@ -1624,7 +1654,7 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
     // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
     // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
     // Also an extra COST_NONTERMINAL for each argument that is refined (for the lambda).
-    let app_penalty = - (shared.cost_fn.cost_prim_default + shared.cost_fn.cost_app * pattern.first_zid_of_ivar.len() as i32);
+    let app_penalty = - (shared.cost_fn.compute_cost_new_prim() + shared.cost_fn.cost_app * pattern.first_zid_of_ivar.len() as i32);
 
     // get a list of (ivar,usages-1) filtering out things that are only used once, this will come in handy for adding multi-use utility later
     let ivar_multiuses: Vec<(usize,i32)> = pattern.arg_choices.iter().map(|labelled|labelled.ivar).counts()
@@ -1707,7 +1737,7 @@ pub struct UtilityCalculation {
 // (not used in popl code - experimental)
 pub fn inverse_delta(cost_once: i32, usages: i32, arg_uses: usize, cost_fn: &ExprCost) -> (i32, i32, i32) {
     let compressive_delta = - (cost_once + cost_fn.cost_app) * usages;
-    let noncompressive_delta = arg_uses as i32 * (cost_once - cost_fn.cost_prim_default) ;
+    let noncompressive_delta = arg_uses as i32 * (cost_once - cost_fn.compute_cost_new_prim()) ;
     (compressive_delta,noncompressive_delta, compressive_delta+noncompressive_delta)
 }
 
@@ -1751,7 +1781,7 @@ fn possible_to_uninline(counts: FxHashMap<Idx, (i32, Vec<usize>)>, finished_usag
     // there are usages of the abstraction in the corpus
     .filter(|(_,zids)| zids.len() > finished_usages as usize)
     // argument must be larger than the cost of adding the terminal for the new abstraction variable
-    .filter(|(cost,_zids)| *cost > cost_fn.cost_prim_default)
+    .filter(|(cost,_zids)| *cost > cost_fn.compute_cost_new_prim())
     .filter_map(|(cost,zids)| {
         let (compressive_delta,noncompressive_delta, delta) = inverse_delta(*cost, finished_usages, zids.len(), cost_fn);
         if delta > 0 {
@@ -2064,7 +2094,9 @@ pub fn construct_shared(
 
             // compressive_utility for arity-0 is cost_of_node_all[node] minus the penalty of using the new prim
             let compressive_utility: i32 = init_cost_weighted - root_idxs_of_task.iter().map(|root_idxs|
-                root_idxs.iter().map(|idx| (init_cost_by_root_idx_weighted[*idx] - weights[*idx] * (num_paths_to_node_by_root_idx[*idx][node] * (analyzed_cost[node] - cost_fn.cost_prim_default)) as f32).round() as i32)
+                root_idxs.iter().map(|idx|
+                    (init_cost_by_root_idx_weighted[*idx]
+                    - weights[*idx] * (num_paths_to_node_by_root_idx[*idx][node] * (analyzed_cost[node] - cost_fn.compute_cost_new_prim())) as f32).round() as i32)
                     .min().unwrap()
             ).sum::<i32>();
             
