@@ -363,14 +363,14 @@ pub struct CostConfig {
 
 impl CostConfig {
     pub fn expr_cost(&self) -> ExprCost {
-        ExprCost {
-            cost_lam: self.cost_lam.try_into().unwrap(),
-            cost_app: self.cost_app.try_into().unwrap(),
-            cost_var: self.cost_var.try_into().unwrap(),
-            cost_ivar: self.cost_ivar.try_into().unwrap(),
-            cost_prim_default: self.cost_prim_default.try_into().unwrap(),
-            cost_prim: Default::default(),
-        }
+        ExprCost::new(
+            self.cost_lam.try_into().unwrap(),
+            self.cost_app.try_into().unwrap(),
+            self.cost_var.try_into().unwrap(),
+            self.cost_ivar.try_into().unwrap(),
+            Default::default(),
+            self.cost_prim_default.try_into().unwrap(),
+        )
     }
 }
 
@@ -378,7 +378,7 @@ impl CostConfig {
 impl Pattern {
     /// create a single hole pattern `??`
     //#[inline(never)]
-    fn single_hole(corpus_span: &Span, cost_of_node_all: &[i32], num_paths_to_node: &[i32], set: &ExprSet, cost_fn: &ExprCost, cfg: &CompressionStepConfig) -> Self {
+    fn single_hole(corpus_span: &Span, cost_of_node_sym: &[i32], cost_of_node_all: &[i32], num_paths_to_node: &[i32], set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
         let body_utility = 0;
         let mut match_locations: Vec<Idx> = corpus_span.clone().collect();
         match_locations.sort(); // we assume match_locations is always sorted
@@ -443,7 +443,7 @@ impl Pattern {
             match_locations.retain(|node| !matches!(expands_to_of_node(&set[*node]), ExpandsTo::Lam(_)));
         }
 
-        let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cost_fn, cfg);
+        let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_sym, cost_of_node_all, num_paths_to_node, cfg);
         Pattern {
             holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
             arg_choices: vec![],
@@ -674,6 +674,7 @@ pub struct SharedData {
     pub task_name_of_task: Vec<String>,
     pub task_of_root_idx: Vec<usize>,
     pub root_idxs_of_task: Vec<Vec<usize>>,
+    pub cost_of_node_sym: Vec<i32>,
     pub cost_of_node_all: Vec<i32>,
     pub init_cost: i32,
     pub init_cost_weighted: i32,
@@ -1031,12 +1032,12 @@ fn stitch_search(
                     ExpandsTo::Lam(_) => shared.cost_fn.cost_lam,
                     ExpandsTo::App => shared.cost_fn.cost_app,
                     ExpandsTo::Var(_, _) => shared.cost_fn.cost_var,
-                    ExpandsTo::Prim(p) => *shared.cost_fn.cost_prim.get(p).unwrap_or(&shared.cost_fn.cost_prim_default),
+                    ExpandsTo::Prim(p) => shared.cost_fn.compute_cost_prim(p),
                     ExpandsTo::IVar(_) => 0,
                 };
 
                 // update the upper bound
-                let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cost_fn, &shared.cfg);
+                let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_sym, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
                 assert!(util_upper_bound <= original_pattern.utility_upper_bound);
 
                 // Pruning (UPPER BOUND): if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
@@ -1540,12 +1541,12 @@ impl fmt::Display for CompressionStepResult {
 fn utility_upper_bound(
     match_locations: &[Idx],
     body_utility_lower_bound: i32,
+    cost_of_node_sym: &[i32],
     cost_of_node_all: &[i32],
     num_paths_to_node: &[i32],
-    cost_fn: &ExprCost,
     cfg: &CompressionStepConfig,
 ) -> i32 {
-    compressive_utility_upper_bound(match_locations, cost_of_node_all, num_paths_to_node, cost_fn)
+    compressive_utility_upper_bound(match_locations, cost_of_node_sym, cost_of_node_all, num_paths_to_node)
         + noncompressive_utility_upper_bound(body_utility_lower_bound, cfg)
 }
 
@@ -1569,13 +1570,13 @@ fn noncompressive_utility(
 //#[inline(never)]
 fn compressive_utility_upper_bound(
     match_locations: &[Idx],
+    cost_of_node_sym: &[i32],
     cost_of_node_all: &[i32],
     num_paths_to_node: &[i32],
-    cost_fn: &ExprCost,
 ) -> i32 {
     match_locations.iter().map(|node|
         cost_of_node_all[*node] 
-        - num_paths_to_node[*node] * cost_fn.cost_prim_default).sum::<i32>()
+        - num_paths_to_node[*node] * cost_of_node_sym[*node]).sum::<i32>()
     
     // shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
     //     root_idxs.iter().map(|idx| shared.init_cost_by_root_idx[*idx] - adjusted_util_by_root_idx[*idx]).min().unwrap()
@@ -1624,7 +1625,7 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
     // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
     // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
     // Also an extra COST_NONTERMINAL for each argument that is refined (for the lambda).
-    let app_penalty = - (shared.cost_fn.cost_prim_default + shared.cost_fn.cost_app * pattern.first_zid_of_ivar.len() as i32);
+    let app_penalty = - (shared.cost_fn.compute_cost_new_prim() + shared.cost_fn.cost_app * pattern.first_zid_of_ivar.len() as i32);
 
     // get a list of (ivar,usages-1) filtering out things that are only used once, this will come in handy for adding multi-use utility later
     let ivar_multiuses: Vec<(usize,i32)> = pattern.arg_choices.iter().map(|labelled|labelled.ivar).counts()
@@ -1707,7 +1708,7 @@ pub struct UtilityCalculation {
 // (not used in popl code - experimental)
 pub fn inverse_delta(cost_once: i32, usages: i32, arg_uses: usize, cost_fn: &ExprCost) -> (i32, i32, i32) {
     let compressive_delta = - (cost_once + cost_fn.cost_app) * usages;
-    let noncompressive_delta = arg_uses as i32 * (cost_once - cost_fn.cost_prim_default) ;
+    let noncompressive_delta = arg_uses as i32 * (cost_once - cost_fn.compute_cost_new_prim()) ;
     (compressive_delta,noncompressive_delta, compressive_delta+noncompressive_delta)
 }
 
@@ -1751,7 +1752,7 @@ fn possible_to_uninline(counts: FxHashMap<Idx, (i32, Vec<usize>)>, finished_usag
     // there are usages of the abstraction in the corpus
     .filter(|(_,zids)| zids.len() > finished_usages as usize)
     // argument must be larger than the cost of adding the terminal for the new abstraction variable
-    .filter(|(cost,_zids)| *cost > cost_fn.cost_prim_default)
+    .filter(|(cost,_zids)| *cost > cost_fn.compute_cost_new_prim())
     .filter_map(|(cost,zids)| {
         let (compressive_delta,noncompressive_delta, delta) = inverse_delta(*cost, finished_usages, zids.len(), cost_fn);
         if delta > 0 {
@@ -1975,6 +1976,12 @@ pub fn construct_shared(
     if !cfg.quiet { println!("num unique programs: {}", roots.len()) }
     tstart = std::time::Instant::now();
     
+    // cost of just the symbolic cost of a node, ie the cost of the node itself without the children
+    let cost_of_node_sym: Vec<i32> = corpus_span.clone().map(
+        |node| match &set[node] {
+            Node::Prim(p) => cost_fn.compute_cost_prim(p),
+            _ => 0
+        }).collect();
     // cost of a single usage times number of paths to node
     let cost_of_node_all: Vec<i32> = corpus_span.clone().map(|node| analyzed_cost[node] * num_paths_to_node[node]).collect();
 
@@ -2032,7 +2039,7 @@ pub fn construct_shared(
     // define all the important data structures for compression
     let mut donelist: Vec<FinishedPattern> = Default::default(); // completed inventions will go here    
 
-    let single_hole = Pattern::single_hole(&corpus_span, &cost_of_node_all, &num_paths_to_node, &set, cost_fn, cfg);
+    let single_hole = Pattern::single_hole(&corpus_span, &cost_of_node_sym, &cost_of_node_all, &num_paths_to_node, &set, cfg);
 
     let mut azero_pruning_cutoff = 0;
 
@@ -2064,7 +2071,9 @@ pub fn construct_shared(
 
             // compressive_utility for arity-0 is cost_of_node_all[node] minus the penalty of using the new prim
             let compressive_utility: i32 = init_cost_weighted - root_idxs_of_task.iter().map(|root_idxs|
-                root_idxs.iter().map(|idx| (init_cost_by_root_idx_weighted[*idx] - weights[*idx] * (num_paths_to_node_by_root_idx[*idx][node] * (analyzed_cost[node] - cost_fn.cost_prim_default)) as f32).round() as i32)
+                root_idxs.iter().map(|idx|
+                    (init_cost_by_root_idx_weighted[*idx]
+                    - weights[*idx] * (num_paths_to_node_by_root_idx[*idx][node] * (analyzed_cost[node] - cost_fn.compute_cost_new_prim())) as f32).round() as i32)
                     .min().unwrap()
             ).sum::<i32>();
             
@@ -2157,6 +2166,7 @@ pub fn construct_shared(
         task_name_of_task,
         task_of_root_idx,
         root_idxs_of_task,
+        cost_of_node_sym,
         cost_of_node_all,
         init_cost,
         init_cost_weighted,
