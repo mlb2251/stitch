@@ -2,7 +2,6 @@ use crate::*;
 use lambdas::*;
 use rand::SeedableRng;
 use rustc_hash::{FxHashMap};
-use core::num;
 use std::sync::Arc;
 
 fn sample_new_ivar(
@@ -149,7 +148,7 @@ fn calculate_utility(p: &Pattern, shared: &SharedData) -> usize {
     if util < cost_leaf {
         return cost_leaf as usize; // no utility if the compressive utility is negative
     }
-    return util as usize;
+    util as usize
 }
 
 fn compute_logweight(p: &Pattern, shared: &SharedData) -> f64 {
@@ -171,7 +170,7 @@ fn resample(
     //     }
     // }
     let logweights: Vec<f64> = deduplicated.iter().enumerate().map(|(i, p)|
-        (compute_logweight(p, &shared) + (counts[i] as f64).ln()) / TEMPERATURE
+        (compute_logweight(p, shared) + (counts[i] as f64).ln()) / TEMPERATURE
     ).collect();
     // println!("utilities: {:?}", deduplicated.iter().map(|x| calculate_utility(x, &shared)).collect::<Vec<_>>());
     // println!("Log weights: {:?}", logweights);
