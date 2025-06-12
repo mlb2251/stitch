@@ -369,7 +369,7 @@ pub struct CostConfig {
 impl CostConfig {
 
     fn compute_cost_prim(&self) -> HashMap<Symbol, i32> {
-        if self.cost_prim == "" {
+        if self.cost_prim.is_empty() {
             return HashMap::new();
         }
         let cost_prim: serde_json::Value = serde_json::from_str(&self.cost_prim).unwrap_or_else(|_| {
