@@ -408,7 +408,7 @@ impl CostConfig {
 impl Pattern {
     /// create a single hole pattern `??`
     //#[inline(never)]
-    fn single_hole(corpus_span: &Span, cost_of_node_all: &[i32], num_paths_to_node: &[i32], set: &ExprSet, cost_fn: &ExprCost, cfg: &CompressionStepConfig) -> Self {
+    fn single_hole(corpus_span: &Span, cost_of_node_sym: &[i32], cost_of_node_all: &[i32], num_paths_to_node: &[i32], set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
         let body_utility = 0;
         let mut match_locations: Vec<Idx> = corpus_span.clone().collect();
         match_locations.sort(); // we assume match_locations is always sorted
@@ -473,7 +473,7 @@ impl Pattern {
             match_locations.retain(|node| !matches!(expands_to_of_node(&set[*node]), ExpandsTo::Lam(_)));
         }
 
-        let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_all, num_paths_to_node, cost_fn, cfg);
+        let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_sym, cost_of_node_all, num_paths_to_node, cfg);
         Pattern {
             holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
             arg_choices: vec![],
@@ -704,6 +704,7 @@ pub struct SharedData {
     pub task_name_of_task: Vec<String>,
     pub task_of_root_idx: Vec<usize>,
     pub root_idxs_of_task: Vec<Vec<usize>>,
+    pub cost_of_node_sym: Vec<i32>,
     pub cost_of_node_all: Vec<i32>,
     pub init_cost: i32,
     pub init_cost_weighted: i32,
@@ -1066,7 +1067,7 @@ fn stitch_search(
                 };
 
                 // update the upper bound
-                let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cost_fn, &shared.cfg);
+                let util_upper_bound: i32 = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_sym, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
                 assert!(util_upper_bound <= original_pattern.utility_upper_bound);
 
                 // Pruning (UPPER BOUND): if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
@@ -1570,12 +1571,12 @@ impl fmt::Display for CompressionStepResult {
 fn utility_upper_bound(
     match_locations: &[Idx],
     body_utility_lower_bound: i32,
+    cost_of_node_sym: &[i32],
     cost_of_node_all: &[i32],
     num_paths_to_node: &[i32],
-    cost_fn: &ExprCost,
     cfg: &CompressionStepConfig,
 ) -> i32 {
-    compressive_utility_upper_bound(match_locations, cost_of_node_all, num_paths_to_node, cost_fn)
+    compressive_utility_upper_bound(match_locations, cost_of_node_sym, cost_of_node_all, num_paths_to_node)
         + noncompressive_utility_upper_bound(body_utility_lower_bound, cfg)
 }
 
@@ -1599,13 +1600,13 @@ fn noncompressive_utility(
 //#[inline(never)]
 fn compressive_utility_upper_bound(
     match_locations: &[Idx],
+    cost_of_node_sym: &[i32],
     cost_of_node_all: &[i32],
     num_paths_to_node: &[i32],
-    cost_fn: &ExprCost,
 ) -> i32 {
     match_locations.iter().map(|node|
         cost_of_node_all[*node] 
-        - num_paths_to_node[*node] * cost_fn.compute_cost_prim_lower_bound()).sum::<i32>()
+        - num_paths_to_node[*node] * cost_of_node_sym[*node]).sum::<i32>()
     
     // shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
     //     root_idxs.iter().map(|idx| shared.init_cost_by_root_idx[*idx] - adjusted_util_by_root_idx[*idx]).min().unwrap()
@@ -2005,6 +2006,12 @@ pub fn construct_shared(
     if !cfg.quiet { println!("num unique programs: {}", roots.len()) }
     tstart = std::time::Instant::now();
     
+    // cost of just the symbolic cost of a node, ie the cost of the node itself without the children
+    let cost_of_node_sym: Vec<i32> = corpus_span.clone().map(
+        |node| match &set[node] {
+            Node::Prim(p) => cost_fn.compute_cost_prim(p),
+            _ => 0
+        }).collect();
     // cost of a single usage times number of paths to node
     let cost_of_node_all: Vec<i32> = corpus_span.clone().map(|node| analyzed_cost[node] * num_paths_to_node[node]).collect();
 
@@ -2062,7 +2069,7 @@ pub fn construct_shared(
     // define all the important data structures for compression
     let mut donelist: Vec<FinishedPattern> = Default::default(); // completed inventions will go here    
 
-    let single_hole = Pattern::single_hole(&corpus_span, &cost_of_node_all, &num_paths_to_node, &set, cost_fn, cfg);
+    let single_hole = Pattern::single_hole(&corpus_span, &cost_of_node_sym, &cost_of_node_all, &num_paths_to_node, &set, cfg);
 
     let mut azero_pruning_cutoff = 0;
 
@@ -2189,6 +2196,7 @@ pub fn construct_shared(
         task_name_of_task,
         task_of_root_idx,
         root_idxs_of_task,
+        cost_of_node_sym,
         cost_of_node_all,
         init_cost,
         init_cost_weighted,
