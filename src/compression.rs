@@ -385,7 +385,6 @@ impl CostConfig {
                 panic!("Expected a number for cost of primitive '{}', got: {}", k, v);
             }
         }
-        println!("Parsed cost_prim: {:?}", map);
         map
     }
 
