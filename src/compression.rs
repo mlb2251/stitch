@@ -1979,7 +1979,7 @@ pub fn construct_shared(
     // cost of just the symbolic cost of a node, ie the cost of the node itself without the children
     let cost_of_node_sym: Vec<i32> = corpus_span.clone().map(
         |node| cost_fn.compute_cost_at_node(&set[node])
-        )    .collect();
+    ).collect();
     // cost of a single usage times number of paths to node
     let cost_of_node_all: Vec<i32> = corpus_span.clone().map(|node| analyzed_cost[node] * num_paths_to_node[node]).collect();
 
