@@ -2,6 +2,7 @@ use crate::*;
 use lambdas::*;
 use rand::seq::SliceRandom;
 use rustc_hash::{FxHashMap,FxHashSet};
+use core::panic;
 use std::convert::TryInto;
 use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
@@ -13,7 +14,7 @@ use std::thread;
 use std::sync::Arc;
 use parking_lot::Mutex;
 use std::ops::DerefMut;
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashMap};
 use rand::Rng;
 
 /// Multistep Compression
@@ -359,16 +360,41 @@ pub struct CostConfig {
     /// Sets cost for primitives like `+` and `*`
     #[clap(long, default_value = "100")]
     pub cost_prim_default: usize,
+
+    /// Sets cost for primitives like `+` and `*` in the form of a dictionary, json encoded
+    #[clap(long, default_value = "{}")]
+    pub cost_prim: String,
 }
 
 impl CostConfig {
+
+    fn compute_cost_prim(&self) -> HashMap<Symbol, i32> {
+        let cost_prim: serde_json::Value = serde_json::from_str(&self.cost_prim).unwrap_or_else(|_| {
+            panic!("Invalid JSON for argument --cost-prim: {}", self.cost_prim);
+        });
+        let serde_json::Value::Object(map_obj) = cost_prim else {
+            panic!("Expected a JSON object for --cost-prim, got: {}", self.cost_prim);
+        };
+        let mut map: HashMap<Symbol, i32> = HashMap::default();
+        for (k, v) in map_obj {
+            if let serde_json::Value::Number(num) = v {
+                if let Some(cost) = num.as_i64() {
+                    map.insert(Symbol::from(k), cost as i32);
+                }
+            } else {
+                panic!("Expected a number for cost of primitive '{}', got: {}", k, v);
+            }
+        }
+        map
+    }
+
     pub fn expr_cost(&self) -> ExprCost {
         ExprCost::new(
             self.cost_lam.try_into().unwrap(),
             self.cost_app.try_into().unwrap(),
             self.cost_var.try_into().unwrap(),
             self.cost_ivar.try_into().unwrap(),
-            Default::default(),
+            self.compute_cost_prim(),
             self.cost_prim_default.try_into().unwrap(),
         )
     }
