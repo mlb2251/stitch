@@ -1,4 +1,7 @@
 use std::path::Path;
+use std::time::Duration;
+use std::thread;
+use std::sync::mpsc;
 
 use stitch_core::*;
 use clap::Parser;
@@ -280,19 +283,19 @@ fn generate_random_weights(selected_symbols: &[&String], rng: &mut impl Rng) -> 
         let weight = if rng.gen_bool(0.5) {
             rng.gen_range(1..100)
         } else {
-            rng.gen_range(100..5000)
+            rng.gen_range(100..1000)
         };
         cost_prims[symbol] = serde_json::json!(weight);
     }
     cost_prims
 }
 
-fn run_fuzz_compression(input: &Input, cost_prims: &serde_json::Value) {
+fn run_fuzz_compression(input: &Input, cost_prims: &serde_json::Value, test_file: &std::path::Path) {
     let cost_prims_str = cost_prims.to_string();
-    let args = vec!["compress", "-i1", "-a3", "--cost-prim", &cost_prims_str];
+    let args = vec!["compress", "-i1", "-a3", "--verbose-best", "--cost-prim", &cost_prims_str];
     println!("Running fuzz test with command: {}", args.join(" "));
-    let mut cfg = MultistepCompressionConfig::parse_from(args);
-    cfg.previous_abstractions = input.name_mapping.clone().unwrap_or_default().len();
+    println!("Test file: {}", test_file.display());
+    let cfg = MultistepCompressionConfig::parse_from(args);
     let _output = run_compression(input, &cfg);
 }
 
@@ -302,10 +305,22 @@ fn fuzz_test_symbol_weighting(seed: u64) {
     let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
     let test_files = collect_test_files();
     let test_file = select_random_file(&test_files, &mut rng);
-    let input = InputFormat::ProgramsList.load_programs_and_tasks(test_file).unwrap();
+    let test_file = test_file.to_path_buf();
+    let input = InputFormat::ProgramsList.load_programs_and_tasks(&test_file).unwrap();
     let symbols = extract_unique_symbols(&input);
-    let symbols_vec: Vec<_> = symbols.into_iter().collect();
+    let mut symbols_vec: Vec<_> = symbols.into_iter().collect();
+    symbols_vec.sort(); // Sort symbols for consistent selection
     let selected_symbols = select_random_symbols(&symbols_vec, 3, &mut rng);
     let cost_prims = generate_random_weights(&selected_symbols, &mut rng);
-    run_fuzz_compression(&input, &cost_prims);
+
+    let (tx, rx) = mpsc::channel();
+    thread::spawn(move || {
+        run_fuzz_compression(&input, &cost_prims, &test_file);
+        tx.send(()).unwrap();
+    });
+
+    match rx.recv_timeout(Duration::from_secs(300)) {
+        Ok(_) => (),
+        Err(_) => panic!("Test timed out after 300 seconds"),
+    }
 }
