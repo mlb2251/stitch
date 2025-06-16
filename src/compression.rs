@@ -507,8 +507,8 @@ impl Pattern {
         }
     }
 
-    fn single_var(corpus_span: &Span, cost_of_node_all: &[i32], num_paths_to_node: &[i32], set: &ExprSet, cost_fn: &ExprCost, cfg: &CompressionStepConfig) -> Self {
-        let mut pattern = Self::single_hole(corpus_span, cost_of_node_all, num_paths_to_node, set, cost_fn, cfg);
+    fn single_var(corpus_span: &Span, cost_of_node_sym: &[i32], cost_of_node_all: &[i32], num_paths_to_node: &[i32], set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
+        let mut pattern = Self::single_hole(corpus_span, cost_of_node_sym, cost_of_node_all, num_paths_to_node, set, cfg);
         let hole_zid = pattern.holes.pop().unwrap();
         add_variable_at(&mut pattern, hole_zid, 0);
         pattern
@@ -517,10 +517,10 @@ impl Pattern {
     pub fn single_var_from_shared(shared: &SharedData) -> Self {
         Self::single_var(
             &shared.corpus_span,
+            &shared.cost_of_node_sym,
             &shared.cost_of_node_all,
             &shared.num_paths_to_node,
             &shared.set,
-            &shared.cost_fn,
             &shared.cfg
         )
     }
