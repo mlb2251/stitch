@@ -240,6 +240,10 @@ pub struct CompressionStepConfig {
     /// Number of particles to use in SMC
     #[clap(long, default_value = "1000")]
     pub smc_particles: usize,
+
+    /// If true, we will use "fast utility" in SMC, which is a heuristic that
+    /// estimates the utility of a pattern without fully rewriting it.
+    pub smc_fast_utility: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

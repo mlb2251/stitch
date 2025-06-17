@@ -134,22 +134,26 @@ pub fn smc_expand_all(
 }
 
 const TEMPERATURE: f64 = 1.5;
-const USE_COMPRESSIVE_UTILITY: bool = false;
 
-fn calculate_utility(p: &Pattern, shared: &SharedData) -> usize {
+fn calculate_utility_fn(p: &Pattern, shared: &SharedData, use_fast_utility: bool) -> usize {
     let cost_leaf = shared.cfg.cost.cost_prim_default as i32;
     let cost_app: i32 = shared.cfg.cost.cost_app as i32;
-    let util = if USE_COMPRESSIVE_UTILITY {
-        compressive_utility(p, shared).util + noncompressive_utility(p.body_utility, &shared.cfg)
-    } else {
+    let util = if use_fast_utility {
         let updated_util = p.body_utility - cost_leaf - cost_app * get_num_variables(p) as i32;
         updated_util * ((p.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc])).sum::<i32>() - 1)
+    } else {
+        compressive_utility(p, shared).util + noncompressive_utility(p.body_utility, &shared.cfg)
     };
     if util < cost_leaf {
         return cost_leaf as usize; // no utility if the compressive utility is negative
     }
     util as usize
 }
+
+fn calculate_utility(p: &Pattern, shared: &SharedData) -> usize {
+    calculate_utility_fn(p, shared, shared.cfg.smc_fast_utility)
+}
+
 
 fn compute_logweight(p: &Pattern, shared: &SharedData) -> f64 {
     let utility = calculate_utility(p, shared);
@@ -285,6 +289,13 @@ pub fn compression_step_smc(
         for p in &patterns {
             if calculate_utility(p, &shared) > calculate_utility(&best, &shared) {
                 best = p.clone();
+                if shared.cfg.verbose_best {
+                    println!("New best pattern found: {}. Fast utility: {}, Accurate utility: {}",
+                        best.info(&shared),
+                        calculate_utility_fn(&best, &shared, true),
+                        calculate_utility_fn(&best, &shared, false)
+                    );
+                }
             }
         }
     }
