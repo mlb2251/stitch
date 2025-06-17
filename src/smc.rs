@@ -291,7 +291,12 @@ pub fn compression_step_smc(
 
     let mut best = particles[0].clone();
 
-    loop {
+    let mut last_optimal_step = 0;
+
+    for step in 0.. {
+        if step - last_optimal_step > shared.cfg.smc_extra_steps {
+            break; // stop if we haven't found a better pattern in a while
+        }
         particles = smc_expand_all(&particles, &shared, rng);
         if particles.is_empty() {
             break;
@@ -301,12 +306,14 @@ pub fn compression_step_smc(
             if p.utility > best.utility {
                 best = p.clone();
                 if shared.cfg.verbose_best {
-                    println!("New best pattern found: {}. Fast utility: {}, Accurate utility: {}",
+                    println!("Step {}: New best pattern found: {}. Fast utility: {}, Accurate utility: {}",
+                        step,
                         best.pattern.info(&shared),
                         calculate_utility_fn(&best.pattern, &shared, true),
                         calculate_utility_fn(&best.pattern, &shared, false)
                     );
                 }
+                last_optimal_step = step;
             }
         }
     }

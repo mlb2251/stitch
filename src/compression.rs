@@ -245,6 +245,12 @@ pub struct CompressionStepConfig {
     /// estimates the utility of a pattern without fully rewriting it.
     #[clap(long)]
     pub smc_fast_utility: bool,
+
+    /// Number of smc steps we will run after finding a best pattern
+    /// before stopping. e.g., if --smc-extra-step=10, we will stop at
+    /// step 29 if a best pattern is found at step 19.
+    #[clap(long, default_value = "10")]
+    pub smc_extra_steps: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
