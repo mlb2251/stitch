@@ -1753,6 +1753,12 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
 fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_of_loc_once: &[i32]) -> (Vec<i32>,FxHashMap<Idx,bool>) {
     let mut cumulative_utility_of_node: Vec<i32> = vec![0; shared.corpus_span.len()];
     let mut corrected_utils: FxHashMap<Idx,bool> = Default::default();
+    let mut indices = vec![-1; shared.corpus_span.len()];
+    for (idx, node) in pattern.match_locations.iter().enumerate() {
+        // we want to keep track of the index of the match location in the pattern
+        // so that we can use it later to determine whether to rewrite or not
+        indices[*node] = idx as i32;
+    }
 
     for node in shared.corpus_span.clone() {
 
@@ -1765,8 +1771,11 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
 
         assert!(utility_without_rewrite >= 0);
 
-        if let Ok(idx) = pattern.match_locations.binary_search(&node) {
+        let idxi = indices[node];
+
+        if idxi >= 0 {
             // this node is a potential rewrite location
+            let idx = idxi as usize;
 
             let utility_of_args: i32 = pattern.first_zid_of_ivar.iter()
                 .map(|zid| cumulative_utility_of_node[shared.arg_of_zid_node[*zid][&node].unshifted_id])
