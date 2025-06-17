@@ -243,6 +243,7 @@ pub struct CompressionStepConfig {
 
     /// If true, we will use "fast utility" in SMC, which is a heuristic that
     /// estimates the utility of a pattern without fully rewriting it.
+    #[clap(long)]
     pub smc_fast_utility: bool,
 }
 

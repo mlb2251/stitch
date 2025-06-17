@@ -97,6 +97,19 @@ fn sample_expands_to(
     )
 }
 
+#[derive(Clone, Debug)]
+struct Particle {
+    pattern: Pattern,
+    utility: usize,
+}
+
+impl Particle {
+    fn new(pattern: Pattern, shared: &SharedData) -> Self {
+        let utility = calculate_utility(&pattern, shared);
+        Particle { pattern, utility }
+    }
+}
+
 pub fn smc_expand(
     original_pattern: &Pattern,
     shared: &SharedData,
@@ -119,18 +132,18 @@ pub fn smc_expand(
     )
 }
 
-pub fn smc_expand_all(
-    original_pattern: &Vec<Pattern>,
+fn smc_expand_all(
+    original_particles: &Vec<Particle>,
     shared: &SharedData,
     rng: &mut impl rand::Rng,
-) -> Vec<Pattern> {
-    let mut expanded_patterns = vec![];
-    for pattern in original_pattern {
-        if let Some(expanded) = smc_expand(pattern, shared, rng) {
-            expanded_patterns.push(expanded);
+) -> Vec<Particle> {
+    let mut expanded_particles = vec![];
+    for particle in original_particles {
+        if let Some(expanded) = smc_expand(&particle.pattern, shared, rng) {
+            expanded_particles.push(Particle::new(expanded, shared));
         }
     }
-    expanded_patterns
+    expanded_particles
 }
 
 const TEMPERATURE: f64 = 1.5;
@@ -155,17 +168,16 @@ fn calculate_utility(p: &Pattern, shared: &SharedData) -> usize {
 }
 
 
-fn compute_logweight(p: &Pattern, shared: &SharedData) -> f64 {
-    let utility = calculate_utility(p, shared);
-    (utility as f64).ln()
+fn compute_logweight(p: &Particle) -> f64 {
+    (p.utility as f64).ln()
 }
 
 fn resample(
-    patterns: Vec<Pattern>,
+    patterns: Vec<Particle>,
     rng: &mut impl rand::Rng,
     number: usize,
     shared: &SharedData,
-) -> Vec<Pattern> {
+) -> Vec<Particle> {
     let (deduplicated, counts) = do_deduplication(patterns);
     // println!("Counts after deduplication: {:?}", counts);
     // for i in 0..deduplicated.len() {
@@ -174,7 +186,7 @@ fn resample(
     //     }
     // }
     let logweights: Vec<f64> = deduplicated.iter().enumerate().map(|(i, p)|
-        (compute_logweight(p, shared) + (counts[i] as f64).ln()) / TEMPERATURE
+        (compute_logweight(p) + (counts[i] as f64).ln()) / TEMPERATURE
     ).collect();
     // println!("utilities: {:?}", deduplicated.iter().map(|x| calculate_utility(x, &shared)).collect::<Vec<_>>());
     // println!("Log weights: {:?}", logweights);
@@ -205,25 +217,25 @@ fn resample(
     result
 }
 
-fn do_deduplication(mut patterns: Vec<Pattern>) -> (Vec<Pattern>, Vec<i32>) {
-    patterns.sort_by(
+fn do_deduplication(mut particles: Vec<Particle>) -> (Vec<Particle>, Vec<i32>) {
+    particles.sort_by(
         |pat1, pat2|
-            pat1.arg_choices.cmp(&pat2.arg_choices)
-            .then_with(|| pat1.holes.cmp(&pat2.holes))
+            pat1.pattern.arg_choices.cmp(&pat2.pattern.arg_choices)
+            .then_with(|| pat1.pattern.holes.cmp(&pat2.pattern.holes))
     );
     let mut counts = vec![];
-    if patterns.is_empty() {
-        return (patterns, counts);
+    if particles.is_empty() {
+        return (particles, counts);
     }
-    let mut current_pattern = patterns[0].clone();
-    let mut deduplicated = vec![current_pattern.clone()];
+    let mut current_pattern = particles[0].pattern.clone();
+    let mut deduplicated: Vec<Particle> = vec![particles[0].clone()];
     counts.push(1);
-    for pattern in patterns {
-        if pattern == current_pattern {
+    for particle in particles {
+        if particle.pattern == current_pattern {
             *counts.last_mut().unwrap() += 1;
         } else {
-            current_pattern = pattern;
-            deduplicated.push(current_pattern.clone());
+            current_pattern = particle.pattern.clone();
+            deduplicated.push(particle);
             counts.push(1);
         }
     }
@@ -273,27 +285,26 @@ pub fn compression_step_smc(
         return vec![];
     };
 
-    let pattern = Pattern::single_var_from_shared(&shared);
-    let mut patterns = vec![pattern; shared.cfg.smc_particles];
+    let mut particles = vec![Particle::new(Pattern::single_var_from_shared(&shared), &shared); shared.cfg.smc_particles];
     
     let rng = &mut rand::rngs::StdRng::seed_from_u64(shared.cfg.seed);
 
-    let mut best = patterns[0].clone();
+    let mut best = particles[0].clone();
 
     loop {
-        patterns = smc_expand_all(&patterns, &shared, rng);
-        if patterns.is_empty() {
+        particles = smc_expand_all(&particles, &shared, rng);
+        if particles.is_empty() {
             break;
         }
-        patterns = resample(patterns, rng, shared.cfg.smc_particles, &shared);
-        for p in &patterns {
-            if calculate_utility(p, &shared) > calculate_utility(&best, &shared) {
+        particles = resample(particles, rng, shared.cfg.smc_particles, &shared);
+        for p in &particles {
+            if p.utility > best.utility {
                 best = p.clone();
                 if shared.cfg.verbose_best {
                     println!("New best pattern found: {}. Fast utility: {}, Accurate utility: {}",
-                        best.info(&shared),
-                        calculate_utility_fn(&best, &shared, true),
-                        calculate_utility_fn(&best, &shared, false)
+                        best.pattern.info(&shared),
+                        calculate_utility_fn(&best.pattern, &shared, true),
+                        calculate_utility_fn(&best.pattern, &shared, false)
                     );
                 }
             }
@@ -304,7 +315,7 @@ pub fn compression_step_smc(
 
     let very_first_cost = shared.init_cost;
 
-    let finished_pattern = FinishedPattern::new(best.clone(), &shared);
+    let finished_pattern = FinishedPattern::new(best.pattern.clone(), &shared);
     let result = CompressionStepResult::new(
         finished_pattern,
         inv_name,
