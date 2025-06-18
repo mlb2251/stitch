@@ -2,18 +2,18 @@ use crate::*;
 use lambdas::*;
 
 
-pub fn min_cost(programs: &[ExprOwned], weights: &Option<Vec<f32>>, tasks: &Option<Vec<String>>, cost_fn: &ExprCost) -> i32 {
+pub fn min_cost(programs: &[ExprOwned], weights: &Option<Vec<f32>>, tasks: &Option<Vec<String>>, cost_fn: &ExprCost) -> Cost {
     let weights = weights.clone().unwrap_or(vec![1.0; programs.len()]);
     if let Some(tasks) = tasks {
         let mut unique_tasks = tasks.to_vec();
         unique_tasks.sort();
         unique_tasks.dedup();
         unique_tasks.iter().map(|task|
-            tasks.iter().zip(programs.iter().zip(weights.iter())).filter_map(|(t,(p,w))| if task == t { Some((p.cost(cost_fn) as f32 * w).round() as i32) } else { None })
+            tasks.iter().zip(programs.iter().zip(weights.iter())).filter_map(|(t,(p,w))| if task == t { Some((p.cost(cost_fn) as f32 * w).round() as Cost) } else { None })
             .min().unwrap()
-        ).sum::<i32>()
+        ).sum::<Cost>()
     } else {
-        programs.iter().zip(weights.iter()).map(|(e,w)| (e.cost(cost_fn) as f32 * w).round() as i32).sum::<i32>()
+        programs.iter().zip(weights.iter()).map(|(e,w)| (e.cost(cost_fn) as f32 * w).round() as Cost).sum::<Cost>()
     }
 }
 
@@ -33,8 +33,8 @@ pub fn timestamp() -> String {
 }
 
 
-pub fn compression_factor(original: i32, compressed: i32) -> f64 {
-    f64::from(original)/f64::from(compressed)
+pub fn compression_factor(original: Cost, compressed: Cost) -> f64 {
+    original as f64 / compressed as f64
 }
 
 /// Replace the ivars in an expr with vars
