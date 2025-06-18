@@ -2,18 +2,18 @@ use crate::*;
 use lambdas::*;
 
 
-pub fn min_cost(programs: &[ExprOwned], weights: &Option<Vec<f32>>, tasks: &Option<Vec<String>>, cost_fn: &ExprCost) -> i32 {
+pub fn min_cost(programs: &[ExprOwned], weights: &Option<Vec<f32>>, tasks: &Option<Vec<String>>, cost_fn: &ExprCost) -> Cost {
     let weights = weights.clone().unwrap_or(vec![1.0; programs.len()]);
     if let Some(tasks) = tasks {
         let mut unique_tasks = tasks.to_vec();
         unique_tasks.sort();
         unique_tasks.dedup();
         unique_tasks.iter().map(|task|
-            tasks.iter().zip(programs.iter().zip(weights.iter())).filter_map(|(t,(p,w))| if task == t { Some((p.cost(cost_fn) as f32 * w).round() as i32) } else { None })
+            tasks.iter().zip(programs.iter().zip(weights.iter())).filter_map(|(t,(p,w))| if task == t { Some((p.cost(cost_fn) as f32 * w).round() as Cost) } else { None })
             .min().unwrap()
-        ).sum::<i32>()
+        ).sum::<Cost>()
     } else {
-        programs.iter().zip(weights.iter()).map(|(e,w)| (e.cost(cost_fn) as f32 * w).round() as i32).sum::<i32>()
+        programs.iter().zip(weights.iter()).map(|(e,w)| (e.cost(cost_fn) as f32 * w).round() as Cost).sum::<Cost>()
     }
 }
 
@@ -33,8 +33,8 @@ pub fn timestamp() -> String {
 }
 
 
-pub fn compression_factor(original: i32, compressed: i32) -> f64 {
-    f64::from(original)/f64::from(compressed)
+pub fn compression_factor(original: Cost, compressed: Cost) -> f64 {
+    original as f64 / compressed as f64
 }
 
 /// Replace the ivars in an expr with vars
@@ -99,10 +99,10 @@ pub fn replace_prim_with(s: &str, prim: &str, new: &str) -> String {
 
 /// Returns a vec from node Idx to number of places that node is used in the tree. Essentially this just
 /// follows all paths down from the root and logs how many times it encounters each node
-pub fn num_paths_to_node(roots: &[Idx], corpus_span: &Span, set: &ExprSet) -> (Vec<i32>, Vec<Vec<i32>>) {
-    let mut num_paths_to_node_by_root_idx: Vec<Vec<i32>> = vec![vec![0; corpus_span.len()]; roots.len()];
+pub fn num_paths_to_node(roots: &[Idx], corpus_span: &Span, set: &ExprSet) -> (Vec<Cost>, Vec<Vec<Cost>>) {
+    let mut num_paths_to_node_by_root_idx: Vec<Vec<Cost>> = vec![vec![0; corpus_span.len()]; roots.len()];
 
-    fn helper(num_paths_to_node: &mut Vec<i32>, idx: Idx, set: &ExprSet) {
+    fn helper(num_paths_to_node: &mut Vec<Cost>, idx: Idx, set: &ExprSet) {
         // num_paths_to_node.insert(*child, num_paths_to_node[node] + 1);
         num_paths_to_node[idx] += 1;
         for child in set.get(idx).children() {
@@ -110,7 +110,7 @@ pub fn num_paths_to_node(roots: &[Idx], corpus_span: &Span, set: &ExprSet) -> (V
         }
     }
 
-    let mut num_paths_to_node_all: Vec<i32> = vec![0; corpus_span.len()];
+    let mut num_paths_to_node_all: Vec<Cost> = vec![0; corpus_span.len()];
     num_paths_to_node_by_root_idx.iter_mut().enumerate().for_each(|(i,num_paths_to_node)| {
         helper(num_paths_to_node, roots[i], set);
         for i in corpus_span.clone() {

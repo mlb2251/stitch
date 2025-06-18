@@ -169,11 +169,11 @@ fn smc_expand_all(
 }
 
 fn calculate_utility_fn(p: &Pattern, shared: &SharedData, use_fast_utility: bool) -> usize {
-    let cost_leaf = shared.cfg.cost.cost_prim_default as i32;
-    let cost_app: i32 = shared.cfg.cost.cost_app as i32;
+    let cost_leaf = shared.cfg.cost.cost_prim_default as Cost;
+    let cost_app = shared.cfg.cost.cost_app as Cost;
     let util = if use_fast_utility {
-        let updated_util = p.body_utility - cost_leaf - cost_app * get_num_variables(p) as i32;
-        updated_util * ((p.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc])).sum::<i32>() - 1)
+        let updated_util = p.body_utility - cost_leaf - cost_app * get_num_variables(p) as Cost;
+        updated_util * ((p.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc])).sum::<Cost>() - 1)
     } else {
         compressive_utility(p, shared).util + noncompressive_utility(p.body_utility, &shared.cfg)
     };

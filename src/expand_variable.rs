@@ -85,7 +85,7 @@ pub fn perform_expansion_variable(
 
     let variable_zids: Vec<usize> = remove_variable_at(&mut pattern, variable_ivar, &mut expands_to);
 
-    let body_utility = pattern.body_utility +  compute_body_utility_change(shared, &expands_to) * variable_zids.len() as i32;
+    let body_utility = pattern.body_utility +  compute_body_utility_change(shared, &expands_to) * variable_zids.len() as Cost;
     pattern.body_utility = body_utility;
 
     let num_vars = pattern.first_zid_of_ivar.len() as i32;

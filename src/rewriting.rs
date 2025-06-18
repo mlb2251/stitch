@@ -144,8 +144,8 @@ pub fn rewrite_fast(
     if !shared.cfg.no_mismatch_check && !shared.cfg.utility_by_rewrite {
         assert_eq!(
             shared.root_idxs_of_task.iter().map(|root_idxs|
-                root_idxs.iter().map(|idx| (rewritten_exprs[*idx].cost(cost_fn) as f32 * shared.weight_by_root_idx[*idx]).round() as i32).min().unwrap()
-            ).sum::<i32>(),
+                root_idxs.iter().map(|idx| (rewritten_exprs[*idx].cost(cost_fn) as f32 * shared.weight_by_root_idx[*idx]).round() as Cost).min().unwrap()
+            ).sum::<Cost>(),
             shared.init_cost_weighted - pattern.util_calc.util,
             "\n{}\n", pattern.info(shared)
         );
