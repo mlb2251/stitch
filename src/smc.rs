@@ -110,7 +110,7 @@ impl Particle {
     }
 }
 
-pub fn smc_expand(
+pub fn smc_expand_once(
     original_pattern: &Pattern,
     shared: &SharedData,
     rng: &mut impl rand::Rng,
@@ -132,6 +132,28 @@ pub fn smc_expand(
     )
 }
 
+pub fn smc_expand_n_times(
+    original_pattern: &Pattern,
+    shared: &SharedData,
+    rng: &mut impl rand::Rng,
+    n: usize,
+) -> Option<Pattern> {
+    let mut num_rounds = 0;
+    let mut pattern = original_pattern.clone();
+    for _ in 0..n {
+        if let Some(new_pattern) = smc_expand_once(&pattern, shared, rng) {
+            pattern = new_pattern;
+            num_rounds += 1;
+        } else {
+            return None; // no more expansions possible
+        }
+    }
+    if num_rounds == 0 {
+        return None; // no expansions were made
+    }
+    Some(pattern)
+}
+
 fn smc_expand_all(
     original_particles: &Vec<Particle>,
     shared: &SharedData,
@@ -139,14 +161,12 @@ fn smc_expand_all(
 ) -> Vec<Particle> {
     let mut expanded_particles = vec![];
     for particle in original_particles {
-        if let Some(expanded) = smc_expand(&particle.pattern, shared, rng) {
+        if let Some(expanded) = smc_expand_n_times(&particle.pattern, shared, rng, shared.cfg.smc_expand_per_step) {
             expanded_particles.push(Particle::new(expanded, shared));
         }
     }
     expanded_particles
 }
-
-const TEMPERATURE: f64 = 1.5;
 
 fn calculate_utility_fn(p: &Pattern, shared: &SharedData, use_fast_utility: bool) -> usize {
     let cost_leaf = shared.cfg.cost.cost_prim_default as i32;
@@ -186,7 +206,7 @@ fn resample(
     //     }
     // }
     let logweights: Vec<f64> = deduplicated.iter().enumerate().map(|(i, p)|
-        (compute_logweight(p) + (counts[i] as f64).ln()) / TEMPERATURE
+        (compute_logweight(p) + (counts[i] as f64).ln()) / shared.cfg.smc_temperature as f64
     ).collect();
     // println!("utilities: {:?}", deduplicated.iter().map(|x| calculate_utility(x, &shared)).collect::<Vec<_>>());
     // println!("Log weights: {:?}", logweights);

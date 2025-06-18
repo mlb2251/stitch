@@ -251,6 +251,16 @@ pub struct CompressionStepConfig {
     /// step 29 if a best pattern is found at step 19.
     #[clap(long, default_value = "10")]
     pub smc_extra_steps: usize,
+
+    /// Number of expansions to make before recalculating the utility of a pattern
+    /// in SMC. This is used to control the tradeoff between exploration and exploitation.
+    #[clap(long, default_value = "1")]
+    pub smc_expand_per_step: usize,
+
+    /// SMC temperature, used to control the exploration-exploitation tradeoff.
+    /// A higher temperature means more exploration, while a lower temperature means more exploitation.
+    #[clap(long, default_value = "1.0")]
+    pub smc_temperature: f32,
 }
 
 #[derive(Debug, Clone, Serialize)]
