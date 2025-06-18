@@ -324,3 +324,44 @@ fn fuzz_test_symbol_weighting(seed: u64) {
         Err(_) => panic!("Test timed out after 300 seconds"),
     }
 }
+
+#[test]
+fn test_annotate() {
+    let json = r#"
+    {
+        "T": {
+            "Assign": ["V", "E"]
+        },
+        "E": {
+            "list": ["E"]
+        }
+    }
+    "#;
+    let tdfa: TDFA = TDFA::new("T".to_string(), json.to_string(), vec!["E".to_string()]);
+    println!("TDFA created with valid metavars: {:?}", tdfa);
+    let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+    let node = set.parse_extend("(Assign x (list 3 4 5))").unwrap();
+
+
+    let result = tdfa.annotate(&set, &[node]);
+
+    let mut result_str = result.iter()
+        .map(|(k, v)| format!("{}: {}", set.get(*k), v))
+        .collect::<Vec<_>>();
+    result_str.sort();
+
+    let mut expected = vec![
+            "(Assign x (list 3 4 5)): T",
+            "x: V",
+            "(list 3 4 5): E",
+            "3: E",
+            "4: E",
+            "5: E"
+        ];
+    expected.sort();
+
+    assert_eq!(
+        result_str,
+        expected
+    );
+}

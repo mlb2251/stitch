@@ -230,6 +230,18 @@ pub struct CompressionStepConfig {
     // Fused lambda tags
     #[clap(long, value_parser = clap::value_parser!(FusedLambdaTags), default_value="")]
     pub fused_lambda_tags: FusedLambdaTags,
+
+    /// If set, we will apply the given TDFA to the programs and use this to annotate the programs
+    #[clap(long, default_value = "")]
+    pub tdfa_json_path: String,
+
+    /// The root of the TDFA to use for annotation
+    #[clap(long, default_value = "")]
+    pub tdfa_root: String,
+
+    /// Metavariable locations that are valid for the TDFA
+    #[clap(long, default_value = "")]
+    pub valid_metavars: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -700,6 +712,7 @@ pub struct SharedData {
     pub set: ExprSet,
     pub num_paths_to_node: Vec<Cost>,
     pub num_paths_to_node_by_root_idx: Vec<Vec<Cost>>,
+    pub invalid_metavar_location_of_node: Vec<bool>,
     pub tasks_of_node: Vec<FxHashSet<usize>>,
     pub task_name_of_task: Vec<String>,
     pub task_of_root_idx: Vec<usize>,
@@ -720,7 +733,8 @@ pub struct SharedData {
 }
 
 fn invalid_metavar_location(shared : &SharedData, node: Idx) -> bool {
-    fused_lambda_location(&shared.set, &shared.fused_lambda_tags, node)
+    // println!("invalid_metavar_location length {} for node {} in set of length {}", shared.invalid_metavar_location_of_node.len(), node, shared.set.len());
+    shared.invalid_metavar_location_of_node[node] || fused_lambda_location(&shared.set, &shared.fused_lambda_tags, node)
 }
 
 fn invalid_match_location(set : &ExprSet, fused_lambda_tags: &Option<FxHashSet<Tag>>, node: Idx) -> bool {
@@ -2172,7 +2186,9 @@ pub fn construct_shared(
     } else {
         None
     };
-    
+
+    let invalid_metavar_location_of_node = compute_invalid_metavar_location_of_node(cfg, &set, &roots);
+
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
         programs: programs.to_vec(),
@@ -2190,6 +2206,7 @@ pub fn construct_shared(
         set,
         num_paths_to_node,
         num_paths_to_node_by_root_idx,
+        invalid_metavar_location_of_node,
         tasks_of_node,
         task_name_of_task,
         task_of_root_idx,
