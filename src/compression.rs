@@ -600,7 +600,7 @@ pub struct Arg {
     pub shifted_id: Idx, // post-shifting node - this tells you what the actual argument is
     pub unshifted_id: Idx, // tells you which node in the original corpus this was before it was possibly shifted
     pub shift: i32, // how much was it shifted?
-    pub cost: i32,
+    pub cost: Cost,
     pub expands_to: ExpandsTo,
 }
 
@@ -853,12 +853,12 @@ impl HoleChoice {
             }
             HoleChoice::MaxCost => {
                 pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
+                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<Cost>()))
                         .max_by_key(|x|x.1).unwrap().0
             }
             HoleChoice::MinCost => {
                 pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<i32>()))
+                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<Cost>()))
                         .min_by_key(|x|x.1).unwrap().0
             }
             HoleChoice::MaxLargestSubset => {
@@ -1352,7 +1352,7 @@ fn get_zippers(
         let node = set.get(idx).node().clone();
 
         arg_of_zid_node[EMPTY_ZID].insert(idx,
-            Arg { shifted_id: idx, unshifted_id: idx, shift: 0, cost: analyzed_cost[idx], expands_to: expands_to_of_node(&node) });
+            Arg { shifted_id: idx, unshifted_id: idx, shift: 0, cost: analyzed_cost[idx] as Cost, expands_to: expands_to_of_node(&node) });
 
         match node {
             Node::IVar(_) => { unreachable!() }
