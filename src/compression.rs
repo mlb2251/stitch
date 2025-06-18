@@ -379,10 +379,12 @@ impl CostConfig {
         };
         let mut map: HashMap<Symbol, i32> = HashMap::default();
         for (k, v) in map_obj {
-            if let serde_json::Value::Number(num) = v {
-                if let Some(cost) = num.as_i64() {
-                    map.insert(Symbol::from(k), cost as i32);
-                }
+            if let serde_json::Value::Number(ref num) = v {
+                let cost_opt: Option<i32> = num.as_i64().and_then(|x| TryInto::try_into(x).ok());
+                let cost = cost_opt.unwrap_or_else(|| {
+                    panic!("Expected a number for cost of primitive '{}', got: {}", k, v);
+                });
+                map.insert(Symbol::from(k), cost);
             } else {
                 panic!("Expected a number for cost of primitive '{}', got: {}", k, v);
             }
