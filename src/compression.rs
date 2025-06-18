@@ -1293,7 +1293,7 @@ impl FinishedPattern {
             res.compressive_utility = shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
                 root_idxs.iter().map(|idx| rewritten[*idx].cost(&shared.cost_fn) as Cost).min().unwrap()
             ).sum::<Cost>();
-            // res.compressive_utility = shared.init_cost - rewritten.iter().map(|e|e.cost()).sum::<i32>();
+            // res.compressive_utility = shared.init_cost - rewritten.iter().map(|e|e.cost()).sum::<Cost>();
             res.util_calc.util = res.compressive_utility;
             res.utility = res.compressive_utility + noncompressive_utility;
         }
@@ -1480,7 +1480,7 @@ pub struct CompressionStepResult {
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, very_first_cost: i32, name_mapping: &[(String,String)], dc_comparison_millis: Option<usize>) -> Self {
+    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, very_first_cost: Cost, name_mapping: &[(String,String)], dc_comparison_millis: Option<usize>) -> Self {
 
         let inv = done.to_invention(inv_name, shared);
         let rewritten = rewrite_fast(&done, shared, &Node::Prim(inv.name.clone().into()), &shared.cost_fn);
@@ -2219,7 +2219,7 @@ pub fn compression_step(
     multistep_cfg: &MultistepCompressionConfig,
     tasks: &[String],
     weights: &[f32],
-    very_first_cost: i32,
+    very_first_cost: Cost,
     name_mapping: &[(String, String)],
 ) -> Vec<CompressionStepResult> {
 
