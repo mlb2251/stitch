@@ -17,7 +17,7 @@ use std::ops::DerefMut;
 use std::collections::{BinaryHeap, HashMap};
 use rand::Rng;
 
-pub type Cost = i32;
+pub type Cost = i64;
 
 /// Multistep Compression
 #[derive(Parser, Debug, Serialize, Clone)]
