@@ -99,10 +99,10 @@ pub fn replace_prim_with(s: &str, prim: &str, new: &str) -> String {
 
 /// Returns a vec from node Idx to number of places that node is used in the tree. Essentially this just
 /// follows all paths down from the root and logs how many times it encounters each node
-pub fn num_paths_to_node(roots: &[Idx], corpus_span: &Span, set: &ExprSet) -> (Vec<i32>, Vec<Vec<i32>>) {
-    let mut num_paths_to_node_by_root_idx: Vec<Vec<i32>> = vec![vec![0; corpus_span.len()]; roots.len()];
+pub fn num_paths_to_node(roots: &[Idx], corpus_span: &Span, set: &ExprSet) -> (Vec<Cost>, Vec<Vec<Cost>>) {
+    let mut num_paths_to_node_by_root_idx: Vec<Vec<Cost>> = vec![vec![0; corpus_span.len()]; roots.len()];
 
-    fn helper(num_paths_to_node: &mut Vec<i32>, idx: Idx, set: &ExprSet) {
+    fn helper(num_paths_to_node: &mut Vec<Cost>, idx: Idx, set: &ExprSet) {
         // num_paths_to_node.insert(*child, num_paths_to_node[node] + 1);
         num_paths_to_node[idx] += 1;
         for child in set.get(idx).children() {
@@ -110,7 +110,7 @@ pub fn num_paths_to_node(roots: &[Idx], corpus_span: &Span, set: &ExprSet) -> (V
         }
     }
 
-    let mut num_paths_to_node_all: Vec<i32> = vec![0; corpus_span.len()];
+    let mut num_paths_to_node_all: Vec<Cost> = vec![0; corpus_span.len()];
     num_paths_to_node_by_root_idx.iter_mut().enumerate().for_each(|(i,num_paths_to_node)| {
         helper(num_paths_to_node, roots[i], set);
         for i in corpus_span.clone() {
