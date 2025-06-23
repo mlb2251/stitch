@@ -346,6 +346,7 @@ fn test_annotate() {
             "(vars x y z): listV",
             "(vars x y): listV",
             "(vars x): listV",
+            "vars: listV",
             "x: V",
             "y: V",
             "z: V",

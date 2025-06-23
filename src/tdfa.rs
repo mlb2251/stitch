@@ -99,7 +99,7 @@ impl TDFA {
         loop {
             match &set[node] {
                 Node::App(f, x) => {
-                    nodes.push(node);
+                    nodes.push(*f);
                     children.push(*x);
                     node = *f;
                 }
