@@ -3,6 +3,7 @@ use std::time::Duration;
 use std::thread;
 use std::sync::mpsc;
 
+use colorful::core::StrMarker;
 use stitch_core::*;
 use clap::Parser;
 use serde_json::Value;
@@ -330,36 +331,50 @@ fn test_annotate() {
     let json = r#"
     {
         "T": {
-            "Assign": ["V", "E"]
+            "Assign": ["listV", "E"]
+        },
+        "listV": {
+            "vars": ["V"]
         },
         "E": {
             "list": ["E"]
         }
     }
-    "#;
-    let tdfa: TDFA = TDFA::new("T".to_string(), json.to_string(), vec!["E".to_string()]);
-    println!("TDFA created with valid metavars: {:?}", tdfa);
-    let mut set = ExprSet::empty(Order::ChildFirst, false, false);
-    let node = set.parse_extend("(Assign x (list 3 4 5))").unwrap();
-
-
-    let result = tdfa.annotate(&set, &[node]);
-
-    let mut result_str = result.iter()
-        .map(|(k, v)| format!("{}: {}", set.get(*k), v))
-        .collect::<Vec<_>>();
-    result_str.sort();
-
-    let mut expected = vec![
-            "(Assign x (list 3 4 5)): T",
+    "#.to_string();
+    let expected = vec![
+            "(Assign (vars x y z) (list 3 4 5)): T",
+            "(vars x y z): listV",
+            "(vars x y): listV",
+            "(vars x): listV",
             "x: V",
+            "y: V",
+            "z: V",
             "(list 3 4 5): E",
             "3: E",
             "4: E",
             "5: E"
         ];
-    expected.sort();
+    assert_tdfa(json,  "T".to_string(),  "E".to_string(), "listV".to_string(), "(Assign (vars x y z) (list 3 4 5))", expected);
+}
 
+fn assert_tdfa(json: String, root: String, valid_metavar: String, eta_long: String, code: &'static str, mut expected: Vec<&'static str>) {
+    let tdfa: TDFA = TDFA::new(root, json, vec![valid_metavar], vec![eta_long], vec![]);
+    println!("TDFA created with valid metavars: {:?}", tdfa);
+    let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+    let node = set.parse_extend(code).unwrap();
+    
+    
+    let result = tdfa.annotate(&set, &[node]);
+    
+    let mut result_str = result.iter()
+        .map(|(k, v)| format!("{}: {}", set.get(*k), v))
+        .collect::<Vec<_>>();
+    println!("Result: {:?}", result_str);
+    result_str.sort();
+
+    
+    expected.sort();
+    
     assert_eq!(
         result_str,
         expected

@@ -242,6 +242,10 @@ pub struct CompressionStepConfig {
     /// Metavariable locations that are valid for the TDFA
     #[clap(long, default_value = "")]
     pub valid_metavars: String,
+
+    /// States of the TDFA that not in eta-long-form (e.g., (/seq A B C) makes (/seq A) a valid metavariable)
+    #[clap(long, default_value = "")]
+    pub tdfa_non_eta_long_states: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -712,6 +716,7 @@ pub struct SharedData {
     pub set: ExprSet,
     pub num_paths_to_node: Vec<Cost>,
     pub num_paths_to_node_by_root_idx: Vec<Vec<Cost>>,
+    pub tdfa_symbol_of_node: Vec<Option<State>>,
     pub invalid_metavar_location_of_node: Vec<bool>,
     pub tasks_of_node: Vec<FxHashSet<usize>>,
     pub task_name_of_task: Vec<String>,
@@ -1325,7 +1330,6 @@ impl FinishedPattern {
     pub fn info(&self, shared: &SharedData) -> String {
         format!("{} -> finished: utility={}, compressive_utility={}, arity={}, usages={}",self.pattern.info(shared), self.utility, self.compressive_utility, self.arity, self.usages)
     }
-
 }
 // #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 // struct Refinement {
@@ -1493,6 +1497,7 @@ pub struct CompressionStepResult {
     pub initial_cost: Cost,
     pub name_mapping: Vec<(String,String)>,
     pub dc_comparison_millis: Option<usize>,
+    pub tdfa_annotation: Option<TDFAInventionAnnotation>,
 }
 
 impl CompressionStepResult {
@@ -1540,7 +1545,31 @@ impl CompressionStepResult {
             res
         }).collect())};
 
-        CompressionStepResult { set: shared.set.clone(), inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost: shared.init_cost, name_mapping, dc_comparison_millis }
+        let tdfa_annotation = if !shared.cfg.tdfa_json_path.is_empty() {
+            Some(TDFAInventionAnnotation::from_pattern(&done.pattern, shared))
+        } else {
+            None
+        };
+
+        CompressionStepResult {
+            set: shared.set.clone(),
+            inv,
+            rewritten,
+            rewritten_dreamcoder,
+            done,
+            expected_cost,
+            final_cost,
+            multiplier,
+            multiplier_wrt_orig,
+            uses,
+            use_exprs,
+            use_args,
+            dc_inv_str,
+            initial_cost: shared.init_cost,
+            name_mapping,
+            dc_comparison_millis,
+            tdfa_annotation,
+        }
     }
     pub fn json(&self, cfg: &CompressionStepConfig) -> serde_json::Value {        
         let all_uses: Vec<serde_json::Value> = {
@@ -1902,9 +1931,6 @@ pub fn multistep_compression_internal(
 
     let mut name_mapping = name_mapping.unwrap_or_default();
 
-
-
-
     for i in 0..cfg.iterations {
         if !cfg.step.quiet { println!("{}",format!("\n=======Iteration {i}=======").blue().bold()) }
         let inv_name = if let Some(follow) = &follow {
@@ -1923,11 +1949,13 @@ pub fn multistep_compression_internal(
             &weights,
             very_first_cost,
             &name_mapping,
-            );
+            &step_results,
+        );
 
         if !res.is_empty() {
             // rewrite with the invention
             let res: CompressionStepResult = res[0].clone();
+            println!("tdfa: {:?}", res.tdfa_annotation);
             rewritten = res.rewritten.clone();
             name_mapping = res.name_mapping.clone();
             if !cfg.step.quiet { println!("Chose Invention {}: {}", res.inv.name, res) }
@@ -1968,6 +1996,7 @@ pub fn construct_shared(
     multistep_cfg: &MultistepCompressionConfig,
     tasks: &[String],
     weights: &[f32],
+    prev_results: &[CompressionStepResult],
 ) -> Option<Arc<SharedData>> {
     let cfg = &multistep_cfg.step.clone();
 
@@ -2187,7 +2216,7 @@ pub fn construct_shared(
         None
     };
 
-    let invalid_metavar_location_of_node = compute_invalid_metavar_location_of_node(cfg, &set, &roots);
+    let (tdfa_symbol_of_node, invalid_metavar_location_of_node) = compute_invalid_metavar_location_of_node(cfg, &set, &roots, prev_results);
 
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
@@ -2206,6 +2235,7 @@ pub fn construct_shared(
         set,
         num_paths_to_node,
         num_paths_to_node_by_root_idx,
+        tdfa_symbol_of_node,
         invalid_metavar_location_of_node,
         tasks_of_node,
         task_name_of_task,
@@ -2240,6 +2270,7 @@ pub fn compression_step(
     weights: &[f32],
     very_first_cost: Cost,
     name_mapping: &[(String, String)],
+    prev_results: &[CompressionStepResult],
 ) -> Vec<CompressionStepResult> {
 
     let tstart_total = std::time::Instant::now();
@@ -2250,6 +2281,7 @@ pub fn compression_step(
         multistep_cfg,
         tasks,
         weights,
+        prev_results,
     ) else {
         return vec![];
     };
