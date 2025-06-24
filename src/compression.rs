@@ -1937,6 +1937,7 @@ pub fn multistep_compression_internal(
             &weights,
             very_first_cost,
             &name_mapping,
+            &step_results,
             );
 
         if !res.is_empty() {
