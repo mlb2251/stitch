@@ -132,12 +132,9 @@ impl TDFAInventionAnnotation {
         let Some(global_annotations) = &shared.tdfa_global_annotations else {
             return None;
         }; 
-        // println!("Match locations: {:?}", pattern.match_locations);
-        // println!("Root symbols: {:?}", pattern.match_locations.iter().map(|&loc| shared.tdfa_symbol_of_node[loc].clone()).collect::<Vec<_>>());
-        let annotation = TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[0], &global_annotations);
-        // println!("TDFAInventionAnnotation: {:?}", annotation);
+        let annotation = TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[0], global_annotations);
         for i in 1..pattern.match_locations.len() {
-            assert!(annotation == TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[i], &global_annotations),
+            assert!(annotation == TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[i], global_annotations),
                 "Inconsistent TDFAInventionAnnotation for match locations: {:?} and {:?}", 
                 pattern.match_locations[0], pattern.match_locations[i]);
         }
@@ -227,7 +224,6 @@ impl TDFA {
         state: State,
         out: &mut HashMap<usize, State>,
     ) {
-        // println!("Annotating node {:?}: {} with state: {:?}", node, set.get(node), state);
         out.insert(node, state.clone());
         match set[node] {
             Node::IVar(_) | Node::Lam(_, _) | Node::Var(_, _) => panic!("Not compatible"),
@@ -240,13 +236,10 @@ impl TDFA {
                 panic!("No transition for state: {:?} and symbol: {:?}", state, symbol);
             }).clone();
 
-        // println!("nodes: {:?}, args: {:?}", nodes.iter().map(|n| format!("{}", set.get(*n))).collect::<Vec<_>>(), 
-        //          args.iter().map(|a| format!("{}", set.get(*a))).collect::<Vec<_>>());
         let non_eta_long = self.tdfa_non_eta_long_states.contains_key(&state);
         let mut cur_arg = 0;
         if non_eta_long {
             // transitions are not in eta-long form.
-            // println!("Transitions for state {:?} are not in eta-long form: {:?}", state, transitions);
             while cur_arg < transitions.len() {
                 let next_state = transitions[cur_arg].clone();
                 self._annotate(set, args[cur_arg], next_state, out);
