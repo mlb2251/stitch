@@ -1,0 +1,823 @@
+{
+  "M": {
+    "Module": [
+      "seqS",
+      "[TI]"
+    ]
+  },
+  "S": {
+    "AnnAssign": [
+      "L",
+      "TA",
+      "E",
+      "bool"
+    ],
+    "Assert": [
+      "E",
+      "E"
+    ],
+    "Assign": [
+      "[L]",
+      "E",
+      "TC"
+    ],
+    "AsyncFor": [
+      "L",
+      "E",
+      "seqS",
+      "seqS",
+      "TC"
+    ],
+    "AsyncFunctionDef": [
+      "Name",
+      "As",
+      "seqS",
+      "[E]",
+      "TA",
+      "TC",
+      "[TP]"
+    ],
+    "AsyncWith": [
+      "[W]",
+      "seqS",
+      "TC"
+    ],
+    "AugAssign": [
+      "L",
+      "O",
+      "E"
+    ],
+    "ClassDef": [
+      "Name",
+      "[E]",
+      "[K]",
+      "seqS",
+      "[E]",
+      "[TP]"
+    ],
+    "Delete": [
+      "[L]"
+    ],
+    "Expr": [
+      "E"
+    ],
+    "For": [
+      "L",
+      "E",
+      "seqS",
+      "seqS",
+      "TC"
+    ],
+    "FunctionDef": [
+      "Name",
+      "As",
+      "seqS",
+      "[E]",
+      "TA",
+      "TC",
+      "[TP]"
+    ],
+    "Global": [
+      "[NameStr]"
+    ],
+    "If": [
+      "E",
+      "seqS",
+      "seqS"
+    ],
+    "Import": [
+      "[alias]"
+    ],
+    "ImportFrom": [
+      "NullableNameStr",
+      "[alias]",
+      "int"
+    ],
+    "Nonlocal": [
+      "[NameStr]"
+    ],
+    "Raise": [
+      "E",
+      "E"
+    ],
+    "Return": [
+      "E"
+    ],
+    "Try": [
+      "seqS",
+      "[EH]",
+      "seqS",
+      "seqS"
+    ],
+    "While": [
+      "E",
+      "seqS",
+      "seqS"
+    ],
+    "With": [
+      "[W]",
+      "seqS",
+      "TC"
+    ],
+    "/splice": [
+      "seqS"
+    ]
+  },
+  "E": {
+    "Attribute": [
+      "E",
+      "NameStr",
+      "Ctx"
+    ],
+    "Await": [
+      "E"
+    ],
+    "BinOp": [
+      "E",
+      "O",
+      "E"
+    ],
+    "BoolOp": [
+      "O",
+      "[E]"
+    ],
+    "Call": [
+      "E",
+      "[StarredRoot]",
+      "[K]"
+    ],
+    "Compare": [
+      "E",
+      "[O]",
+      "[E]"
+    ],
+    "Constant": [
+      "Const",
+      "ConstKind"
+    ],
+    "Dict": [
+      "[E]",
+      "[E]"
+    ],
+    "DictComp": [
+      "E",
+      "E",
+      "[C]"
+    ],
+    "GeneratorExp": [
+      "E",
+      "[C]"
+    ],
+    "IfExp": [
+      "E",
+      "E",
+      "E"
+    ],
+    "JoinedStr": [
+      "[F]"
+    ],
+    "Lambda": [
+      "As",
+      "E"
+    ],
+    "List": [
+      "[StarredRoot]",
+      "Ctx"
+    ],
+    "ListComp": [
+      "E",
+      "[C]"
+    ],
+    "Name": [
+      "Name",
+      "Ctx"
+    ],
+    "NamedExpr": [
+      "L",
+      "E"
+    ],
+    "Set": [
+      "[StarredRoot]"
+    ],
+    "SetComp": [
+      "E",
+      "[C]"
+    ],
+    "Starred": [
+      "E",
+      "Ctx"
+    ],
+    "Subscript": [
+      "E",
+      "SliceRoot",
+      "Ctx"
+    ],
+    "Tuple": [
+      "[StarredRoot]",
+      "Ctx"
+    ],
+    "UnaryOp": [
+      "O",
+      "E"
+    ],
+    "Yield": [
+      "E"
+    ],
+    "YieldFrom": [
+      "E"
+    ]
+  },
+  "SliceRoot": {
+    "_slice_content": [
+      "E"
+    ],
+    "_slice_slice": [
+      "Slice"
+    ],
+    "_slice_tuple": [
+      "SliceTuple"
+    ]
+  },
+  "SliceTuple": {
+    "Tuple": [
+      "[SliceRoot]",
+      "Ctx"
+    ]
+  },
+  "[SliceRoot]": {
+    "list": [
+      "SliceRoot"
+    ]
+  },
+  "StarredRoot": {
+    "_starred_content": [
+      "E"
+    ],
+    "_starred_starred": [
+      "Starred"
+    ]
+  },
+  "Starred": {
+    "Starred": [
+      "E",
+      "Ctx"
+    ]
+  },
+  "Slice": {
+    "Slice": [
+      "E",
+      "E",
+      "E"
+    ]
+  },
+  "As": {
+    "arguments": [
+      "[A]",
+      "[A]",
+      "A",
+      "[A]",
+      "[E]",
+      "A",
+      "[E]"
+    ]
+  },
+  "A": {
+    "arg": [
+      "Name",
+      "TA",
+      "TC"
+    ]
+  },
+  "F": {
+    "Constant": [
+      "F",
+      "F"
+    ],
+    "FormattedValue": [
+      "E",
+      "int",
+      "F"
+    ],
+    "JoinedStr": [
+      "[F]"
+    ]
+  },
+  "C": {
+    "comprehension": [
+      "L",
+      "E",
+      "[E]",
+      "bool"
+    ]
+  },
+  "K": {
+    "keyword": [
+      "NullableNameStr",
+      "E"
+    ]
+  },
+  "EH": {
+    "ExceptHandler": [
+      "E",
+      "NullableName",
+      "seqS"
+    ]
+  },
+  "W": {
+    "withitem": [
+      "E",
+      "L"
+    ]
+  },
+  "L": {
+    "Attribute": [
+      "E",
+      "NameStr",
+      "Ctx"
+    ],
+    "List": [
+      "[L]",
+      "Ctx"
+    ],
+    "Name": [
+      "Name",
+      "Ctx"
+    ],
+    "Starred": [
+      "L",
+      "Ctx"
+    ],
+    "Subscript": [
+      "E",
+      "SliceRoot",
+      "Ctx"
+    ],
+    "Tuple": [
+      "[L]",
+      "Ctx"
+    ],
+    "_starred_content": [
+      "L"
+    ],
+    "_starred_starred": [
+      "L"
+    ]
+  },
+  "seqS": {
+    "/seq": [
+      "S"
+    ],
+    "/subseq": [
+      "S"
+    ],
+    "/choiceseq": [
+      "S"
+    ]
+  },
+  "[E]": {
+    "list": [
+      "E"
+    ]
+  },
+  "[StarredRoot]": {
+    "list": [
+      "StarredRoot"
+    ]
+  },
+  "alias": {
+    "alias": [
+      "NameStr",
+      "NullableNameStr"
+    ]
+  },
+  "[NameStr]": {
+    "list": [
+      "NameStr"
+    ]
+  },
+  "TA": {
+    "AST": [],
+    "Add": [],
+    "And": [],
+    "AnnAssign": [
+      "TA",
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "Assert": [
+      "TA",
+      "TA"
+    ],
+    "Assign": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "AsyncFor": [
+      "TA",
+      "TA",
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "AsyncFunctionDef": [
+      "TA",
+      "TA",
+      "TA",
+      "TA",
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "AsyncWith": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "Attribute": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "AugAssign": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "AugLoad": [],
+    "AugStore": [],
+    "Await": [
+      "TA"
+    ],
+    "BinOp": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "BitAnd": [],
+    "BitOr": [],
+    "BitXor": [],
+    "BoolOp": [
+      "TA",
+      "TA"
+    ],
+    "Break": [],
+    "Call": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "ClassDef": [
+      "TA",
+      "TA",
+      "TA",
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "Compare": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "Constant": [
+      "TA",
+      "TA"
+    ],
+    "Continue": [],
+    "Del": [],
+    "Delete": [
+      "TA"
+    ],
+    "Dict": [
+      "TA",
+      "TA"
+    ],
+    "DictComp": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "Div": [],
+    "Eq": [],
+    "ExceptHandler": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "Expr": [
+      "TA"
+    ],
+    "Expression": [
+      "TA"
+    ],
+    "ExtSlice": [],
+    "FloorDiv": [],
+    "For": [
+      "TA",
+      "TA",
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "FormattedValue": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "FunctionDef": [
+      "TA",
+      "TA",
+      "TA",
+      "TA",
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "FunctionType": [
+      "TA",
+      "TA"
+    ],
+    "GeneratorExp": [
+      "TA",
+      "TA"
+    ],
+    "Global": [
+      "TA"
+    ],
+    "Gt": [],
+    "GtE": [],
+    "If": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "IfExp": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "Import": [
+      "TA"
+    ],
+    "ImportFrom": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "In": [],
+    "Index": [],
+    "Interactive": [
+      "TA"
+    ],
+    "Invert": [],
+    "Is": [],
+    "IsNot": [],
+    "JoinedStr": [
+      "TA"
+    ],
+    "LShift": [],
+    "Lambda": [
+      "TA",
+      "TA"
+    ],
+    "List": [
+      "TA",
+      "TA"
+    ],
+    "ListComp": [
+      "TA",
+      "TA"
+    ],
+    "Load": [],
+    "Lt": [],
+    "LtE": [],
+    "MatMult": [],
+    "Mod": [],
+    "Module": [
+      "TA",
+      "TA"
+    ],
+    "Mult": [],
+    "Name": [
+      "TA",
+      "TA"
+    ],
+    "NamedExpr": [
+      "TA",
+      "TA"
+    ],
+    "Nonlocal": [
+      "TA"
+    ],
+    "Not": [],
+    "NotEq": [],
+    "NotIn": [],
+    "Or": [],
+    "Param": [],
+    "ParamSpec": [
+      "TA"
+    ],
+    "Pass": [],
+    "Pow": [],
+    "RShift": [],
+    "Raise": [
+      "TA",
+      "TA"
+    ],
+    "Return": [
+      "TA"
+    ],
+    "Set": [
+      "TA"
+    ],
+    "SetComp": [
+      "TA",
+      "TA"
+    ],
+    "Slice": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "Starred": [
+      "TA",
+      "TA"
+    ],
+    "Store": [],
+    "Sub": [],
+    "Subscript": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "Suite": [],
+    "Try": [
+      "TA",
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "Tuple": [
+      "TA",
+      "TA"
+    ],
+    "TypeAlias": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "TypeIgnore": [
+      "TA",
+      "TA"
+    ],
+    "TypeVar": [
+      "TA",
+      "TA"
+    ],
+    "TypeVarTuple": [
+      "TA"
+    ],
+    "UAdd": [],
+    "USub": [],
+    "UnaryOp": [
+      "TA",
+      "TA"
+    ],
+    "While": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "With": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "Yield": [
+      "TA"
+    ],
+    "YieldFrom": [
+      "TA"
+    ],
+    "_ast_Ellipsis": [],
+    "alias": [
+      "TA",
+      "TA"
+    ],
+    "arg": [
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "arguments": [
+      "TA",
+      "TA",
+      "TA",
+      "TA",
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "boolop": [],
+    "cmpop": [],
+    "comprehension": [
+      "TA",
+      "TA",
+      "TA",
+      "TA"
+    ],
+    "excepthandler": [],
+    "expr": [],
+    "expr_context": [],
+    "keyword": [
+      "TA",
+      "TA"
+    ],
+    "mod": [],
+    "operator": [],
+    "slice": [],
+    "stmt": [],
+    "type_ignore": [],
+    "type_param": [],
+    "unaryop": [],
+    "withitem": [
+      "TA",
+      "TA"
+    ],
+    "_slice_content": [
+      "TA"
+    ],
+    "_slice_slice": [
+      "TA"
+    ],
+    "_slice_tuple": [
+      "TA"
+    ],
+    "_starred_content": [
+      "TA"
+    ],
+    "_starred_starred": [
+      "TA"
+    ],
+    "list": [
+      "TA"
+    ]
+  },
+  "[F]": {
+    "list": [
+      "F"
+    ]
+  },
+  "[A]": {
+    "list": [
+      "A"
+    ]
+  },
+  "[C]": {
+    "list": [
+      "C"
+    ]
+  },
+  "[EH]": {
+    "list": [
+      "EH"
+    ]
+  },
+  "[K]": {
+    "list": [
+      "K"
+    ]
+  },
+  "[L]": {
+    "list": [
+      "L"
+    ]
+  },
+  "[O]": {
+    "list": [
+      "O"
+    ]
+  },
+  "[W]": {
+    "list": [
+      "W"
+    ]
+  },
+  "[alias]": {
+    "list": [
+      "alias"
+    ]
+  },
+  "[TI]": {
+    "list": [
+      "TI"
+    ]
+  },
+  "[TP]": {
+    "list": [
+      "TP"
+    ]
+  }
+}
