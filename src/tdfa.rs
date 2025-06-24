@@ -8,7 +8,7 @@ use serde::Serialize;
 use crate::{CompressionStepConfig, CompressionStepResult, Pattern, SharedData};
 
 
-pub type State = String;
+type State = String;
 
 #[derive(Parser, Debug, Serialize, Clone)]
 #[clap(name = "Stitch")]
@@ -35,7 +35,7 @@ pub struct TDFAConfig {
 }
 
 impl TDFAConfig {
-    pub fn present(&self) -> bool {
+    fn present(&self) -> bool {
         !self.tdfa_json_path.is_empty()
     }
 }
@@ -48,11 +48,64 @@ pub struct TDFAGlobalAnnotations {
 }
 
 impl TDFAGlobalAnnotations {
-    pub fn invalid_metavar(&self, idx: Idx) -> bool {
-        self.invalid_metavars[idx]
+    pub fn new(cfg: &CompressionStepConfig, set: &ExprSet, roots: &[Idx], prev_results: &[CompressionStepResult]) -> Option<TDFAGlobalAnnotations> {
+        if !cfg.tdfa.present() {
+            return None;
+        }
+        let tdfa_cfg = cfg.tdfa.clone();
+        let tdfa_string = std::fs::read_to_string(tdfa_cfg.tdfa_json_path).expect("Failed to read TDFA JSON file");
+        let tdfa_root = tdfa_cfg.tdfa_root.clone();
+        let valid_metavars = serde_json::from_str::<Vec<State>>(&tdfa_cfg.valid_metavars).expect("Failed to parse valid metavars JSON");
+        let valid_roots = serde_json::from_str::<Vec<State>>(&tdfa_cfg.valid_roots).expect("Failed to parse valid roots JSON");
+        let tdfa_non_eta_long_states: HashMap<State, State> = serde_json::from_str(&tdfa_cfg.tdfa_non_eta_long_states).expect("Failed to parse non-eta long states JSON");
+        let tdfa: TDFA = TDFA::new(
+            tdfa_root,
+            tdfa_string,
+            valid_metavars,
+            valid_roots,
+            tdfa_non_eta_long_states,
+            prev_results.iter().map(|r| (r.inv.name.clone(), r.tdfa_annotation.clone())).collect::<Vec<_>>(),
+        );
+        let annotated = tdfa.annotate(set, roots);
+        let mut symbols = vec![None; set.len()];
+        let mut invalid_metavars = vec![true; set.len()];
+        let mut invalid_roots = vec![true; set.len()];
+        for (idx, state) in annotated.iter() {
+            if tdfa.valid_metavars.contains(state) {
+                invalid_metavars[*idx] = false;
+            }
+            if tdfa.valid_roots.contains(state) {
+                invalid_roots[*idx] = false;
+            }
+            symbols[*idx] = Some(state.clone());
+        }
+        Some(
+            TDFAGlobalAnnotations {
+                symbols,
+                invalid_metavars,
+                invalid_roots,
+            }
+        )
     }
-    pub fn invalid_root(&self, idx: Idx) -> bool {
-        self.invalid_roots[idx]
+}
+
+pub fn tdfa_invalid_metavar(
+    global_annotations: &Option<TDFAGlobalAnnotations>,
+    idx: Idx,
+) -> bool {
+    match global_annotations {
+        Some(annotations) => annotations.invalid_metavars[idx],
+        None => true,
+    }
+}
+
+pub fn tdfa_invalid_root(
+    global_annotations: &Option<TDFAGlobalAnnotations>,
+    idx: Idx,
+) -> bool {
+    match global_annotations {
+        Some(annotations) => annotations.invalid_roots[idx],
+        None => true,
     }
 }
 
@@ -67,37 +120,41 @@ pub struct TDFA {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TDFAInventionAnnotation {
-    pub root_state: State,
-    pub metavariable_states: Vec<State>,
+    root_state: State,
+    metavariable_states: Vec<State>,
 }
 
 impl TDFAInventionAnnotation {
     pub fn from_pattern(
         pattern: &Pattern,
         shared: &SharedData
-    ) -> Self {
+    ) -> Option<Self> {
+        let Some(global_annotations) = &shared.tdfa_global_annotations else {
+            return None;
+        }; 
         // println!("Match locations: {:?}", pattern.match_locations);
         // println!("Root symbols: {:?}", pattern.match_locations.iter().map(|&loc| shared.tdfa_symbol_of_node[loc].clone()).collect::<Vec<_>>());
-        let annotation = TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[0]);
+        let annotation = TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[0], &global_annotations);
         // println!("TDFAInventionAnnotation: {:?}", annotation);
         for i in 1..pattern.match_locations.len() {
-            assert!(annotation == TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[i]),
+            assert!(annotation == TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[i], &global_annotations),
                 "Inconsistent TDFAInventionAnnotation for match locations: {:?} and {:?}", 
                 pattern.match_locations[0], pattern.match_locations[i]);
         }
-        annotation
+        Some(annotation)
     }
 
     fn from_match_location(
         pattern: &Pattern,
         shared: &SharedData,
         match_location: Idx,
+        global_annotations: &TDFAGlobalAnnotations,
     ) -> Self {
-        let root_sym: String = shared.tdfa_global_annotations.symbols[match_location].clone().unwrap();
+        let root_sym: String = global_annotations.symbols[match_location].clone().unwrap();
         let mut ivar_states = vec![];
         pattern.first_zid_of_ivar.iter().for_each(|ivar_zid| {
             let node = shared.arg_of_zid_node[*ivar_zid].get(&match_location).unwrap().unshifted_id;
-            let ivar_sym = shared.tdfa_global_annotations.symbols[node].clone().unwrap();
+            let ivar_sym = global_annotations.symbols[node].clone().unwrap();
             ivar_states.push(ivar_sym);
         });
         Self {
@@ -209,40 +266,5 @@ impl TDFA {
                 self._annotate(set, *arg, next_state, out);
             }
         }
-    }
-}
-
-pub fn compute_invalid_metavar_location_of_node(cfg: &CompressionStepConfig, set: &ExprSet, roots: &[Idx], prev_results: &[CompressionStepResult]) -> TDFAGlobalAnnotations {
-    let tdfa_cfg = cfg.tdfa.clone();
-    let tdfa_string = std::fs::read_to_string(tdfa_cfg.tdfa_json_path).expect("Failed to read TDFA JSON file");
-    let tdfa_root = tdfa_cfg.tdfa_root.clone();
-    let valid_metavars = serde_json::from_str::<Vec<State>>(&tdfa_cfg.valid_metavars).expect("Failed to parse valid metavars JSON");
-    let valid_roots = serde_json::from_str::<Vec<State>>(&tdfa_cfg.valid_roots).expect("Failed to parse valid roots JSON");
-    let tdfa_non_eta_long_states: HashMap<State, State> = serde_json::from_str(&tdfa_cfg.tdfa_non_eta_long_states).expect("Failed to parse non-eta long states JSON");
-    let tdfa: TDFA = TDFA::new(
-        tdfa_root,
-        tdfa_string,
-        valid_metavars,
-        valid_roots,
-        tdfa_non_eta_long_states,
-        prev_results.iter().map(|r| (r.inv.name.clone(), r.tdfa_annotation.clone())).collect::<Vec<_>>(),
-    );
-    let annotated = tdfa.annotate(set, roots);
-    let mut symbols = vec![None; set.len()];
-    let mut invalid_metavars = vec![true; set.len()];
-    let mut invalid_roots = vec![true; set.len()];
-    for (idx, state) in annotated.iter() {
-        if tdfa.valid_metavars.contains(state) {
-            invalid_metavars[*idx] = false;
-        }
-        if tdfa.valid_roots.contains(state) {
-            invalid_roots[*idx] = false;
-        }
-        symbols[*idx] = Some(state.clone());
-    }
-    TDFAGlobalAnnotations {
-        symbols,
-        invalid_metavars,
-        invalid_roots,
     }
 }
