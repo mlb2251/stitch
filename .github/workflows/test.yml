@@ -25,3 +25,11 @@ jobs:
       - name: test
         run: make test
 
+
+  check-dfa:
+    # ensure that https://github.com/kavigupta/neurosym-lib/blob/main/test_data/dfa.json is the same as test_data/dfa.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: check-dfa
+        run: make check-dfa
