@@ -279,35 +279,11 @@ impl Default for CompressionStepConfig {
     }
 }
 
-// an argument choice is a labeled zid with additional metadata
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct ArgChoice {
-    lzid: LabelledZId, // the zipper to the hole in the pattern
-}
-
-impl ArgChoice {
-    fn new(lzid: LabelledZId) -> Self {
-        ArgChoice { lzid }
-    }
-}
-
-impl PartialOrd for ArgChoice {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for ArgChoice {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.lzid.cmp(&other.lzid)
-    }
-}
-
 /// A Pattern is a partial abstraction which may have holes
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Pattern {
     pub holes: Vec<ZId>, // zipper to hole in order of when theyre added NOT left to right
-    arg_choices: Vec<ArgChoice>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
+    arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
     pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
     pub match_locations: Vec<Idx>, // places where it applies
     pub utility_upper_bound: Cost,
@@ -516,7 +492,7 @@ impl Pattern {
         // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
         let zips: Vec<(Vec<ZNode>,Node)> = self.holes.iter().map(|zid| (shared.zip_of_zid[*zid].clone(), Node::Prim(HOLE_SYM.clone())))
             .chain(self.arg_choices.iter()
-            .map(|labelled_zid| (shared.zip_of_zid[labelled_zid.lzid.zid].clone(), Node::IVar(labelled_zid.lzid.ivar as i32)))).collect();
+            .map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(), Node::IVar(labelled_zid.ivar as i32)))).collect();
 
         fn helper(set: &mut ExprSet, curr_node: Idx, curr_zip: &mut Vec<ZNode>, zips: &[(Vec<ZNode>,Node)], shared: &SharedData) -> Idx {
             if let Some((_,e)) = zips.iter().find(|(zip,_)| zip == curr_zip) {
@@ -1125,7 +1101,7 @@ fn stitch_search(
                 let mut arg_choices = original_pattern.arg_choices.clone();
                 let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
                 if let ExpandsTo::IVar(i) = expands_to {
-                    arg_choices.push(ArgChoice::new(LabelledZId::new(hole_zid, i as usize)));
+                    arg_choices.push(LabelledZId::new(hole_zid, i as usize));
                     if i as usize == original_pattern.first_zid_of_ivar.len() {
                         first_zid_of_ivar.push(hole_zid);
                     }
@@ -1137,8 +1113,8 @@ fn stitch_search(
                     // note I believe it'd be save to iterate over first_zid_of_ivar instead
                     for argchoice in original_pattern.arg_choices.iter(){
                         // if its the same arg in every place, and doesnt have any free vars (ie it's safe to inline)
-                        if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.lzid.zid][loc].shifted_id).all_equal()
-                            && shared.analyzed_free_vars[shared.arg_of_zid_node[argchoice.lzid.zid][&locs[0]].shifted_id].is_empty()
+                        if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
+                            && shared.analyzed_free_vars[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].is_empty()
                         {
                             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
                             continue 'expansion; // useless abstraction
@@ -1682,7 +1658,7 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<Cost> 
     let app_penalty = - (shared.cost_fn.compute_cost_new_prim() as Cost + shared.cost_fn.cost_app as Cost * pattern.first_zid_of_ivar.len() as Cost);
 
     // get a list of (ivar,usages-1) filtering out things that are only used once, this will come in handy for adding multi-use utility later
-    let ivar_multiuses: Vec<(usize,Cost)> = pattern.arg_choices.iter().map(|labelled|labelled.lzid.ivar).counts()
+    let ivar_multiuses: Vec<(usize,Cost)> = pattern.arg_choices.iter().map(|labelled|labelled.ivar).counts()
         .iter().filter_map(|(ivar,count)| if *count > 1 { Some((*ivar, (*count-1) as Cost)) } else { None }).collect();
 
     pattern.match_locations.iter().map(|loc| {
@@ -1786,7 +1762,7 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
     
     if let Some((delta, compressive_delta, _noncompressive_delta, _cost, zids)) = best {
         let ivar = finished.arity;
-        finished.pattern.arg_choices.extend(zids.iter().map(|&zid| ArgChoice::new(LabelledZId { zid, ivar })));
+        finished.pattern.arg_choices.extend(zids.iter().map(|&zid| LabelledZId { zid, ivar }));
         finished.pattern.first_zid_of_ivar.push(zids[0]);
         finished.compressive_utility += compressive_delta;
         finished.util_calc.util += compressive_delta;
@@ -1826,8 +1802,7 @@ fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[F
 
     // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
     let zips: Vec<Vec<ZNode>> = zids.iter()
-        .map(|arg_choice| zip_of_zid[arg_choice.lzid.zid].clone()).collect();
-    let lzids: Vec<LabelledZId> = zids.iter().map(|ac| ac.lzid.clone()).collect();
+        .map(|labelled_zid| zip_of_zid[labelled_zid.zid].clone()).collect();
 
     let mut counts: FxHashMap<Idx,(Cost,Vec<ZId>)> = Default::default();
 
@@ -1869,7 +1844,7 @@ fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[F
         }
     }
     // we can pick any match location
-    helper(pattern.match_locations[0], pattern.match_locations[0], &mut curr_zip, curr_zid, &zips, &lzids, arg_of_zid_node, extensions_of_zid, set, &mut counts, analyzed_ivars);
+    helper(pattern.match_locations[0], pattern.match_locations[0], &mut curr_zip, curr_zid, &zips, zids, arg_of_zid_node, extensions_of_zid, set, &mut counts, analyzed_ivars);
     counts
 }
 
