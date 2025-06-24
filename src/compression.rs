@@ -2247,6 +2247,7 @@ pub fn construct_shared(
 }
 
 /// Takes a set of programs and does one full step of compresison.
+#[allow(clippy::too_many_arguments)]
 pub fn compression_step(
     programs: &[ExprOwned],
     new_inv_name: &str, // name of the new invention, like "inv4"
