@@ -95,7 +95,7 @@ pub fn tdfa_invalid_metavar(
 ) -> bool {
     match global_annotations {
         Some(annotations) => annotations.invalid_metavars[idx],
-        None => true,
+        None => false,
     }
 }
 
@@ -105,7 +105,7 @@ pub fn tdfa_invalid_root(
 ) -> bool {
     match global_annotations {
         Some(annotations) => annotations.invalid_roots[idx],
-        None => true,
+        None => false,
     }
 }
 
