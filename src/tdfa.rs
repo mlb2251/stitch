@@ -1,12 +1,44 @@
 use core::panic;
-use std::{collections::{HashMap, HashSet}};
+use std::{collections::{HashMap, HashSet}, str::FromStr};
 
+use clap::Parser;
 use lambdas::{ExprSet, Idx, Node, Symbol};
+use serde::Serialize;
 
 use crate::{CompressionStepConfig, CompressionStepResult, Pattern, SharedData};
 
 
 pub type State = String;
+
+#[derive(Parser, Debug, Serialize, Clone)]
+#[clap(name = "Stitch")]
+pub struct TDFAConfig {
+    /// If set, we will apply the given TDFA to the programs and use this to annotate the programs
+    #[clap(long, default_value = "")]
+    tdfa_json_path: String,
+
+    /// The root of the TDFA to use for annotation
+    #[clap(long, default_value = "")]
+    tdfa_root: String,
+
+    /// Metavariable locations that are valid for the TDFA
+    #[clap(long, default_value = "")]
+    valid_metavars: String,
+
+    /// Root locations that are valid for the TDFA
+    #[clap(long, default_value = "")]
+    valid_roots: String,
+
+    /// States of the TDFA that not in eta-long-form (e.g., (/seq A B C) makes (/seq A) a valid metavariable)
+    #[clap(long, default_value = "")]
+    tdfa_non_eta_long_states: String,
+}
+
+impl TDFAConfig {
+    pub fn present(&self) -> bool {
+        !self.tdfa_json_path.is_empty()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct TDFA {
@@ -64,7 +96,6 @@ impl TDFA {
         let mut dfa: HashMap<State, HashMap<Symbol, Vec<State>>> = serde_json::from_str(&dfa).unwrap();
         for (name, tdfa_annotation) in prev_invs {
             if let Some(annotation) = tdfa_annotation {
-                // println!("{:?} -> {:?}", name, annotation.metavariable_states);
                 if !dfa.contains_key(&annotation.root_state) {
                     dfa.insert(annotation.root_state.clone(), HashMap::new());
                 }
@@ -166,11 +197,12 @@ impl TDFA {
 }
 
 pub fn compute_invalid_metavar_location_of_node(cfg: &CompressionStepConfig, set: &ExprSet, roots: &[Idx], prev_results: &[CompressionStepResult]) -> (Vec<Option<State>>, Vec<bool>, Vec<bool>) {
-    let tdfa_string = std::fs::read_to_string(&cfg.tdfa_json_path).expect("Failed to read TDFA JSON file");
-    let tdfa_root = cfg.tdfa_root.clone();
-    let valid_metavars = serde_json::from_str::<Vec<State>>(&cfg.valid_metavars).expect("Failed to parse valid metavars JSON");
-    let valid_roots = serde_json::from_str::<Vec<State>>(&cfg.valid_roots).expect("Failed to parse valid roots JSON");
-    let tdfa_non_eta_long_states: HashMap<State, State> = serde_json::from_str(&cfg.tdfa_non_eta_long_states).expect("Failed to parse non-eta long states JSON");
+    let tdfa_cfg = cfg.tdfa.clone();
+    let tdfa_string = std::fs::read_to_string(tdfa_cfg.tdfa_json_path).expect("Failed to read TDFA JSON file");
+    let tdfa_root = tdfa_cfg.tdfa_root.clone();
+    let valid_metavars = serde_json::from_str::<Vec<State>>(&tdfa_cfg.valid_metavars).expect("Failed to parse valid metavars JSON");
+    let valid_roots = serde_json::from_str::<Vec<State>>(&tdfa_cfg.valid_roots).expect("Failed to parse valid roots JSON");
+    let tdfa_non_eta_long_states: HashMap<State, State> = serde_json::from_str(&tdfa_cfg.tdfa_non_eta_long_states).expect("Failed to parse non-eta long states JSON");
     let tdfa: TDFA = TDFA::new(
         tdfa_root,
         tdfa_string,

@@ -8,7 +8,7 @@ use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
 use serde_json::json;
-use clap::{Parser};
+use clap::{arg, command, Parser};
 use serde::Serialize;
 use std::thread;
 use std::sync::Arc;
@@ -231,25 +231,9 @@ pub struct CompressionStepConfig {
     #[clap(long, value_parser = clap::value_parser!(FusedLambdaTags), default_value="")]
     pub fused_lambda_tags: FusedLambdaTags,
 
-    /// If set, we will apply the given TDFA to the programs and use this to annotate the programs
-    #[clap(long, default_value = "")]
-    pub tdfa_json_path: String,
-
-    /// The root of the TDFA to use for annotation
-    #[clap(long, default_value = "")]
-    pub tdfa_root: String,
-
-    /// Metavariable locations that are valid for the TDFA
-    #[clap(long, default_value = "")]
-    pub valid_metavars: String,
-
-    /// Root locations that are valid for the TDFA
-    #[clap(long, default_value = "")]
-    pub valid_roots: String,
-
-    /// States of the TDFA that not in eta-long-form (e.g., (/seq A B C) makes (/seq A) a valid metavariable)
-    #[clap(long, default_value = "")]
-    pub tdfa_non_eta_long_states: String,
+    /// TDFA settings
+    #[clap(flatten)]
+    pub tdfa: TDFAConfig,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1551,7 +1535,7 @@ impl CompressionStepResult {
             res
         }).collect())};
 
-        let tdfa_annotation = if !shared.cfg.tdfa_json_path.is_empty() {
+        let tdfa_annotation = if shared.cfg.tdfa.present() {
             Some(TDFAInventionAnnotation::from_pattern(&done.pattern, shared))
         } else {
             None
@@ -1961,7 +1945,6 @@ pub fn multistep_compression_internal(
         if !res.is_empty() {
             // rewrite with the invention
             let res: CompressionStepResult = res[0].clone();
-            println!("tdfa: {:?}", res.tdfa_annotation);
             rewritten = res.rewritten.clone();
             name_mapping = res.name_mapping.clone();
             if !cfg.step.quiet { println!("Chose Invention {}: {}", res.inv.name, res) }
