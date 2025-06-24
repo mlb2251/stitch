@@ -8,7 +8,7 @@ use std::fmt::{self, Formatter, Display};
 use std::hash::Hash;
 use itertools::Itertools;
 use serde_json::json;
-use clap::{arg, command, Parser};
+use clap::{Parser};
 use serde::Serialize;
 use std::thread;
 use std::sync::Arc;
@@ -1318,6 +1318,7 @@ impl FinishedPattern {
     pub fn info(&self, shared: &SharedData) -> String {
         format!("{} -> finished: utility={}, compressive_utility={}, arity={}, usages={}",self.pattern.info(shared), self.utility, self.compressive_utility, self.arity, self.usages)
     }
+
 }
 // #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 // struct Refinement {
@@ -1915,6 +1916,9 @@ pub fn multistep_compression_internal(
 
     let mut name_mapping = name_mapping.unwrap_or_default();
 
+
+
+
     for i in 0..cfg.iterations {
         if !cfg.step.quiet { println!("{}",format!("\n=======Iteration {i}=======").blue().bold()) }
         let inv_name = if let Some(follow) = &follow {
@@ -1933,8 +1937,7 @@ pub fn multistep_compression_internal(
             &weights,
             very_first_cost,
             &name_mapping,
-            &step_results,
-        );
+            );
 
         if !res.is_empty() {
             // rewrite with the invention
@@ -2200,7 +2203,7 @@ pub fn construct_shared(
     } else {
         None
     };
-
+    
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
         programs: programs.to_vec(),
