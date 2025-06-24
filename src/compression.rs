@@ -726,7 +726,6 @@ pub struct SharedData {
 }
 
 fn invalid_metavar_location(shared : &SharedData, node: Idx) -> bool {
-    // println!("invalid_metavar_location length {} for node {} in set of length {}", shared.invalid_metavar_location_of_node.len(), node, shared.set.len());
     tdfa_invalid_metavar(&shared.tdfa_global_annotations, node) || fused_lambda_location(&shared.set, &shared.fused_lambda_tags, node)
 }
 
