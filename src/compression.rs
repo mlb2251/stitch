@@ -263,6 +263,10 @@ pub struct CompressionStepConfig {
     /// A higher temperature means more exploration, while a lower temperature means more exploitation.
     #[clap(long, default_value = "1.0")]
     pub smc_temperature: f32,
+
+    /// TDFA settings
+    #[clap(flatten)]
+    pub tdfa: TDFAConfig,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -455,7 +459,7 @@ impl CostConfig {
 impl Pattern {
     /// create a single hole pattern `??`
     //#[inline(never)]
-    fn single_hole(corpus_span: &Span, cost_of_node_sym: &[Cost], cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
+    fn single_hole(corpus_span: &Span, cost_of_node_sym: &[Cost], cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], tdfa_global_annotations: &Option<TDFAGlobalAnnotations>, set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
         let body_utility = 0;
         let mut match_locations: Vec<Idx> = corpus_span.clone().collect();
         match_locations.sort(); // we assume match_locations is always sorted
@@ -474,6 +478,7 @@ impl Pattern {
         match_locations.retain(|node|
             !invalid_match_location(set,
                                     &cfg.fused_lambda_tags.tags,
+                                    tdfa_global_annotations,
                                     *node)
         );
         
@@ -766,6 +771,7 @@ pub struct SharedData {
     pub set: ExprSet,
     pub num_paths_to_node: Vec<Cost>,
     pub num_paths_to_node_by_root_idx: Vec<Vec<Cost>>,
+    pub tdfa_global_annotations: Option<TDFAGlobalAnnotations>,
     pub tasks_of_node: Vec<FxHashSet<usize>>,
     pub task_name_of_task: Vec<String>,
     pub task_of_root_idx: Vec<usize>,
@@ -786,11 +792,11 @@ pub struct SharedData {
 }
 
 fn invalid_metavar_location(shared : &SharedData, node: Idx) -> bool {
-    fused_lambda_location(&shared.set, &shared.fused_lambda_tags, node)
+    tdfa_invalid_metavar(&shared.tdfa_global_annotations, node) || fused_lambda_location(&shared.set, &shared.fused_lambda_tags, node)
 }
 
-fn invalid_match_location(set : &ExprSet, fused_lambda_tags: &Option<FxHashSet<Tag>>, node: Idx) -> bool {
-    fused_lambda_location(set, fused_lambda_tags, node)
+fn invalid_match_location(set : &ExprSet, fused_lambda_tags: &Option<FxHashSet<Tag>>, tdfa_global_annotations: &Option<TDFAGlobalAnnotations>, node: Idx) -> bool {
+    tdfa_invalid_root(tdfa_global_annotations, node) || fused_lambda_location(set, fused_lambda_tags, node)
 }
 
 fn fused_lambda_location(set : &ExprSet, fused_lambda_tags: &Option<FxHashSet<Tag>>, node: Idx) -> bool {
@@ -1558,6 +1564,7 @@ pub struct CompressionStepResult {
     pub initial_cost: Cost,
     pub name_mapping: Vec<(String,String)>,
     pub dc_comparison_millis: Option<usize>,
+    pub tdfa_annotation: Option<TDFAInventionAnnotation>,
 }
 
 impl CompressionStepResult {
@@ -1605,7 +1612,27 @@ impl CompressionStepResult {
             res
         }).collect())};
 
-        CompressionStepResult { set: shared.set.clone(), inv, rewritten, rewritten_dreamcoder, done, expected_cost, final_cost, multiplier, multiplier_wrt_orig, uses, use_exprs, use_args, dc_inv_str, initial_cost: shared.init_cost, name_mapping, dc_comparison_millis }
+        let tdfa_annotation = TDFAInventionAnnotation::from_pattern(&done.pattern, shared);
+
+        CompressionStepResult {
+            set: shared.set.clone(),
+            inv,
+            rewritten,
+            rewritten_dreamcoder,
+            done,
+            expected_cost,
+            final_cost,
+            multiplier,
+            multiplier_wrt_orig,
+            uses,
+            use_exprs,
+            use_args,
+            dc_inv_str,
+            initial_cost: shared.init_cost,
+            name_mapping,
+            dc_comparison_millis,
+            tdfa_annotation,
+        }
     }
     pub fn json(&self, cfg: &CompressionStepConfig) -> serde_json::Value {        
         let all_uses: Vec<serde_json::Value> = {
@@ -1994,6 +2021,7 @@ pub fn multistep_compression_internal(
                 &cfg,
                 &tasks,
                 &weights,
+                &step_results,
             )
         } else {
             compression_step(
@@ -2004,6 +2032,7 @@ pub fn multistep_compression_internal(
                 &weights,
                 very_first_cost,
                 &name_mapping,
+                &step_results,
             )
         };
 
@@ -2050,6 +2079,7 @@ pub fn construct_shared(
     multistep_cfg: &MultistepCompressionConfig,
     tasks: &[String],
     weights: &[f32],
+    prev_results: &[CompressionStepResult],
 ) -> Option<Arc<SharedData>> {
     let cfg = &multistep_cfg.step.clone();
 
@@ -2163,7 +2193,9 @@ pub fn construct_shared(
     // define all the important data structures for compression
     let mut donelist: Vec<FinishedPattern> = Default::default(); // completed inventions will go here    
 
-    let single_hole = Pattern::single_hole(&corpus_span, &cost_of_node_sym, &cost_of_node_all, &num_paths_to_node, &set, cfg);
+    let tdfa_global_annotations = TDFAGlobalAnnotations::new(cfg, &set, &roots, prev_results);
+
+    let single_hole = Pattern::single_hole(&corpus_span, &cost_of_node_sym, &cost_of_node_all, &num_paths_to_node, &tdfa_global_annotations, &set, cfg);
 
     let mut azero_pruning_cutoff = 0;
 
@@ -2286,6 +2318,7 @@ pub fn construct_shared(
         set,
         num_paths_to_node,
         num_paths_to_node_by_root_idx,
+        tdfa_global_annotations,
         tasks_of_node,
         task_name_of_task,
         task_of_root_idx,
@@ -2311,6 +2344,7 @@ pub fn construct_shared(
 }
 
 /// Takes a set of programs and does one full step of compresison.
+#[allow(clippy::too_many_arguments)]
 pub fn compression_step(
     programs: &[ExprOwned],
     new_inv_name: &str, // name of the new invention, like "inv4"
@@ -2319,6 +2353,7 @@ pub fn compression_step(
     weights: &[f32],
     very_first_cost: Cost,
     name_mapping: &[(String, String)],
+    prev_results: &[CompressionStepResult],
 ) -> Vec<CompressionStepResult> {
 
     let tstart_total = std::time::Instant::now();
@@ -2329,6 +2364,7 @@ pub fn compression_step(
         multistep_cfg,
         tasks,
         weights,
+        prev_results,
     ) else {
         return vec![];
     };

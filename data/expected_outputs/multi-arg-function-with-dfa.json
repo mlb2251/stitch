@@ -1,0 +1,136 @@
+{
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-e3a9d4911874cf31 basic_tdfa",
+  "args": {
+    "iterations": 2,
+    "abstraction_prefix": "fn_",
+    "previous_abstractions": 0,
+    "shuffle": false,
+    "truncate": null,
+    "no_opt": false,
+    "silent": false,
+    "verbose_rewrite": false,
+    "step": {
+      "max_arity": 3,
+      "threads": 1,
+      "no_stats": false,
+      "batch": 1,
+      "dynamic_batch": false,
+      "eta_long": false,
+      "no_curried_metavars": false,
+      "no_curried_bodies": false,
+      "inv_candidates": 1,
+      "hole_choice": "DepthFirst",
+      "cost": {
+        "cost_lam": 1,
+        "cost_app": 1,
+        "cost_var": 100,
+        "cost_ivar": 100,
+        "cost_prim_default": 100,
+        "cost_prim": "{}"
+      },
+      "no_mismatch_check": false,
+      "follow": null,
+      "follow_prune": false,
+      "verbose_worklist": false,
+      "verbose_best": false,
+      "print_stats": 0,
+      "show_rewritten": false,
+      "rewritten_dreamcoder": false,
+      "rewritten_intermediates": false,
+      "inv_arg_cap": false,
+      "allow_single_task": false,
+      "no_opt_single_use": false,
+      "no_opt_upper_bound": false,
+      "no_opt_force_multiuse": false,
+      "no_opt_useless_abstract": false,
+      "no_opt_arity_zero": false,
+      "no_other_util": false,
+      "structure_penalty": 1.0,
+      "rewrite_check": false,
+      "utility_by_rewrite": false,
+      "dreamcoder_comparison": false,
+      "quiet": false,
+      "fused_lambda_tags": {
+        "tags": null
+      },
+      "tdfa": {
+        "tdfa_json_path": "../Stitch.jl/data_for_testing/dfa_imp.json",
+        "tdfa_root": "M",
+        "valid_metavars": "[\"S\",\"E\",\"seqS\"]",
+        "valid_roots": "[\"S\",\"E\",\"seqS\"]",
+        "tdfa_non_eta_long_states": "{\"seqS\":\"S\"}"
+      }
+    }
+  },
+  "original_cost": 11004,
+  "final_cost": 3328,
+  "compression_ratio": 3.3064903846153846,
+  "num_abstractions": 2,
+  "original": [
+    "(Module (/seq (Expr (BinOp (Call (Name g_func1 Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z Load)) (_starred_content (Name g_a Load)) (_starred_content (Name g_b Load)) (_starred_content (Name g_c Load))) nil) Add (Constant i10 None)))) nil)",
+    "(Module (/seq (Expr (Call (Name g_func2 Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z Load)) (_starred_content (Name g_a Load)) (_starred_content (Name g_b Load)) (_starred_content (Name g_c Load))) nil))) nil)",
+    "(Module (/seq (Expr (BinOp (Constant i2 None) Add (Constant i10 None)))) nil)",
+    "(Module (/seq (Expr (BinOp (Constant i3 None) Add (Constant i10 None)))) nil)",
+    "(Module (/seq (Expr (BinOp (Constant i4 None) Add (Constant i10 None)))) nil)"
+  ],
+  "rewritten": [
+    "(Module (fn_1 (fn_0 (Name g_func1 Load))) nil)",
+    "(Module (/seq (Expr (fn_0 (Name g_func2 Load)))) nil)",
+    "(Module (fn_1 (Constant i2 None)) nil)",
+    "(Module (fn_1 (Constant i3 None)) nil)",
+    "(Module (fn_1 (Constant i4 None)) nil)"
+  ],
+  "rewritten_dreamcoder": null,
+  "abstractions": [
+    {
+      "body": "(Call #0 (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z Load)) (_starred_content (Name g_a Load)) (_starred_content (Name g_b Load)) (_starred_content (Name g_c Load))) nil)",
+      "dreamcoder": "#(lambda (Call $0 (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z Load)) (_starred_content (Name g_a Load)) (_starred_content (Name g_b Load)) (_starred_content (Name g_c Load))) nil))",
+      "arity": 1,
+      "name": "fn_0",
+      "utility": 2525,
+      "final_cost": 5752,
+      "compression_ratio": 1.9130737134909597,
+      "cumulative_compression_ratio": 1.9130737134909597,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_0 (Name g_func1 Load)": "(Call (Name g_func1 Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z Load)) (_starred_content (Name g_a Load)) (_starred_content (Name g_b Load)) (_starred_content (Name g_c Load))) nil)"
+        },
+        {
+          "fn_0 (Name g_func2 Load)": "(Call (Name g_func2 Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z Load)) (_starred_content (Name g_a Load)) (_starred_content (Name g_b Load)) (_starred_content (Name g_c Load))) nil)"
+        }
+      ],
+      "dc_comparison_millis": null
+    },
+    {
+      "body": "(/seq (Expr (BinOp #0 Add (Constant i10 None))))",
+      "dreamcoder": "#(lambda (/seq (Expr (BinOp $0 Add (Constant i10 None)))))",
+      "arity": 1,
+      "name": "fn_1",
+      "utility": 1717,
+      "final_cost": 3328,
+      "compression_ratio": 1.7283653846153846,
+      "cumulative_compression_ratio": 3.3064903846153846,
+      "num_uses": 4,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_1 (Constant i2 None)": "(/seq (Expr (BinOp (Constant i2 None) Add (Constant i10 None))))"
+        },
+        {
+          "fn_1 (Constant i3 None)": "(/seq (Expr (BinOp (Constant i3 None) Add (Constant i10 None))))"
+        },
+        {
+          "fn_1 (Constant i4 None)": "(/seq (Expr (BinOp (Constant i4 None) Add (Constant i10 None))))"
+        },
+        {
+          "fn_1 (fn_0 (Name g_func1 Load))": "(/seq (Expr (BinOp (fn_0 (Name g_func1 Load)) Add (Constant i10 None))))"
+        }
+      ],
+      "dc_comparison_millis": null
+    }
+  ]
+}
