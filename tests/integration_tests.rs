@@ -213,6 +213,21 @@ fn symbol_weighting_test_lower_weight() {
     compare_out_jsons("data/basic/symbol_weighting_test_2.json", "data/expected_outputs/symbol_weighting_2_l_67.json", "-i1 -a3 --cost-prim {\"L1\":67,\"L2\":67,\"L3\":67}", InputFormat::ProgramsList);
 }
 
+const DFA_ARGS: &str = r#"--tdfa-json-path test_data/dfa.json --tdfa-root M --valid-metavars ["S","E","seqS"] --valid-roots ["S","E","seqS"] --tdfa-non-eta-long-states {"seqS":"S"}"#;
+
+#[test]
+fn tdfa_multi_arg_function() {
+    compare_out_jsons("data/python/multi-arg-function.json", "data/expected_outputs/multi-arg-function-basic.json", "-i2 -a3", InputFormat::ProgramsList);
+    compare_out_jsons("data/python/multi-arg-function.json", "data/expected_outputs/multi-arg-function-with-dfa.json", &("-i2 -a3 ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
+}
+
+#[test]
+fn tdfa_sequence() {
+    compare_out_jsons("data/python/front-of-sequence.json", "data/expected_outputs/front-of-sequence.json", &("-i2 -a3 ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
+    compare_out_jsons("data/python/back-of-sequence.json", "data/expected_outputs/back-of-sequence.json", &("-i2 -a3 ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
+}
+
+
 // todo disabled bc nondeterminism with 2 equal things on the first invention (usually threading prevents that, but here for some reason you always get the same result when running from commandline and a diff result when running from test)
 // #[test]
 // fn origami_3_a3_i10() {

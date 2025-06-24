@@ -1,0 +1,145 @@
+{
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-e3a9d4911874cf31 tdfa_sequence",
+  "args": {
+    "iterations": 2,
+    "abstraction_prefix": "fn_",
+    "previous_abstractions": 0,
+    "shuffle": false,
+    "truncate": null,
+    "no_opt": false,
+    "silent": false,
+    "verbose_rewrite": false,
+    "step": {
+      "max_arity": 3,
+      "threads": 1,
+      "no_stats": false,
+      "batch": 1,
+      "dynamic_batch": false,
+      "eta_long": false,
+      "no_curried_metavars": false,
+      "no_curried_bodies": false,
+      "inv_candidates": 1,
+      "hole_choice": "DepthFirst",
+      "cost": {
+        "cost_lam": 1,
+        "cost_app": 1,
+        "cost_var": 100,
+        "cost_ivar": 100,
+        "cost_prim_default": 100,
+        "cost_prim": "{}"
+      },
+      "no_mismatch_check": false,
+      "follow": null,
+      "follow_prune": false,
+      "verbose_worklist": false,
+      "verbose_best": false,
+      "print_stats": 0,
+      "show_rewritten": false,
+      "rewritten_dreamcoder": false,
+      "rewritten_intermediates": false,
+      "inv_arg_cap": false,
+      "allow_single_task": false,
+      "no_opt_single_use": false,
+      "no_opt_upper_bound": false,
+      "no_opt_force_multiuse": false,
+      "no_opt_useless_abstract": false,
+      "no_opt_arity_zero": false,
+      "no_other_util": false,
+      "structure_penalty": 1.0,
+      "rewrite_check": false,
+      "utility_by_rewrite": false,
+      "dreamcoder_comparison": false,
+      "quiet": false,
+      "fused_lambda_tags": {
+        "tags": null
+      },
+      "tdfa": {
+        "tdfa_json_path": "../Stitch.jl/data_for_testing/dfa_imp.json",
+        "tdfa_root": "M",
+        "valid_metavars": "[\"S\",\"E\",\"seqS\"]",
+        "valid_roots": "[\"S\",\"E\",\"seqS\"]",
+        "tdfa_non_eta_long_states": "{\"seqS\":\"S\"}"
+      }
+    }
+  },
+  "original_cost": 29487,
+  "final_cost": 8782,
+  "compression_ratio": 3.357663402414029,
+  "num_abstractions": 2,
+  "original": [
+    "(Module (/seq (Expr (Name g_a Load)) (Expr (Name g_b Load)) (Expr (Name g_c Load)) (Expr (Name g_distraction Load)) (Expr (BinOp (BinOp (BinOp (Name g_distraction2 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None))) (Expr (Call (Name g_function Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z Load))) nil)) (Expr (BinOp (BinOp (Constant i2 None) Add (Constant i3 None)) Add (Constant i4 None)))) nil)",
+    "(Module (/seq (Expr (BinOp (BinOp (BinOp (Name g_distraction4 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None))) (Expr (Call (Name g_function Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z2 Load))) nil)) (Expr (BinOp (BinOp (Constant i2 None) Add (Constant i3 None)) Add (Constant i4 None)))) nil)",
+    "(Module (/seq (Expr (Name g_distraction4 Load)) (Expr (Call (Name g_function Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z3 Load))) nil)) (Expr (BinOp (BinOp (Constant i2 None) Add (Constant i3 None)) Add (Constant i4 None)))) nil)",
+    "(Module (/seq (Expr (Name g_u Load)) (Expr (Name g_v Load)) (Expr (Name g_distraction Load)) (Expr (BinOp (BinOp (BinOp (Name g_distraction5 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None))) (Expr (Call (Name g_function Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z4 Load))) nil)) (Expr (BinOp (BinOp (Constant i2 None) Add (Constant i3 None)) Add (Constant i4 None)))) nil)",
+    "(Module (/seq (Expr (Name g_distraction6 Load)) (Expr (BinOp (BinOp (BinOp (Name g_distraction7 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None))) (Expr (Call (Name g_function Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z5 Load))) nil)) (Expr (BinOp (BinOp (Constant i2 None) Add (Constant i3 None)) Add (Constant i4 None)))) nil)"
+  ],
+  "rewritten": [
+    "(Module (fn_0 (Name g_z Load) (/seq (Expr (Name g_a Load)) (Expr (Name g_b Load)) (Expr (Name g_c Load)) (Expr (Name g_distraction Load)) (fn_1 (Name g_distraction2 Load)))) nil)",
+    "(Module (fn_0 (Name g_z2 Load) (/seq (fn_1 (Name g_distraction4 Load)))) nil)",
+    "(Module (fn_0 (Name g_z3 Load) (/seq (Expr (Name g_distraction4 Load)))) nil)",
+    "(Module (fn_0 (Name g_z4 Load) (/seq (Expr (Name g_u Load)) (Expr (Name g_v Load)) (Expr (Name g_distraction Load)) (fn_1 (Name g_distraction5 Load)))) nil)",
+    "(Module (fn_0 (Name g_z5 Load) (/seq (Expr (Name g_distraction6 Load)) (fn_1 (Name g_distraction7 Load)))) nil)"
+  ],
+  "rewritten_dreamcoder": null,
+  "abstractions": [
+    {
+      "body": "(#1 (Expr (Call (Name g_function Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content #0)) nil)) (Expr (BinOp (BinOp (Constant i2 None) Add (Constant i3 None)) Add (Constant i4 None))))",
+      "dreamcoder": "#(lambda (lambda ($0 (Expr (Call (Name g_function Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content $1)) nil)) (Expr (BinOp (BinOp (Constant i2 None) Add (Constant i3 None)) Add (Constant i4 None))))))",
+      "arity": 2,
+      "name": "fn_0",
+      "utility": 11614,
+      "final_cost": 14842,
+      "compression_ratio": 1.9867268562188385,
+      "cumulative_compression_ratio": 1.9867268562188385,
+      "num_uses": 5,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_0 (Name g_z2 Load) (/seq (Expr (BinOp (BinOp (BinOp (Name g_distraction4 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None))))": "(/seq (Expr (BinOp (BinOp (BinOp (Name g_distraction4 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None))) (Expr (Call (Name g_function Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z2 Load))) nil)) (Expr (BinOp (BinOp (Constant i2 None) Add (Constant i3 None)) Add (Constant i4 None))))"
+        },
+        {
+          "fn_0 (Name g_z Load) (/seq (Expr (Name g_a Load)) (Expr (Name g_b Load)) (Expr (Name g_c Load)) (Expr (Name g_distraction Load)) (Expr (BinOp (BinOp (BinOp (Name g_distraction2 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None))))": "(/seq (Expr (Name g_a Load)) (Expr (Name g_b Load)) (Expr (Name g_c Load)) (Expr (Name g_distraction Load)) (Expr (BinOp (BinOp (BinOp (Name g_distraction2 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None))) (Expr (Call (Name g_function Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z Load))) nil)) (Expr (BinOp (BinOp (Constant i2 None) Add (Constant i3 None)) Add (Constant i4 None))))"
+        },
+        {
+          "fn_0 (Name g_z3 Load) (/seq (Expr (Name g_distraction4 Load)))": "(/seq (Expr (Name g_distraction4 Load)) (Expr (Call (Name g_function Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z3 Load))) nil)) (Expr (BinOp (BinOp (Constant i2 None) Add (Constant i3 None)) Add (Constant i4 None))))"
+        },
+        {
+          "fn_0 (Name g_z5 Load) (/seq (Expr (Name g_distraction6 Load)) (Expr (BinOp (BinOp (BinOp (Name g_distraction7 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None))))": "(/seq (Expr (Name g_distraction6 Load)) (Expr (BinOp (BinOp (BinOp (Name g_distraction7 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None))) (Expr (Call (Name g_function Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z5 Load))) nil)) (Expr (BinOp (BinOp (Constant i2 None) Add (Constant i3 None)) Add (Constant i4 None))))"
+        },
+        {
+          "fn_0 (Name g_z4 Load) (/seq (Expr (Name g_u Load)) (Expr (Name g_v Load)) (Expr (Name g_distraction Load)) (Expr (BinOp (BinOp (BinOp (Name g_distraction5 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None))))": "(/seq (Expr (Name g_u Load)) (Expr (Name g_v Load)) (Expr (Name g_distraction Load)) (Expr (BinOp (BinOp (BinOp (Name g_distraction5 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None))) (Expr (Call (Name g_function Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z4 Load))) nil)) (Expr (BinOp (BinOp (Constant i2 None) Add (Constant i3 None)) Add (Constant i4 None))))"
+        }
+      ],
+      "dc_comparison_millis": null
+    },
+    {
+      "body": "(Expr (BinOp (BinOp (BinOp #0 Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None)))",
+      "dreamcoder": "#(lambda (Expr (BinOp (BinOp (BinOp $0 Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None))))",
+      "arity": 1,
+      "name": "fn_1",
+      "utility": 4444,
+      "final_cost": 8782,
+      "compression_ratio": 1.690047825096789,
+      "cumulative_compression_ratio": 3.357663402414029,
+      "num_uses": 4,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_1 (Name g_distraction2 Load)": "(Expr (BinOp (BinOp (BinOp (Name g_distraction2 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None)))"
+        },
+        {
+          "fn_1 (Name g_distraction4 Load)": "(Expr (BinOp (BinOp (BinOp (Name g_distraction4 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None)))"
+        },
+        {
+          "fn_1 (Name g_distraction5 Load)": "(Expr (BinOp (BinOp (BinOp (Name g_distraction5 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None)))"
+        },
+        {
+          "fn_1 (Name g_distraction7 Load)": "(Expr (BinOp (BinOp (BinOp (Name g_distraction7 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None)))"
+        }
+      ],
+      "dc_comparison_millis": null
+    }
+  ]
+}
