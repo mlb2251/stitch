@@ -13,7 +13,8 @@ pub struct TDFA {
     root: State,
     dfa: HashMap<State, HashMap<Symbol, Vec<State>>>,
     valid_metavars: HashSet<State>,
-    tdfa_non_eta_long_states: HashSet<State>,
+    valid_roots: HashSet<State>,
+    tdfa_non_eta_long_states: HashMap<State, State>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,11 +60,11 @@ impl TDFAInventionAnnotation {
 }
 
 impl TDFA {
-    pub fn new(root: String, dfa: String, valid_metavars: Vec<State>, tdfa_non_eta_long_states: Vec<State>, prev_invs: Vec<(String, Option<TDFAInventionAnnotation>)>) -> Self {
+    pub fn new(root: String, dfa: String, valid_metavars: Vec<State>, valid_roots: Vec<State>, tdfa_non_eta_long_states: HashMap<State, State>, prev_invs: Vec<(String, Option<TDFAInventionAnnotation>)>) -> Self {
         let mut dfa: HashMap<State, HashMap<Symbol, Vec<State>>> = serde_json::from_str(&dfa).unwrap();
         for (name, tdfa_annotation) in prev_invs {
             if let Some(annotation) = tdfa_annotation {
-                println!("{:?} -> {:?}", name, annotation.metavariable_states);
+                // println!("{:?} -> {:?}", name, annotation.metavariable_states);
                 if !dfa.contains_key(&annotation.root_state) {
                     dfa.insert(annotation.root_state.clone(), HashMap::new());
                 }
@@ -77,8 +78,8 @@ impl TDFA {
             }
         }
         let valid_metavars: HashSet<State> = valid_metavars.into_iter().collect();
-        let tdfa_non_eta_long_states: HashSet<State> = tdfa_non_eta_long_states.into_iter().collect();
-        TDFA { root, dfa, tdfa_non_eta_long_states, valid_metavars }
+        let valid_roots: HashSet<State> = valid_roots.iter().cloned().collect();
+        TDFA { root, dfa, tdfa_non_eta_long_states, valid_metavars, valid_roots }
     }
 
     pub fn annotate(
@@ -104,7 +105,9 @@ impl TDFA {
                     node = *f;
                 }
                 Node::Prim(tag) => {
-                    return (tag.clone(), nodes.clone(), children);
+                    nodes.reverse();
+                    children.reverse();
+                    return (tag.clone(), nodes, children);
                 }
                 _ => {
                     panic!("Unexpected node type: {:?}", set[node]);
@@ -128,46 +131,66 @@ impl TDFA {
             Node::App(_, _) => {}
         }
         let (symbol, nodes, args) = self.get_symbol_and_args(set, node);
-        let mut transitions = self.dfa.get(&state).and_then(|transitions| transitions.get(&symbol))
+        let transitions = self.dfa.get(&state).and_then(|transitions| transitions.get(&symbol))
             .unwrap_or_else(|| {
                 panic!("No transition for state: {:?} and symbol: {:?}", state, symbol);
             }).clone();
-        transitions.reverse();
-        let non_eta_long = self.tdfa_non_eta_long_states.contains(&state);
-        // assert!(transitions.is_empty() || args.len() % transitions.len() == 0, "Mismatch in number of transitions and arguments");
-        for (i, arg) in args.iter().enumerate() {
-            let next_state = transitions[i % transitions.len()].clone();
-            self._annotate(set, *arg, next_state, out);
-        }
+
+        // println!("nodes: {:?}, args: {:?}", nodes.iter().map(|n| format!("{}", set.get(*n))).collect::<Vec<_>>(), 
+        //          args.iter().map(|a| format!("{}", set.get(*a))).collect::<Vec<_>>());
+        let non_eta_long = self.tdfa_non_eta_long_states.contains_key(&state);
+        let mut cur_arg = 0;
         if non_eta_long {
-            assert!(transitions.len() == 1, "Non-eta long state {:?} has multiple transitions: {:?}", state, transitions);
-            for child in nodes {
-                out.insert(child, state.clone());
+            // transitions are not in eta-long form.
+            // println!("Transitions for state {:?} are not in eta-long form: {:?}", state, transitions);
+            while cur_arg < transitions.len() {
+                let next_state = transitions[cur_arg].clone();
+                self._annotate(set, args[cur_arg], next_state, out);
+                cur_arg += 1;
+            }
+            // now we annotate the rest of the args with the non-eta-long state
+            let inner_state = self.tdfa_non_eta_long_states.get(&state).unwrap().clone();
+            while cur_arg < args.len() {
+                out.insert(nodes[cur_arg], state.clone());
+                self._annotate(set, args[cur_arg], inner_state.clone(), out);
+                cur_arg += 1;
+            }
+        } else {
+            assert!(transitions.is_empty() || args.len() % transitions.len() == 0, "Mismatch in number of transitions and arguments");
+            for (i, arg) in args.iter().enumerate() {
+                let next_state = transitions[i % transitions.len()].clone();
+                self._annotate(set, *arg, next_state, out);
             }
         }
     }
 }
 
-pub fn compute_invalid_metavar_location_of_node(cfg: &CompressionStepConfig, set: &ExprSet, roots: &[Idx], prev_results: &[CompressionStepResult]) -> (Vec<Option<State>>, Vec<bool>) {
+pub fn compute_invalid_metavar_location_of_node(cfg: &CompressionStepConfig, set: &ExprSet, roots: &[Idx], prev_results: &[CompressionStepResult]) -> (Vec<Option<State>>, Vec<bool>, Vec<bool>) {
     let tdfa_string = std::fs::read_to_string(&cfg.tdfa_json_path).expect("Failed to read TDFA JSON file");
     let tdfa_root = cfg.tdfa_root.clone();
     let valid_metavars = serde_json::from_str::<Vec<State>>(&cfg.valid_metavars).expect("Failed to parse valid metavars JSON");
-    let tdfa_non_eta_long_states = serde_json::from_str::<Vec<State>>(&cfg.tdfa_non_eta_long_states).expect("Failed to parse non-eta long states JSON");
+    let valid_roots = serde_json::from_str::<Vec<State>>(&cfg.valid_roots).expect("Failed to parse valid roots JSON");
+    let tdfa_non_eta_long_states: HashMap<State, State> = serde_json::from_str(&cfg.tdfa_non_eta_long_states).expect("Failed to parse non-eta long states JSON");
     let tdfa: TDFA = TDFA::new(
         tdfa_root,
         tdfa_string,
         valid_metavars,
+        valid_roots,
         tdfa_non_eta_long_states,
         prev_results.iter().map(|r| (r.inv.name.clone(), r.tdfa_annotation.clone())).collect::<Vec<_>>(),
     );
     let annotated = tdfa.annotate(set, roots);
     let mut symbols = vec![None; set.len()];
     let mut invalid_metavars = vec![true; set.len()];
+    let mut invalid_roots = vec![true; set.len()];
     for (idx, state) in annotated.iter() {
         if tdfa.valid_metavars.contains(state) {
             invalid_metavars[*idx] = false;
         }
+        if tdfa.valid_roots.contains(state) {
+            invalid_roots[*idx] = false;
+        }
         symbols[*idx] = Some(state.clone());
     }
-    (symbols, invalid_metavars)
+    (symbols, invalid_metavars, invalid_roots)
 }
