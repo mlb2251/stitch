@@ -3,7 +3,6 @@ use std::time::Duration;
 use std::thread;
 use std::sync::mpsc;
 
-use colorful::core::StrMarker;
 use stitch_core::*;
 use clap::Parser;
 use serde_json::Value;
