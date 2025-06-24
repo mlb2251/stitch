@@ -5,6 +5,7 @@ pub mod egraphs;
 pub mod util;
 pub mod formats;
 pub mod tdfa;
+pub mod test_utils;
 
 pub use {
     compression::*,
@@ -14,6 +15,7 @@ pub use {
     formats::*,
     lambdas::*,
     tdfa::*,
+    test_utils::*,
 };
 
 pub use colorful::{Color,Colorful,RGB};
