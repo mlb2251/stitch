@@ -412,7 +412,7 @@ impl CostConfig {
 impl Pattern {
     /// create a single hole pattern `??`
     //#[inline(never)]
-    fn single_hole(corpus_span: &Span, cost_of_node_sym: &[Cost], cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], invalid_root_location_of_node: &[bool], set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
+    fn single_hole(corpus_span: &Span, cost_of_node_sym: &[Cost], cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], tdfa_global_annotations: &TDFAGlobalAnnotations, set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
         let body_utility = 0;
         let mut match_locations: Vec<Idx> = corpus_span.clone().collect();
         match_locations.sort(); // we assume match_locations is always sorted
@@ -431,7 +431,7 @@ impl Pattern {
         match_locations.retain(|node|
             !invalid_match_location(set,
                                     &cfg.fused_lambda_tags.tags,
-                                    invalid_root_location_of_node,
+                                    tdfa_global_annotations,
                                     *node)
         );
         
@@ -705,9 +705,7 @@ pub struct SharedData {
     pub set: ExprSet,
     pub num_paths_to_node: Vec<Cost>,
     pub num_paths_to_node_by_root_idx: Vec<Vec<Cost>>,
-    pub tdfa_symbol_of_node: Vec<Option<State>>,
-    pub invalid_metavar_location_of_node: Vec<bool>,
-    pub invalid_root_location_of_node: Vec<bool>,
+    pub tdfa_global_annotations: TDFAGlobalAnnotations,
     pub tasks_of_node: Vec<FxHashSet<usize>>,
     pub task_name_of_task: Vec<String>,
     pub task_of_root_idx: Vec<usize>,
@@ -729,11 +727,11 @@ pub struct SharedData {
 
 fn invalid_metavar_location(shared : &SharedData, node: Idx) -> bool {
     // println!("invalid_metavar_location length {} for node {} in set of length {}", shared.invalid_metavar_location_of_node.len(), node, shared.set.len());
-    shared.invalid_metavar_location_of_node[node] || fused_lambda_location(&shared.set, &shared.fused_lambda_tags, node)
+    shared.tdfa_global_annotations.invalid_metavar(node) || fused_lambda_location(&shared.set, &shared.fused_lambda_tags, node)
 }
 
-fn invalid_match_location(set : &ExprSet, fused_lambda_tags: &Option<FxHashSet<Tag>>, invalid_root_location_of_node: &[bool], node: Idx) -> bool {
-    invalid_root_location_of_node[node] || fused_lambda_location(set, fused_lambda_tags, node)
+fn invalid_match_location(set : &ExprSet, fused_lambda_tags: &Option<FxHashSet<Tag>>, tdfa_global_annotations: &TDFAGlobalAnnotations, node: Idx) -> bool {
+    tdfa_global_annotations.invalid_root(node) || fused_lambda_location(set, fused_lambda_tags, node)
 }
 
 fn fused_lambda_location(set : &ExprSet, fused_lambda_tags: &Option<FxHashSet<Tag>>, node: Idx) -> bool {
@@ -2099,9 +2097,9 @@ pub fn construct_shared(
     // define all the important data structures for compression
     let mut donelist: Vec<FinishedPattern> = Default::default(); // completed inventions will go here    
 
-    let (tdfa_symbol_of_node, invalid_metavar_location_of_node, invalid_root_location_of_node) = compute_invalid_metavar_location_of_node(cfg, &set, &roots, prev_results);
+    let tdfa_global_annotations = compute_invalid_metavar_location_of_node(cfg, &set, &roots, prev_results);
 
-    let single_hole = Pattern::single_hole(&corpus_span, &cost_of_node_sym, &cost_of_node_all, &num_paths_to_node, &invalid_root_location_of_node, &set, cfg);
+    let single_hole = Pattern::single_hole(&corpus_span, &cost_of_node_sym, &cost_of_node_all, &num_paths_to_node, &tdfa_global_annotations, &set, cfg);
 
     let mut azero_pruning_cutoff = 0;
 
@@ -2224,9 +2222,7 @@ pub fn construct_shared(
         set,
         num_paths_to_node,
         num_paths_to_node_by_root_idx,
-        tdfa_symbol_of_node,
-        invalid_metavar_location_of_node,
-        invalid_root_location_of_node,
+        tdfa_global_annotations,
         tasks_of_node,
         task_name_of_task,
         task_of_root_idx,

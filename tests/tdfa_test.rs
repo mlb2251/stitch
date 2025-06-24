@@ -6,7 +6,7 @@ use stitch_core::TDFA;
 
 fn assert_tdfa(json: String, root: String, valid_metavar: String, eta_long: (String, String), code: &'static str, mut expected: Vec<&'static str>) {
     let eta_long_map: HashMap<String, String> = HashMap::from([(eta_long.0, eta_long.1)]);
-    let tdfa: TDFA = TDFA::new(root, json, vec![valid_metavar], eta_long_map, vec![]);
+    let tdfa: TDFA = TDFA::new(root, json, vec![valid_metavar], vec![], eta_long_map, vec![]);
     println!("TDFA created with valid metavars: {:?}", tdfa);
     let mut set = ExprSet::empty(Order::ChildFirst, false, false);
     let node = set.parse_extend(code).unwrap();

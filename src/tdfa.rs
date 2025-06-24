@@ -1,5 +1,5 @@
 use core::panic;
-use std::{collections::{HashMap, HashSet}, str::FromStr};
+use std::collections::{HashMap, HashSet};
 
 use clap::Parser;
 use lambdas::{ExprSet, Idx, Node, Symbol};
@@ -40,6 +40,22 @@ impl TDFAConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct TDFAGlobalAnnotations {
+    symbols: Vec<Option<State>>,
+    invalid_metavars: Vec<bool>,
+    invalid_roots: Vec<bool>,
+}
+
+impl TDFAGlobalAnnotations {
+    pub fn invalid_metavar(&self, idx: Idx) -> bool {
+        self.invalid_metavars[idx]
+    }
+    pub fn invalid_root(&self, idx: Idx) -> bool {
+        self.invalid_roots[idx]
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TDFA {
     root: State,
@@ -58,7 +74,7 @@ pub struct TDFAInventionAnnotation {
 impl TDFAInventionAnnotation {
     pub fn from_pattern(
         pattern: &Pattern,
-        shared: &SharedData,
+        shared: &SharedData
     ) -> Self {
         // println!("Match locations: {:?}", pattern.match_locations);
         // println!("Root symbols: {:?}", pattern.match_locations.iter().map(|&loc| shared.tdfa_symbol_of_node[loc].clone()).collect::<Vec<_>>());
@@ -77,11 +93,11 @@ impl TDFAInventionAnnotation {
         shared: &SharedData,
         match_location: Idx,
     ) -> Self {
-        let root_sym: String = shared.tdfa_symbol_of_node[match_location].clone().unwrap();
+        let root_sym: String = shared.tdfa_global_annotations.symbols[match_location].clone().unwrap();
         let mut ivar_states = vec![];
         pattern.first_zid_of_ivar.iter().for_each(|ivar_zid| {
             let node = shared.arg_of_zid_node[*ivar_zid].get(&match_location).unwrap().unshifted_id;
-            let ivar_sym = shared.tdfa_symbol_of_node[node].clone().unwrap();
+            let ivar_sym = shared.tdfa_global_annotations.symbols[node].clone().unwrap();
             ivar_states.push(ivar_sym);
         });
         Self {
@@ -196,7 +212,7 @@ impl TDFA {
     }
 }
 
-pub fn compute_invalid_metavar_location_of_node(cfg: &CompressionStepConfig, set: &ExprSet, roots: &[Idx], prev_results: &[CompressionStepResult]) -> (Vec<Option<State>>, Vec<bool>, Vec<bool>) {
+pub fn compute_invalid_metavar_location_of_node(cfg: &CompressionStepConfig, set: &ExprSet, roots: &[Idx], prev_results: &[CompressionStepResult]) -> TDFAGlobalAnnotations {
     let tdfa_cfg = cfg.tdfa.clone();
     let tdfa_string = std::fs::read_to_string(tdfa_cfg.tdfa_json_path).expect("Failed to read TDFA JSON file");
     let tdfa_root = tdfa_cfg.tdfa_root.clone();
@@ -224,5 +240,9 @@ pub fn compute_invalid_metavar_location_of_node(cfg: &CompressionStepConfig, set
         }
         symbols[*idx] = Some(state.clone());
     }
-    (symbols, invalid_metavars, invalid_roots)
+    TDFAGlobalAnnotations {
+        symbols,
+        invalid_metavars,
+        invalid_roots,
+    }
 }
