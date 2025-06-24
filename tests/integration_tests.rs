@@ -213,7 +213,7 @@ fn symbol_weighting_test_lower_weight() {
     compare_out_jsons("data/basic/symbol_weighting_test_2.json", "data/expected_outputs/symbol_weighting_2_l_67.json", "-i1 -a3 --cost-prim {\"L1\":67,\"L2\":67,\"L3\":67}", InputFormat::ProgramsList);
 }
 
-const DFA_ARGS: &str = r#"--tdfa-json-path ../Stitch.jl/data_for_testing/dfa_imp.json --tdfa-root M --valid-metavars ["S","E","seqS"] --valid-roots ["S","E","seqS"] --tdfa-non-eta-long-states {"seqS":"S"}"#;
+const DFA_ARGS: &str = r#"--tdfa-json-path test_data/dfa.json --tdfa-root M --valid-metavars ["S","E","seqS"] --valid-roots ["S","E","seqS"] --tdfa-non-eta-long-states {"seqS":"S"}"#;
 
 #[test]
 fn tdfa_multi_arg_function() {
