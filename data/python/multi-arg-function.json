@@ -1,0 +1,7 @@
+[
+  "(Module (/seq (Expr (BinOp (Call (Name g_func1 Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z Load)) (_starred_content (Name g_a Load)) (_starred_content (Name g_b Load)) (_starred_content (Name g_c Load))) nil) Add (Constant i10 None)))) nil)",
+  "(Module (/seq (Expr (Call (Name g_func2 Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z Load)) (_starred_content (Name g_a Load)) (_starred_content (Name g_b Load)) (_starred_content (Name g_c Load))) nil))) nil)",
+  "(Module (/seq (Expr (BinOp (Constant i2 None) Add (Constant i10 None)))) nil)",
+  "(Module (/seq (Expr (BinOp (Constant i3 None) Add (Constant i10 None)))) nil)",
+  "(Module (/seq (Expr (BinOp (Constant i4 None) Add (Constant i10 None)))) nil)"
+]
