@@ -295,12 +295,14 @@ pub fn compression_step_smc(
     multistep_cfg: &MultistepCompressionConfig,
     tasks: &[String],
     weights: &[f32],
+    prev_results: &[CompressionStepResult],
 ) -> Vec<CompressionStepResult> {
     let Some(shared) = construct_shared(
         programs,
         multistep_cfg,
         tasks,
         weights,
+        prev_results,
     ) else {
         return vec![];
     };
@@ -309,7 +311,7 @@ pub fn compression_step_smc(
     
     let rng = &mut rand::rngs::StdRng::seed_from_u64(shared.cfg.seed);
 
-    let mut best = particles[0].clone();
+    let mut best = None;
 
     let mut last_optimal_step = 0;
 
@@ -323,14 +325,14 @@ pub fn compression_step_smc(
         }
         particles = resample(particles, rng, shared.cfg.smc_particles, &shared);
         for p in &particles {
-            if p.utility > best.utility {
-                best = p.clone();
+            if p.utility > best.as_ref().map(|p: &Particle| p.utility).unwrap_or(0) {
+                best = Some(p.clone());
                 if shared.cfg.verbose_best {
                     println!("Step {}: New best pattern found: {}. Fast utility: {}, Accurate utility: {}",
                         step,
-                        best.pattern.info(&shared),
-                        calculate_utility_fn(&best.pattern, &shared, true),
-                        calculate_utility_fn(&best.pattern, &shared, false)
+                        p.pattern.info(&shared),
+                        calculate_utility_fn(&p.pattern, &shared, true),
+                        calculate_utility_fn(&p.pattern, &shared, false)
                     );
                 }
                 last_optimal_step = step;
@@ -341,6 +343,10 @@ pub fn compression_step_smc(
     let mut shared: SharedData = Arc::try_unwrap(shared).unwrap();
 
     let very_first_cost = shared.init_cost;
+
+    let Some (best) = best else {
+        return vec![];
+    };
 
     let finished_pattern = FinishedPattern::new(best.pattern.clone(), &shared);
     let result = CompressionStepResult::new(
