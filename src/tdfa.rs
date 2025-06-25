@@ -133,9 +133,9 @@ impl TDFAInventionAnnotation {
         let Some(global_annotations) = &shared.tdfa_global_annotations else {
             return None;
         }; 
-        let annotation = TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[0], global_annotations);
+        let annotation = TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[0], global_annotations).unwrap();
         for i in 1..pattern.match_locations.len() {
-            assert!(annotation == TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[i], global_annotations),
+            assert!(annotation == TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[i], global_annotations).unwrap(),
                 "Inconsistent TDFAInventionAnnotation for match locations: {:?} and {:?}", 
                 pattern.match_locations[0], pattern.match_locations[i]);
         }
@@ -147,18 +147,23 @@ impl TDFAInventionAnnotation {
         shared: &SharedData,
         match_location: Idx,
         global_annotations: &TDFAGlobalAnnotations,
-    ) -> Self {
-        let root_sym: String = global_annotations.symbols[match_location].clone().unwrap();
+    ) -> Option<Self> {
+        let root_sym = global_annotations.symbols[match_location].clone()?;
         let mut ivar_states = vec![];
-        pattern.first_zid_of_ivar.iter().for_each(|ivar_zid| {
-            let node = shared.arg_of_zid_node[*ivar_zid].get(&match_location).unwrap().unshifted_id;
-            let ivar_sym = global_annotations.symbols[node].clone().unwrap();
+        let all_found = pattern.first_zid_of_ivar.iter().all(|ivar_zid| {
+            let Some(node) = shared.arg_of_zid_node[*ivar_zid].get(&match_location) else {
+                return false;
+            };
+            let Some(ivar_sym) = global_annotations.symbols[node.unshifted_id].clone() else {
+                return false;
+            };
             ivar_states.push(ivar_sym);
+            true
         });
-        Self {
-            root_state: root_sym,
-            metavariable_states: ivar_states,
+        if !all_found {
+            return None;
         }
+        Some (Self { root_state: root_sym, metavariable_states: ivar_states })
     }
 }
 
