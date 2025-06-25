@@ -165,6 +165,19 @@ impl TDFAInventionAnnotation {
         }
         Some (Self { root_state: root_sym, metavariable_states: ivar_states })
     }
+
+    pub fn metavariables_are_consistent(
+        pattern: &Pattern,
+        shared: &SharedData,
+    ) -> bool {
+        let Some(global_annotations) = &shared.tdfa_global_annotations else {
+            return true; // No TDFA, so no metavariable consistency check needed
+        };
+        // only check the first match location, since all should be consistent
+        // the full consistency check is done in `TDFAInventionAnnotation::from_pattern`
+        TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[0], global_annotations).is_some()
+    }
+
 }
 
 impl TDFA {

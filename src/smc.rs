@@ -325,18 +325,22 @@ pub fn compression_step_smc(
         }
         particles = resample(particles, rng, shared.cfg.smc_particles, &shared);
         for p in &particles {
-            if p.utility > best.as_ref().map(|p: &Particle| p.utility).unwrap_or(0) {
-                best = Some(p.clone());
-                if shared.cfg.verbose_best {
-                    println!("Step {}: New best pattern found: {}. Fast utility: {}, Accurate utility: {}",
-                        step,
-                        p.pattern.info(&shared),
-                        calculate_utility_fn(&p.pattern, &shared, true),
-                        calculate_utility_fn(&p.pattern, &shared, false)
-                    );
-                }
-                last_optimal_step = step;
+            if p.utility <= best.as_ref().map(|p: &Particle| p.utility).unwrap_or(0) {
+                continue;
             }
+            if !TDFAInventionAnnotation::metavariables_are_consistent(&p.pattern, &shared) {
+                continue; // skip patterns with inconsistent metavariables
+            }
+            best = Some(p.clone());
+            if shared.cfg.verbose_best {
+                println!("Step {}: New best pattern found: {}. Fast utility: {}, Accurate utility: {}",
+                    step,
+                    p.pattern.info(&shared),
+                    calculate_utility_fn(&p.pattern, &shared, true),
+                    calculate_utility_fn(&p.pattern, &shared, false)
+                );
+            }
+            last_optimal_step = step;
         }
     }
 
