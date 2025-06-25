@@ -1369,8 +1369,8 @@ fn get_zippers(
                 // bubble from `f`
                 for f_zid in zids_of_node[&f].iter() {
                     // clone and extend zip to get new zid for this node
-                    let mut zip = zip_of_zid[*f_zid].clone();
-                    zip.insert(0,ZNode::Func);
+                    let mut zip = vec![ZNode::Func];
+                    zip.extend_from_slice(&zip_of_zid[*f_zid]);
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
@@ -1387,8 +1387,8 @@ fn get_zippers(
                 // bubble from `x`
                 for x_zid in zids_of_node[&x].iter() {
                     // clone and extend zip to get new zid for this node
-                    let mut zip = zip_of_zid[*x_zid].clone();
-                    zip.insert(0,ZNode::Arg);
+                    let mut zip = vec![ZNode::Arg];
+                    zip.extend_from_slice(&zip_of_zid[*x_zid]);
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
@@ -1407,8 +1407,8 @@ fn get_zippers(
                 for b_zid in zids_of_node[&b].iter() {
 
                     // clone and extend zip to get new zid for this node
-                    let mut zip = zip_of_zid[*b_zid].clone();
-                    zip.insert(0,ZNode::Body);
+                    let mut zip = vec![ZNode::Body];
+                    zip.extend_from_slice(&zip_of_zid[*b_zid]);
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip.clone());
