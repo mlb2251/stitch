@@ -4,54 +4,6 @@ use rand::SeedableRng;
 use rustc_hash::{FxHashMap};
 use std::sync::Arc;
 
-fn sample_new_ivar(
-    original_pattern: &Pattern,
-    shared: &SharedData,
-    variable_ivar: usize,
-    match_loc: &usize,
-    rng: &mut impl rand::Rng,
-) -> Option<usize> {
-    let num_vars = get_num_variables(original_pattern);
-    if num_vars <= 1 {
-        return None; // no other variable to expand to
-    }
-    let mut new_ivar = rng.gen_range(0..num_vars - 1);
-    if new_ivar >= variable_ivar {
-        new_ivar += 1; // skip the variable we are expanding
-    }
-    let zid_original = get_zid_for_ivar(original_pattern, variable_ivar);
-    let zid_new = get_zid_for_ivar(original_pattern, new_ivar);
-    if shared.arg_of_zid_node[zid_original][match_loc].shifted_id == shared.arg_of_zid_node[zid_new][match_loc].shifted_id {
-        return Some(new_ivar);
-    }
-    None
-}
-
-fn sample_variable_reuse_expansion(
-    pattern: &Pattern,
-    shared: &SharedData,
-    variable_ivar: usize,
-    match_location: usize,
-    rng: &mut impl rand::Rng,
-) -> Option<(Pattern, ExpandsTo)> {
-    if let Some(new_ivar) = sample_new_ivar(pattern, shared, variable_ivar, &match_location, rng) {
-        let zid_original = get_zid_for_ivar(pattern, variable_ivar);
-        let zid_new = get_zid_for_ivar(pattern, new_ivar);
-        let locs = compatible_locations(
-            shared,
-            pattern,
-            &shared.arg_of_zid_node[zid_original],
-            &shared.arg_of_zid_node[zid_new],
-        );
-        if !locs.is_empty() {
-            let mut pattern = pattern.clone();
-            pattern.match_locations = locs;
-            let expands_to = ExpandsTo::IVar(new_ivar as i32);
-            return Some((pattern, expands_to));
-        }
-    }
-    None
-}
 
 fn sample_syntactic_expansion(
     original_pattern: &Pattern,

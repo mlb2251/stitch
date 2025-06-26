@@ -3,7 +3,7 @@ use std::{fmt::{self, Formatter}, sync::Arc};
 use lambdas::{Idx, LabelledZId, Node, Symbol, Tag, ZId, ZNode};
 use rustc_hash::FxHashMap;
 
-use crate::{invalid_metavar_location, Arg, Cost, Pattern, SharedData, ZIdExtension};
+use crate::{compatible_locations, invalid_metavar_location, Arg, Cost, Pattern, SharedData, ZIdExtension};
 
 /// Tells us what a hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
@@ -201,4 +201,144 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
         ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(ivar as i32)), locs));
     }
     ivars_expansions
+}
+
+
+/* Perform expansions on variables -- largely for SMC */
+
+fn remove_variable_at(p: &mut Pattern, var_id: usize, expands_to: &mut ExpandsTo) -> Vec<ZId> {
+    let ExpandsTo(expands_to) = expands_to;
+    let mut zids = Vec::new();
+    // remove the variable from the arg choices
+    p.arg_choices.retain(|x: &LabelledZId| {
+        if x.ivar == var_id {
+            // if this is the variable we're removing, add its zid to the list of zids to remove
+            // and return false to remove it from the arg choices
+            zids.push(x.zid);
+            return false;
+        }
+        true
+    });
+    p.arg_choices.iter_mut().for_each(|x: &mut LabelledZId| {
+        if x.ivar > var_id {
+            x.ivar -= 1; // decrement the ivar index for all variables after the one we're removing
+        }
+    });
+    if let ExpandsToInner::IVar(i) = expands_to {
+        assert!(*i != var_id as i32, "ExpandsTo::IVar should not be the variable we're removing");
+        if *i > var_id as i32 {
+            *i -= 1;
+        }
+    }
+    // remove the variable from the first_zid_of_ivar
+    p.first_zid_of_ivar.remove(var_id);
+    zids
+}
+
+pub fn add_variable_at(p: &mut Pattern, at_loc: usize, var_id: i32) {
+    p.arg_choices.push(LabelledZId::new(at_loc, var_id as usize));
+    if var_id as usize ==  p.first_zid_of_ivar.len() {
+        p.first_zid_of_ivar.push(at_loc);
+    }
+}
+
+
+pub fn perform_expansion_variable(
+    pattern: Pattern,
+    shared: &SharedData,
+    variable_ivar: usize,
+    expands_to: ExpandsTo,
+    // locs: Vec<Idx>,
+) -> Option<Pattern> {
+    let mut pattern = pattern;
+    let mut expands_to = expands_to;
+
+    let variable_zids: Vec<usize> = remove_variable_at(&mut pattern, variable_ivar, &mut expands_to);
+
+    let body_utility = pattern.body_utility +  expands_to.local_expansion_utility(shared) * variable_zids.len() as Cost;
+    pattern.body_utility = body_utility;
+
+    let num_vars = pattern.first_zid_of_ivar.len() as i32;
+
+    let ExpandsTo(expands_to) = expands_to;
+
+    for variable_zid in variable_zids {
+        // add any new holes to the list of holes
+        match expands_to {
+            ExpandsToInner::Lam(_) => {
+                // add new holes
+                add_variable_at(&mut pattern, shared.extensions_of_zid[variable_zid].body.unwrap(), num_vars); 
+            }
+            ExpandsToInner::App => {
+                // add new holes
+                add_variable_at(&mut pattern, shared.extensions_of_zid[variable_zid].func.unwrap(), num_vars);
+                add_variable_at(&mut pattern, shared.extensions_of_zid[variable_zid].arg.unwrap(), num_vars + 1);
+            }
+            ExpandsToInner::IVar(i) => {
+                add_variable_at(&mut pattern, variable_zid, i);
+            }
+            _ => {}
+        }
+    }
+
+    Some (pattern)
+}
+
+
+pub fn get_num_variables(pattern: &Pattern) -> usize {
+    pattern.first_zid_of_ivar.len()
+}
+
+pub fn get_zid_for_ivar(pattern: &Pattern, ivar: usize) -> ZId {
+    pattern.first_zid_of_ivar[ivar]
+}
+
+
+fn sample_new_ivar(
+    original_pattern: &Pattern,
+    shared: &SharedData,
+    variable_ivar: usize,
+    match_loc: &usize,
+    rng: &mut impl rand::Rng,
+) -> Option<usize> {
+    let num_vars = get_num_variables(original_pattern);
+    if num_vars <= 1 {
+        return None; // no other variable to expand to
+    }
+    let mut new_ivar = rng.gen_range(0..num_vars - 1);
+    if new_ivar >= variable_ivar {
+        new_ivar += 1; // skip the variable we are expanding
+    }
+    let zid_original = get_zid_for_ivar(original_pattern, variable_ivar);
+    let zid_new = get_zid_for_ivar(original_pattern, new_ivar);
+    if shared.arg_of_zid_node[zid_original][match_loc].shifted_id == shared.arg_of_zid_node[zid_new][match_loc].shifted_id {
+        return Some(new_ivar);
+    }
+    None
+}
+
+pub fn sample_variable_reuse_expansion(
+    pattern: &Pattern,
+    shared: &SharedData,
+    variable_ivar: usize,
+    match_location: usize,
+    rng: &mut impl rand::Rng,
+) -> Option<(Pattern, ExpandsTo)> {
+    if let Some(new_ivar) = sample_new_ivar(pattern, shared, variable_ivar, &match_location, rng) {
+        let zid_original = get_zid_for_ivar(pattern, variable_ivar);
+        let zid_new = get_zid_for_ivar(pattern, new_ivar);
+        let locs = compatible_locations(
+            shared,
+            pattern,
+            &shared.arg_of_zid_node[zid_original],
+            &shared.arg_of_zid_node[zid_new],
+        );
+        if !locs.is_empty() {
+            let mut pattern = pattern.clone();
+            pattern.match_locations = locs;
+            let expands_to = ExpandsTo(ExpandsToInner::IVar(new_ivar as i32));
+            return Some((pattern, expands_to));
+        }
+    }
+    None
 }
