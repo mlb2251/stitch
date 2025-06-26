@@ -966,12 +966,10 @@ fn stitch_search(
 
                 // Pruning (FREE VARS): if an invention has free variables in the body then it's not a real function and we can discard it
                 // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
-                if let Some(i) = expands_to.is_var() {
-                    if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
-                        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
-                        if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
-                        continue 'expansion; // free var
-                    }
+                if expands_to.free_variable(shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count()) {
+                    if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
+                    if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
+                    continue 'expansion; // free var
                 }
 
                 // update the body utility

@@ -45,11 +45,12 @@ impl ExpandsTo {
         matches!(self, ExpandsTo(ExpandsToInner::App))
     }
 
-    pub fn is_var(&self) -> Option<i32> {
+    #[inline]
+    pub fn free_variable(&self, num_variables: usize) -> bool {
         let ExpandsTo(s) = self;
         match s {
-            ExpandsToInner::Var(i, _) => Some(*i),
-            _ => None,
+            ExpandsToInner::Var(i, _) => *i >= num_variables as i32,
+            _ => false,
         }
     }
 
