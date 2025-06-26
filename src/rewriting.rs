@@ -44,7 +44,7 @@ pub fn rewrite_fast(
             //  if !shared.cfg.quiet { println!("inv applies at unshifted={} with shift={}", extract(unshifted_id,&shared.egraph), shift) }
             let mut expr = owned_set.add(inv_name.clone());
             // wrap the prim in all the Apps to args
-            for zid in pattern.pattern.first_zid_of_ivar.iter() {
+            for zid in pattern.pattern.pattern_args.first_zid_of_ivar.iter() {
                 let arg: &Arg = &shared.arg_of_zid_node[*zid][&unshifted_id];
 
                 if arg.shift != 0 {
