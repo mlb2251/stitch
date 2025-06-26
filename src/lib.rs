@@ -5,6 +5,7 @@ pub mod egraphs;
 pub mod util;
 pub mod formats;
 pub mod tdfa;
+pub mod expansion;
 pub mod test_utils;
 
 pub use {
@@ -15,6 +16,7 @@ pub use {
     formats::*,
     lambdas::*,
     tdfa::*,
+    expansion::*,
     test_utils::*,
 };
 
