@@ -5,7 +5,7 @@ use rustc_hash::{FxHashMap,FxHashSet};
 use core::panic;
 use std::convert::TryInto;
 use std::fmt::{self, Formatter, Display};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use itertools::Itertools;
 use serde_json::json;
 use clap::{Parser};
@@ -227,9 +227,42 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub quiet: bool,
 
-    // Fused lambda tags
+    /// Fused lambda tags
     #[clap(long, value_parser = clap::value_parser!(FusedLambdaTags), default_value="")]
     pub fused_lambda_tags: FusedLambdaTags,
+
+    /// If true, we will use Sequential Monte Carlo (SMC) to sample patterns
+    #[clap(long)]
+    pub smc: bool,
+
+    /// Seed for the random number generator used in SMC
+    #[clap(long, default_value = "0")]
+    pub seed: u64,
+
+    /// Number of particles to use in SMC
+    #[clap(long, default_value = "1000")]
+    pub smc_particles: usize,
+
+    /// If true, we will use "fast utility" in SMC, which is a heuristic that
+    /// estimates the utility of a pattern without fully rewriting it.
+    #[clap(long)]
+    pub smc_fast_utility: bool,
+
+    /// Number of smc steps we will run after finding a best pattern
+    /// before stopping. e.g., if --smc-extra-step=10, we will stop at
+    /// step 29 if a best pattern is found at step 19.
+    #[clap(long, default_value = "10")]
+    pub smc_extra_steps: usize,
+
+    /// Number of expansions to make before recalculating the utility of a pattern
+    /// in SMC. This is used to control the tradeoff between exploration and exploitation.
+    #[clap(long, default_value = "1")]
+    pub smc_expand_per_step: usize,
+
+    /// SMC temperature, used to control the exploration-exploitation tradeoff.
+    /// A higher temperature means more exploration, while a lower temperature means more exploitation.
+    #[clap(long, default_value = "1.0")]
+    pub smc_temperature: f32,
 
     /// TDFA settings
     #[clap(flatten)]
@@ -284,15 +317,29 @@ impl Default for CompressionStepConfig {
 }
 
 /// A Pattern is a partial abstraction which may have holes
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pattern {
     pub holes: Vec<ZId>, // zipper to hole in order of when theyre added NOT left to right
-    arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
+    pub arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
     pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
     pub match_locations: Vec<Idx>, // places where it applies
     pub utility_upper_bound: Cost,
     pub body_utility: Cost, // the size (in `cost`) of a single use of the pattern body so far
     pub tracked: bool, // for debugging
+}
+
+impl Hash for Pattern {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Only hash the structural components of the pattern
+        self.holes.hash(state);
+        self.arg_choices.hash(state);
+        self.first_zid_of_ivar.hash(state);
+        // Intentionally skip:
+        // - match_locations (dynamic)
+        // - utility_upper_bound (computed)
+        // - body_utility (computed)
+        // - tracked (debug flag)
+    }
 }
 
 /// only used during tracking - gets the zippers to args of a pattern
@@ -489,6 +536,26 @@ impl Pattern {
             tracked: cfg.follow.is_some(),
         }
     }
+
+    fn single_var(corpus_span: &Span, cost_of_node_sym: &[Cost], cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], tdfa_global_annotations: &Option<TDFAGlobalAnnotations>, set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
+        let mut pattern = Self::single_hole(corpus_span, cost_of_node_sym, cost_of_node_all, num_paths_to_node, tdfa_global_annotations, set, cfg);
+        let hole_zid = pattern.holes.pop().unwrap();
+        add_variable_at(&mut pattern, hole_zid, 0);
+        pattern
+    }
+
+    pub fn single_var_from_shared(shared: &SharedData) -> Self {
+        Self::single_var(
+            &shared.corpus_span,
+            &shared.cost_of_node_sym,
+            &shared.cost_of_node_all,
+            &shared.num_paths_to_node,
+            &shared.tdfa_global_annotations,
+            &shared.set,
+            &shared.cfg
+        )
+    }
+
     /// convert pattern to an Expr
     fn to_expr(&self, shared: &SharedData) -> ExprOwned {
         let mut set = ExprSet::empty(Order::ChildFirst, false, false);
@@ -1118,6 +1185,16 @@ fn stitch_search(
 }
 
 
+pub fn compatible_locations(shared: &SharedData, original_pattern: &Pattern, arg_of_loc_1:  &FxHashMap<Idx,Arg>, arg_of_loc_2:  &FxHashMap<Idx,Arg>) -> Vec<usize> {
+    let locs: Vec<Idx> = original_pattern.match_locations.iter()
+        .filter(|loc:&&Idx| arg_of_loc_1[loc].shifted_id == 
+            arg_of_loc_2[loc].shifted_id
+            && !invalid_metavar_location(shared, arg_of_loc_1[loc].shifted_id)
+        ).cloned().collect();
+    locs
+}
+
+
 /// A finished abstraction
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FinishedPattern {
@@ -1131,7 +1208,7 @@ pub struct FinishedPattern {
 
 impl FinishedPattern {
     //#[inline(never)]
-    fn new(pattern: Pattern, shared: &SharedData) -> Self {
+    pub fn new(pattern: Pattern, shared: &SharedData) -> Self {
         let arity = pattern.first_zid_of_ivar.len();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum();
         let compressive_utility = compressive_utility(&pattern,shared);
@@ -1339,7 +1416,7 @@ pub struct CompressionStepResult {
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, very_first_cost: Cost, name_mapping: &[(String,String)], dc_comparison_millis: Option<usize>) -> Self {
+    pub fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, very_first_cost: Cost, name_mapping: &[(String,String)], dc_comparison_millis: Option<usize>) -> Self {
 
         let inv = done.to_invention(inv_name, shared);
         let rewritten = rewrite_fast(&done, shared, &Node::Prim(inv.name.clone().into()), &shared.cost_fn);
@@ -1461,7 +1538,7 @@ fn utility_upper_bound(
 /// to changes in size that come from rewriting with an invention. Currently this is just the
 /// size of the abstraction itself
 //#[inline(never)]
-fn noncompressive_utility(
+pub fn noncompressive_utility(
     body_utility: Cost,
     cfg: &CompressionStepConfig,
 ) -> Cost {
@@ -1508,7 +1585,7 @@ fn noncompressive_utility_upper_bound(
 }
 
 //#[inline(never)]
-fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
+pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
     // * BASIC CALCULATION
     // Roughly speaking compressive utility is num_usages(invention) * size(invention), however there are a few extra
@@ -1571,6 +1648,12 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<Cost> 
 fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_of_loc_once: &[Cost]) -> (Vec<Cost>,FxHashMap<Idx,bool>) {
     let mut cumulative_utility_of_node: Vec<Cost> = vec![0; shared.corpus_span.len()];
     let mut corrected_utils: FxHashMap<Idx,bool> = Default::default();
+    let mut indices = vec![-1; shared.corpus_span.len()];
+    for (idx, node) in pattern.match_locations.iter().enumerate() {
+        // we want to keep track of the index of the match location in the pattern
+        // so that we can use it later to determine whether to rewrite or not
+        indices[*node] = idx as i32;
+    }
 
     for node in shared.corpus_span.clone() {
 
@@ -1583,8 +1666,11 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
 
         assert!(utility_without_rewrite >= 0);
 
-        if let Ok(idx) = pattern.match_locations.binary_search(&node) {
+        let idxi = indices[node];
+
+        if idxi >= 0 {
             // this node is a potential rewrite location
+            let idx = idxi as usize;
 
             let utility_of_args: Cost = pattern.first_zid_of_ivar.iter()
                 .map(|zid| cumulative_utility_of_node[shared.arg_of_zid_node[*zid][&node].unshifted_id])
@@ -1776,18 +1862,27 @@ pub fn multistep_compression_internal(
         } else {
             format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len())
         };
-
-        // call actual compression
-        let res: Vec<CompressionStepResult> = compression_step(
-            &rewritten,
-            &inv_name,
-            &cfg,
-            &tasks,
-            &weights,
-            very_first_cost,
-            &name_mapping,
-            &step_results,
-            );
+        let res: Vec<CompressionStepResult> = if cfg.step.smc {
+            smc::compression_step_smc(
+                &rewritten,
+                &inv_name,
+                &cfg,
+                &tasks,
+                &weights,
+                &step_results,
+            )
+        } else {
+            compression_step(
+                &rewritten,
+                &inv_name,
+                &cfg,
+                &tasks,
+                &weights,
+                very_first_cost,
+                &name_mapping,
+                &step_results,
+            )
+        };
 
         if !res.is_empty() {
             // rewrite with the invention
