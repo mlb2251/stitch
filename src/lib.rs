@@ -7,6 +7,7 @@ pub mod formats;
 pub mod smc;
 pub mod expand_variable;
 pub mod tdfa;
+pub mod expansion;
 pub mod test_utils;
 
 pub use {
@@ -19,6 +20,7 @@ pub use {
     smc::*,
     expand_variable::*,
     tdfa::*,
+    expansion::*,
     test_utils::*,
 };
 

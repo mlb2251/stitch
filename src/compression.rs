@@ -522,7 +522,7 @@ impl Pattern {
 
         // to guarantee eta long we cant allow abstractions to start with a lambda at the top
         if cfg.eta_long {
-            match_locations.retain(|node| !matches!(expands_to_of_node(&set[*node]), ExpandsTo::Lam(_)));
+            match_locations.retain(|node| expands_to_of_node(&set[*node]).is_lam());
         }
 
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_sym, cost_of_node_all, num_paths_to_node, cfg);
@@ -611,59 +611,6 @@ impl Pattern {
     }
 }
 
-/// Tells us what a hole will expand into at this node.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
-pub enum ExpandsTo {
-    Lam(Tag),
-    App,
-    Var(i32, Tag),
-    Prim(Symbol),
-    IVar(i32),
-}
-
-impl ExpandsTo {
-    #[inline]
-    /// true if expanding a node of this ExpandsTo will yield new holes
-    #[allow(dead_code)]
-    fn has_holes(&self) -> bool {
-        match self {
-            ExpandsTo::Lam(_) => true,
-            ExpandsTo::App => true,
-            ExpandsTo::Var(_, _) => false,
-            ExpandsTo::Prim(_) => false,
-            ExpandsTo::IVar(_) => false,
-        }
-    }
-    #[inline]
-    #[allow(dead_code)]
-    fn is_ivar(&self) -> bool {
-        matches!(self, ExpandsTo::IVar(_))
-    }
-}
-
-impl std::fmt::Display for ExpandsTo {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            ExpandsTo::Lam(tag) => {
-                write!(f, "(lam")?;
-                if *tag != -1 {
-                    write!(f, "_{}", tag)?;
-                }
-                write!(f, " ??)")
-            },
-            ExpandsTo::App => write!(f, "(?? ??)"),
-            ExpandsTo::Var(v, tag) => {
-                write!(f, "${v}")?;
-                if *tag != -1 {
-                    write!(f, "_{}", tag)?;
-                }
-                Ok(())
-            },
-            ExpandsTo::Prim(p) => write!(f, "{p}"),
-            ExpandsTo::IVar(v) => write!(f, "#{v}"),
-        }
-    }
-}
 
 /// the index of the empty zipper `[]` in the list of zippers
 const EMPTY_ZID: ZId = 0;
@@ -676,42 +623,6 @@ pub struct Arg {
     pub shift: i32, // how much was it shifted?
     pub cost: Cost,
     pub expands_to: ExpandsTo,
-}
-
-fn expands_to_of_node(node: &Node) -> ExpandsTo {
-    match node {
-        Node::Var(i, tag) => ExpandsTo::Var(*i, *tag),
-        Node::Prim(p) => ExpandsTo::Prim(p.clone()),
-        Node::Lam(_, tag) => ExpandsTo::Lam(*tag),
-        Node::App(_,_) => ExpandsTo::App,
-        Node::IVar(i) => ExpandsTo::IVar(*i),
-    }
-}
-
-/// Used in debugging - tells you what you'd expect the next hole expansion to be
-fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData) -> ExpandsTo {
-    // apply the hole zipper to the original expr being tracked to get the subtree
-    // this will expand into, then get the ExpandsTo of that
-    let idx = shared.tracking.as_ref().unwrap().expr.immut().zip(&shared.zip_of_zid[hole_zid]).idx;
-    match expands_to_of_node(&shared.tracking.as_ref().unwrap().expr.set[idx]) {
-        ExpandsTo::IVar(i) => {
-            // in the case where we're searching for an IVar we need to be robust to relabellings
-            // since this doesn't have to be canonical. What we can do is we can look over
-            // each ivar the the pattern has defined with a first zid in pattern.first_zid_of_ivar, and
-            // if our expressions' zids_of_ivar[i] contains this zid then we know these two ivars
-            // must correspond to each other in the pattern and the tracked expr and we can just return
-            // the pattern version (`j` below).
-            let zids = shared.tracking.as_ref().unwrap().zids_of_ivar[i as usize].clone();
-            for (j,zid) in pattern.first_zid_of_ivar.iter().enumerate() {
-                if zids.contains(zid) {
-                    return ExpandsTo::IVar(j as i32);
-                }
-            }
-            // it's a new ivar that hasnt been used already so it must take on the next largest var number
-            ExpandsTo::IVar(pattern.first_zid_of_ivar.len() as i32)
-        }
-        e => e
-    }
 }
 
 /// The heap item used for heap-based worklists. Holds a pattern
@@ -792,7 +703,7 @@ pub struct SharedData {
     pub fused_lambda_tags: Option<FxHashSet<Tag>>,
 }
 
-fn invalid_metavar_location(shared : &SharedData, node: Idx) -> bool {
+pub fn invalid_metavar_location(shared : &SharedData, node: Idx) -> bool {
     tdfa_invalid_metavar(&shared.tdfa_global_annotations, node) || fused_lambda_location(&shared.set, &shared.fused_lambda_tags, node)
 }
 
@@ -814,8 +725,8 @@ fn fused_lambda_location(set : &ExprSet, fused_lambda_tags: &Option<FxHashSet<Ta
 /// Used for debugging tracking information
 #[derive(Debug)]
 pub struct Tracking {
-    expr: ExprOwned,
-    zids_of_ivar: Vec<Vec<ZId>>,
+    pub expr: ExprOwned,
+    pub zids_of_ivar: Vec<Vec<ZId>>,
 }
 
 impl CriticalMultithreadData {
@@ -923,7 +834,7 @@ impl HoleChoice {
             },
             HoleChoice::FewApps => {
                 pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().filter(|loc|shared.arg_of_zid_node[*hole_zid][loc].expands_to == ExpandsTo::App).count()))
+                    (hole_idx, pattern.match_locations.iter().filter(|loc|shared.arg_of_zid_node[*hole_zid][loc].expands_to.is_app()).count()))
                         .min_by_key(|x|x.1).unwrap().0
             }
             HoleChoice::MaxCost => {
@@ -1122,16 +1033,14 @@ fn stitch_search(
 
                 // Pruning (FREE VARS): if an invention has free variables in the body then it's not a real function and we can discard it
                 // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
-                if let ExpandsTo::Var(i, _) = expands_to {
-                    if i >= shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count() as i32 {
-                        if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
-                        if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
-                        continue 'expansion; // free var
-                    }
+                if expands_to.free_variable(shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count()) {
+                    if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
+                    if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
+                    continue 'expansion; // free var
                 }
 
                 // update the body utility
-                let body_utility = original_pattern.body_utility + compute_body_utility_change(&shared, &expands_to);
+                let body_utility = original_pattern.body_utility + expands_to.local_expansion_utility(&shared);
 
                 // update the upper bound
                 let util_upper_bound: Cost = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_sym, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
@@ -1151,28 +1060,12 @@ fn stitch_search(
 
                 // add any new holes to the list of holes
                 let mut holes = holes_after_pop.clone();
-                match expands_to {
-                    ExpandsTo::Lam(_) => {
-                        // add new holes
-                        holes.push(shared.extensions_of_zid[hole_zid].body.unwrap());
-                    }
-                    ExpandsTo::App => {
-                        // add new holes
-                            holes.push(shared.extensions_of_zid[hole_zid].func.unwrap());
-                            holes.push(shared.extensions_of_zid[hole_zid].arg.unwrap());
-                    }
-                    _ => {}
-                }
+                expands_to.add_holes(&shared.extensions_of_zid[hole_zid], &mut holes);
 
                 // update arg_choices and possibly first_zid_of_ivar if a new ivar was added
                 let mut arg_choices = original_pattern.arg_choices.clone();
                 let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
-                if let ExpandsTo::IVar(i) = expands_to {
-                    arg_choices.push(LabelledZId::new(hole_zid, i as usize));
-                    if i as usize == original_pattern.first_zid_of_ivar.len() {
-                        first_zid_of_ivar.push(hole_zid);
-                    }
-                }
+                expands_to.add_ivar(hole_zid, &mut first_zid_of_ivar, &mut arg_choices);
 
                 // Pruning (ARGUMENT CAPTURE): check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
                 // because subsetting of match_locations can turn previously useful abstractions into useless ones. In the paper this is referred to as "argument capture"
@@ -1291,52 +1184,6 @@ fn stitch_search(
 
 }
 
-pub fn compute_body_utility_change(shared: &SharedData, expands_to: &ExpandsTo) -> Cost {
-    (match expands_to {
-        ExpandsTo::Lam(_) => shared.cost_fn.cost_lam,
-        ExpandsTo::App => shared.cost_fn.cost_app,
-        ExpandsTo::Var(_, _) => shared.cost_fn.cost_var,
-        ExpandsTo::Prim(p) => shared.cost_fn.compute_cost_prim(p),
-        ExpandsTo::IVar(_) => 0,
-    }) as Cost
-}
-
-//#[inline(never)]
-/// Return options for what abstraction arguments (aka ivars, #i) can expand into. When expanding to an ivar that
-/// already exists in the expression the match locations get subset to enforce the equality constraint - for example
-/// in (* #0 #0) both #0s must be the same within each match location. For a fresh ivar that doesn't yet exist in a pattern,
-/// we only allow if it is within our max arity limit.
-fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,Arg>, hole_zid: ZId, shared: &Arc<SharedData>) -> Vec<(ExpandsTo, Vec<Idx>)> {
-    let mut ivars_expansions = vec![];
-
-    if shared.cfg.no_curried_metavars {
-        // dont allow any expansions that result in a metavar to the left of an app
-        if let Some(ZNode::Func) = shared.zip_of_zid[hole_zid].last(){
-            return ivars_expansions;
-        }
-    }
-
-    // consider all ivars used previously
-    for ivar in 0..original_pattern.first_zid_of_ivar.len() {
-        let arg_of_loc_ivar = &shared.arg_of_zid_node[original_pattern.first_zid_of_ivar[ivar]];
-        let locs: Vec<Idx> = original_pattern.match_locations.iter()
-            .filter(|loc:&&Idx|
-                arg_of_loc[loc].shifted_id == 
-                arg_of_loc_ivar[loc].shifted_id
-                && !invalid_metavar_location(shared, arg_of_loc[loc].shifted_id)
-            ).cloned().collect();
-        if locs.is_empty() { continue; }
-        ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
-    }
-    // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
-    if original_pattern.first_zid_of_ivar.len() < shared.cfg.max_arity {
-        let ivar = original_pattern.first_zid_of_ivar.len();
-        let mut locs = original_pattern.match_locations.clone();
-        locs.retain(|loc| !invalid_metavar_location(shared, arg_of_loc[loc].shifted_id));
-        ivars_expansions.push((ExpandsTo::IVar(ivar as i32), locs));
-    }
-    ivars_expansions
-}
 
 pub fn compatible_locations(shared: &SharedData, original_pattern: &Pattern, arg_of_loc_1:  &FxHashMap<Idx,Arg>, arg_of_loc_2:  &FxHashMap<Idx,Arg>) -> Vec<usize> {
     let locs: Vec<Idx> = original_pattern.match_locations.iter()
