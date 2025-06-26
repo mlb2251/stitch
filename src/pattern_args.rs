@@ -7,10 +7,10 @@ use rustc_hash::FxHashMap;
 use crate::*;
 
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct PatternArgs {
-    pub arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
-    pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
+    arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
+    first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
 }
 
 impl PartialOrd for PatternArgs {
@@ -26,14 +26,8 @@ impl Ord for PatternArgs {
     }
 }
 
-impl PatternArgs {
-    pub fn new() -> Self {
-        Self {
-            arg_choices: Vec::new(),
-            first_zid_of_ivar: Vec::new(),
-        }
-    }
 
+impl PatternArgs {
     pub fn arity(&self) -> usize {
         self.first_zid_of_ivar.len()
     }

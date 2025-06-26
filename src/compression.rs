@@ -480,7 +480,7 @@ impl Pattern {
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_sym, cost_of_node_all, num_paths_to_node, cfg);
         Pattern {
             holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
-            pattern_args: PatternArgs::new(),
+            pattern_args: PatternArgs::default(),
             match_locations, // single hole matches everywhere
             utility_upper_bound,
             body_utility, // 0 body utility
@@ -1549,8 +1549,8 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
         if let Ok(idx) = pattern.match_locations.binary_search(&node) {
             // this node is a potential rewrite location
 
-            let utility_of_args: Cost = pattern.pattern_args.first_zid_of_ivar.iter()
-                .map(|zid| cumulative_utility_of_node[shared.arg_of_zid_node[*zid][&node].unshifted_id])
+            let utility_of_args: Cost = pattern.pattern_args.iterate_one_zid_per_argument()
+                .map(|zid| cumulative_utility_of_node[shared.arg_of_zid_node[zid][&node].unshifted_id])
                 .sum();
             let utility_with_rewrite = utility_of_args + utility_of_loc_once[idx];
 
@@ -1639,7 +1639,7 @@ fn possible_to_uninline(counts: FxHashMap<Idx, (Cost, Vec<usize>)>, finished_usa
 fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>) -> FxHashMap<Idx,(Cost,Vec<ZId>)> {
     let mut curr_zip: Vec<ZNode> = vec![];
     let curr_zid: ZId = EMPTY_ZID;
-    let zids = &pattern.pattern_args.arg_choices[..];
+    let zids = &pattern.pattern_args.iterate_arguments().cloned().collect::<Vec<LabelledZId>>();
 
     // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
     let zips: Vec<Vec<ZNode>> = zids.iter()
@@ -1966,7 +1966,7 @@ pub fn construct_shared(
 
             let pattern = Pattern {
                 holes: vec![],
-                pattern_args: PatternArgs::new(),
+                pattern_args: PatternArgs::default(),
                 match_locations,
                 utility_upper_bound: utility,
                 body_utility,

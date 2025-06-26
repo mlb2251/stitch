@@ -1,6 +1,6 @@
 use std::{fmt::{self, Formatter}, sync::Arc};
 
-use lambdas::{Idx, LabelledZId, Node, Symbol, Tag, ZId, ZNode};
+use lambdas::{Idx, Node, Symbol, Tag, ZId, ZNode};
 use rustc_hash::FxHashMap;
 
 use crate::{invalid_metavar_location, Arg, Cost, Pattern, PatternArgs, SharedData, ZIdExtension};
@@ -131,7 +131,7 @@ pub fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData)
     let idx = shared.tracking.as_ref().unwrap().expr.immut().zip(&shared.zip_of_zid[hole_zid]).idx;
     match expands_to_of_node(&shared.tracking.as_ref().unwrap().expr.set[idx]) {
         ExpandsTo(ExpandsToInner::IVar(i)) => {
-            return ExpandsTo(ExpandsToInner::IVar(pattern.pattern_args.find_variable(shared, i as usize) as i32));
+            ExpandsTo(ExpandsToInner::IVar(pattern.pattern_args.find_variable(shared, i as usize) as i32))
         }
         e => e
     }
