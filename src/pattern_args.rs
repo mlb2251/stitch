@@ -42,8 +42,14 @@ impl PatternArgs {
         self.first_zid_of_ivar.len()
     }
 
+    #[inline]
     pub fn iterate_arguments(&self) -> impl Iterator<Item = &LabelledZId> {
         self.arg_choices.iter()
+    }
+
+    #[inline]
+    pub fn iterate_one_zid_per_argument(&self) -> impl Iterator<Item = ZId> + '_ {
+        self.first_zid_of_ivar.iter().cloned()
     }
     
     pub fn add_ivar(&mut self, ivar: usize, zid: ZId) {
