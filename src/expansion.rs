@@ -50,6 +50,14 @@ impl ExpandsTo {
     }
 
     #[inline]
+    fn is_prim_symbol(&self) -> bool {
+        let ExpandsTo(ExpandsToInner::Prim(sym)) = self else {
+            return false;
+        };
+        sym.starts_with('&')
+    }
+
+    #[inline]
     pub fn free_variable(&self, num_variables: usize) -> bool {
         let ExpandsTo(s) = self;
         match s {
@@ -163,6 +171,7 @@ pub fn expands_to_of_node(node: &Node) -> ExpandsTo {
 pub fn get_syntactic_expansions(arg_of_loc: &FxHashMap<usize, Arg>, match_locations: Vec<usize>) -> Vec<(ExpandsTo, Vec<Idx>)> {
     match_locations.into_iter()
         .group_by(|loc| &arg_of_loc[loc].expands_to).into_iter()
+        .filter(|(expands_to, _)| !expands_to.is_prim_symbol())
         .map(|(expands_to, locs)| (expands_to.clone(), locs.collect::<Vec<Idx>>()))
         .collect::<Vec<_>>()
 }
@@ -213,11 +222,7 @@ pub fn svar_locations(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,Arg
     let mut locations = vec![];
 
     original_pattern.match_locations.iter().for_each(|loc| {
-        let ExpandsTo(ExpandsToInner::Prim(sym)) = &arg_of_loc[loc].expands_to else {
-            return;
-        };
-        let starts_with_ampersand = sym.starts_with('&');
-        if !starts_with_ampersand {
+        if !arg_of_loc[loc].expands_to.is_prim_symbol() {
             return;
         }
         if reusable_locs.contains(loc) {
