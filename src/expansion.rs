@@ -2,9 +2,9 @@ use std::{fmt::{self, Formatter}, sync::Arc};
 
 use itertools::Itertools;
 use lambdas::{Idx, Node, Symbol, Tag, ZId, ZNode};
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
-use crate::{invalid_metavar_location, Arg, Cost, Pattern, PatternArgs, SharedData, ZIdExtension};
+use crate::{invalid_metavar_location, Arg, Cost, Pattern, PatternArgs, SharedData, VariableType, ZIdExtension};
 
 /// Tells us what a hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
@@ -17,6 +17,8 @@ enum ExpandsToInner {
     // IVar is an abstraction argument, which is a hole that can be filled with a value.
     // Corresponds to a "metavariable" in the Julia stitch implementation.
     IVar(i32),
+    // SVar is a special variable that can be used to match against a symbol, like `&x` in the Julia stitch implementation.
+    SVar(i32),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
@@ -34,6 +36,7 @@ impl ExpandsTo {
             ExpandsToInner::Var(_, _) => false,
             ExpandsToInner::Prim(_) => false,
             ExpandsToInner::IVar(_) => false,
+            ExpandsToInner::SVar(_) => false,
         }
     }
     #[inline]
@@ -44,6 +47,14 @@ impl ExpandsTo {
     #[inline]
     pub fn is_app(&self) -> bool {
         matches!(self, ExpandsTo(ExpandsToInner::App))
+    }
+
+    #[inline]
+    fn is_prim_symbol(&self) -> bool {
+        let ExpandsTo(ExpandsToInner::Prim(sym)) = self else {
+            return false;
+        };
+        sym.starts_with('&')
     }
 
     #[inline]
@@ -70,6 +81,7 @@ impl ExpandsTo {
             ExpandsToInner::Var(_, _) => shared.cost_fn.cost_var,
             ExpandsToInner::Prim(p) => shared.cost_fn.compute_cost_prim(p),
             ExpandsToInner::IVar(_) => 0,
+            ExpandsToInner::SVar(_) => 0,
         };
         res as Cost
     }
@@ -91,10 +103,13 @@ impl ExpandsTo {
         }
     }
 
-    pub fn add_ivar(&self, original_hole_zid: ZId, pattern_args: &mut PatternArgs) {
+    pub fn add_variables(&self, original_hole_zid: ZId, pattern_args: &mut PatternArgs) {
         let ExpandsTo(expands_to) = self;
         if let ExpandsToInner::IVar(i) = expands_to {
-            pattern_args.add_ivar(*i as usize, original_hole_zid);
+            pattern_args.add_var(*i as usize, original_hole_zid, VariableType::IVar);
+        }
+        if let ExpandsToInner::SVar(i) = expands_to {
+            pattern_args.add_var(*i as usize, original_hole_zid, VariableType::SVar);
         }
     }
 }
@@ -120,6 +135,7 @@ impl std::fmt::Display for ExpandsTo {
             },
             ExpandsTo(ExpandsToInner::Prim(p)) => write!(f, "{p}"),
             ExpandsTo(ExpandsToInner::IVar(v)) => write!(f, "#{v}"),
+            ExpandsTo(ExpandsToInner::SVar(v)) => write!(f, "#{v}"),
         }
     }
 }
@@ -155,6 +171,7 @@ pub fn expands_to_of_node(node: &Node) -> ExpandsTo {
 pub fn get_syntactic_expansions(arg_of_loc: &FxHashMap<usize, Arg>, match_locations: Vec<usize>) -> Vec<(ExpandsTo, Vec<Idx>)> {
     match_locations.into_iter()
         .group_by(|loc| &arg_of_loc[loc].expands_to).into_iter()
+        .filter(|(expands_to, _)| !expands_to.is_prim_symbol())
         .map(|(expands_to, locs)| (expands_to.clone(), locs.collect::<Vec<Idx>>()))
         .collect::<Vec<_>>()
 }
@@ -174,19 +191,45 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
             return ivars_expansions;
         }
     }
-
+    let mut all_reusable_locs = FxHashSet::default();
     // consider all ivars used previously
-    for ivar in 0..original_pattern.pattern_args.num_ivars() {
-        let locs = original_pattern.pattern_args.reusable_args_location(shared, ivar, arg_of_loc, &original_pattern.match_locations);
+    for var in 0..original_pattern.pattern_args.arity() {
+        let locs = original_pattern.pattern_args.reusable_args_location(shared, var, arg_of_loc, &original_pattern.match_locations);
         if locs.is_empty() { continue; }
-        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(ivar as i32)), locs));
+        all_reusable_locs.extend(locs.iter().cloned());
+        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32)), locs));
     }
     // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
     if original_pattern.pattern_args.num_ivars() < shared.cfg.max_arity {
-        let ivar = original_pattern.pattern_args.num_ivars();
+        let var = original_pattern.pattern_args.arity();
         let mut locs = original_pattern.match_locations.clone();
         locs.retain(|loc| !invalid_metavar_location(shared, arg_of_loc[loc].shifted_id));
-        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(ivar as i32)), locs));
+        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32)), locs));
     }
+
+    let svar_locations = svar_locations(original_pattern, arg_of_loc, all_reusable_locs);
+    if !svar_locations.is_empty() {
+        // println!("Found svar locations: {:?}", svar_locations);
+        ivars_expansions.push((ExpandsTo(ExpandsToInner::SVar(original_pattern.pattern_args.arity() as i32)), svar_locations));
+    }
+
     ivars_expansions
+}
+
+
+pub fn svar_locations(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,Arg>, reusable_locs: FxHashSet<Idx>) -> Vec<Idx> {
+
+    let mut locations = vec![];
+
+    original_pattern.match_locations.iter().for_each(|loc| {
+        if !arg_of_loc[loc].expands_to.is_prim_symbol() {
+            return;
+        }
+        if reusable_locs.contains(loc) {
+            return;
+        }
+
+        locations.push(*loc);
+    });
+    locations
 }
