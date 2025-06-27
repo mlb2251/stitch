@@ -116,12 +116,12 @@ impl PatternArgs {
         if !shared.cfg.no_opt_force_multiuse {
             // for all pairs of ivars #i and #j, get the first zipper and compare the arg value across all locations
             for (i,ivar_zid_1) in self.first_zid_of_var.iter().enumerate() {
-                if self.type_of_var[*ivar_zid_1] != VariableType::IVar {
+                if self.type_of_var[i] != VariableType::IVar {
                     continue;
                 }
                 let arg_of_loc_1 = &shared.arg_of_zid_node[*ivar_zid_1];
-                for ivar_zid_2 in self.first_zid_of_var.iter().skip(i+1) {
-                    if self.type_of_var[*ivar_zid_2] != VariableType::IVar {
+                for (j, ivar_zid_2) in self.first_zid_of_var.iter().enumerate().skip(i+1) {
+                    if self.type_of_var[j] != VariableType::IVar {
                         continue;
                     }
                     let arg_of_loc_2 = &shared.arg_of_zid_node[*ivar_zid_2];
