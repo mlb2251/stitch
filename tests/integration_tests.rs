@@ -228,6 +228,13 @@ fn tdfa_sequence() {
 }
 
 
+#[test]
+fn symbols_basic() {
+    compare_out_jsons("data/python/symbols-alignment.json", "data/expected_outputs/symbols-alignment.json", "-i2 -a3 ", InputFormat::ProgramsList);
+    compare_out_jsons("data/python/symbols-cannot-be-literal.json", "data/expected_outputs/symbols-cannot-be-literal.json", "-i2 -a3 ", InputFormat::ProgramsList);
+}
+
+
 // todo disabled bc nondeterminism with 2 equal things on the first invention (usually threading prevents that, but here for some reason you always get the same result when running from commandline and a diff result when running from test)
 // #[test]
 // fn origami_3_a3_i10() {

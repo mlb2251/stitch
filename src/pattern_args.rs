@@ -42,6 +42,10 @@ impl PatternArgs {
         self.type_of_var.iter().filter(|t| **t == VariableType::IVar).count()
     }
 
+    pub fn num_svars(&self) -> usize {
+        self.type_of_var.iter().filter(|t| **t == VariableType::SVar).count()
+    }
+
     #[inline]
     pub fn iterate_arguments(&self) -> impl Iterator<Item = &LabelledZId> {
         self.arg_choices.iter()
@@ -52,11 +56,11 @@ impl PatternArgs {
         self.first_zid_of_var.iter().cloned()
     }
     
-    pub fn add_ivar(&mut self, ivar: usize, zid: ZId) {
+    pub fn add_var(&mut self, ivar: usize, zid: ZId, vtype: VariableType) {
         self.arg_choices.push(LabelledZId::new(zid, ivar));
         if ivar == self.first_zid_of_var.len() {
             self.first_zid_of_var.push(zid);
-            self.type_of_var.push(VariableType::IVar);
+            self.type_of_var.push(vtype);
         }
     }
 
@@ -168,5 +172,12 @@ impl PatternArgs {
         // it's a new ivar that hasnt been used already so it must take on the next largest var number
         self.first_zid_of_var.len()
     }
+
+    // pub fn svar_of_symbol(&self, shared: &SharedData, symbol: &str) -> Option<Idx> {
+    //     // find the first svar that matches the symbol
+    //     self.arg_choices.iter().enumerate()
+    //         .find(|(_, labelled)| labelled.label == Some(symbol.to_string()) && self.type_of_var[labelled.ivar] == VariableType::SVar)
+    //         .map(|(i, _)| i as Idx)
+    // }
 
 }
