@@ -166,17 +166,17 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
     }
 
     // consider all ivars used previously
-    for ivar in 0..original_pattern.pattern_args.num_ivars() {
-        let locs = original_pattern.pattern_args.reusable_args_location(shared, ivar, arg_of_loc, &original_pattern.match_locations);
+    for var in 0..original_pattern.pattern_args.arity() {
+        let locs = original_pattern.pattern_args.reusable_args_location(shared, var, arg_of_loc, &original_pattern.match_locations);
         if locs.is_empty() { continue; }
-        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(ivar as i32)), locs));
+        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32)), locs));
     }
     // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
     if original_pattern.pattern_args.num_ivars() < shared.cfg.max_arity {
-        let ivar = original_pattern.pattern_args.num_ivars();
+        let var = original_pattern.pattern_args.arity();
         let mut locs = original_pattern.match_locations.clone();
         locs.retain(|loc| !invalid_metavar_location(shared, arg_of_loc[loc].shifted_id));
-        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(ivar as i32)), locs));
+        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32)), locs));
     }
     ivars_expansions
 }
