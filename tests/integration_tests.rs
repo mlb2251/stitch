@@ -232,6 +232,7 @@ fn tdfa_sequence() {
 fn symbols_basic() {
     compare_out_jsons("data/python/symbols-alignment.json", "data/expected_outputs/symbols-alignment.json", "-i2 -a3 ", InputFormat::ProgramsList);
     compare_out_jsons("data/python/symbols-cannot-be-literal.json", "data/expected_outputs/symbols-cannot-be-literal.json", "-i2 -a3 ", InputFormat::ProgramsList);
+    compare_out_jsons("data/python/symbols-cannot-be-literal-0-arity.json", "data/expected_outputs/symbols-cannot-be-literal-0-arity.json", "-i2 -a3 ", InputFormat::ProgramsList);
 }
 
 

@@ -603,6 +603,7 @@ pub struct SharedData {
     pub arg_of_zid_node: Vec<FxHashMap<Idx,Arg>>,
     pub cost_fn: ExprCost,
     pub analyzed_free_vars: AnalyzedExpr<FreeVarAnalysis>,
+    pub analyzed_sym_vars: AnalyzedExpr<SymVarAnalysis>,
     pub analyzed_ivars: AnalyzedExpr<IVarAnalysis>,
     pub analyzed_cost: AnalyzedExpr<ExprCost>,
     pub corpus_span: Span,
@@ -1893,9 +1894,11 @@ pub fn construct_shared(
     tstart = std::time::Instant::now();
 
     let mut analyzed_ivars = AnalyzedExpr::new(IVarAnalysis);
+    let mut analyzed_svars = AnalyzedExpr::new(SymVarAnalysis);
     analyzed_free_vars.analyze(&set);
     analyzed_cost.analyze(&set);
     analyzed_ivars.analyze(&set);
+    analyzed_svars.analyze(&set);
 
 
     if !cfg.quiet { println!("ran analyses: {:?}ms", tstart.elapsed().as_millis()) }
@@ -1923,6 +1926,11 @@ pub fn construct_shared(
             // and should thus be discarded
             if !analyzed_free_vars[node].is_empty() {
                 if !cfg.no_stats { stats.free_vars_fired += 1; };
+                continue;
+            }
+
+            // PRUNING (SYMBOLIC VARS): inventions with symbolic variables in the body are not 0-arity inventions
+            if analyzed_svars[node] != 0 {
                 continue;
             }
 
@@ -2021,6 +2029,7 @@ pub fn construct_shared(
         cost_fn: cost_fn.clone(),
         analyzed_free_vars,
         analyzed_ivars,
+        analyzed_sym_vars: analyzed_svars,
         analyzed_cost,    
         corpus_span: corpus_span.clone(),
         roots: roots.to_vec(),
