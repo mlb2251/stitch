@@ -168,15 +168,46 @@ impl PatternArgs {
 
 }
 
+pub struct LocationsForReusableArgs<'a> {
+    all_locs: &'a Vec<Idx>,
+    // lazily computed on an as-needed basis
+    sym_locs: Option<Vec<Idx>>,
+}
+
+impl LocationsForReusableArgs<'_> {
+    pub fn new(all_locs: &Vec<Idx>) -> LocationsForReusableArgs {
+        LocationsForReusableArgs {
+            all_locs,
+            sym_locs: None,
+        }
+    }
+
+    pub fn sym_locs<'a>(&'a mut self, arg_of_loc: &FxHashMap<Idx, Arg>) -> &'a Vec<Idx> {
+        if self.sym_locs.is_some() {
+            return self.sym_locs.as_ref().unwrap();
+        }
+        let locs: Vec<_> = self.all_locs.iter()
+            // TODO is_prim_symbol cache in shared
+            .filter(|loc| arg_of_loc[loc].expands_to.is_prim_symbol())
+            .cloned().collect();
+        self.sym_locs = Some(locs.clone());
+        self.sym_locs.as_mut().unwrap()
+    }
+}
 
 impl PatternArgs {
-    pub fn reusable_args_location(&self, shared: &SharedData, ivar: Idx, arg_of_loc: &FxHashMap<Idx, Arg>, match_locations: &[Idx]) -> Vec<Idx> {
+    pub fn reusable_args_location(&self, shared: &SharedData, ivar: Idx, arg_of_loc: &FxHashMap<Idx, Arg>, match_locations: &mut LocationsForReusableArgs) -> Vec<Idx> {
         let arg_of_loc_ivar = &shared.arg_of_zid_node[self.first_zid_of_var[ivar]];
         let require_valid = match self.type_of_var[ivar] {
             VariableType::IVar => true, // we require valid locations for IVar
             VariableType::SVar => false, // we do not require valid locations for SVar
         };
-        match_locations.iter()
+        let locs = match self.type_of_var[ivar] {
+            VariableType::SVar => match_locations.sym_locs(arg_of_loc),
+            VariableType::IVar => match_locations.all_locs,
+        };
+
+        locs.iter()
             .filter(|loc:&&Idx|
                 arg_of_loc[loc].shifted_id == 
                 arg_of_loc_ivar[loc].shifted_id

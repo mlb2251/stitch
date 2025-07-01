@@ -4,7 +4,7 @@ use itertools::Itertools;
 use lambdas::{Idx, Node, Symbol, Tag, ZId, ZNode};
 use rustc_hash::{FxHashMap, FxHashSet};
 
-use crate::{invalid_metavar_location, Arg, Cost, Pattern, PatternArgs, SharedData, VariableType, ZIdExtension};
+use crate::{invalid_metavar_location, Arg, Cost, LocationsForReusableArgs, Pattern, PatternArgs, SharedData, VariableType, ZIdExtension};
 
 /// Tells us what a hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
@@ -50,7 +50,7 @@ impl ExpandsTo {
     }
 
     #[inline]
-    fn is_prim_symbol(&self) -> bool {
+    pub fn is_prim_symbol(&self) -> bool {
         let ExpandsTo(ExpandsToInner::Prim(sym)) = self else {
             return false;
         };
@@ -193,8 +193,9 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
     }
     let mut all_reusable_locs = FxHashSet::default();
     // consider all ivars used previously
+    let mut locs_for_reusable = LocationsForReusableArgs::new(&original_pattern.match_locations);
     for var in 0..original_pattern.pattern_args.arity() {
-        let locs = original_pattern.pattern_args.reusable_args_location(shared, var, arg_of_loc, &original_pattern.match_locations);
+        let locs = original_pattern.pattern_args.reusable_args_location(shared, var, arg_of_loc, &mut locs_for_reusable);
         if locs.is_empty() { continue; }
         all_reusable_locs.extend(locs.iter().cloned());
         ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32)), locs));
