@@ -1394,7 +1394,8 @@ impl CompressionStepResult {
             "rewritten": rewritten,
             "rewritten_dreamcoder": rewritten_dreamcoder,
             "uses": all_uses,
-            "dc_comparison_millis": self.dc_comparison_millis
+            "dc_comparison_millis": self.dc_comparison_millis,
+            "tdfa_annotation": self.tdfa_annotation,
         })
     }
 }
