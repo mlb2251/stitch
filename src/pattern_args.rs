@@ -117,7 +117,7 @@ impl PatternArgs {
         false
     }
 
-    pub fn reusable_args_locations(&self, shared: &SharedData, arg_of_loc: &FxHashMap<Idx, Arg>, match_locations: &[Idx]) -> Vec<(Idx, Vec<Idx>)> {
+    pub fn reusable_args_locations(&self, shared: &SharedData, arg_of_loc: &FxHashMap<Idx, Arg>, match_locations: &[Idx]) -> impl Iterator<Item=(Idx, Vec<Idx>)> {
         let mut ivars_expansions = vec![];
         // consider all ivars used previously
         for ivar in 0..self.num_ivars() {
@@ -125,7 +125,7 @@ impl PatternArgs {
             if locs.is_empty() { continue; }
             ivars_expansions.push((ivar, locs));
         }
-        ivars_expansions
+        ivars_expansions.into_iter()
     }
 
     fn reusable_args_location_for_ivar(&self, shared: &SharedData, ivar: Idx, arg_of_loc: &FxHashMap<Idx, Arg>, match_locations: &[Idx]) -> Vec<Idx> {
