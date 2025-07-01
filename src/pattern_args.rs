@@ -142,10 +142,6 @@ impl PatternArgs {
     }
 
     pub fn reusable_args_location(&self, shared: &SharedData, ivar: Idx, arg_of_loc: &FxHashMap<Idx, Arg>, match_locations: &[Idx]) -> Vec<Idx> {
-        if self.type_of_var[ivar] != VariableType::IVar {
-            // if this is a SVar then we don't reuse it, so return empty
-            return vec![];
-        }
         let arg_of_loc_ivar = &shared.arg_of_zid_node[self.first_zid_of_var[ivar]];
         match_locations.iter()
             .filter(|loc:&&Idx|
