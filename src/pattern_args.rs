@@ -167,7 +167,7 @@ impl LocationsForReusableArgs<'_> {
         }
     }
 
-    fn relevant_locs<'a>(&'a mut self, var_type: VariableType) -> &'a Vec<Idx> {
+    fn relevant_locs(&mut self, var_type: VariableType) -> &Vec<Idx> {
         match var_type {
             VariableType::IVar => self.all_locs,
         }
