@@ -6,7 +6,7 @@ use rustc_hash::FxHashMap;
 
 use crate::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum VariableType {
     IVar,
     SVar,
@@ -182,7 +182,7 @@ impl LocationsForReusableArgs<'_> {
         }
     }
 
-    pub fn sym_locs<'a>(&'a mut self, arg_of_loc: &FxHashMap<Idx, Arg>) -> &'a Vec<Idx> {
+    fn sym_locs<'a>(&'a mut self, arg_of_loc: &FxHashMap<Idx, Arg>) -> &'a Vec<Idx> {
         if self.sym_locs.is_some() {
             return self.sym_locs.as_ref().unwrap();
         }
@@ -193,6 +193,13 @@ impl LocationsForReusableArgs<'_> {
         self.sym_locs = Some(locs.clone());
         self.sym_locs.as_mut().unwrap()
     }
+
+    fn relevant_locs<'a>(&'a mut self, var_type: VariableType, arg_of_loc: &FxHashMap<Idx, Arg>) -> &'a Vec<Idx> {
+        match var_type {
+            VariableType::SVar => self.sym_locs(arg_of_loc),
+            VariableType::IVar => self.all_locs,
+        }
+    }
 }
 
 impl PatternArgs {
@@ -202,12 +209,7 @@ impl PatternArgs {
             VariableType::IVar => true, // we require valid locations for IVar
             VariableType::SVar => false, // we do not require valid locations for SVar
         };
-        let locs = match self.type_of_var[ivar] {
-            VariableType::SVar => match_locations.sym_locs(arg_of_loc),
-            VariableType::IVar => match_locations.all_locs,
-        };
-
-        locs.iter()
+        match_locations.relevant_locs(self.type_of_var[ivar], arg_of_loc).iter()
             .filter(|loc:&&Idx|
                 arg_of_loc[loc].shifted_id == 
                 arg_of_loc_ivar[loc].shifted_id
