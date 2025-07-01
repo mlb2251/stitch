@@ -993,7 +993,7 @@ fn stitch_search(
 
                 // update arg_choices and possibly first_zid_of_ivar if a new ivar was added
                 let mut pattern_args = original_pattern.pattern_args.clone();
-                expands_to.add_ivar(hole_zid, &mut pattern_args);
+                expands_to.add_variables(hole_zid, &mut pattern_args);
 
                 if original_pattern.pattern_args.is_useless_abstract(&shared, &locs) {
                     continue 'expansion;
@@ -1601,7 +1601,7 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
     if let Some((delta, compressive_delta, _noncompressive_delta, _cost, zids)) = best {
         let ivar = finished.arity;
         for zid in &zids {
-            finished.pattern.pattern_args.add_ivar(ivar, *zid);
+            finished.pattern.pattern_args.add_var(ivar, *zid, VariableType::IVar);
         }
         finished.compressive_utility += compressive_delta;
         finished.util_calc.util += compressive_delta;

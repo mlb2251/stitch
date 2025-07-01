@@ -4,7 +4,7 @@ use itertools::Itertools;
 use lambdas::{Idx, Node, Symbol, Tag, ZId, ZNode};
 use rustc_hash::FxHashMap;
 
-use crate::{invalid_metavar_location, Arg, Cost, Pattern, PatternArgs, SharedData, ZIdExtension};
+use crate::{invalid_metavar_location, Arg, Cost, LocationsForReusableArgs, Pattern, PatternArgs, SharedData, VariableType, ZIdExtension};
 
 /// Tells us what a hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
@@ -91,10 +91,10 @@ impl ExpandsTo {
         }
     }
 
-    pub fn add_ivar(&self, original_hole_zid: ZId, pattern_args: &mut PatternArgs) {
+    pub fn add_variables(&self, original_hole_zid: ZId, pattern_args: &mut PatternArgs) {
         let ExpandsTo(expands_to) = self;
         if let ExpandsToInner::IVar(i) = expands_to {
-            pattern_args.add_ivar(*i as usize, original_hole_zid);
+            pattern_args.add_var(*i as usize, original_hole_zid, VariableType::IVar);
         }
     }
 }
@@ -176,17 +176,18 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
     }
 
     // consider all ivars used previously
-    for ivar in 0..original_pattern.pattern_args.num_ivars() {
-        let locs = original_pattern.pattern_args.reusable_args_location(shared, ivar, arg_of_loc, &original_pattern.match_locations);
+    let mut locs_for_reusable = LocationsForReusableArgs::new(&original_pattern.match_locations);
+    for var in 0..original_pattern.pattern_args.arity() {
+        let locs = original_pattern.pattern_args.reusable_args_location(shared, var, arg_of_loc, &mut locs_for_reusable);
         if locs.is_empty() { continue; }
-        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(ivar as i32)), locs));
+        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32)), locs));
     }
     // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
     if original_pattern.pattern_args.num_ivars() < shared.cfg.max_arity {
-        let ivar = original_pattern.pattern_args.num_ivars();
+        let var = original_pattern.pattern_args.arity();
         let mut locs = original_pattern.match_locations.clone();
         locs.retain(|loc| !invalid_metavar_location(shared, arg_of_loc[loc].shifted_id));
-        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(ivar as i32)), locs));
+        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32)), locs));
     }
     ivars_expansions
 }
