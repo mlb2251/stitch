@@ -119,7 +119,7 @@ pub struct TDFA {
     tdfa_non_eta_long_states: HashMap<State, State>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TDFAInventionAnnotation {
     root_state: State,
     metavariable_states: Vec<State>,
