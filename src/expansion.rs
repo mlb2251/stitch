@@ -94,7 +94,7 @@ impl ExpandsTo {
     pub fn add_variables(&self, original_hole_zid: ZId, pattern_args: &mut PatternArgs) {
         let ExpandsTo(expands_to) = self;
         if let ExpandsToInner::IVar(i) = expands_to {
-            pattern_args.add_var(*i as usize, original_hole_zid, VariableType::IVar);
+            pattern_args.add_var(*i as usize, original_hole_zid, VariableType::Metavar);
         }
     }
 }
