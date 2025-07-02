@@ -94,7 +94,7 @@ impl PatternArgs {
             // note I believe it'd be save to iterate over first_zid_of_ivar instead
             for argchoice in self.arg_choices.iter() {
                 if self.type_of_var[argchoice.ivar] != VariableType::Metavar {
-                    continue; // only check IVar arguments
+                    continue;
                 }
                 // if its the same arg in every place, and doesnt have any free vars (ie it's safe to inline)
                 if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
@@ -146,7 +146,6 @@ impl PatternArgs {
         // the pattern version (`j` below).
         let zids = shared.tracking.as_ref().unwrap().zids_of_ivar[i].clone();
         for (j,zid) in self.first_zid_of_var.iter().enumerate() {
-            // we do not filter for ivars because this is used for both IVar and SVar
             if zids.contains(zid) {
                 return j
             }
@@ -195,8 +194,8 @@ impl PatternArgs {
     pub fn reusable_args_location(&self, shared: &SharedData, ivar: Idx, arg_of_loc: &FxHashMap<Idx, Arg>, match_locations: &mut LocationsForReusableArgs) -> Vec<Idx> {
         let arg_of_loc_ivar = &shared.arg_of_zid_node[self.first_zid_of_var[ivar]];
         let require_valid = match self.type_of_var[ivar] {
-            VariableType::Metavar => true, // we require valid locations for IVar
-            VariableType::Symvar => false, // we do not require valid locations for SVar
+            VariableType::Metavar => true,
+            VariableType::Symvar => false,
         };
         match_locations.relevant_locs(self.type_of_var[ivar], arg_of_loc).iter()
             .filter(|loc:&&Idx|
