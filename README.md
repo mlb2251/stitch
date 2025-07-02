@@ -299,6 +299,12 @@ Running:
 cargo flamegraph --root --open --deterministic --output=out/flamegraph.svg --bin=compress -- data/cogsci/nuts-bolts.json
 ```
 
+## Datasets
+
+Most of it is sourced from https://github.com/mlb2251/compression_benchmark.
+
+The python/1000.json is sourced from git@github.com:mit-gfx/VLMaterial.git.
+
 ## Acknowledgement
 
 This work is supported by the National Science Foundation under Grant No. 1918839 *Understanding the World Through Code* http://www.neurosymbolic.org/ 

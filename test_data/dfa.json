@@ -34,8 +34,7 @@
       "seqS",
       "[E]",
       "TA",
-      "TC",
-      "[TP]"
+      "TC"
     ],
     "AsyncWith": [
       "[W]",
@@ -52,8 +51,7 @@
       "[E]",
       "[K]",
       "seqS",
-      "[E]",
-      "[TP]"
+      "[E]"
     ],
     "Delete": [
       "[L]"
@@ -74,8 +72,7 @@
       "seqS",
       "[E]",
       "TA",
-      "TC",
-      "[TP]"
+      "TC"
     ],
     "Global": [
       "[NameStr]"
@@ -427,7 +424,6 @@
       "TA",
       "TA",
       "TA",
-      "TA",
       "TA"
     ],
     "AsyncWith": [
@@ -469,7 +465,6 @@
       "TA"
     ],
     "ClassDef": [
-      "TA",
       "TA",
       "TA",
       "TA",
@@ -527,7 +522,6 @@
       "TA"
     ],
     "FunctionDef": [
-      "TA",
       "TA",
       "TA",
       "TA",
@@ -616,9 +610,6 @@
     "NotIn": [],
     "Or": [],
     "Param": [],
-    "ParamSpec": [
-      "TA"
-    ],
     "Pass": [],
     "Pow": [],
     "RShift": [],
@@ -663,20 +654,8 @@
       "TA",
       "TA"
     ],
-    "TypeAlias": [
-      "TA",
-      "TA",
-      "TA"
-    ],
     "TypeIgnore": [
       "TA",
-      "TA"
-    ],
-    "TypeVar": [
-      "TA",
-      "TA"
-    ],
-    "TypeVarTuple": [
       "TA"
     ],
     "UAdd": [],
@@ -701,7 +680,6 @@
     "YieldFrom": [
       "TA"
     ],
-    "_ast_Ellipsis": [],
     "alias": [
       "TA",
       "TA"
@@ -740,7 +718,6 @@
     "slice": [],
     "stmt": [],
     "type_ignore": [],
-    "type_param": [],
     "unaryop": [],
     "withitem": [
       "TA",
