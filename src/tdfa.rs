@@ -272,7 +272,7 @@ impl TDFA {
                 cur_arg += 1;
             }
         } else {
-            assert!(transitions.is_empty() || args.len() % transitions.len() == 0, "Mismatch in number of transitions and arguments");
+            assert!(transitions.is_empty() || args.len() % transitions.len() == 0, "Mismatch in number of transitions and arguments {}/{}: {} vs {}", state, symbol, transitions.len(), args.len());
             for (i, arg) in args.iter().enumerate() {
                 let next_state = transitions[i % transitions.len()].clone();
                 self._annotate(set, *arg, next_state, out);
