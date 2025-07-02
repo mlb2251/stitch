@@ -1602,7 +1602,7 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
     if let Some((delta, compressive_delta, _noncompressive_delta, _cost, zids)) = best {
         let ivar = finished.arity;
         for zid in &zids {
-            finished.pattern.pattern_args.add_var(ivar, *zid, VariableType::IVar);
+            finished.pattern.pattern_args.add_var(ivar, *zid, VariableType::Metavar);
         }
         finished.compressive_utility += compressive_delta;
         finished.util_calc.util += compressive_delta;

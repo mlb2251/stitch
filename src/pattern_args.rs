@@ -8,8 +8,8 @@ use crate::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum VariableType {
-    IVar,
-    SVar,
+    Metavar,
+    Symvar,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -39,7 +39,7 @@ impl PatternArgs {
     }
 
     pub fn num_ivars(&self) -> usize {
-        self.type_of_var.iter().filter(|t| **t == VariableType::IVar).count()
+        self.type_of_var.iter().filter(|t| **t == VariableType::Metavar).count()
     }
 
     #[inline]
@@ -75,7 +75,7 @@ impl PatternArgs {
     pub fn has_free_ivars(&self, shared: &SharedData, loc: &Idx) -> bool {
         //  if there are any free ivars in the arg at this location then we can't apply this invention here so *total* util should be 0
         for i in 0..self.first_zid_of_var.len() {
-            if self.type_of_var[i] != VariableType::IVar {
+            if self.type_of_var[i] != VariableType::Metavar {
                 continue;
             }
             let zid = self.first_zid_of_var[i];
@@ -93,7 +93,7 @@ impl PatternArgs {
         if !shared.cfg.no_opt_useless_abstract {
             // note I believe it'd be save to iterate over first_zid_of_ivar instead
             for argchoice in self.arg_choices.iter() {
-                if self.type_of_var[argchoice.ivar] != VariableType::IVar {
+                if self.type_of_var[argchoice.ivar] != VariableType::Metavar {
                     continue; // only check IVar arguments
                 }
                 // if its the same arg in every place, and doesnt have any free vars (ie it's safe to inline)
@@ -116,12 +116,12 @@ impl PatternArgs {
         if !shared.cfg.no_opt_force_multiuse {
             // for all pairs of ivars #i and #j, get the first zipper and compare the arg value across all locations
             for (i,ivar_zid_1) in self.first_zid_of_var.iter().enumerate() {
-                if self.type_of_var[i] != VariableType::IVar {
+                if self.type_of_var[i] != VariableType::Metavar {
                     continue;
                 }
                 let arg_of_loc_1 = &shared.arg_of_zid_node[*ivar_zid_1];
                 for (j, ivar_zid_2) in self.first_zid_of_var.iter().enumerate().skip(i+1) {
-                    if self.type_of_var[j] != VariableType::IVar {
+                    if self.type_of_var[j] != VariableType::Metavar {
                         continue;
                     }
                     let arg_of_loc_2 = &shared.arg_of_zid_node[*ivar_zid_2];
@@ -185,8 +185,8 @@ impl LocationsForReusableArgs<'_> {
 
     fn relevant_locs<'a>(&'a mut self, var_type: VariableType, arg_of_loc: &FxHashMap<Idx, Arg>) -> &'a Vec<Idx> {
         match var_type {
-            VariableType::SVar => self.sym_locs(arg_of_loc),
-            VariableType::IVar => self.all_locs,
+            VariableType::Symvar => self.sym_locs(arg_of_loc),
+            VariableType::Metavar => self.all_locs,
         }
     }
 }
@@ -195,8 +195,8 @@ impl PatternArgs {
     pub fn reusable_args_location(&self, shared: &SharedData, ivar: Idx, arg_of_loc: &FxHashMap<Idx, Arg>, match_locations: &mut LocationsForReusableArgs) -> Vec<Idx> {
         let arg_of_loc_ivar = &shared.arg_of_zid_node[self.first_zid_of_var[ivar]];
         let require_valid = match self.type_of_var[ivar] {
-            VariableType::IVar => true, // we require valid locations for IVar
-            VariableType::SVar => false, // we do not require valid locations for SVar
+            VariableType::Metavar => true, // we require valid locations for IVar
+            VariableType::Symvar => false, // we do not require valid locations for SVar
         };
         match_locations.relevant_locs(self.type_of_var[ivar], arg_of_loc).iter()
             .filter(|loc:&&Idx|
