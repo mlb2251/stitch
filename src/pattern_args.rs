@@ -15,8 +15,8 @@ pub enum VariableType {
 #[derive(Debug, Clone)]
 pub struct TypedLabeledZId {
     pub zid: usize,
-    pub ivar: usize,
-    // vtype: u8,
+    pub ivar: i32,
+    vtype: u32,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -107,7 +107,7 @@ impl PatternArgs {
     }
     
     pub fn add_var(&mut self, ivar: usize, zid: ZId, vtype: VariableType) {
-        self.arg_choices.push(TypedLabeledZId { zid, ivar });
+        self.arg_choices.push(TypedLabeledZId { zid, ivar: ivar as i32, vtype: 0 });
         if ivar == self.first_zid_of_var.len() {
             self.first_zid_of_var.push(zid);
             assert!(vtype == VariableType::Metavar, "Only metavars are supported for now");
@@ -124,7 +124,7 @@ impl PatternArgs {
     pub fn multiuses(&self) -> Vec<(ZId, Cost)> {
         // returns the zids of the first zipper of each var, which is used to check for multiuse
         self.arg_choices.iter().map(|labelled|labelled.ivar).counts()
-            .iter().filter_map(|(ivar,count)| if *count > 1 { Some((self.first_zid_of_var[*ivar], (*count-1) as Cost)) } else { None }).collect()
+            .iter().filter_map(|(ivar,count)| if *count > 1 { Some((self.first_zid_of_var[*ivar as usize], (*count-1) as Cost)) } else { None }).collect()
     }
 
     pub fn has_free_ivars(&self, shared: &SharedData, loc: &Idx) -> bool {
