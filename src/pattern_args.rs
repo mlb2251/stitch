@@ -135,7 +135,7 @@ impl PatternArgs {
         }
         false
     }
-    pub fn reusable_args_location(&self, shared: &SharedData, ivar: Idx, arg_of_loc: &FxHashMap<Idx, Arg>, match_locations: &mut [Idx]) -> Vec<Idx> {
+    pub fn reusable_args_location(&self, shared: &SharedData, ivar: Idx, arg_of_loc: &FxHashMap<Idx, Arg>, match_locations: &[Idx]) -> Vec<Idx> {
         let arg_of_loc_ivar = &shared.arg_of_zid_node[self.first_zid_of_var[ivar]];
         let require_valid = match self.type_of_var[ivar] {
             VariableType::Metavar => true,
