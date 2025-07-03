@@ -13,18 +13,18 @@ pub struct SymvarConfig {
 
 
 #[derive(Debug, Clone)]
-pub struct SymVarInfo {
+pub struct SymvarInfo {
     prefix: char,
-    counts: AnalyzedExpr<SymVarCountAnalysis>,
+    counts: AnalyzedExpr<SymvarCountAnalysis>,
 }
 
-impl SymVarInfo {
+impl SymvarInfo {
     pub fn new(set: &ExprSet, config: &SymvarConfig) -> Option<Self> {
         let prefix = config.symvar_prefix?;
-        let mut counts = AnalyzedExpr::new(SymVarCountAnalysis);
+        let mut counts = AnalyzedExpr::new(SymvarCountAnalysis);
         counts.analyze(set);
 
-        Some(SymVarInfo { counts, prefix })
+        Some(SymvarInfo { counts, prefix })
     }
 
     pub fn contains_symbols(&self, node: Idx) -> bool {
@@ -36,8 +36,8 @@ impl SymVarInfo {
 }
 
 #[derive(Debug, Clone)]
-struct SymVarCountAnalysis;
-impl Analysis for SymVarCountAnalysis {
+struct SymvarCountAnalysis;
+impl Analysis for SymvarCountAnalysis {
     type Item = i32;
     fn new(e: Expr, analyzed: &AnalyzedExpr<Self>) -> Self::Item {
         let mut count = 0;

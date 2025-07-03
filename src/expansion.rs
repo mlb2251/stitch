@@ -4,7 +4,7 @@ use itertools::Itertools;
 use lambdas::{Idx, Node, Symbol, Tag, ZId, ZNode};
 use rustc_hash::{FxHashMap, FxHashSet};
 
-use crate::{invalid_metavar_location, Arg, Cost, LocationsForReusableArgs, Pattern, PatternArgs, SharedData, SymVarInfo, VariableType, ZIdExtension};
+use crate::{invalid_metavar_location, Arg, Cost, LocationsForReusableArgs, Pattern, PatternArgs, SharedData, SymvarInfo, VariableType, ZIdExtension};
 
 /// Tells us what a hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
@@ -50,7 +50,7 @@ impl ExpandsTo {
     }
 
     #[inline]
-    pub fn is_prim_symbol(&self, sym_var_info: &SymVarInfo) -> bool {
+    pub fn is_prim_symbol(&self, sym_var_info: &SymvarInfo) -> bool {
         let ExpandsTo(ExpandsToInner::Prim(sym)) = self else {
             return false;
         };
@@ -168,7 +168,7 @@ pub fn expands_to_of_node(node: &Node) -> ExpandsTo {
 }
 
 #[inline]
-pub fn get_syntactic_expansions(arg_of_loc: &FxHashMap<usize, Arg>, match_locations: Vec<usize>, sym_var_info: &Option<SymVarInfo>) -> Vec<(ExpandsTo, Vec<Idx>)> {
+pub fn get_syntactic_expansions(arg_of_loc: &FxHashMap<usize, Arg>, match_locations: Vec<usize>, sym_var_info: &Option<SymvarInfo>) -> Vec<(ExpandsTo, Vec<Idx>)> {
     match_locations.into_iter()
         .group_by(|loc| &arg_of_loc[loc].expands_to).into_iter()
         .filter(|(expands_to, _)| sym_var_info.as_ref().is_none_or(|s| !expands_to.is_prim_symbol(s)))
@@ -221,7 +221,7 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
 }
 
 
-pub fn svar_locations(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,Arg>, reusable_locs: FxHashSet<Idx>, sym_var_info: &SymVarInfo) -> Vec<Idx> {
+pub fn svar_locations(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,Arg>, reusable_locs: FxHashSet<Idx>, sym_var_info: &SymvarInfo) -> Vec<Idx> {
 
     let mut locations = vec![];
 

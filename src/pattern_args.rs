@@ -170,7 +170,7 @@ impl LocationsForReusableArgs<'_> {
         }
     }
 
-    fn sym_locs<'a>(&'a mut self, arg_of_loc: &FxHashMap<Idx, Arg>, sym_var_info: &SymVarInfo) -> &'a Vec<Idx> {
+    fn sym_locs<'a>(&'a mut self, arg_of_loc: &FxHashMap<Idx, Arg>, sym_var_info: &SymvarInfo) -> &'a Vec<Idx> {
         if self.sym_locs.is_some() {
             return self.sym_locs.as_ref().unwrap();
         }
@@ -181,7 +181,7 @@ impl LocationsForReusableArgs<'_> {
         self.sym_locs.as_mut().unwrap()
     }
 
-    fn relevant_locs<'a>(&'a mut self, var_type: VariableType, arg_of_loc: &FxHashMap<Idx, Arg>, sym_var_info: &Option<SymVarInfo>) -> &'a Vec<Idx> {
+    fn relevant_locs<'a>(&'a mut self, var_type: VariableType, arg_of_loc: &FxHashMap<Idx, Arg>, sym_var_info: &Option<SymvarInfo>) -> &'a Vec<Idx> {
         match var_type {
             // should  be safe because this only happens if there's a symvar
             VariableType::Symvar => self.sym_locs(arg_of_loc, sym_var_info.as_ref().unwrap()),

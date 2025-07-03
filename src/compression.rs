@@ -607,7 +607,7 @@ pub struct SharedData {
     pub arg_of_zid_node: Vec<FxHashMap<Idx,Arg>>,
     pub cost_fn: ExprCost,
     pub analyzed_free_vars: AnalyzedExpr<FreeVarAnalysis>,
-    pub sym_var_info: Option<SymVarInfo>,
+    pub sym_var_info: Option<SymvarInfo>,
     pub analyzed_ivars: AnalyzedExpr<IVarAnalysis>,
     pub analyzed_cost: AnalyzedExpr<ExprCost>,
     pub corpus_span: Span,
@@ -1903,7 +1903,7 @@ pub fn construct_shared(
     analyzed_cost.analyze(&set);
     analyzed_ivars.analyze(&set);
 
-    let sym_var_info = SymVarInfo::new(&set, &cfg.symvar);
+    let sym_var_info = SymvarInfo::new(&set, &cfg.symvar);
 
 
     if !cfg.quiet { println!("ran analyses: {:?}ms", tstart.elapsed().as_millis()) }
