@@ -38,7 +38,7 @@ impl PatternArgs {
     }
 
     pub fn num_ivars(&self) -> usize {
-        self.type_of_var.iter().filter(|t| **t == VariableType::Metavar).count()
+        self.first_zid_of_var.len()
     }
 
     #[inline]
