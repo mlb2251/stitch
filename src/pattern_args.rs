@@ -16,7 +16,7 @@ pub enum VariableType {
 pub struct PatternArgs {
     arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
     first_zid_of_var: Vec<ZId>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
-    type_of_var: Vec<VariableType>,
+    // type_of_var: Vec<VariableType>,
 }
 
 impl PartialEq for PatternArgs {
