@@ -170,21 +170,21 @@ impl LocationsForReusableArgs<'_> {
         }
     }
 
-    fn sym_locs<'a>(&'a mut self, arg_of_loc: &FxHashMap<Idx, Arg>) -> &'a Vec<Idx> {
+    fn sym_locs<'a>(&'a mut self, arg_of_loc: &FxHashMap<Idx, Arg>, sym_var_info: &SymVarInfo) -> &'a Vec<Idx> {
         if self.sym_locs.is_some() {
             return self.sym_locs.as_ref().unwrap();
         }
         let locs: Vec<_> = self.all_locs.iter()
-            // TODO is_prim_symbol cache in shared
-            .filter(|loc| arg_of_loc[loc].expands_to.is_prim_symbol())
+            .filter(|loc| arg_of_loc[loc].expands_to.is_prim_symbol(sym_var_info))
             .cloned().collect();
         self.sym_locs = Some(locs.clone());
         self.sym_locs.as_mut().unwrap()
     }
 
-    fn relevant_locs<'a>(&'a mut self, var_type: VariableType, arg_of_loc: &FxHashMap<Idx, Arg>) -> &'a Vec<Idx> {
+    fn relevant_locs<'a>(&'a mut self, var_type: VariableType, arg_of_loc: &FxHashMap<Idx, Arg>, sym_var_info: &Option<SymVarInfo>) -> &'a Vec<Idx> {
         match var_type {
-            VariableType::Symvar => self.sym_locs(arg_of_loc),
+            // should  be safe because this only happens if there's a symvar
+            VariableType::Symvar => self.sym_locs(arg_of_loc, sym_var_info.as_ref().unwrap()),
             VariableType::Metavar => self.all_locs,
         }
     }
@@ -197,7 +197,7 @@ impl PatternArgs {
             VariableType::Metavar => true,
             VariableType::Symvar => false,
         };
-        match_locations.relevant_locs(self.type_of_var[ivar], arg_of_loc).iter()
+        match_locations.relevant_locs(self.type_of_var[ivar], arg_of_loc, &shared.sym_var_info).iter()
             .filter(|loc:&&Idx|
                 arg_of_loc[loc].shifted_id == 
                 arg_of_loc_ivar[loc].shifted_id

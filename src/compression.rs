@@ -234,6 +234,10 @@ pub struct CompressionStepConfig {
     /// TDFA settings
     #[clap(flatten)]
     pub tdfa: TDFAConfig,
+
+    /// Symvar settings
+    #[clap(flatten)]
+    pub symvar: SymvarConfig,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -603,7 +607,7 @@ pub struct SharedData {
     pub arg_of_zid_node: Vec<FxHashMap<Idx,Arg>>,
     pub cost_fn: ExprCost,
     pub analyzed_free_vars: AnalyzedExpr<FreeVarAnalysis>,
-    pub analyzed_sym_vars: AnalyzedExpr<SymVarAnalysis>,
+    pub sym_var_info: Option<SymVarInfo>,
     pub analyzed_ivars: AnalyzedExpr<IVarAnalysis>,
     pub analyzed_cost: AnalyzedExpr<ExprCost>,
     pub corpus_span: Span,
@@ -926,7 +930,7 @@ fn stitch_search(
             let mut match_locations = original_pattern.match_locations.clone();
             match_locations.sort_by_cached_key(|loc| (&arg_of_loc[loc].expands_to, *loc));
 
-            let syntactic_expansions = get_syntactic_expansions(arg_of_loc, match_locations);
+            let syntactic_expansions = get_syntactic_expansions(arg_of_loc, match_locations, &shared.sym_var_info);
             let ivars_expansions = get_ivars_expansions(&original_pattern, arg_of_loc, hole_zid, &shared);
 
             let mut found_tracked = false;
@@ -1895,11 +1899,11 @@ pub fn construct_shared(
     tstart = std::time::Instant::now();
 
     let mut analyzed_ivars = AnalyzedExpr::new(IVarAnalysis);
-    let mut analyzed_svars = AnalyzedExpr::new(SymVarAnalysis);
     analyzed_free_vars.analyze(&set);
     analyzed_cost.analyze(&set);
     analyzed_ivars.analyze(&set);
-    analyzed_svars.analyze(&set);
+
+    let sym_var_info = SymVarInfo::new(&set, &cfg.symvar);
 
 
     if !cfg.quiet { println!("ran analyses: {:?}ms", tstart.elapsed().as_millis()) }
@@ -1931,7 +1935,7 @@ pub fn construct_shared(
             }
 
             // PRUNING (SYMBOLIC VARS): inventions with symbolic variables in the body are not 0-arity inventions
-            if analyzed_svars[node] != 0 {
+            if sym_var_info.as_ref().is_some_and(|info| info.contains_symbols(node)) {
                 continue;
             }
 
@@ -2030,7 +2034,7 @@ pub fn construct_shared(
         cost_fn: cost_fn.clone(),
         analyzed_free_vars,
         analyzed_ivars,
-        analyzed_sym_vars: analyzed_svars,
+        sym_var_info,
         analyzed_cost,    
         corpus_span: corpus_span.clone(),
         roots: roots.to_vec(),

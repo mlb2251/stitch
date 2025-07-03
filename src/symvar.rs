@@ -1,8 +1,43 @@
-use lambdas::{Analysis, AnalyzedExpr, Expr};
+use clap::Parser;
+
+use lambdas::{Analysis, AnalyzedExpr, Expr, ExprSet, Idx, Symbol};
+use serde::Serialize;
+
+#[derive(Parser, Debug, Serialize, Clone)]
+#[clap(name = "Stitch")]
+pub struct SymvarConfig {
+    /// If set, we will use symvars
+    #[clap(long)]
+    symvar_prefix: Option<char>,
+}
+
 
 #[derive(Debug, Clone)]
-pub struct SymVarAnalysis;
-impl Analysis for SymVarAnalysis {
+pub struct SymVarInfo {
+    prefix: char,
+    counts: AnalyzedExpr<SymVarCountAnalysis>,
+}
+
+impl SymVarInfo {
+    pub fn new(set: &ExprSet, config: &SymvarConfig) -> Option<Self> {
+        let prefix = config.symvar_prefix?;
+        let mut counts = AnalyzedExpr::new(SymVarCountAnalysis);
+        counts.analyze(set);
+
+        Some(SymVarInfo { counts, prefix })
+    }
+
+    pub fn contains_symbols(&self, node: Idx) -> bool {
+        self.counts[node] > 0
+    }
+    pub fn valid_symbol(&self, sym: &Symbol) -> bool {
+        sym.starts_with(self.prefix)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct SymVarCountAnalysis;
+impl Analysis for SymVarCountAnalysis {
     type Item = i32;
     fn new(e: Expr, analyzed: &AnalyzedExpr<Self>) -> Self::Item {
         let mut count = 0;
