@@ -12,11 +12,11 @@ pub enum VariableType {
     Metavar,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct TypedLabeledZId {
     pub zid: usize,
-    pub ivar: usize,
-    // vtype: u32,
+    pub ivar: u32,
+    vtype: u32,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -25,35 +25,35 @@ pub struct PatternArgs {
     first_zid_of_var: Vec<ZId>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
 }
 
-impl PartialEq for TypedLabeledZId {
-    fn eq(&self, other: &Self) -> bool {
-        self.zid == other.zid && self.ivar == other.ivar
-    }
-}
+// impl PartialEq for TypedLabeledZId {
+//     fn eq(&self, other: &Self) -> bool {
+//         self.zid == other.zid && self.ivar == other.ivar
+//     }
+// }
 
-impl Eq for TypedLabeledZId {
-    // Eq is automatically implemented if PartialEq is implemented
-}
+// impl Eq for TypedLabeledZId {
+//     // Eq is automatically implemented if PartialEq is implemented
+// }
 
-impl Hash for TypedLabeledZId {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.zid.hash(state);
-        self.ivar.hash(state);
-    }
-}
+// impl Hash for TypedLabeledZId {
+//     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+//         self.zid.hash(state);
+//         self.ivar.hash(state);
+//     }
+// }
 
-impl PartialOrd for TypedLabeledZId {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
+// impl PartialOrd for TypedLabeledZId {
+//     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+//         Some(self.cmp(other))
+//     }
+// }
 
-impl Ord for TypedLabeledZId {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.zid.cmp(&other.zid)
-            .then_with(|| self.ivar.cmp(&other.ivar))
-    }
-}
+// impl Ord for TypedLabeledZId {
+//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+//         self.zid.cmp(&other.zid)
+//             .then_with(|| self.ivar.cmp(&other.ivar))
+//     }
+// }
 
 impl PartialEq for PatternArgs {
     fn eq(&self, other: &Self) -> bool {
@@ -107,7 +107,7 @@ impl PatternArgs {
     }
     
     pub fn add_var(&mut self, ivar: usize, zid: ZId, vtype: VariableType) {
-        self.arg_choices.push(TypedLabeledZId { zid, ivar: ivar });
+        self.arg_choices.push(TypedLabeledZId { zid, ivar: ivar as u32, vtype: 0 as u32 });
         if ivar == self.first_zid_of_var.len() {
             self.first_zid_of_var.push(zid);
             assert!(vtype == VariableType::Metavar, "Only metavars are supported for now");
