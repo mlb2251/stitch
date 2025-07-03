@@ -6,9 +6,10 @@ use rustc_hash::FxHashMap;
 
 use crate::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, PartialOrd, Ord)]
 pub enum VariableType {
     Metavar,
+    Symvar,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -157,17 +158,33 @@ impl PatternArgs {
 
 pub struct LocationsForReusableArgs<'a> {
     all_locs: &'a Vec<Idx>,
+    // lazily computed on an as-needed basis
+    sym_locs: Option<Vec<Idx>>,
 }
 
 impl LocationsForReusableArgs<'_> {
     pub fn new(all_locs: &Vec<Idx>) -> LocationsForReusableArgs {
         LocationsForReusableArgs {
             all_locs,
+            sym_locs: None,
         }
     }
 
-    fn relevant_locs(&mut self, var_type: VariableType) -> &Vec<Idx> {
+    fn sym_locs<'a>(&'a mut self, arg_of_loc: &FxHashMap<Idx, Arg>, sym_var_info: &SymvarInfo) -> &'a Vec<Idx> {
+        if self.sym_locs.is_some() {
+            return self.sym_locs.as_ref().unwrap();
+        }
+        let locs: Vec<_> = self.all_locs.iter()
+            .filter(|loc| arg_of_loc[loc].expands_to.is_prim_symbol(sym_var_info))
+            .cloned().collect();
+        self.sym_locs = Some(locs.clone());
+        self.sym_locs.as_mut().unwrap()
+    }
+
+    fn relevant_locs<'a>(&'a mut self, var_type: VariableType, arg_of_loc: &FxHashMap<Idx, Arg>, sym_var_info: &Option<SymvarInfo>) -> &'a Vec<Idx> {
         match var_type {
+            // should  be safe because this only happens if there's a symvar
+            VariableType::Symvar => self.sym_locs(arg_of_loc, sym_var_info.as_ref().unwrap()),
             VariableType::Metavar => self.all_locs,
         }
     }
@@ -178,8 +195,9 @@ impl PatternArgs {
         let arg_of_loc_ivar = &shared.arg_of_zid_node[self.first_zid_of_var[ivar]];
         let require_valid = match self.type_of_var[ivar] {
             VariableType::Metavar => true,
+            VariableType::Symvar => false,
         };
-        match_locations.relevant_locs(self.type_of_var[ivar]).iter()
+        match_locations.relevant_locs(self.type_of_var[ivar], arg_of_loc, &shared.sym_var_info).iter()
             .filter(|loc:&&Idx|
                 arg_of_loc[loc].shifted_id == 
                 arg_of_loc_ivar[loc].shifted_id

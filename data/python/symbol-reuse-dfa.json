@@ -1,0 +1,4 @@
+[
+    "(Module (/seq (Assign (list (Name &x:0 Store) (Name &y:0 Store) (Name &z:0 Store)) (Constant i0 None) None) (Expr (BinOp (BinOp (BinOp (BinOp (BinOp (Name &x:0 Load) Add (Name &x:0 Load)) Add (Name &x:0 Load)) Add (Name &y:0 Load)) Add (Name &y:0 Load)) Add (Name &z:0 Load)))) nil)",
+    "(Module (/seq (Assign (list (Name &x:0 Store)) (Constant i0 None) None) (Assign (list (Name &y:0 Store)) (Constant i0 None) None) (Assign (list (Name &z:0 Store)) (Constant i0 None) None) (Expr (BinOp (BinOp (BinOp (BinOp (BinOp (Name &y:0 Load) Add (Name &y:0 Load)) Add (Name &y:0 Load)) Add (Name &x:0 Load)) Add (Name &x:0 Load)) Add (Name &z:0 Load)))) nil)"
+]
