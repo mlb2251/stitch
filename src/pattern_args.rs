@@ -1,4 +1,5 @@
 use std::ops::DerefMut;
+use std::hash::Hash;
 use itertools::Itertools;
 
 use lambdas::*;
@@ -6,11 +7,70 @@ use rustc_hash::FxHashMap;
 
 use crate::*;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+pub enum VariableType {
+    Metavar,
+}
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+pub struct TypedLabeledZId {
+    pub zid: usize,
+    pub ivar: u32,
+    vtype: u32,
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct PatternArgs {
-    arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
+    arg_choices: Vec<TypedLabeledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
     first_zid_of_var: Vec<ZId>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
+}
+
+// impl PartialEq for TypedLabeledZId {
+//     fn eq(&self, other: &Self) -> bool {
+//         self.zid == other.zid && self.ivar == other.ivar
+//     }
+// }
+
+// impl Eq for TypedLabeledZId {
+//     // Eq is automatically implemented if PartialEq is implemented
+// }
+
+// impl Hash for TypedLabeledZId {
+//     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+//         self.zid.hash(state);
+//         self.ivar.hash(state);
+//     }
+// }
+
+// impl PartialOrd for TypedLabeledZId {
+//     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+//         Some(self.cmp(other))
+//     }
+// }
+
+// impl Ord for TypedLabeledZId {
+//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+//         self.zid.cmp(&other.zid)
+//             .then_with(|| self.ivar.cmp(&other.ivar))
+//     }
+// }
+
+impl PartialEq for PatternArgs {
+    fn eq(&self, other: &Self) -> bool {
+        // only compare the arg_choices, since the first_zid_of_ivar is just a mapping to the arg_choices
+        self.arg_choices == other.arg_choices
+    }
+}
+
+impl Eq for PatternArgs {
+    // Eq is automatically implemented if PartialEq is implemented
+}
+
+impl Hash for PatternArgs {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // only hash the arg_choices, since the first_zid_of_ivar is just a mapping to the arg_choices
+        self.arg_choices.hash(state);
+    }
 }
 
 impl PartialOrd for PatternArgs {
@@ -37,7 +97,7 @@ impl PatternArgs {
     }
 
     #[inline]
-    pub fn iterate_arguments(&self) -> impl Iterator<Item = &LabelledZId> {
+    pub fn iterate_arguments(&self) -> impl Iterator<Item = &TypedLabeledZId> {
         self.arg_choices.iter()
     }
 
@@ -46,10 +106,12 @@ impl PatternArgs {
         self.first_zid_of_var.iter().cloned()
     }
     
-    pub fn add_var(&mut self, ivar: usize, zid: ZId) {
-        self.arg_choices.push(LabelledZId::new(zid, ivar));
+    pub fn add_var(&mut self, ivar: usize, zid: ZId, vtype: VariableType) {
+        self.arg_choices.push(TypedLabeledZId { zid, ivar: ivar as u32, vtype: 0 as u32 });
         if ivar == self.first_zid_of_var.len() {
             self.first_zid_of_var.push(zid);
+            assert!(vtype == VariableType::Metavar, "Only metavars are supported for now");
+            // self.type_of_var.push(vtype);
         }
     }
 
@@ -62,7 +124,7 @@ impl PatternArgs {
     pub fn multiuses(&self) -> Vec<(ZId, Cost)> {
         // returns the zids of the first zipper of each var, which is used to check for multiuse
         self.arg_choices.iter().map(|labelled|labelled.ivar).counts()
-            .iter().filter_map(|(ivar,count)| if *count > 1 { Some((self.first_zid_of_var[*ivar], (*count-1) as Cost)) } else { None }).collect()
+            .iter().filter_map(|(ivar,count)| if *count > 1 { Some((self.first_zid_of_var[*ivar as usize], (*count-1) as Cost)) } else { None }).collect()
     }
 
     pub fn has_free_ivars(&self, shared: &SharedData, loc: &Idx) -> bool {

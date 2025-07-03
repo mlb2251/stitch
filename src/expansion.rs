@@ -4,7 +4,7 @@ use itertools::Itertools;
 use lambdas::{Idx, Node, Symbol, Tag, ZId, ZNode};
 use rustc_hash::FxHashMap;
 
-use crate::{invalid_metavar_location, Arg, Cost, Pattern, PatternArgs, SharedData, ZIdExtension};
+use crate::{invalid_metavar_location, Arg, Cost, Pattern, PatternArgs, SharedData, VariableType, ZIdExtension};
 
 /// Tells us what a hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
@@ -94,7 +94,7 @@ impl ExpandsTo {
     pub fn add_variables(&self, original_hole_zid: ZId, pattern_args: &mut PatternArgs) {
         let ExpandsTo(expands_to) = self;
         if let ExpandsToInner::IVar(i) = expands_to {
-            pattern_args.add_var(*i as usize, original_hole_zid);
+            pattern_args.add_var(*i as usize, original_hole_zid, VariableType::Metavar);
         }
     }
 }
