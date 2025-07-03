@@ -10,7 +10,7 @@ use crate::*;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct PatternArgs {
     arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
-    first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
+    first_zid_of_var: Vec<ZId>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
 }
 
 impl PartialOrd for PatternArgs {
@@ -29,11 +29,11 @@ impl Ord for PatternArgs {
 
 impl PatternArgs {
     pub fn arity(&self) -> usize {
-        self.first_zid_of_ivar.len()
+        self.first_zid_of_var.len()
     }
 
     pub fn num_ivars(&self) -> usize {
-        self.first_zid_of_ivar.len()
+        self.first_zid_of_var.len()
     }
 
     #[inline]
@@ -43,32 +43,33 @@ impl PatternArgs {
 
     #[inline]
     pub fn iterate_one_zid_per_argument(&self) -> impl Iterator<Item = ZId> + '_ {
-        self.first_zid_of_ivar.iter().cloned()
+        self.first_zid_of_var.iter().cloned()
     }
     
-    pub fn add_ivar(&mut self, ivar: usize, zid: ZId) {
+    pub fn add_var(&mut self, ivar: usize, zid: ZId) {
         self.arg_choices.push(LabelledZId::new(zid, ivar));
-        if ivar == self.first_zid_of_ivar.len() {
-            self.first_zid_of_ivar.push(zid);
+        if ivar == self.first_zid_of_var.len() {
+            self.first_zid_of_var.push(zid);
         }
     }
 
     pub fn use_args(&self, shared: &SharedData, node: &Idx) -> Vec<ZId> {
-        self.first_zid_of_ivar.iter().map(|zid|
+        self.first_zid_of_var.iter().map(|zid|
             shared.arg_of_zid_node[*zid][node].shifted_id
         ).collect()
     }
 
     pub fn multiuses(&self) -> Vec<(ZId, Cost)> {
-        // returns the zids of the first zipper of each ivar, which is used to check for multiuse
+        // returns the zids of the first zipper of each var, which is used to check for multiuse
         self.arg_choices.iter().map(|labelled|labelled.ivar).counts()
-            .iter().filter_map(|(ivar,count)| if *count > 1 { Some((self.first_zid_of_ivar[*ivar], (*count-1) as Cost)) } else { None }).collect()
+            .iter().filter_map(|(ivar,count)| if *count > 1 { Some((self.first_zid_of_var[*ivar], (*count-1) as Cost)) } else { None }).collect()
     }
 
     pub fn has_free_ivars(&self, shared: &SharedData, loc: &Idx) -> bool {
         //  if there are any free ivars in the arg at this location then we can't apply this invention here so *total* util should be 0
-        for zid in self.first_zid_of_ivar.iter() {
-            let shifted_arg = shared.arg_of_zid_node[*zid][loc].shifted_id;
+        for i in 0..self.first_zid_of_var.len() {
+            let zid = self.first_zid_of_var[i];
+            let shifted_arg = shared.arg_of_zid_node[zid][loc].shifted_id;
             if !shared.analyzed_ivars[shifted_arg].is_empty() {
                 return true;
             }
@@ -101,9 +102,9 @@ impl PatternArgs {
         // "redundant argument elimination".
         if !shared.cfg.no_opt_force_multiuse {
             // for all pairs of ivars #i and #j, get the first zipper and compare the arg value across all locations
-            for (i,ivar_zid_1) in self.first_zid_of_ivar.iter().enumerate() {
+            for (i, ivar_zid_1) in self.first_zid_of_var.iter().enumerate() {
                 let arg_of_loc_1 = &shared.arg_of_zid_node[*ivar_zid_1];
-                for ivar_zid_2 in self.first_zid_of_ivar.iter().skip(i+1) {
+                for ivar_zid_2 in self.first_zid_of_var.iter().skip(i+1) {
                     let arg_of_loc_2 = &shared.arg_of_zid_node[*ivar_zid_2];
                     if locs.iter().all(|loc|
                         arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
@@ -116,9 +117,8 @@ impl PatternArgs {
         }
         false
     }
-
     pub fn reusable_args_location(&self, shared: &SharedData, ivar: Idx, arg_of_loc: &FxHashMap<Idx, Arg>, match_locations: &[Idx]) -> Vec<Idx> {
-        let arg_of_loc_ivar = &shared.arg_of_zid_node[self.first_zid_of_ivar[ivar]];
+        let arg_of_loc_ivar = &shared.arg_of_zid_node[self.first_zid_of_var[ivar]];
         match_locations.iter()
             .filter(|loc:&&Idx|
                 arg_of_loc[loc].shifted_id == 
@@ -126,7 +126,7 @@ impl PatternArgs {
                 && !invalid_metavar_location(shared, arg_of_loc[loc].shifted_id)
             ).cloned().collect()
     }
-    
+
     pub fn find_variable(&self, shared: &SharedData, i: Idx) -> Idx {
         // in the case where we're searching for an IVar we need to be robust to relabellings
         // since this doesn't have to be canonical. What we can do is we can look over
@@ -135,13 +135,13 @@ impl PatternArgs {
         // must correspond to each other in the pattern and the tracked expr and we can just return
         // the pattern version (`j` below).
         let zids = shared.tracking.as_ref().unwrap().zids_of_ivar[i].clone();
-        for (j,zid) in self.first_zid_of_ivar.iter().enumerate() {
+        for (j,zid) in self.first_zid_of_var.iter().enumerate() {
             if zids.contains(zid) {
                 return j
             }
         }
         // it's a new ivar that hasnt been used already so it must take on the next largest var number
-        self.first_zid_of_ivar.len()
+        self.first_zid_of_var.len()
     }
 
 }
