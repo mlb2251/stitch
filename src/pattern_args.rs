@@ -117,7 +117,14 @@ impl PatternArgs {
         false
     }
 
-    pub fn reusable_args_location(&self, shared: &SharedData, ivar: Idx, arg_of_loc: &FxHashMap<Idx, Arg>, match_locations: &[Idx]) -> Vec<Idx> {
+    pub fn reusable_args_locations<'a>(&'a self, shared: &'a SharedData, arg_of_loc: &'a FxHashMap<Idx, Arg>, match_locations: &'a [Idx]) -> impl Iterator<Item=(Idx, Vec<Idx>)> + 'a {
+        (0..self.num_ivars()).filter_map(move |ivar| {
+            let locs = self.reusable_args_location_for_ivar(shared, ivar, arg_of_loc, match_locations);
+            if locs.is_empty() { None } else { Some((ivar as Idx, locs)) }
+        })
+    }
+
+    fn reusable_args_location_for_ivar(&self, shared: &SharedData, ivar: Idx, arg_of_loc: &FxHashMap<Idx, Arg>, match_locations: &[Idx]) -> Vec<Idx> {
         let arg_of_loc_ivar = &shared.arg_of_zid_node[self.first_zid_of_ivar[ivar]];
         match_locations.iter()
             .filter(|loc:&&Idx|
