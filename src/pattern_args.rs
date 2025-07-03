@@ -74,7 +74,8 @@ impl PatternArgs {
         self.arg_choices.push(LabelledZId::new(zid, ivar));
         if ivar == self.first_zid_of_var.len() {
             self.first_zid_of_var.push(zid);
-            self.type_of_var.push(vtype);
+            assert!(vtype == VariableType::Metavar, "Only metavars are supported for now");
+            // self.type_of_var.push(vtype);
         }
     }
 
