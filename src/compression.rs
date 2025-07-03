@@ -1637,7 +1637,7 @@ fn possible_to_uninline(counts: FxHashMap<Idx, (Cost, Vec<usize>)>, finished_usa
 fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>) -> FxHashMap<Idx,(Cost,Vec<ZId>)> {
     let mut curr_zip: Vec<ZNode> = vec![];
     let curr_zid: ZId = EMPTY_ZID;
-    let zids = &pattern.pattern_args.iterate_arguments().cloned().collect::<Vec<LabelledZId>>();
+    let zids = &pattern.pattern_args.iterate_arguments().cloned().collect::<Vec< TypedLabeledZId>>();
 
     // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
     let zips: Vec<Vec<ZNode>> = zids.iter()
@@ -1646,7 +1646,7 @@ fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[F
     let mut counts: FxHashMap<Idx,(Cost,Vec<ZId>)> = Default::default();
 
     #[allow(clippy::too_many_arguments)]
-    fn helper(curr_node: Idx, match_loc: Idx, curr_zip: &mut Vec<ZNode>, curr_zid: ZId, zips: &[Vec<ZNode>], zids: &[LabelledZId], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet,  counts: &mut FxHashMap<Idx,(Cost,Vec<ZId>)>, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>) {
+    fn helper(curr_node: Idx, match_loc: Idx, curr_zip: &mut Vec<ZNode>, curr_zid: ZId, zips: &[Vec<ZNode>], zids: &[ TypedLabeledZId], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet,  counts: &mut FxHashMap<Idx,(Cost,Vec<ZId>)>, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>) {
         if zids.iter().any(|labelled| labelled.zid == curr_zid){
             return // current zip matches an arg
         }
