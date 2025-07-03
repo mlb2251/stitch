@@ -228,7 +228,7 @@ fn tdfa_sequence() {
 }
 
 fn python_args() -> String {
-    DFA_ARGS.to_owned() + " --symvar_prefix &"
+    DFA_ARGS.to_owned() + " --symvar-prefix &"
 }
 
 #[test]
