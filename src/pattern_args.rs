@@ -74,9 +74,6 @@ impl PatternArgs {
     pub fn has_free_ivars(&self, shared: &SharedData, loc: &Idx) -> bool {
         //  if there are any free ivars in the arg at this location then we can't apply this invention here so *total* util should be 0
         for i in 0..self.first_zid_of_var.len() {
-            if self.type_of_var[i] != VariableType::Metavar {
-                continue;
-            }
             let zid = self.first_zid_of_var[i];
             let shifted_arg = shared.arg_of_zid_node[zid][loc].shifted_id;
             if !shared.analyzed_ivars[shifted_arg].is_empty() {
@@ -92,9 +89,6 @@ impl PatternArgs {
         if !shared.cfg.no_opt_useless_abstract {
             // note I believe it'd be save to iterate over first_zid_of_ivar instead
             for argchoice in self.arg_choices.iter() {
-                if self.type_of_var[argchoice.ivar] != VariableType::Metavar {
-                    continue;
-                }
                 // if its the same arg in every place, and doesnt have any free vars (ie it's safe to inline)
                 if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
                     && shared.analyzed_free_vars[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].is_empty()
@@ -114,15 +108,9 @@ impl PatternArgs {
         // "redundant argument elimination".
         if !shared.cfg.no_opt_force_multiuse {
             // for all pairs of ivars #i and #j, get the first zipper and compare the arg value across all locations
-            for (i,ivar_zid_1) in self.first_zid_of_var.iter().enumerate() {
-                if self.type_of_var[i] != VariableType::Metavar {
-                    continue;
-                }
+            for (i, ivar_zid_1) in self.first_zid_of_var.iter().enumerate() {
                 let arg_of_loc_1 = &shared.arg_of_zid_node[*ivar_zid_1];
-                for (j, ivar_zid_2) in self.first_zid_of_var.iter().enumerate().skip(i+1) {
-                    if self.type_of_var[j] != VariableType::Metavar {
-                        continue;
-                    }
+                for ivar_zid_2 in self.first_zid_of_var.iter().skip(i+1) {
                     let arg_of_loc_2 = &shared.arg_of_zid_node[*ivar_zid_2];
                     if locs.iter().all(|loc|
                         arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
