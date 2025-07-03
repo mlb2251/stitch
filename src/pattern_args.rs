@@ -12,11 +12,44 @@ pub enum VariableType {
     Metavar,
 }
 
+#[derive(Debug, Clone)]
+struct TypedLabeledZId {
+    labeled_zid: LabelledZId,
+    vtype: VariableType,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct PatternArgs {
-    arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
+    arg_choices: Vec<TypedLabeledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
     first_zid_of_var: Vec<ZId>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
-    // type_of_var: Vec<VariableType>,
+}
+
+impl PartialEq for TypedLabeledZId {
+    fn eq(&self, other: &Self) -> bool {
+        self.labeled_zid == other.labeled_zid
+    }
+}
+
+impl Eq for TypedLabeledZId {
+    // Eq is automatically implemented if PartialEq is implemented
+}
+
+impl Hash for TypedLabeledZId {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.labeled_zid.hash(state);
+    }
+}
+
+impl PartialOrd for TypedLabeledZId {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for TypedLabeledZId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.labeled_zid.cmp(&other.labeled_zid)
+    }
 }
 
 impl PartialEq for PatternArgs {
@@ -62,7 +95,7 @@ impl PatternArgs {
 
     #[inline]
     pub fn iterate_arguments(&self) -> impl Iterator<Item = &LabelledZId> {
-        self.arg_choices.iter()
+        self.arg_choices.iter().map(|labelled| &labelled.labeled_zid)
     }
 
     #[inline]
@@ -71,7 +104,7 @@ impl PatternArgs {
     }
     
     pub fn add_var(&mut self, ivar: usize, zid: ZId, vtype: VariableType) {
-        self.arg_choices.push(LabelledZId::new(zid, ivar));
+        self.arg_choices.push(TypedLabeledZId { labeled_zid: LabelledZId::new(zid, ivar), vtype });
         if ivar == self.first_zid_of_var.len() {
             self.first_zid_of_var.push(zid);
             assert!(vtype == VariableType::Metavar, "Only metavars are supported for now");
@@ -87,7 +120,7 @@ impl PatternArgs {
 
     pub fn multiuses(&self) -> Vec<(ZId, Cost)> {
         // returns the zids of the first zipper of each var, which is used to check for multiuse
-        self.arg_choices.iter().map(|labelled|labelled.ivar).counts()
+        self.arg_choices.iter().map(|labelled|labelled.labeled_zid.ivar).counts()
             .iter().filter_map(|(ivar,count)| if *count > 1 { Some((self.first_zid_of_var[*ivar], (*count-1) as Cost)) } else { None }).collect()
     }
 
@@ -110,8 +143,8 @@ impl PatternArgs {
             // note I believe it'd be save to iterate over first_zid_of_ivar instead
             for argchoice in self.arg_choices.iter() {
                 // if its the same arg in every place, and doesnt have any free vars (ie it's safe to inline)
-                if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
-                    && shared.analyzed_free_vars[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].is_empty()
+                if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.labeled_zid.zid][loc].shifted_id).all_equal()
+                    && shared.analyzed_free_vars[shared.arg_of_zid_node[argchoice.labeled_zid.zid][&locs[0]].shifted_id].is_empty()
                 {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
                     return true;
