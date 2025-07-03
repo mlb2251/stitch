@@ -15,10 +15,7 @@ enum ExpandsToInner {
     Var(i32, Tag),
     Prim(Symbol),
     // IVar is an abstraction argument, which is a hole that can be filled with a value.
-    // Corresponds to a "metavariable" in the Julia stitch implementation.
-    IVar(i32),
-    // SVar is a special variable that can be used to match against a symbol, like `&x` in the Julia stitch implementation.
-    SVar(i32),
+    IVar(i32, VariableType),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
@@ -35,8 +32,7 @@ impl ExpandsTo {
             ExpandsToInner::App => true,
             ExpandsToInner::Var(_, _) => false,
             ExpandsToInner::Prim(_) => false,
-            ExpandsToInner::IVar(_) => false,
-            ExpandsToInner::SVar(_) => false,
+            ExpandsToInner::IVar(_, _) => false,
         }
     }
     #[inline]
@@ -68,8 +64,8 @@ impl ExpandsTo {
 
     #[inline]
     #[allow(dead_code)]
-    pub fn is_ivar(&self) -> bool {
-        matches!(self, ExpandsTo(ExpandsToInner::IVar(_)))
+    pub fn is_var(&self) -> bool {
+        matches!(self, ExpandsTo(ExpandsToInner::IVar(_, _)))
     }
 
     #[inline]
@@ -80,8 +76,7 @@ impl ExpandsTo {
             ExpandsToInner::App => shared.cost_fn.cost_app,
             ExpandsToInner::Var(_, _) => shared.cost_fn.cost_var,
             ExpandsToInner::Prim(p) => shared.cost_fn.compute_cost_prim(p),
-            ExpandsToInner::IVar(_) => 0,
-            ExpandsToInner::SVar(_) => 0,
+            ExpandsToInner::IVar(_, _) => 0,
         };
         res as Cost
     }
@@ -105,11 +100,8 @@ impl ExpandsTo {
 
     pub fn add_variables(&self, original_hole_zid: ZId, pattern_args: &mut PatternArgs) {
         let ExpandsTo(expands_to) = self;
-        if let ExpandsToInner::IVar(i) = expands_to {
-            pattern_args.add_var(*i as usize, original_hole_zid, VariableType::Metavar);
-        }
-        if let ExpandsToInner::SVar(i) = expands_to {
-            pattern_args.add_var(*i as usize, original_hole_zid, VariableType::Symvar);
+        if let ExpandsToInner::IVar(i, vt) = expands_to {
+            pattern_args.add_var(*i as usize, original_hole_zid, *vt);
         }
     }
 }
@@ -134,8 +126,7 @@ impl std::fmt::Display for ExpandsTo {
                 Ok(())
             },
             ExpandsTo(ExpandsToInner::Prim(p)) => write!(f, "{p}"),
-            ExpandsTo(ExpandsToInner::IVar(v)) => write!(f, "#{v}"),
-            ExpandsTo(ExpandsToInner::SVar(v)) => write!(f, "#{v}"),
+            ExpandsTo(ExpandsToInner::IVar(v, _)) => write!(f, "#{v}"),
         }
     }
 }
@@ -147,8 +138,8 @@ pub fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData)
     // this will expand into, then get the ExpandsTo of that
     let idx = shared.tracking.as_ref().unwrap().expr.immut().zip(&shared.zip_of_zid[hole_zid]).idx;
     match expands_to_of_node(&shared.tracking.as_ref().unwrap().expr.set[idx]) {
-        ExpandsTo(ExpandsToInner::IVar(i)) => {
-            ExpandsTo(ExpandsToInner::IVar(pattern.pattern_args.find_variable(shared, i as usize) as i32))
+        ExpandsTo(ExpandsToInner::IVar(i, VariableType::Metavar)) => {
+            ExpandsTo(ExpandsToInner::IVar(pattern.pattern_args.find_variable(shared, i as usize) as i32, VariableType::Metavar))
         }
         e => e
     }
@@ -162,7 +153,7 @@ pub fn expands_to_of_node(node: &Node) -> ExpandsTo {
             Node::Prim(p) => ExpandsToInner::Prim(p.clone()),
             Node::Lam(_, tag) => ExpandsToInner::Lam(*tag),
             Node::App(_,_) => ExpandsToInner::App,
-            Node::IVar(i) => ExpandsToInner::IVar(*i),
+            Node::IVar(i) => ExpandsToInner::IVar(*i, VariableType::Metavar),
         }
     )
 }
@@ -198,21 +189,21 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
         let locs = original_pattern.pattern_args.reusable_args_location(shared, var, arg_of_loc, &mut locs_for_reusable);
         if locs.is_empty() { continue; }
         all_reusable_locs.extend(locs.iter().cloned());
-        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32)), locs));
+        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32, VariableType::Metavar)), locs));
     }
     // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
     if original_pattern.pattern_args.num_ivars() < shared.cfg.max_arity {
         let var = original_pattern.pattern_args.arity();
         let mut locs = original_pattern.match_locations.clone();
         locs.retain(|loc| !invalid_metavar_location(shared, arg_of_loc[loc].shifted_id));
-        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32)), locs));
+        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32, VariableType::Metavar)), locs));
     }
 
     if let Some(sym_var_info) = shared.sym_var_info.as_ref() {
         let svar_locations = svar_locations(original_pattern, arg_of_loc, all_reusable_locs, sym_var_info);
         if !svar_locations.is_empty() {
             // println!("Found svar locations: {:?}", svar_locations);
-            ivars_expansions.push((ExpandsTo(ExpandsToInner::SVar(original_pattern.pattern_args.arity() as i32)), svar_locations));
+            ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(original_pattern.pattern_args.arity() as i32, VariableType::Symvar)), svar_locations));
         }
     }
 

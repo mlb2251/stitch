@@ -6,7 +6,7 @@ use rustc_hash::FxHashMap;
 
 use crate::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, PartialOrd, Ord)]
 pub enum VariableType {
     Metavar,
     Symvar,
