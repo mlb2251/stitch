@@ -118,7 +118,8 @@ impl PatternArgs {
                     continue;
                 }
                 let arg_of_loc_1 = &shared.arg_of_zid_node[*ivar_zid_1 as ZId];
-                for (j, (ivar_zid_2, type_2)) in self.variables.iter().enumerate().skip(i+1) {
+                // for some reason, the enumerate makes it like 1% faster?????
+                for (_j, (ivar_zid_2, type_2)) in self.variables.iter().enumerate().skip(i+1) {
                     if *type_2 != VariableType::Metavar {
                         continue;
                     }
