@@ -1,5 +1,5 @@
 {
-  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-e3a9d4911874cf31 symbols_basic",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-56fda90633a32865 symbols_basic",
   "args": {
     "iterations": 2,
     "abstraction_prefix": "fn_",
@@ -59,41 +59,45 @@
         "valid_metavars": "",
         "valid_roots": "",
         "tdfa_non_eta_long_states": ""
+      },
+      "symvar": {
+        "symvar_prefix": "&"
       }
     }
   },
   "original_cost": 2826,
-  "final_cost": 2220,
-  "compression_ratio": 1.272972972972973,
+  "final_cost": 806,
+  "compression_ratio": 3.5062034739454093,
   "num_abstractions": 1,
   "original": [
     "(+ 1 2 3 &a &b &c 4 5 6 7 8 9 10)",
     "(+ 1 2 3 &a &b &c 4 5 6 7 8 9 10)"
   ],
   "rewritten": [
-    "(fn_0 &a &b &c 4 5 6 7 8 9 10)",
-    "(fn_0 &a &b &c 4 5 6 7 8 9 10)"
+    "(fn_0 &c &b &a)",
+    "(fn_0 &c &b &a)"
   ],
   "rewritten_dreamcoder": null,
   "abstractions": [
     {
-      "body": "(+ 1 2 3)",
-      "dreamcoder": "#(+ 1 2 3)",
-      "arity": 0,
+      "body": "(+ 1 2 3 #2 #1 #0 4 5 6 7 8 9 10)",
+      "dreamcoder": "#(lambda (lambda (lambda (+ 1 2 3 $0 $1 $2 4 5 6 7 8 9 10))))",
+      "arity": 3,
       "name": "fn_0",
-      "utility": 203,
-      "final_cost": 2220,
-      "compression_ratio": 1.272972972972973,
-      "cumulative_compression_ratio": 1.272972972972973,
+      "utility": 907,
+      "final_cost": 806,
+      "compression_ratio": 3.5062034739454093,
+      "cumulative_compression_ratio": 3.5062034739454093,
       "num_uses": 2,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_0 ": "(+ 1 2 3)"
+          "fn_0 &c &b &a": "(+ 1 2 3 &a &b &c 4 5 6 7 8 9 10)"
         }
       ],
-      "dc_comparison_millis": null
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
     }
   ]
 }

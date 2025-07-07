@@ -951,7 +951,7 @@ fn stitch_search(
                 // prune here. The exception is when there are free variables so arity 0 wouldn't have applied.
                 // Also, note that upper bounding + arity 0 priming does nearly perfectly handle this already, but there are cases where
                 // you can't improve your structure penalty bound enough to catch everything hence this separate single_use thing.
-                if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.analyzed_free_vars[locs[0]].is_empty() {
+                if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.analyzed_free_vars[locs[0]].is_empty() && shared.sym_var_info.as_ref().is_none_or(|svi| !svi.contains_symbols(locs[0])) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_fired += 1; }
                     continue 'expansion;
                 }

@@ -244,6 +244,7 @@ fn symbols_basic() {
     compare_out_jsons("data/python/symbols-cannot-be-literal-0-arity.json", "data/expected_outputs/symbols-cannot-be-literal-0-arity.json", "-i2 -a3 --symvar-prefix & ", InputFormat::ProgramsList);
     compare_out_jsons("data/python/symbol-reuse.json", "data/expected_outputs/symbol-reuse.json", "-i1 -a0 --symvar-prefix & ", InputFormat::ProgramsList);
     compare_out_jsons("data/python/symbol-reuse-dfa.json", "data/expected_outputs/symbol-reuse-dfa.json", &("-i1 -a0 ".to_owned() + &python_args()), InputFormat::ProgramsList);
+    compare_out_jsons("data/python/pick-up-on-abstractions-0-arity.json", "data/expected_outputs/pick-up-on-abstractions-0-arity.json", &("-i1 -a0 ".to_owned() + &python_args()), InputFormat::ProgramsList);
 }
 
 
