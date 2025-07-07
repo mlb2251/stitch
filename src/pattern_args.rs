@@ -7,16 +7,17 @@ use rustc_hash::FxHashMap;
 
 use crate::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Copy)]
 pub enum VariableType {
     Metavar,
+    Symvar,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct TypedLabeledZId {
     pub zid: usize,
     ivar: u32,
-    vtype: u32,
+    vtype: VariableType,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -113,7 +114,7 @@ impl PatternArgs {
     }
     
     pub fn add_var(&mut self, ivar: usize, zid: ZId, vtype: VariableType) {
-        self.arg_choices.push(TypedLabeledZId { zid, ivar: ivar as u32, vtype: vtype as u32 });
+        self.arg_choices.push(TypedLabeledZId { zid, ivar: ivar as u32, vtype });
         if ivar == self.first_zid_of_var.len() {
             self.first_zid_of_var.push(zid);
             assert!(vtype == VariableType::Metavar, "Only metavars are supported for now");
