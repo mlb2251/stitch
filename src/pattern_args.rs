@@ -15,13 +15,19 @@ pub enum VariableType {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct TypedLabeledZId {
     pub zid: usize,
-    pub ivar: usize,
+    ivar: usize,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct PatternArgs {
     arg_choices: Vec<TypedLabeledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
     first_zid_of_var: Vec<ZId>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
+}
+
+impl TypedLabeledZId {
+    pub fn ivar(&self) -> usize {
+        self.ivar
+    }
 }
 
 // impl PartialEq for TypedLabeledZId {
@@ -122,7 +128,7 @@ impl PatternArgs {
 
     pub fn multiuses(&self) -> Vec<(ZId, Cost)> {
         // returns the zids of the first zipper of each var, which is used to check for multiuse
-        self.arg_choices.iter().map(|labelled|labelled.ivar).counts()
+        self.arg_choices.iter().map(|labelled|labelled.ivar()).counts()
             .iter().filter_map(|(ivar,count)| if *count > 1 { Some((self.first_zid_of_var[*ivar as usize], (*count-1) as Cost)) } else { None }).collect()
     }
 

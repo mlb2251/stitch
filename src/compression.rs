@@ -495,7 +495,7 @@ impl Pattern {
         // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
         let zips: Vec<(Vec<ZNode>,Node)> = self.holes.iter().map(|zid| (shared.zip_of_zid[*zid].clone(), Node::Prim(HOLE_SYM.clone())))
             .chain(self.pattern_args.iterate_arguments()
-            .map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(), Node::IVar(labelled_zid.ivar as i32)))).collect();
+            .map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(), Node::IVar(labelled_zid.ivar() as i32)))).collect();
 
         fn helper(set: &mut ExprSet, curr_node: Idx, curr_zip: &mut Vec<ZNode>, zips: &[(Vec<ZNode>,Node)], shared: &SharedData) -> Idx {
             if let Some((_,e)) = zips.iter().find(|(zip,_)| zip == curr_zip) {
