@@ -113,7 +113,7 @@ impl std::fmt::Display for ExpandsTo {
             ExpandsTo(ExpandsToInner::Lam(tag)) => {
                 write!(f, "(lam")?;
                 if *tag != -1 {
-                    write!(f, "_{}", tag)?;
+                    write!(f, "_{tag}")?;
                 }
                 write!(f, " ??)")
             },
@@ -121,7 +121,7 @@ impl std::fmt::Display for ExpandsTo {
             ExpandsTo(ExpandsToInner::Var(v, tag)) => {
                 write!(f, "${v}")?;
                 if *tag != -1 {
-                    write!(f, "_{}", tag)?;
+                    write!(f, "_{tag}")?;
                 }
                 Ok(())
             },
