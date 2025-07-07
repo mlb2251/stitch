@@ -15,8 +15,7 @@ pub enum VariableType {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct TypedLabeledZId {
     pub zid: usize,
-    pub ivar: u32,
-    vtype: u32,
+    pub ivar: usize,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -107,7 +106,7 @@ impl PatternArgs {
     }
     
     pub fn add_var(&mut self, ivar: usize, zid: ZId, vtype: VariableType) {
-        self.arg_choices.push(TypedLabeledZId { zid, ivar: ivar as u32, vtype: 0 as u32 });
+        self.arg_choices.push(TypedLabeledZId { zid, ivar: ivar });
         if ivar == self.first_zid_of_var.len() {
             self.first_zid_of_var.push(zid);
             assert!(vtype == VariableType::Metavar, "Only metavars are supported for now");
