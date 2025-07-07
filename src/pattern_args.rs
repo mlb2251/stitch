@@ -18,7 +18,7 @@ pub struct TypedLabeledZId {
     ivar: usize,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct PatternArgs {
     arg_choices: Vec<TypedLabeledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
     first_zid_of_var: Vec<ZId>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
@@ -60,23 +60,23 @@ impl TypedLabeledZId {
 //     }
 // }
 
-impl PartialEq for PatternArgs {
-    fn eq(&self, other: &Self) -> bool {
-        // only compare the arg_choices, since the first_zid_of_ivar is just a mapping to the arg_choices
-        self.arg_choices == other.arg_choices
-    }
-}
+// impl PartialEq for PatternArgs {
+//     fn eq(&self, other: &Self) -> bool {
+//         // only compare the arg_choices, since the first_zid_of_ivar is just a mapping to the arg_choices
+//         self.arg_choices == other.arg_choices
+//     }
+// }
 
-impl Eq for PatternArgs {
-    // Eq is automatically implemented if PartialEq is implemented
-}
+// impl Eq for PatternArgs {
+//     // Eq is automatically implemented if PartialEq is implemented
+// }
 
-impl Hash for PatternArgs {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // only hash the arg_choices, since the first_zid_of_ivar is just a mapping to the arg_choices
-        self.arg_choices.hash(state);
-    }
-}
+// impl Hash for PatternArgs {
+//     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+//         // only hash the arg_choices, since the first_zid_of_ivar is just a mapping to the arg_choices
+//         self.arg_choices.hash(state);
+//     }
+// }
 
 impl PartialOrd for PatternArgs {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
