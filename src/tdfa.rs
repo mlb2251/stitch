@@ -134,10 +134,19 @@ impl TDFAInventionAnnotation {
             return None;
         }; 
         let annotation = TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[0], global_annotations).unwrap();
+        println!("Pattern {:?}", pattern.info(shared));
+        // println!("Match locatios: {:?}", pattern.match_locations.iter().map(|l| (shared.set.get(*l).to_string(), TDFAInventionAnnotation::from_match_location(pattern, shared, *l, global_annotations))).collect::<Vec<_>>());
+        for l in pattern.match_locations.iter() {
+            println!("Match location: {}", shared.set.get(*l));
+            println!("TDFAInventionAnnotation: {:?}", TDFAInventionAnnotation::from_match_location(pattern, shared, *l, global_annotations));
+        }
         for i in 1..pattern.match_locations.len() {
-            assert!(annotation == TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[i], global_annotations).unwrap(),
-                "Inconsistent TDFAInventionAnnotation for match locations: {:?} and {:?}", 
-                pattern.match_locations[0], pattern.match_locations[i]);
+            let for_this = TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[i], global_annotations).unwrap();
+            assert!(annotation == for_this,
+                "Inconsistent TDFAInventionAnnotation for match locations: {:?} ({:?}) and {:?} ({:?})",
+                pattern.match_locations[0], annotation,
+                pattern.match_locations[i], for_this,
+            );
         }
         Some(annotation)
     }
