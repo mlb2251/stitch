@@ -996,7 +996,7 @@ fn stitch_search(
                 let mut holes = holes_after_pop.clone();
                 expands_to.add_holes(&shared.extensions_of_zid[hole_zid], &mut holes);
 
-                // update arg_choices and possibly first_zid_of_ivar if a new ivar was added
+                // update arg_choices and possibly variables if a new ivar was added
                 let mut pattern_args = original_pattern.pattern_args.clone();
                 expands_to.add_variables(hole_zid, &mut pattern_args);
 
@@ -1520,7 +1520,7 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<Cost> 
         // if !shared.cfg.quiet { println!("base {}", base_utility) }
 
         // for each extra usage of an argument, we gain the cost of that argument as
-        // extra utility. Note we use `first_zid_of_ivar` since it doesn't matter which
+        // extra utility. Note that it doesn't matter which
         // of the zids we use as long as it corresponds to the right ivar
         let multiuse_utility = ivar_multiuses.iter().map(|(zid,count)|
             count * shared.arg_of_zid_node[*zid][loc].cost as Cost
