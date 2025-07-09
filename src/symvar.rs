@@ -46,7 +46,7 @@ impl Analysis for SymvarCountAnalysis {
             lambdas::Node::Var(_, _) => {},
             lambdas::Node::Prim(sym) => {
                 if sym.starts_with('&') {
-                    count += 1; // count prim symbols that are not variables
+                    count += 1;
                 }
             },
             lambdas::Node::App(f, x) => {
