@@ -19,12 +19,12 @@ fn main() {
     let mut geomeans = Vec::with_capacity(args.count);
     for _ in 0..args.count {
         let geo = benchmark_cogsci_geomean();
-        println!("{:.2}", geo);
+        println!("{geo:.2}");
         geomeans.push(geo);
     }
     if geomeans.len() > 1 {
         let (mean, lower, upper) = bootstrap_mean_ci(&geomeans, 10_000, 0.05);
-        println!("Summary (95% CI, arithmetic mean): {:.2} [{:.2}, {:.2}]", mean, lower, upper);
+        println!("Summary (95% CI, arithmetic mean): {mean:.2} [{lower:.2}, {upper:.2}]");
     }
 }
 
