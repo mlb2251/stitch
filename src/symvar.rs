@@ -15,48 +15,52 @@ pub struct SymvarConfig {
 #[derive(Debug, Clone)]
 pub struct SymvarInfo {
     prefix: char,
-    counts: AnalyzedExpr<SymvarCountAnalysis>,
+    count_and_is_symvars: AnalyzedExpr<SymvarCountAnalysis>,
 }
 
 impl SymvarInfo {
     pub fn new(set: &ExprSet, config: &SymvarConfig) -> Option<Self> {
         let prefix = config.symvar_prefix?;
-        let mut counts = AnalyzedExpr::new(SymvarCountAnalysis);
-        counts.analyze(set);
+        let mut count_and_is_symvars = AnalyzedExpr::new(SymvarCountAnalysis);
+        count_and_is_symvars.analyze(set);
 
-        Some(SymvarInfo { counts, prefix })
+        Some(SymvarInfo { count_and_is_symvars, prefix })
     }
 
     pub fn contains_symbols(&self, node: Idx) -> bool {
-        self.counts[node] > 0
+        self.count_and_is_symvars[node].0 > 0
     }
     pub fn valid_symbol(&self, sym: &Symbol) -> bool {
         sym.starts_with(self.prefix)
+    }
+    pub fn is_symvar_spot(&self, node: Idx) -> bool {
+        self.count_and_is_symvars[node].1
     }
 }
 
 #[derive(Debug, Clone)]
 struct SymvarCountAnalysis;
 impl Analysis for SymvarCountAnalysis {
-    type Item = i32;
+    type Item = (i32, bool);
     fn new(e: Expr, analyzed: &AnalyzedExpr<Self>) -> Self::Item {
-        let mut count = 0;
+        let mut count_and_is_symvar = (0, false);
         match e.node() {
             lambdas::Node::IVar(_) => {},
             lambdas::Node::Var(_, _) => {},
             lambdas::Node::Prim(sym) => {
                 if sym.starts_with('&') {
-                    count += 1;
+                    count_and_is_symvar.0 += 1;
+                    count_and_is_symvar.1 = true;
                 }
             },
             lambdas::Node::App(f, x) => {
-                count += analyzed[*f];
-                count += analyzed[*x];
+                count_and_is_symvar.0 += analyzed[*f].0;
+                count_and_is_symvar.0 += analyzed[*x].0;
             },
             lambdas::Node::Lam(b, _) => {
-                count += analyzed[*b];
+                count_and_is_symvar.0 += analyzed[*b].0;
             }
         }
-        count
+        count_and_is_symvar
     }
 }

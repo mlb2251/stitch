@@ -248,7 +248,7 @@ fn symbols_basic() {
 }
 
 #[test]
-#[should_panic(expected = "inconsistent symbols")]
+#[should_panic(expected = "Inconsistent symbols: \"NameStr\" and \"Name\" for expr &os:0")]
 fn symbols_basic_inconsistent_symbols() {
     compare_out_jsons("data/python/non-working-import-and-number-in-same-spot.json", "data/expected_outputs/non-working-import-and-number-in-same-spot.json", &("-i3 -a0 ".to_owned() + &python_args()), InputFormat::ProgramsList);
 }
