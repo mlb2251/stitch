@@ -1,4 +1,0 @@
-[
-  "(Module (/seq (Expr (Constant s_x None)) (Import (list (alias &os:0 None))) (Import (list (alias &sys:0 None))) (Expr (Attribute (Name &os:0 Load) s_environ Load))) nil)",
-  "(Module (/seq (Assign (list (Name &i:0 Store)) (Constant s_x None) None) (Import (list (alias &copy:0 None))) (Import (list (alias &re:0 None)))) nil)"
-]
