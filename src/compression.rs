@@ -234,6 +234,10 @@ pub struct CompressionStepConfig {
     /// TDFA settings
     #[clap(flatten)]
     pub tdfa: TDFAConfig,
+
+    /// Symvar settings
+    #[clap(flatten)]
+    pub symvar: SymvarConfig,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -603,6 +607,7 @@ pub struct SharedData {
     pub arg_of_zid_node: Vec<FxHashMap<Idx,Arg>>,
     pub cost_fn: ExprCost,
     pub analyzed_free_vars: AnalyzedExpr<FreeVarAnalysis>,
+    pub sym_var_info: Option<SymvarInfo>,
     pub analyzed_ivars: AnalyzedExpr<IVarAnalysis>,
     pub analyzed_cost: AnalyzedExpr<ExprCost>,
     pub corpus_span: Span,
@@ -925,7 +930,7 @@ fn stitch_search(
             let mut match_locations = original_pattern.match_locations.clone();
             match_locations.sort_by_cached_key(|loc| (&arg_of_loc[loc].expands_to, *loc));
 
-            let syntactic_expansions = get_syntactic_expansions(arg_of_loc, match_locations);
+            let syntactic_expansions = get_syntactic_expansions(arg_of_loc, match_locations, &shared.sym_var_info);
             let ivars_expansions = get_ivars_expansions(&original_pattern, arg_of_loc, hole_zid, &shared);
 
             let mut found_tracked = false;
@@ -946,7 +951,7 @@ fn stitch_search(
                 // prune here. The exception is when there are free variables so arity 0 wouldn't have applied.
                 // Also, note that upper bounding + arity 0 priming does nearly perfectly handle this already, but there are cases where
                 // you can't improve your structure penalty bound enough to catch everything hence this separate single_use thing.
-                if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.analyzed_free_vars[locs[0]].is_empty() {
+                if !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.analyzed_free_vars[locs[0]].is_empty() && shared.sym_var_info.as_ref().is_none_or(|svi| !svi.contains_symbols(locs[0])) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_use_fired += 1; }
                     continue 'expansion;
                 }
@@ -982,7 +987,7 @@ fn stitch_search(
                     continue 'expansion; // too low utility
                 }
 
-                // assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_ivar(),
+                // assert!(shared.cfg.no_opt_upper_bound || !holes_after_pop.is_empty() || !original_pattern.arg_choices.is_empty() || expands_to.has_holes() || expands_to.is_var(),
                         // "unexpected arity 0 invention: upper bounds + priming with arity 0 inventions should have prevented this");
                 // assert!(shared.cfg.no_opt_upper_bound || (locs.len() > 1 || !shared.egraph[locs[0]].data.free_vars.is_empty()),
                 //         "single-use pruning doesn't seem to be happening, it should be an automatic side effect of upper bounds + priming with arity zero inventions (as long as they dont have free vars)\n{}\n{}\n{}\n{}\n{}", original_pattern.to_expr(&shared), extract(locs[0], &shared.egraph), expands_to,  util_upper_bound, weak_utility_pruning_cutoff);
@@ -993,7 +998,7 @@ fn stitch_search(
 
                 // update arg_choices and possibly first_zid_of_ivar if a new ivar was added
                 let mut pattern_args = original_pattern.pattern_args.clone();
-                expands_to.add_ivar(hole_zid, &mut pattern_args);
+                expands_to.add_variables(hole_zid, &mut pattern_args);
 
                 if original_pattern.pattern_args.is_useless_abstract(&shared, &locs) {
                     continue 'expansion;
@@ -1601,7 +1606,7 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
     if let Some((delta, compressive_delta, _noncompressive_delta, _cost, zids)) = best {
         let ivar = finished.arity;
         for zid in &zids {
-            finished.pattern.pattern_args.add_ivar(ivar, *zid);
+            finished.pattern.pattern_args.add_var(ivar, *zid, VariableType::Metavar);
         }
         finished.compressive_utility += compressive_delta;
         finished.util_calc.util += compressive_delta;
@@ -1898,6 +1903,8 @@ pub fn construct_shared(
     analyzed_cost.analyze(&set);
     analyzed_ivars.analyze(&set);
 
+    let sym_var_info = SymvarInfo::new(&set, &cfg.symvar);
+
 
     if !cfg.quiet { println!("ran analyses: {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
@@ -1924,6 +1931,11 @@ pub fn construct_shared(
             // and should thus be discarded
             if !analyzed_free_vars[node].is_empty() {
                 if !cfg.no_stats { stats.free_vars_fired += 1; };
+                continue;
+            }
+
+            // PRUNING (SYMBOLIC VARS): inventions with symbolic variables in the body are not 0-arity inventions
+            if sym_var_info.as_ref().is_some_and(|info| info.contains_symbols(node)) {
                 continue;
             }
 
@@ -2022,6 +2034,7 @@ pub fn construct_shared(
         cost_fn: cost_fn.clone(),
         analyzed_free_vars,
         analyzed_ivars,
+        sym_var_info,
         analyzed_cost,    
         corpus_span: corpus_span.clone(),
         roots: roots.to_vec(),

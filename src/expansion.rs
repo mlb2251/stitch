@@ -2,9 +2,9 @@ use std::{fmt::{self, Formatter}, sync::Arc};
 
 use itertools::Itertools;
 use lambdas::{Idx, Node, Symbol, Tag, ZId, ZNode};
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
-use crate::{invalid_metavar_location, Arg, Cost, Pattern, PatternArgs, SharedData, ZIdExtension};
+use crate::{invalid_metavar_location, Arg, Cost, LocationsForReusableArgs, Pattern, PatternArgs, SharedData, SymvarInfo, VariableType, ZIdExtension};
 
 /// Tells us what a hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
@@ -15,8 +15,7 @@ enum ExpandsToInner {
     Var(i32, Tag),
     Prim(Symbol),
     // IVar is an abstraction argument, which is a hole that can be filled with a value.
-    // Corresponds to a "metavariable" in the Julia stitch implementation.
-    IVar(i32),
+    IVar(i32, VariableType),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
@@ -33,7 +32,7 @@ impl ExpandsTo {
             ExpandsToInner::App => true,
             ExpandsToInner::Var(_, _) => false,
             ExpandsToInner::Prim(_) => false,
-            ExpandsToInner::IVar(_) => false,
+            ExpandsToInner::IVar(_, _) => false,
         }
     }
     #[inline]
@@ -47,6 +46,14 @@ impl ExpandsTo {
     }
 
     #[inline]
+    pub fn is_prim_symbol(&self, sym_var_info: &SymvarInfo) -> bool {
+        let ExpandsTo(ExpandsToInner::Prim(sym)) = self else {
+            return false;
+        };
+        sym_var_info.valid_symbol(sym)
+    }
+
+    #[inline]
     pub fn free_variable(&self, num_variables: usize) -> bool {
         let ExpandsTo(s) = self;
         match s {
@@ -57,8 +64,8 @@ impl ExpandsTo {
 
     #[inline]
     #[allow(dead_code)]
-    pub fn is_ivar(&self) -> bool {
-        matches!(self, ExpandsTo(ExpandsToInner::IVar(_)))
+    pub fn is_var(&self) -> bool {
+        matches!(self, ExpandsTo(ExpandsToInner::IVar(_, _)))
     }
 
     #[inline]
@@ -69,7 +76,7 @@ impl ExpandsTo {
             ExpandsToInner::App => shared.cost_fn.cost_app,
             ExpandsToInner::Var(_, _) => shared.cost_fn.cost_var,
             ExpandsToInner::Prim(p) => shared.cost_fn.compute_cost_prim(p),
-            ExpandsToInner::IVar(_) => 0,
+            ExpandsToInner::IVar(_, _) => 0,
         };
         res as Cost
     }
@@ -91,10 +98,10 @@ impl ExpandsTo {
         }
     }
 
-    pub fn add_ivar(&self, original_hole_zid: ZId, pattern_args: &mut PatternArgs) {
+    pub fn add_variables(&self, original_hole_zid: ZId, pattern_args: &mut PatternArgs) {
         let ExpandsTo(expands_to) = self;
-        if let ExpandsToInner::IVar(i) = expands_to {
-            pattern_args.add_ivar(*i as usize, original_hole_zid);
+        if let ExpandsToInner::IVar(i, vt) = expands_to {
+            pattern_args.add_var(*i as usize, original_hole_zid, *vt);
         }
     }
 }
@@ -119,7 +126,7 @@ impl std::fmt::Display for ExpandsTo {
                 Ok(())
             },
             ExpandsTo(ExpandsToInner::Prim(p)) => write!(f, "{p}"),
-            ExpandsTo(ExpandsToInner::IVar(v)) => write!(f, "#{v}"),
+            ExpandsTo(ExpandsToInner::IVar(v, _)) => write!(f, "#{v}"),
         }
     }
 }
@@ -131,8 +138,8 @@ pub fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData)
     // this will expand into, then get the ExpandsTo of that
     let idx = shared.tracking.as_ref().unwrap().expr.immut().zip(&shared.zip_of_zid[hole_zid]).idx;
     match expands_to_of_node(&shared.tracking.as_ref().unwrap().expr.set[idx]) {
-        ExpandsTo(ExpandsToInner::IVar(i)) => {
-            ExpandsTo(ExpandsToInner::IVar(pattern.pattern_args.find_variable(shared, i as usize) as i32))
+        ExpandsTo(ExpandsToInner::IVar(i, VariableType::Metavar)) => {
+            ExpandsTo(ExpandsToInner::IVar(pattern.pattern_args.find_variable(shared, i as usize) as i32, VariableType::Metavar))
         }
         e => e
     }
@@ -146,15 +153,16 @@ pub fn expands_to_of_node(node: &Node) -> ExpandsTo {
             Node::Prim(p) => ExpandsToInner::Prim(p.clone()),
             Node::Lam(_, tag) => ExpandsToInner::Lam(*tag),
             Node::App(_,_) => ExpandsToInner::App,
-            Node::IVar(i) => ExpandsToInner::IVar(*i),
+            Node::IVar(i) => ExpandsToInner::IVar(*i, VariableType::Metavar),
         }
     )
 }
 
 #[inline]
-pub fn get_syntactic_expansions(arg_of_loc: &FxHashMap<usize, Arg>, match_locations: Vec<usize>) -> Vec<(ExpandsTo, Vec<Idx>)> {
+pub fn get_syntactic_expansions(arg_of_loc: &FxHashMap<usize, Arg>, match_locations: Vec<usize>, sym_var_info: &Option<SymvarInfo>) -> Vec<(ExpandsTo, Vec<Idx>)> {
     match_locations.into_iter()
         .group_by(|loc| &arg_of_loc[loc].expands_to).into_iter()
+        .filter(|(expands_to, _)| sym_var_info.as_ref().is_none_or(|s| !expands_to.is_prim_symbol(s)))
         .map(|(expands_to, locs)| (expands_to.clone(), locs.collect::<Vec<Idx>>()))
         .collect::<Vec<_>>()
 }
@@ -174,19 +182,49 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
             return ivars_expansions;
         }
     }
-
+    let mut all_reusable_locs = FxHashSet::default();
     // consider all ivars used previously
-    for ivar in 0..original_pattern.pattern_args.num_ivars() {
-        let locs = original_pattern.pattern_args.reusable_args_location(shared, ivar, arg_of_loc, &original_pattern.match_locations);
+    let mut locs_for_reusable = LocationsForReusableArgs::new(&original_pattern.match_locations);
+    for var in 0..original_pattern.pattern_args.arity() {
+        let locs = original_pattern.pattern_args.reusable_args_location(shared, var, arg_of_loc, &mut locs_for_reusable);
         if locs.is_empty() { continue; }
-        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(ivar as i32)), locs));
+        all_reusable_locs.extend(locs.iter().cloned());
+        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32, VariableType::Metavar)), locs));
     }
     // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
     if original_pattern.pattern_args.num_ivars() < shared.cfg.max_arity {
-        let ivar = original_pattern.pattern_args.num_ivars();
+        let var = original_pattern.pattern_args.arity();
         let mut locs = original_pattern.match_locations.clone();
         locs.retain(|loc| !invalid_metavar_location(shared, arg_of_loc[loc].shifted_id));
-        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(ivar as i32)), locs));
+        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32, VariableType::Metavar)), locs));
     }
+
+    if let Some(sym_var_info) = shared.sym_var_info.as_ref() {
+        let svar_locations = svar_locations(original_pattern, arg_of_loc, all_reusable_locs, sym_var_info);
+        if !svar_locations.is_empty() {
+            // println!("Found svar locations: {:?}", svar_locations);
+            ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(original_pattern.pattern_args.arity() as i32, VariableType::Symvar)), svar_locations));
+        }
+    }
+
+
     ivars_expansions
+}
+
+
+pub fn svar_locations(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,Arg>, reusable_locs: FxHashSet<Idx>, sym_var_info: &SymvarInfo) -> Vec<Idx> {
+
+    let mut locations = vec![];
+
+    original_pattern.match_locations.iter().for_each(|loc| {
+        if !arg_of_loc[loc].expands_to.is_prim_symbol(sym_var_info) {
+            return;
+        }
+        if reusable_locs.contains(loc) {
+            return;
+        }
+
+        locations.push(*loc);
+    });
+    locations
 }
