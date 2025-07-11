@@ -247,6 +247,12 @@ fn symbols_basic() {
     compare_out_jsons("data/python/pick-up-on-abstractions-0-arity.json", "data/expected_outputs/pick-up-on-abstractions-0-arity.json", &("-i1 -a0 ".to_owned() + &python_args()), InputFormat::ProgramsList);
 }
 
+#[test]
+#[should_panic(expected = "Inconsistent symbols: \"NameStr\" and \"Name\" for expr &os:0")]
+fn symbols_basic_inconsistent_symbols() {
+    compare_out_jsons("data/python/non-working-import-and-number-in-same-spot.json", "data/expected_outputs/non-working-import-and-number-in-same-spot.json", &("-i3 -a0 ".to_owned() + &python_args()), InputFormat::ProgramsList);
+}
+
 
 // todo disabled bc nondeterminism with 2 equal things on the first invention (usually threading prevents that, but here for some reason you always get the same result when running from commandline and a diff result when running from test)
 // #[test]
