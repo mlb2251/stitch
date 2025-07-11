@@ -2,10 +2,10 @@ use core::panic;
 use std::collections::{HashMap, HashSet};
 
 use clap::Parser;
-use lambdas::{ExprSet, Idx, Node, Symbol};
+use lambdas::{ExprOwned, ExprSet, Idx, Node, Symbol};
 use serde::Serialize;
 
-use crate::{CompressionStepConfig, CompressionStepResult, Pattern, SharedData};
+use crate::{CompressionStepConfig, CompressionStepResult, Pattern, SharedData, SymvarInfo};
 
 
 type State = String;
@@ -32,6 +32,10 @@ pub struct TDFAConfig {
     /// States of the TDFA that not in eta-long-form (e.g., (/seq A B C) makes (/seq A) a valid metavariable)
     #[clap(long, default_value = "")]
     tdfa_non_eta_long_states: String,
+
+    /// If set, when present in a symbol, we will take the part before the split as the symbol
+    #[clap(long)]
+    tdfa_split: Option<String>,
 }
 
 impl TDFAConfig {
@@ -48,7 +52,13 @@ pub struct TDFAGlobalAnnotations {
 }
 
 impl TDFAGlobalAnnotations {
-    pub fn new(cfg: &CompressionStepConfig, set: &ExprSet, roots: &[Idx], prev_results: &[CompressionStepResult]) -> Option<TDFAGlobalAnnotations> {
+    pub fn new(
+        cfg: &CompressionStepConfig,
+        set: &ExprSet,
+        roots: &[Idx],
+        prev_results: &[CompressionStepResult],
+        sym_var_info: &Option<SymvarInfo>,
+    ) -> Option<TDFAGlobalAnnotations> {
         if !cfg.tdfa.present() {
             return None;
         }
@@ -66,9 +76,10 @@ impl TDFAGlobalAnnotations {
             valid_roots,
             tdfa_non_eta_long_states,
             prev_results.iter().map(|r| (r.inv.name.clone(), r.tdfa_annotation.clone())).collect::<Vec<_>>(),
+            tdfa_cfg.tdfa_split.clone(),
         );
-        let annotated = tdfa.annotate(set, roots);
-        let mut symbols = vec![None; set.len()];
+        let annotated = tdfa.annotate(set, roots, sym_var_info);
+        let mut symbols: Vec<Option<State>> = vec![None; set.len()];
         let mut invalid_metavars = vec![true; set.len()];
         let mut invalid_roots = vec![true; set.len()];
         for (idx, state) in annotated.iter() {
@@ -117,6 +128,7 @@ pub struct TDFA {
     valid_metavars: HashSet<State>,
     valid_roots: HashSet<State>,
     tdfa_non_eta_long_states: HashMap<State, State>,
+    split: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -136,7 +148,7 @@ impl TDFAInventionAnnotation {
         let annotation = TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[0], global_annotations).unwrap();
         for i in 1..pattern.match_locations.len() {
             assert!(annotation == TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[i], global_annotations).unwrap(),
-                "Inconsistent TDFAInventionAnnotation for match locations: {:?} and {:?}", 
+                "Inconsistent TDFAInventionAnnotation for match locations: {:?} and {:?}",
                 pattern.match_locations[0], pattern.match_locations[i]);
         }
         Some(annotation)
@@ -181,7 +193,7 @@ impl TDFAInventionAnnotation {
 }
 
 impl TDFA {
-    pub fn new(root: String, dfa: String, valid_metavars: Vec<State>, valid_roots: Vec<State>, tdfa_non_eta_long_states: HashMap<State, State>, prev_invs: Vec<(String, Option<TDFAInventionAnnotation>)>) -> Self {
+    pub fn new(root: String, dfa: String, valid_metavars: Vec<State>, valid_roots: Vec<State>, tdfa_non_eta_long_states: HashMap<State, State>, prev_invs: Vec<(String, Option<TDFAInventionAnnotation>)>, split: Option<String>) -> Self {
         let mut dfa: HashMap<State, HashMap<Symbol, Vec<State>>> = serde_json::from_str(&dfa).unwrap();
         for (name, tdfa_annotation) in prev_invs {
             if let Some(annotation) = tdfa_annotation {
@@ -199,17 +211,18 @@ impl TDFA {
         }
         let valid_metavars: HashSet<State> = valid_metavars.into_iter().collect();
         let valid_roots: HashSet<State> = valid_roots.iter().cloned().collect();
-        TDFA { root, dfa, tdfa_non_eta_long_states, valid_metavars, valid_roots }
+        TDFA { root, dfa, tdfa_non_eta_long_states, valid_metavars, valid_roots, split }
     }
 
     pub fn annotate(
         &self,
         set: &ExprSet,
         roots: &[Idx],
+        sym_var_info: &Option<SymvarInfo>,
     ) -> HashMap<usize, State> {
         let mut out = HashMap::new();
         for node in roots {
-            self._annotate(set, *node, self.root.clone(), &mut out);
+            self._annotate(set, *node, self.root.clone(), &mut out, sym_var_info);
         }
         out
     }
@@ -236,20 +249,60 @@ impl TDFA {
         }
     }
 
+    fn relevant_symbol(&self, symbol: &State) -> bool {
+        self.valid_metavars.contains(symbol) || self.valid_roots.contains(symbol)
+    }
+
+    fn matters_to_annotate_node(&self, symbol_1: &State, symbol_2: &State, is_symvar_spot: bool) -> bool {
+        if is_symvar_spot {
+            return true;
+        }
+        if self.relevant_symbol(symbol_1) {
+            return true;
+        }
+        if self.relevant_symbol(symbol_2) {
+            return true;
+        }
+        false
+    }
+
+    fn _check_consistent(
+        &self,
+        set: &ExprSet,
+        expr: Idx,
+        existing_symbol: &State,
+        new_symbol: &State,
+        is_symvar_spot: bool,
+    ) {
+        if *existing_symbol == *new_symbol {
+            return;
+        }
+        if !self.matters_to_annotate_node(existing_symbol, new_symbol, is_symvar_spot) {
+            return;
+        }
+        panic!("Inconsistent symbols: {:?} and {:?} for expr {}", existing_symbol, new_symbol, ExprOwned {idx: expr, set: set.clone()});
+    }
+
     fn _annotate(
         &self,
         set: &ExprSet,
         node: Idx,
         state: State,
         out: &mut HashMap<usize, State>,
+        sym_var_info: &Option<SymvarInfo>,
     ) {
-        out.insert(node, state.clone());
+        if let Some(symbol) = &out.get(&node) {
+            self._check_consistent(set, node, symbol, &state, sym_var_info.as_ref().is_some_and(|info| info.is_symvar_spot(node)));
+        } else {
+            out.insert(node, state.clone());
+        }
         match set[node] {
             Node::IVar(_) | Node::Lam(_, _) | Node::Var(_, _) => panic!("Not compatible"),
             Node::Prim(_) => return,
             Node::App(_, _) => {}
         }
         let (symbol, nodes, args) = self.get_symbol_and_args(set, node);
+        let symbol = self.process_split(symbol);
         let transitions = self.dfa.get(&state).and_then(|transitions| transitions.get(&symbol))
             .unwrap_or_else(|| {
                 panic!("No transition for state: {:?} and symbol: {:?}", state, symbol);
@@ -261,22 +314,32 @@ impl TDFA {
             // transitions are not in eta-long form.
             while cur_arg < transitions.len() {
                 let next_state = transitions[cur_arg].clone();
-                self._annotate(set, args[cur_arg], next_state, out);
+                self._annotate(set, args[cur_arg], next_state, out, sym_var_info);
                 cur_arg += 1;
             }
             // now we annotate the rest of the args with the non-eta-long state
             let inner_state = self.tdfa_non_eta_long_states.get(&state).unwrap().clone();
             while cur_arg < args.len() {
                 out.insert(nodes[cur_arg], state.clone());
-                self._annotate(set, args[cur_arg], inner_state.clone(), out);
+                self._annotate(set, args[cur_arg], inner_state.clone(), out, sym_var_info);
                 cur_arg += 1;
             }
         } else {
             assert!(transitions.is_empty() || args.len() % transitions.len() == 0, "Mismatch in number of transitions and arguments");
             for (i, arg) in args.iter().enumerate() {
                 let next_state = transitions[i % transitions.len()].clone();
-                self._annotate(set, *arg, next_state, out);
+                self._annotate(set, *arg, next_state, out, sym_var_info);
             }
         }
+    }
+
+    fn process_split(&self, symbol: Symbol) -> Symbol {
+        let Some(split) = &self.split else {
+            return symbol;
+        };
+        let Some(idx) = symbol.find(split) else {
+            return symbol;
+        };
+        Symbol::from(symbol[..idx].to_string())
     }
 }

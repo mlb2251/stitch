@@ -2004,7 +2004,7 @@ pub fn construct_shared(
     // define all the important data structures for compression
     let mut donelist: Vec<FinishedPattern> = Default::default(); // completed inventions will go here    
 
-    let tdfa_global_annotations = TDFAGlobalAnnotations::new(cfg, &set, &roots, prev_results);
+    let tdfa_global_annotations = TDFAGlobalAnnotations::new(cfg, &set, &roots, prev_results, &sym_var_info);
 
     let single_hole = Pattern::single_hole(&corpus_span, &cost_of_node_sym, &cost_of_node_all, &num_paths_to_node, &tdfa_global_annotations, &set, cfg);
 
