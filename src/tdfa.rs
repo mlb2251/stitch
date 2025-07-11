@@ -2,7 +2,7 @@ use core::panic;
 use std::collections::{HashMap, HashSet};
 
 use clap::Parser;
-use lambdas::{ExprSet, Idx, Node, Symbol};
+use lambdas::{ExprOwned, ExprSet, Idx, Node, Symbol};
 use serde::Serialize;
 
 use crate::{CompressionStepConfig, CompressionStepResult, Pattern, SharedData, SymvarInfo};
@@ -32,6 +32,10 @@ pub struct TDFAConfig {
     /// States of the TDFA that not in eta-long-form (e.g., (/seq A B C) makes (/seq A) a valid metavariable)
     #[clap(long, default_value = "")]
     tdfa_non_eta_long_states: String,
+
+    /// If set, when present in a symbol, we will take the part before the split as the symbol
+    #[clap(long)]
+    tdfa_split: Option<String>,
 }
 
 impl TDFAConfig {
@@ -71,6 +75,7 @@ impl TDFAGlobalAnnotations {
             valid_roots,
             tdfa_non_eta_long_states,
             prev_results.iter().map(|r| (r.inv.name.clone(), r.tdfa_annotation.clone())).collect::<Vec<_>>(),
+            tdfa_cfg.tdfa_split.clone(),
         );
         let annotated = tdfa.annotate(set, roots, sym_var_info);
         let mut symbols: Vec<Option<State>> = vec![None; set.len()];
@@ -122,6 +127,7 @@ pub struct TDFA {
     valid_metavars: HashSet<State>,
     valid_roots: HashSet<State>,
     tdfa_non_eta_long_states: HashMap<State, State>,
+    split: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -195,7 +201,7 @@ impl TDFAInventionAnnotation {
 }
 
 impl TDFA {
-    pub fn new(root: String, dfa: String, valid_metavars: Vec<State>, valid_roots: Vec<State>, tdfa_non_eta_long_states: HashMap<State, State>, prev_invs: Vec<(String, Option<TDFAInventionAnnotation>)>) -> Self {
+    pub fn new(root: String, dfa: String, valid_metavars: Vec<State>, valid_roots: Vec<State>, tdfa_non_eta_long_states: HashMap<State, State>, prev_invs: Vec<(String, Option<TDFAInventionAnnotation>)>, split: Option<String>) -> Self {
         let mut dfa: HashMap<State, HashMap<Symbol, Vec<State>>> = serde_json::from_str(&dfa).unwrap();
         for (name, tdfa_annotation) in prev_invs {
             if let Some(annotation) = tdfa_annotation {
@@ -213,7 +219,7 @@ impl TDFA {
         }
         let valid_metavars: HashSet<State> = valid_metavars.into_iter().collect();
         let valid_roots: HashSet<State> = valid_roots.iter().cloned().collect();
-        TDFA { root, dfa, tdfa_non_eta_long_states, valid_metavars, valid_roots }
+        TDFA { root, dfa, tdfa_non_eta_long_states, valid_metavars, valid_roots, split }
     }
 
     pub fn annotate(
@@ -270,7 +276,8 @@ impl TDFA {
 
     fn _check_consistent(
         &self,
-        expr: &Node,
+        set: &ExprSet,
+        expr: Idx,
         existing_symbol: &State,
         new_symbol: &State,
         is_symvar_spot: bool,
@@ -281,7 +288,7 @@ impl TDFA {
         if !self.matters_to_annotate_node(existing_symbol, new_symbol, is_symvar_spot) {
             return;
         }
-        panic!("Inconsistent symbols: {:?} and {:?} for expr {}", existing_symbol, new_symbol, expr.to_string());
+        panic!("Inconsistent symbols: {:?} and {:?} for expr {}", existing_symbol, new_symbol, ExprOwned {idx: expr, set: set.clone()});
     }
 
     fn _annotate(
@@ -293,7 +300,7 @@ impl TDFA {
         sym_var_info: &Option<SymvarInfo>,
     ) {
         if let Some(symbol) = &out.get(&node) {
-            self._check_consistent(&set[node], symbol, &state, sym_var_info.as_ref().is_some_and(|info| info.is_symvar_spot(node)));
+            self._check_consistent(set, node, symbol, &state, sym_var_info.as_ref().is_some_and(|info| info.is_symvar_spot(node)));
         } else {
             out.insert(node, state.clone());
         }
@@ -303,6 +310,7 @@ impl TDFA {
             Node::App(_, _) => {}
         }
         let (symbol, nodes, args) = self.get_symbol_and_args(set, node);
+        let symbol = self.process_split(symbol);
         let transitions = self.dfa.get(&state).and_then(|transitions| transitions.get(&symbol))
             .unwrap_or_else(|| {
                 panic!("No transition for state: {:?} and symbol: {:?}", state, symbol);
@@ -331,5 +339,15 @@ impl TDFA {
                 self._annotate(set, *arg, next_state, out, sym_var_info);
             }
         }
+    }
+
+    fn process_split(&self, symbol: Symbol) -> Symbol {
+        let Some(split) = &self.split else {
+            return symbol;
+        };
+        let Some(idx) = symbol.find(split) else {
+            return symbol;
+        };
+        Symbol::from(symbol[..idx].to_string())
     }
 }
