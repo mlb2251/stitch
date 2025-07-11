@@ -15,7 +15,7 @@ pub enum VariableType {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct PatternArgs {
     arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
-    variables: Vec<(u32, VariableType)>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
+    variables: Vec<(u32, VariableType)>, //varibales[i].0 gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
 }
 
 impl PartialOrd for PatternArgs {
@@ -26,7 +26,7 @@ impl PartialOrd for PatternArgs {
 
 impl Ord for PatternArgs {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        // only compare the arg_choices, since the first_zid_of_ivar is just a mapping to the arg_choices
+        // only compare the arg_choices, since the variables is just a mapping to the arg_choices
         self.arg_choices.cmp(&other.arg_choices)
     }
 }
@@ -89,7 +89,7 @@ impl PatternArgs {
         // Pruning (ARGUMENT CAPTURE): check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
         // because subsetting of match_locations can turn previously useful abstractions into useless ones. In the paper this is referred to as "argument capture"
         if !shared.cfg.no_opt_useless_abstract {
-            // note I believe it'd be save to iterate over first_zid_of_ivar instead
+            // note I believe it'd be save to iterate over variables instead
             for argchoice in self.arg_choices.iter() {
                 if self.variables[argchoice.ivar].1 != VariableType::Metavar {
                     continue;
@@ -139,7 +139,7 @@ impl PatternArgs {
     pub fn find_variable(&self, shared: &SharedData, i: Idx) -> Idx {
         // in the case where we're searching for an IVar we need to be robust to relabellings
         // since this doesn't have to be canonical. What we can do is we can look over
-        // each ivar the the pattern has defined with a first zid in pattern.first_zid_of_ivar, and
+        // each ivar the the pattern has defined with a first zid in pattern.variables, and
         // if our expressions' zids_of_ivar[i] contains this zid then we know these two ivars
         // must correspond to each other in the pattern and the tracked expr and we can just return
         // the pattern version (`j` below).

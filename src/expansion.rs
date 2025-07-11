@@ -202,7 +202,6 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
     if let Some(sym_var_info) = shared.sym_var_info.as_ref() {
         let svar_locations = svar_locations(original_pattern, arg_of_loc, all_reusable_locs, sym_var_info);
         if !svar_locations.is_empty() {
-            // println!("Found svar locations: {:?}", svar_locations);
             ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(original_pattern.pattern_args.arity() as i32, VariableType::Symvar)), svar_locations));
         }
     }
