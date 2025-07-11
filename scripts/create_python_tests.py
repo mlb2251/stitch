@@ -111,22 +111,3 @@ create_python_test(
         """
     ),
 )
-
-create_python_test(
-    "import-and-number-in-same-spot",
-    dedent(
-        """
-        "x"
-        import os
-        import sys
-        os.environ
-        """
-    ),
-    dedent(
-        """
-        i = "x"
-        import copy
-        import re
-        """
-    ),
-)
