@@ -55,7 +55,6 @@ impl TDFAGlobalAnnotations {
         let tdfa_cfg = cfg.tdfa.clone();
         let tdfa_string = std::fs::read_to_string(tdfa_cfg.tdfa_json_path).expect("Failed to read TDFA JSON file");
         let tdfa_root = tdfa_cfg.tdfa_root.clone();
-        println!("{}", tdfa_cfg.valid_metavars);
         let valid_metavars = serde_json::from_str::<Vec<State>>(&tdfa_cfg.valid_metavars).expect("Failed to parse valid metavars JSON");
         let valid_roots = serde_json::from_str::<Vec<State>>(&tdfa_cfg.valid_roots).expect("Failed to parse valid roots JSON");
         let tdfa_non_eta_long_states: HashMap<State, State> = serde_json::from_str(&tdfa_cfg.tdfa_non_eta_long_states).expect("Failed to parse non-eta long states JSON");
