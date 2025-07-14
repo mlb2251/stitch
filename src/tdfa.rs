@@ -14,24 +14,24 @@ type State = String;
 #[clap(name = "Stitch")]
 pub struct TDFAConfig {
     /// If set, we will apply the given TDFA to the programs and use this to annotate the programs
-    #[clap(long, default_value = "")]
-    tdfa_json_path: String,
+    #[clap(long, required = false)]
+    tdfa_json_path: Option<String>,
 
     /// The root of the TDFA to use for annotation
-    #[clap(long, default_value = "")]
-    tdfa_root: String,
+    #[clap(long, required = false)]
+    tdfa_root: Option<String>,
 
     /// Metavariable locations that are valid for the TDFA
-    #[clap(long, default_value = "")]
-    valid_metavars: String,
+    #[clap(long, required = false)]
+    valid_metavars: Option<String>,
 
     /// Root locations that are valid for the TDFA
-    #[clap(long, default_value = "")]
-    valid_roots: String,
+    #[clap(long, required = false)]
+    valid_roots: Option<String>,
 
     /// States of the TDFA that not in eta-long-form (e.g., (/seq A B C) makes (/seq A) a valid metavariable)
-    #[clap(long, default_value = "")]
-    tdfa_non_eta_long_states: String,
+    #[clap(long, required = false)]
+    tdfa_non_eta_long_states: Option<String>,
 
     /// If set, when present in a symbol, we will take the part before the split as the symbol
     #[clap(long)]
@@ -40,7 +40,7 @@ pub struct TDFAConfig {
 
 impl TDFAConfig {
     fn present(&self) -> bool {
-        !self.tdfa_json_path.is_empty()
+        self.tdfa_json_path.is_some()
     }
 }
 
@@ -62,12 +62,17 @@ impl TDFAGlobalAnnotations {
             return None;
         }
         let tdfa_cfg = cfg.tdfa.clone();
-        let tdfa_string = std::fs::read_to_string(tdfa_cfg.tdfa_json_path).expect("Failed to read TDFA JSON file");
-        let tdfa_root = tdfa_cfg.tdfa_root.clone();
-        println!("{}", tdfa_cfg.valid_metavars);
-        let valid_metavars = serde_json::from_str::<Vec<State>>(&tdfa_cfg.valid_metavars).expect("Failed to parse valid metavars JSON");
-        let valid_roots = serde_json::from_str::<Vec<State>>(&tdfa_cfg.valid_roots).expect("Failed to parse valid roots JSON");
-        let tdfa_non_eta_long_states: HashMap<State, State> = serde_json::from_str(&tdfa_cfg.tdfa_non_eta_long_states).expect("Failed to parse non-eta long states JSON");
+        let tdfa_string: String = std::fs::read_to_string(tdfa_cfg.tdfa_json_path.as_ref().expect("TDFA parameter 'tdfa_json_path' was not provided")).expect("Could not read file at path specified by 'tdfa_json_path'");
+        let tdfa_root = tdfa_cfg.tdfa_root.clone().expect("TDFA parameter 'tdfa_root' was not provided");
+        let valid_metavars = serde_json::from_str::<Vec<State>>(
+            tdfa_cfg.valid_metavars.as_ref().expect("TDFA parameter 'valid_metavars' was not provided")
+        ).expect("TDFA parameter 'valid_metavars' could not be parsed as a JSON array of states");
+        let valid_roots = serde_json::from_str::<Vec<State>>(
+            tdfa_cfg.valid_roots.as_ref().expect("TDFA parameter 'valid_roots' was not provided")
+        ).expect("TDFA parameter 'valid_roots' could not be parsed as a JSON array of states");
+        let tdfa_non_eta_long_states: HashMap<State, State> = serde_json::from_str(
+            tdfa_cfg.tdfa_non_eta_long_states.as_ref().expect("TDFA parameter 'tdfa_non_eta_long_states' was not provided")
+        ).expect("TDFA parameter 'tdfa_non_eta_long_states' could not be parsed as a JSON object mapping states");
         let tdfa: TDFA = TDFA::new(
             tdfa_root,
             tdfa_string,
