@@ -33,3 +33,7 @@ modppl = "0.3.0"
 # [profile.release]
 # debug = true
 
+[profile.test]
+opt-level = 3
+debug = true
+
