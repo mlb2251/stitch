@@ -240,7 +240,7 @@ fn smc_regression_tests() {
 #[test]
 #[should_panic(expected = "Inconsistent symbols: \"NameStr\" and \"Name\" for expr &os:0")]
 fn symbols_basic_inconsistent_symbols() {
-    compare_out_jsons("data/python/non-working-import-and-number-in-same-spot.json", "data/expected_outputs/non-working-import-and-number-in-same-spot.json", &("-i3 -a0 ".to_owned() + &python_args()), InputFormat::ProgramsList);
+    compare_out_jsons("data/python/non-working-import-and-number-in-same-spot.json", "data/expected_outputs/non-working-import-and-number-in-same-spot.json", &("-i3 -a0 ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
 }
 
 

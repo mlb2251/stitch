@@ -12,7 +12,7 @@ fn assert_tdfa(json: String, root: String, valid_metavar: String, eta_long: (Str
     let node = set.parse_extend(code).unwrap();
     
     
-    let result = tdfa.annotate(&set, &[node], &None);
+    let result = tdfa.annotate(&set, &[node]);
     
     let mut result_str = result.iter()
         .map(|(k, v)| format!("{}: {}", set.get(*k), v))

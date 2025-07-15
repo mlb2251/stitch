@@ -5,7 +5,7 @@ use clap::Parser;
 use lambdas::{ExprOwned, ExprSet, Idx, Node, Symbol};
 use serde::Serialize;
 
-use crate::{CompressionStepConfig, CompressionStepResult, Pattern, SharedData, SymvarInfo};
+use crate::{CompressionStepConfig, CompressionStepResult, Pattern, SharedData};
 
 
 type State = String;
@@ -57,7 +57,6 @@ impl TDFAGlobalAnnotations {
         set: &ExprSet,
         roots: &[Idx],
         prev_results: &[CompressionStepResult],
-        sym_var_info: &Option<SymvarInfo>,
     ) -> Option<TDFAGlobalAnnotations> {
         if !cfg.tdfa.present() {
             return None;
@@ -78,7 +77,7 @@ impl TDFAGlobalAnnotations {
             prev_results.iter().map(|r| (r.inv.name.clone(), r.tdfa_annotation.clone())).collect::<Vec<_>>(),
             tdfa_cfg.tdfa_split.clone(),
         );
-        let annotated = tdfa.annotate(set, roots, sym_var_info);
+        let annotated = tdfa.annotate(set, roots);
         let mut symbols: Vec<Option<State>> = vec![None; set.len()];
         let mut invalid_metavars = vec![true; set.len()];
         let mut invalid_roots = vec![true; set.len()];
@@ -218,11 +217,10 @@ impl TDFA {
         &self,
         set: &ExprSet,
         roots: &[Idx],
-        sym_var_info: &Option<SymvarInfo>,
     ) -> HashMap<usize, State> {
         let mut out = HashMap::new();
         for node in roots {
-            self._annotate(set, *node, self.root.clone(), &mut out, sym_var_info);
+            self._annotate(set, *node, self.root.clone(), &mut out);
         }
         out
     }
@@ -253,10 +251,7 @@ impl TDFA {
         self.valid_metavars.contains(symbol) || self.valid_roots.contains(symbol)
     }
 
-    fn matters_to_annotate_node(&self, symbol_1: &State, symbol_2: &State, is_symvar_spot: bool) -> bool {
-        if is_symvar_spot {
-            return true;
-        }
+    fn matters_to_annotate_node(&self, symbol_1: &State, symbol_2: &State) -> bool {
         if self.relevant_symbol(symbol_1) {
             return true;
         }
@@ -272,12 +267,11 @@ impl TDFA {
         expr: Idx,
         existing_symbol: &State,
         new_symbol: &State,
-        is_symvar_spot: bool,
     ) {
         if *existing_symbol == *new_symbol {
             return;
         }
-        if !self.matters_to_annotate_node(existing_symbol, new_symbol, is_symvar_spot) {
+        if !self.matters_to_annotate_node(existing_symbol, new_symbol) {
             return;
         }
         panic!("Inconsistent symbols: {:?} and {:?} for expr {}", existing_symbol, new_symbol, ExprOwned {idx: expr, set: set.clone()});
@@ -289,10 +283,9 @@ impl TDFA {
         node: Idx,
         state: State,
         out: &mut HashMap<usize, State>,
-        sym_var_info: &Option<SymvarInfo>,
     ) {
         if let Some(symbol) = &out.get(&node) {
-            self._check_consistent(set, node, symbol, &state, sym_var_info.as_ref().is_some_and(|info| info.is_symvar_spot(node)));
+            self._check_consistent(set, node, symbol, &state);
         } else {
             out.insert(node, state.clone());
         }
@@ -314,21 +307,21 @@ impl TDFA {
             // transitions are not in eta-long form.
             while cur_arg < transitions.len() {
                 let next_state = transitions[cur_arg].clone();
-                self._annotate(set, args[cur_arg], next_state, out, sym_var_info);
+                self._annotate(set, args[cur_arg], next_state, out);
                 cur_arg += 1;
             }
             // now we annotate the rest of the args with the non-eta-long state
             let inner_state = self.tdfa_non_eta_long_states.get(&state).unwrap().clone();
             while cur_arg < args.len() {
                 out.insert(nodes[cur_arg], state.clone());
-                self._annotate(set, args[cur_arg], inner_state.clone(), out, sym_var_info);
+                self._annotate(set, args[cur_arg], inner_state.clone(), out);
                 cur_arg += 1;
             }
         } else {
             assert!(transitions.is_empty() || args.len() % transitions.len() == 0, "Mismatch in number of transitions and arguments");
             for (i, arg) in args.iter().enumerate() {
                 let next_state = transitions[i % transitions.len()].clone();
-                self._annotate(set, *arg, next_state, out, sym_var_info);
+                self._annotate(set, *arg, next_state, out);
             }
         }
     }
