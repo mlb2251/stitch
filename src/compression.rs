@@ -991,16 +991,14 @@ fn stitch_search(
             let mut match_locations = original_pattern.match_locations.clone();
             match_locations.sort_by_cached_key(|loc| (&arg_of_loc[loc].expands_to, *loc));
 
+            let syntactic_expansions = get_syntactic_expansions(arg_of_loc, match_locations);
             let ivars_expansions = get_ivars_expansions(&original_pattern, arg_of_loc, hole_zid, &shared);
 
             let mut found_tracked = false;
             // for each way of expanding the hole...
 
             'expansion:
-                for (expands_to, locs) in match_locations.into_iter()
-                .group_by(|loc| &arg_of_loc[loc].expands_to).into_iter()
-                .map(|(expands_to, locs)| (expands_to.clone(), locs.collect::<Vec<Idx>>()))
-                .chain(ivars_expansions.into_iter())
+                for (expands_to, locs) in syntactic_expansions.into_iter().chain(ivars_expansions.into_iter())
             {
                 // for debugging
                 let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, hole_zid, &shared);
@@ -1472,7 +1470,8 @@ impl CompressionStepResult {
             "rewritten": rewritten,
             "rewritten_dreamcoder": rewritten_dreamcoder,
             "uses": all_uses,
-            "dc_comparison_millis": self.dc_comparison_millis
+            "dc_comparison_millis": self.dc_comparison_millis,
+            "tdfa_annotation": self.tdfa_annotation,
         })
     }
 }

@@ -1,5 +1,6 @@
 use std::{fmt::{self, Formatter}, sync::Arc};
 
+use itertools::Itertools;
 use lambdas::{Idx, Node, Symbol, Tag, ZId, ZNode};
 use rustc_hash::FxHashMap;
 
@@ -105,7 +106,7 @@ impl std::fmt::Display for ExpandsTo {
             ExpandsTo(ExpandsToInner::Lam(tag)) => {
                 write!(f, "(lam")?;
                 if *tag != -1 {
-                    write!(f, "_{}", tag)?;
+                    write!(f, "_{tag}")?;
                 }
                 write!(f, " ??)")
             },
@@ -113,7 +114,7 @@ impl std::fmt::Display for ExpandsTo {
             ExpandsTo(ExpandsToInner::Var(v, tag)) => {
                 write!(f, "${v}")?;
                 if *tag != -1 {
-                    write!(f, "_{}", tag)?;
+                    write!(f, "_{tag}")?;
                 }
                 Ok(())
             },
@@ -149,6 +150,15 @@ pub fn expands_to_of_node(node: &Node) -> ExpandsTo {
         }
     )
 }
+
+#[inline]
+pub fn get_syntactic_expansions(arg_of_loc: &FxHashMap<usize, Arg>, match_locations: Vec<usize>) -> Vec<(ExpandsTo, Vec<Idx>)> {
+    match_locations.into_iter()
+        .group_by(|loc| &arg_of_loc[loc].expands_to).into_iter()
+        .map(|(expands_to, locs)| (expands_to.clone(), locs.collect::<Vec<Idx>>()))
+        .collect::<Vec<_>>()
+}
+
 
 //#[inline(never)]
 /// Return options for what abstraction arguments (aka ivars, #i) can expand into. When expanding to an ivar that
