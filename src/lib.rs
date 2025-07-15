@@ -8,6 +8,7 @@ pub mod smc;
 pub mod tdfa;
 pub mod expansion;
 pub mod pattern_args;
+pub mod symvar;
 pub mod test_utils;
 
 pub use {
@@ -21,6 +22,7 @@ pub use {
     tdfa::*,
     expansion::*,
     pattern_args::*,
+    symvar::*,
     test_utils::*,
 };
 
