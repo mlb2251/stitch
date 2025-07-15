@@ -15,7 +15,7 @@ pub enum VariableType {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct PatternArgs {
     arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
-    variables: Vec<(u32, VariableType)>, //varibales[i].0 gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
+    pub variables: Vec<(u32, VariableType)>, //varibales[i].0 gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
 }
 
 impl PartialOrd for PatternArgs {
@@ -151,6 +151,72 @@ impl PatternArgs {
         }
         // it's a new ivar that hasnt been used already so it must take on the next largest var number
         self.variables.len()
+    }
+
+
+    pub fn add_variable_at(&mut self, at_loc: usize, var_id: i32) {
+        self.arg_choices.push(LabelledZId::new(at_loc, var_id as usize));
+        if var_id as usize ==  self.arity() {
+            self.variables.push((at_loc as u32, VariableType::Metavar));
+        }
+    }
+
+
+    pub fn remove_variable_at(&mut self, var_id: usize, var_to_shift: Option<&mut i32>) -> Vec<ZId> {
+        let mut zids = Vec::new();
+        // remove the variable from the arg choices
+        self.arg_choices.retain(|x: &LabelledZId| {
+            if x.ivar == var_id {
+                // if this is the variable we're removing, add its zid to the list of zids to remove
+                // and return false to remove it from the arg choices
+                zids.push(x.zid);
+                return false;
+            }
+            true
+        });
+        self.arg_choices.iter_mut().for_each(|x: &mut LabelledZId| {
+            if x.ivar > var_id {
+                x.ivar -= 1; // decrement the ivar index for all variables after the one we're removing
+            }
+        });
+        if let Some(i) = var_to_shift {
+            assert!(*i != var_id as i32, "ExpandsTo::IVar should not be the variable we're removing");
+            if *i > var_id as i32 {
+                *i -= 1;
+            }
+        }
+        // remove the variable from the first_zid_of_ivar
+        self.variables.remove(var_id);
+        zids
+    }
+
+    pub fn check_consistency(&self, shared: &SharedData, match_locations: &[Idx]) {
+        // let num_vars: usize = get_num_variables(p);
+        for labeled in self.arg_choices.iter() {
+            // check that the ivar is within bounds
+            let arg_of_loc = &shared.arg_of_zid_node[labeled.zid];
+            for loc in match_locations.iter() {
+                assert!(arg_of_loc.contains_key(loc), "Variable id={}, zid={} at location {} is not consistent with shared data", labeled.ivar, labeled.zid, loc);
+            }
+        }
+        for (ivar, (zid, _)) in self.variables.iter().enumerate() {
+            for labeled in self.arg_choices.iter() {
+                if labeled.ivar == ivar {
+                    // check that they expand to the same thing
+                    let arg_of_loc_1 = &shared.arg_of_zid_node[labeled.zid];
+                    let arg_of_loc_2 = &shared.arg_of_zid_node[*zid as ZId];
+                    // println!("Checking consistency for variable id={} (zid={} vs zid={})", ivar, zid, labeled.zid);
+                    for loc in match_locations.iter() {
+                        assert!(arg_of_loc_1.contains_key(loc) && arg_of_loc_2.contains_key(loc), 
+                            "Variable id={} at location {} is not consistent with shared data: {:?} vs {:?}", ivar, loc, arg_of_loc_1.get(loc), arg_of_loc_2.get(loc));
+                        assert_eq!(arg_of_loc_1[loc].shifted_id, arg_of_loc_2[loc].shifted_id,
+                            "Variable id={} at location {} has different shifted ids: {} vs {}", ivar, loc, arg_of_loc_1[loc].shifted_id, arg_of_loc_2[loc].shifted_id);
+                        assert_eq!(arg_of_loc_1[loc].expands_to, arg_of_loc_2[loc].expands_to,
+                            "Variable id={} at location {} expands to different things: {} vs {}", ivar, loc, arg_of_loc_1[loc].expands_to, arg_of_loc_2[loc].expands_to);
+                    }
+                }
+            }
+        }
     }
 
 }
