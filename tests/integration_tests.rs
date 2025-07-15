@@ -29,7 +29,7 @@ fn compare_out_jsons(file: &str, expected_out_file: &str, args: &str, input_form
 
     println!("{}", serde_json::to_string(&output).unwrap());
 
-    let expected_output: Value = serde_json::from_str(&std::fs::read_to_string(std::path::Path::new(expected_out_file)).unwrap()).unwrap();
+    let expected_output: Value = serde_json::from_str(&std::fs::read_to_string(std::path::Path::new(expected_out_file)).unwrap_or("{}".to_owned())).unwrap();
 
     check_eq(&output["original"], &expected_output["original"], vec!["original".into()], &output, expected_out_file);
     check_eq(&output["original_cost"], &expected_output["original_cost"], vec!["original_cost".into()], &output, expected_out_file);
@@ -225,6 +225,16 @@ fn tdfa_multi_arg_function() {
 fn tdfa_sequence() {
     compare_out_jsons("data/python/front-of-sequence.json", "data/expected_outputs/front-of-sequence.json", &("-i2 -a3 ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
     compare_out_jsons("data/python/back-of-sequence.json", "data/expected_outputs/back-of-sequence.json", &("-i2 -a3 ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
+}
+
+#[test]
+fn smc_regression_tests() {
+    let args = "-i10 --smc --smc-particles 1000 --smc-extra-steps 40".to_owned();
+    compare_out_jsons("data/cogsci/nuts-bolts.json", "data/expected_outputs/smc-nuts-bolts.json", &args, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/wheels.json", "data/expected_outputs/smc-wheels.json", &args, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/furniture.json", "data/expected_outputs/smc-furniture.json", &args, InputFormat::ProgramsList);
+    compare_out_jsons("data/cogsci/dials.json", "data/expected_outputs/smc-dials.json", &args, InputFormat::ProgramsList);
+    // compare_out_jsons("data/cogsci/city.json", "data/expected_outputs/smc-city.json", &args, InputFormat::ProgramsList);
 }
 
 
