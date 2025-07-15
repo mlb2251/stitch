@@ -1,9 +1,9 @@
 use std::{fmt::{self, Formatter}, sync::Arc};
 
-use lambdas::{Idx, LabelledZId, Node, Symbol, Tag, ZId, ZNode};
+use lambdas::{Idx, Node, Symbol, Tag, ZId, ZNode};
 use rustc_hash::FxHashMap;
 
-use crate::{compatible_locations, invalid_metavar_location, Arg, Cost, Pattern, SharedData, ZIdExtension};
+use crate::{compatible_locations, invalid_metavar_location, Arg, Cost, Pattern, PatternArgs, SharedData, ZIdExtension};
 
 /// Tells us what a hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
@@ -90,13 +90,10 @@ impl ExpandsTo {
         }
     }
 
-    pub fn add_ivar(&self, original_hole_zid: ZId, first_zid_of_ivar: &mut Vec<ZId>, arg_choices: &mut Vec<LabelledZId>) {
+    pub fn add_ivar(&self, original_hole_zid: ZId, pattern_args: &mut PatternArgs) {
         let ExpandsTo(expands_to) = self;
         if let ExpandsToInner::IVar(i) = expands_to {
-            arg_choices.push(LabelledZId::new(original_hole_zid, *i as usize));
-            if *i as usize == first_zid_of_ivar.len() {
-                first_zid_of_ivar.push(original_hole_zid);
-            }
+            pattern_args.add_ivar(*i as usize, original_hole_zid);
         }
     }
 }
@@ -134,20 +131,7 @@ pub fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData)
     let idx = shared.tracking.as_ref().unwrap().expr.immut().zip(&shared.zip_of_zid[hole_zid]).idx;
     match expands_to_of_node(&shared.tracking.as_ref().unwrap().expr.set[idx]) {
         ExpandsTo(ExpandsToInner::IVar(i)) => {
-            // in the case where we're searching for an IVar we need to be robust to relabellings
-            // since this doesn't have to be canonical. What we can do is we can look over
-            // each ivar the the pattern has defined with a first zid in pattern.first_zid_of_ivar, and
-            // if our expressions' zids_of_ivar[i] contains this zid then we know these two ivars
-            // must correspond to each other in the pattern and the tracked expr and we can just return
-            // the pattern version (`j` below).
-            let zids = shared.tracking.as_ref().unwrap().zids_of_ivar[i as usize].clone();
-            for (j,zid) in pattern.first_zid_of_ivar.iter().enumerate() {
-                if zids.contains(zid) {
-                    return ExpandsTo(ExpandsToInner::IVar(j as i32));
-                }
-            }
-            // it's a new ivar that hasnt been used already so it must take on the next largest var number
-            ExpandsTo(ExpandsToInner::IVar(pattern.first_zid_of_ivar.len() as i32))
+            ExpandsTo(ExpandsToInner::IVar(pattern.pattern_args.find_variable(shared, i as usize) as i32))
         }
         e => e
     }
@@ -182,20 +166,14 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
     }
 
     // consider all ivars used previously
-    for ivar in 0..original_pattern.first_zid_of_ivar.len() {
-        let arg_of_loc_ivar = &shared.arg_of_zid_node[original_pattern.first_zid_of_ivar[ivar]];
-        let locs: Vec<Idx> = original_pattern.match_locations.iter()
-            .filter(|loc:&&Idx|
-                arg_of_loc[loc].shifted_id == 
-                arg_of_loc_ivar[loc].shifted_id
-                && !invalid_metavar_location(shared, arg_of_loc[loc].shifted_id)
-            ).cloned().collect();
+    for ivar in 0..original_pattern.pattern_args.num_ivars() {
+        let locs = original_pattern.pattern_args.reusable_args_location(shared, ivar, arg_of_loc, &original_pattern.match_locations);
         if locs.is_empty() { continue; }
         ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(ivar as i32)), locs));
     }
     // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
-    if original_pattern.first_zid_of_ivar.len() < shared.cfg.max_arity {
-        let ivar = original_pattern.first_zid_of_ivar.len();
+    if original_pattern.pattern_args.num_ivars() < shared.cfg.max_arity {
+        let ivar = original_pattern.pattern_args.num_ivars();
         let mut locs = original_pattern.match_locations.clone();
         locs.retain(|loc| !invalid_metavar_location(shared, arg_of_loc[loc].shifted_id));
         ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(ivar as i32)), locs));
@@ -205,43 +183,6 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
 
 
 /* Perform expansions on variables -- largely for SMC */
-
-fn remove_variable_at(p: &mut Pattern, var_id: usize, expands_to: &mut ExpandsTo) -> Vec<ZId> {
-    let ExpandsTo(expands_to) = expands_to;
-    let mut zids = Vec::new();
-    // remove the variable from the arg choices
-    p.arg_choices.retain(|x: &LabelledZId| {
-        if x.ivar == var_id {
-            // if this is the variable we're removing, add its zid to the list of zids to remove
-            // and return false to remove it from the arg choices
-            zids.push(x.zid);
-            return false;
-        }
-        true
-    });
-    p.arg_choices.iter_mut().for_each(|x: &mut LabelledZId| {
-        if x.ivar > var_id {
-            x.ivar -= 1; // decrement the ivar index for all variables after the one we're removing
-        }
-    });
-    if let ExpandsToInner::IVar(i) = expands_to {
-        assert!(*i != var_id as i32, "ExpandsTo::IVar should not be the variable we're removing");
-        if *i > var_id as i32 {
-            *i -= 1;
-        }
-    }
-    // remove the variable from the first_zid_of_ivar
-    p.first_zid_of_ivar.remove(var_id);
-    zids
-}
-
-pub fn add_variable_at(p: &mut Pattern, at_loc: usize, var_id: i32) {
-    p.arg_choices.push(LabelledZId::new(at_loc, var_id as usize));
-    if var_id as usize ==  p.first_zid_of_ivar.len() {
-        p.first_zid_of_ivar.push(at_loc);
-    }
-}
-
 
 pub fn perform_expansion_variable(
     pattern: Pattern,
@@ -253,12 +194,18 @@ pub fn perform_expansion_variable(
     let mut pattern = pattern;
     let mut expands_to = expands_to;
 
-    let variable_zids: Vec<usize> = remove_variable_at(&mut pattern, variable_ivar, &mut expands_to);
+    let variable_zids: Vec<usize> = pattern.pattern_args.remove_variable_at(variable_ivar, match &mut expands_to {
+        ExpandsTo(ExpandsToInner::IVar(i)) => {
+            Some(i)
+        }
+        _ => None,
+
+    });
 
     let body_utility = pattern.body_utility +  expands_to.local_expansion_utility(shared) * variable_zids.len() as Cost;
     pattern.body_utility = body_utility;
 
-    let num_vars = pattern.first_zid_of_ivar.len() as i32;
+    let num_vars = pattern.pattern_args.arity() as i32;
 
     let ExpandsTo(expands_to) = expands_to;
 
@@ -267,15 +214,15 @@ pub fn perform_expansion_variable(
         match expands_to {
             ExpandsToInner::Lam(_) => {
                 // add new holes
-                add_variable_at(&mut pattern, shared.extensions_of_zid[variable_zid].body.unwrap(), num_vars); 
+                pattern.pattern_args.add_variable_at(shared.extensions_of_zid[variable_zid].body.unwrap(), num_vars); 
             }
             ExpandsToInner::App => {
                 // add new holes
-                add_variable_at(&mut pattern, shared.extensions_of_zid[variable_zid].func.unwrap(), num_vars);
-                add_variable_at(&mut pattern, shared.extensions_of_zid[variable_zid].arg.unwrap(), num_vars + 1);
+                pattern.pattern_args.add_variable_at(shared.extensions_of_zid[variable_zid].func.unwrap(), num_vars);
+                pattern.pattern_args.add_variable_at(shared.extensions_of_zid[variable_zid].arg.unwrap(), num_vars + 1);
             }
             ExpandsToInner::IVar(i) => {
-                add_variable_at(&mut pattern, variable_zid, i);
+                pattern.pattern_args.add_variable_at(variable_zid, i);
             }
             _ => {}
         }
@@ -286,11 +233,11 @@ pub fn perform_expansion_variable(
 
 
 pub fn get_num_variables(pattern: &Pattern) -> usize {
-    pattern.first_zid_of_ivar.len()
+    pattern.pattern_args.arity()
 }
 
 pub fn get_zid_for_ivar(pattern: &Pattern, ivar: usize) -> ZId {
-    pattern.first_zid_of_ivar[ivar]
+    pattern.pattern_args.first_zid_of_ivar[ivar]
 }
 
 

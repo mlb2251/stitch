@@ -44,8 +44,8 @@ pub fn rewrite_fast(
             //  if !shared.cfg.quiet { println!("inv applies at unshifted={} with shift={}", extract(unshifted_id,&shared.egraph), shift) }
             let mut expr = owned_set.add(inv_name.clone());
             // wrap the prim in all the Apps to args
-            for zid in pattern.pattern.first_zid_of_ivar.iter() {
-                let arg: &Arg = &shared.arg_of_zid_node[*zid][&unshifted_id];
+            for zid in pattern.pattern.pattern_args.iterate_one_zid_per_argument() {
+                let arg: &Arg = &shared.arg_of_zid_node[zid][&unshifted_id];
 
                 if arg.shift != 0 {
                     shift_rules.push(ShiftRule{depth_cutoff: total_depth, shift: arg.shift});
@@ -66,7 +66,7 @@ pub fn rewrite_fast(
                     // Also note that in the single_hole code --eta-long enforces that match locations never contains anything that starts to the left of a func so
                     // we dont need to worry about the case where the zipper would extend even past the root of the match location
                     // Also note that due to beta normal form, this will be zero and will be a no-op if the arg is a lambda
-                    let arity_of_arg = shared.zip_of_zid[*zid].iter().rev().take_while(|znode| **znode == ZNode::Func).count();
+                    let arity_of_arg = shared.zip_of_zid[zid].iter().rev().take_while(|znode| **znode == ZNode::Func).count();
                     if arity_of_arg > 0 {
                         let analyzed_free_vars = &mut AnalyzedExpr::new(FreeVarAnalysis);
 

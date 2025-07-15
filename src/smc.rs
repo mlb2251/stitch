@@ -16,8 +16,7 @@ fn sample_syntactic_expansion(
         match_locations: original_pattern.match_locations.iter().filter(
             |&loc| arg_of_loc[loc].expands_to == expands_to
         ).cloned().collect(),
-        first_zid_of_ivar: original_pattern.first_zid_of_ivar.clone(),
-        arg_choices: original_pattern.arg_choices.clone(),
+        pattern_args: original_pattern.pattern_args.clone(),
         body_utility: original_pattern.body_utility,
         utility_upper_bound: original_pattern.utility_upper_bound,
         tracked: original_pattern.tracked,
@@ -192,7 +191,7 @@ fn resample(
 fn do_deduplication(mut particles: Vec<Particle>) -> (Vec<Particle>, Vec<i32>) {
     particles.sort_by(
         |pat1, pat2|
-            pat1.pattern.arg_choices.cmp(&pat2.pattern.arg_choices)
+            pat1.pattern.pattern_args.cmp(&pat2.pattern.pattern_args)
             .then_with(|| pat1.pattern.holes.cmp(&pat2.pattern.holes))
     );
     let mut counts = vec![];

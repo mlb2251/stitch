@@ -320,8 +320,7 @@ impl Default for CompressionStepConfig {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pattern {
     pub holes: Vec<ZId>, // zipper to hole in order of when theyre added NOT left to right
-    pub arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
-    pub first_zid_of_ivar: Vec<ZId>, //first_zid_of_ivar[i] gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
+    pub pattern_args: PatternArgs,
     pub match_locations: Vec<Idx>, // places where it applies
     pub utility_upper_bound: Cost,
     pub body_utility: Cost, // the size (in `cost`) of a single use of the pattern body so far
@@ -332,8 +331,7 @@ impl Hash for Pattern {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // Only hash the structural components of the pattern
         self.holes.hash(state);
-        self.arg_choices.hash(state);
-        self.first_zid_of_ivar.hash(state);
+        self.pattern_args.hash(state);
         // Intentionally skip:
         // - match_locations (dynamic)
         // - utility_upper_bound (computed)
@@ -528,8 +526,7 @@ impl Pattern {
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_sym, cost_of_node_all, num_paths_to_node, cfg);
         Pattern {
             holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
-            arg_choices: vec![],
-            first_zid_of_ivar: vec![],
+            pattern_args: PatternArgs::default(),
             match_locations, // single hole matches everywhere
             utility_upper_bound,
             body_utility, // 0 body utility
@@ -540,7 +537,7 @@ impl Pattern {
     fn single_var(corpus_span: &Span, cost_of_node_sym: &[Cost], cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], tdfa_global_annotations: &Option<TDFAGlobalAnnotations>, set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
         let mut pattern = Self::single_hole(corpus_span, cost_of_node_sym, cost_of_node_all, num_paths_to_node, tdfa_global_annotations, set, cfg);
         let hole_zid = pattern.holes.pop().unwrap();
-        add_variable_at(&mut pattern, hole_zid, 0);
+        pattern.pattern_args.add_variable_at(hole_zid, 0);
         pattern
     }
 
@@ -563,7 +560,7 @@ impl Pattern {
         let mut curr_zip: Vec<ZNode> = vec![];
         // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
         let zips: Vec<(Vec<ZNode>,Node)> = self.holes.iter().map(|zid| (shared.zip_of_zid[*zid].clone(), Node::Prim(HOLE_SYM.clone())))
-            .chain(self.arg_choices.iter()
+            .chain(self.pattern_args.iterate_arguments()
             .map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(), Node::IVar(labelled_zid.ivar as i32)))).collect();
 
         fn helper(set: &mut ExprSet, curr_node: Idx, curr_zip: &mut Vec<ZNode>, zips: &[(Vec<ZNode>,Node)], shared: &SharedData) -> Idx {
@@ -749,7 +746,7 @@ impl CriticalMultithreadData {
     fn update(&mut self, cfg: &CompressionStepConfig) {
         // sort in decreasing order by utility primarily, and break ties using the argchoice zids (just in order to be deterministic!)
         // let old_best = self.donelist.first().map(|x|x.utility).unwrap_or(0);
-        self.donelist.sort_unstable_by(|a,b| (b.utility,&b.pattern.arg_choices).cmp(&(a.utility,&a.pattern.arg_choices)));
+        self.donelist.sort_unstable_by(|a,b| (b.utility,&b.pattern.pattern_args).cmp(&(a.utility,&a.pattern.pattern_args)));
         self.donelist.truncate(cfg.inv_candidates);
         // the cutoff is the lowest utility
         // we allow negative utilities in follow_prune case
@@ -797,8 +794,8 @@ pub struct Stats {
     free_vars_fired: usize,
     single_use_fired: usize,
     single_task_fired: usize,
-    useless_abstract_fired: usize,
-    force_multiuse_fired: usize,
+    pub useless_abstract_fired: usize,
+    pub force_multiuse_fired: usize,
 }
 
 
@@ -1063,52 +1060,24 @@ fn stitch_search(
                 expands_to.add_holes(&shared.extensions_of_zid[hole_zid], &mut holes);
 
                 // update arg_choices and possibly first_zid_of_ivar if a new ivar was added
-                let mut arg_choices = original_pattern.arg_choices.clone();
-                let mut first_zid_of_ivar = original_pattern.first_zid_of_ivar.clone();
-                expands_to.add_ivar(hole_zid, &mut first_zid_of_ivar, &mut arg_choices);
+                let mut pattern_args = original_pattern.pattern_args.clone();
+                expands_to.add_ivar(hole_zid, &mut pattern_args);
 
-                // Pruning (ARGUMENT CAPTURE): check for useless abstractions (ie ones that take the same arg everywhere). We check for this all the time, not just when adding a new variables,
-                // because subsetting of match_locations can turn previously useful abstractions into useless ones. In the paper this is referred to as "argument capture"
-                if !shared.cfg.no_opt_useless_abstract {
-                    // note I believe it'd be save to iterate over first_zid_of_ivar instead
-                    for argchoice in original_pattern.arg_choices.iter(){
-                        // if its the same arg in every place, and doesnt have any free vars (ie it's safe to inline)
-                        if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
-                            && shared.analyzed_free_vars[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].is_empty()
-                        {
-                            if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
-                            continue 'expansion; // useless abstraction
-                        }
-                    }
+                if original_pattern.pattern_args.is_useless_abstract(&shared, &locs) {
+                    continue 'expansion;
+                }
+                
+                if  original_pattern.pattern_args.is_redundant_argument(&shared, &locs) {
+                    if tracked && !shared.cfg.quiet { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
+                    continue 'expansion;
                 }
 
-                // PRUNING (REDUNDANT ARGUMENT) if two different ivars #i and #j have the same arg at every location, then we can prune this pattern
-                // because there must exist another pattern where theyre just both the same ivar. Note that this pruning
-                // happens here and not just at the ivar creation point because new subsetting can happen. In this paper this is referred to as
-                // "redundant argument elimination".
-                if !shared.cfg.no_opt_force_multiuse {
-                    // for all pairs of ivars #i and #j, get the first zipper and compare the arg value across all locations
-                    for (i,ivar_zid_1) in first_zid_of_ivar.iter().enumerate() {
-                        let arg_of_loc_1 = &shared.arg_of_zid_node[*ivar_zid_1];
-                        for ivar_zid_2 in first_zid_of_ivar.iter().skip(i+1) {
-                            let arg_of_loc_2 = &shared.arg_of_zid_node[*ivar_zid_2];
-                            if locs.iter().all(|loc|
-                                arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
-                            {
-                                if !shared.cfg.no_stats { shared.stats.lock().deref_mut().force_multiuse_fired += 1; };
-                                if tracked && !shared.cfg.quiet { println!("{} force multiuse pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
-                                continue 'expansion;
-                            }
-                        }
-                    }
-                }
 
                 // build our new pattern with all the variables we've just defined. Copy in the argchoices and prefixes
                 // from the old pattern.
                 let new_pattern = Pattern {
                     holes,
-                    arg_choices,
-                    first_zid_of_ivar,
+                    pattern_args,
                     match_locations: locs,
                     utility_upper_bound: util_upper_bound,
                     body_utility,
@@ -1209,7 +1178,7 @@ pub struct FinishedPattern {
 impl FinishedPattern {
     //#[inline(never)]
     pub fn new(pattern: Pattern, shared: &SharedData) -> Self {
-        let arity = pattern.first_zid_of_ivar.len();
+        let arity = pattern.pattern_args.arity();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum();
         let compressive_utility = compressive_utility(&pattern,shared);
         let noncompressive_utility = noncompressive_utility(pattern.body_utility, &shared.cfg);
@@ -1432,9 +1401,7 @@ impl CompressionStepResult {
         let uses = done.usages;
         let use_exprs: Vec<Idx> = done.pattern.match_locations.clone();
         let use_args: Vec<Vec<Idx>> = done.pattern.match_locations.iter().map(|node|
-            done.pattern.first_zid_of_ivar.iter().map(|zid|
-                shared.arg_of_zid_node[*zid][node].shifted_id
-            ).collect()).collect();
+            done.pattern.pattern_args.use_args(shared, node)).collect();
         
 
         // dreamcoder compatability
@@ -1609,20 +1576,15 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<Cost> 
     // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
     // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
     // Also an extra COST_NONTERMINAL for each argument that is refined (for the lambda).
-    let app_penalty = - (shared.cost_fn.compute_cost_new_prim() as Cost + shared.cost_fn.cost_app as Cost * pattern.first_zid_of_ivar.len() as Cost);
+    let app_penalty = - (shared.cost_fn.compute_cost_new_prim() as Cost + shared.cost_fn.cost_app as Cost * pattern.pattern_args.arity() as Cost);
 
     // get a list of (ivar,usages-1) filtering out things that are only used once, this will come in handy for adding multi-use utility later
-    let ivar_multiuses: Vec<(usize,Cost)> = pattern.arg_choices.iter().map(|labelled|labelled.ivar).counts()
-        .iter().filter_map(|(ivar,count)| if *count > 1 { Some((*ivar, (*count-1) as Cost)) } else { None }).collect();
+    let ivar_multiuses: Vec<(usize,Cost)> = pattern.pattern_args.multiuses();
 
     pattern.match_locations.iter().map(|loc| {
 
-        //  if there are any free ivars in the arg at this location then we can't apply this invention here so *total* util should be 0
-        for zid in pattern.first_zid_of_ivar.iter() {
-            let shifted_arg = shared.arg_of_zid_node[*zid][loc].shifted_id;
-            if !shared.analyzed_ivars[shifted_arg].is_empty() {
-                return 0; // set whole util to 0 for this loc, causing an autoreject
-            }
+        if pattern.pattern_args.has_free_ivars(shared, loc) {
+            return 0; // set whole util to 0 for this loc, causing an autoreject
         }
 
         // if !shared.cfg.quiet { println!("calculating util of {}", extract(*loc, &shared.egraph)) }
@@ -1633,8 +1595,8 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<Cost> 
         // for each extra usage of an argument, we gain the cost of that argument as
         // extra utility. Note we use `first_zid_of_ivar` since it doesn't matter which
         // of the zids we use as long as it corresponds to the right ivar
-        let multiuse_utility = ivar_multiuses.iter().map(|(ivar,count)|
-            count * shared.arg_of_zid_node[pattern.first_zid_of_ivar[*ivar]][loc].cost as Cost
+        let multiuse_utility = ivar_multiuses.iter().map(|(zid,count)|
+            count * shared.arg_of_zid_node[*zid][loc].cost as Cost
         ).sum::<Cost>();
         // if !shared.cfg.quiet { println!("multiuse {}", multiuse_utility) }
 
@@ -1672,8 +1634,8 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
             // this node is a potential rewrite location
             let idx = idxi as usize;
 
-            let utility_of_args: Cost = pattern.first_zid_of_ivar.iter()
-                .map(|zid| cumulative_utility_of_node[shared.arg_of_zid_node[*zid][&node].unshifted_id])
+            let utility_of_args: Cost = pattern.pattern_args.iterate_one_zid_per_argument()
+                .map(|zid| cumulative_utility_of_node[shared.arg_of_zid_node[zid][&node].unshifted_id])
                 .sum();
             let utility_with_rewrite = utility_of_args + utility_of_loc_once[idx];
 
@@ -1725,8 +1687,9 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
     
     if let Some((delta, compressive_delta, _noncompressive_delta, _cost, zids)) = best {
         let ivar = finished.arity;
-        finished.pattern.arg_choices.extend(zids.iter().map(|&zid| LabelledZId { zid, ivar }));
-        finished.pattern.first_zid_of_ivar.push(zids[0]);
+        for zid in &zids {
+            finished.pattern.pattern_args.add_ivar(ivar, *zid);
+        }
         finished.compressive_utility += compressive_delta;
         finished.util_calc.util += compressive_delta;
         finished.utility += delta;
@@ -1761,7 +1724,7 @@ fn possible_to_uninline(counts: FxHashMap<Idx, (Cost, Vec<usize>)>, finished_usa
 fn use_counts(pattern: &Pattern, zip_of_zid: &[Vec<ZNode>], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>) -> FxHashMap<Idx,(Cost,Vec<ZId>)> {
     let mut curr_zip: Vec<ZNode> = vec![];
     let curr_zid: ZId = EMPTY_ZID;
-    let zids = &pattern.arg_choices[..];
+    let zids = &pattern.pattern_args.iterate_arguments().cloned().collect::<Vec<LabelledZId>>();
 
     // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
     let zips: Vec<Vec<ZNode>> = zids.iter()
@@ -2097,8 +2060,7 @@ pub fn construct_shared(
 
             let pattern = Pattern {
                 holes: vec![],
-                arg_choices: vec![],
-                first_zid_of_ivar: vec![],
+                pattern_args: PatternArgs::default(),
                 match_locations,
                 utility_upper_bound: utility,
                 body_utility,
