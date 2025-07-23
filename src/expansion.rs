@@ -239,22 +239,24 @@ pub fn perform_expansion_variable(
 
     let num_vars = pattern.pattern_args.arity() as i32;
 
+    for variable_zid in &variable_zids {
+        expands_to.add_variables(*variable_zid, &mut pattern.pattern_args);
+    }
+
     let ExpandsTo(expands_to) = expands_to;
 
     for variable_zid in variable_zids {
         // add any new holes to the list of holes
+        let original_var_zid_extension = &shared.extensions_of_zid[variable_zid];
         match expands_to {
             ExpandsToInner::Lam(_) => {
                 // add new holes
-                pattern.pattern_args.add_variable_at(shared.extensions_of_zid[variable_zid].body.unwrap(), num_vars); 
+                pattern.pattern_args.add_variable_at(original_var_zid_extension.body.unwrap(), num_vars); 
             }
             ExpandsToInner::App => {
                 // add new holes
-                pattern.pattern_args.add_variable_at(shared.extensions_of_zid[variable_zid].func.unwrap(), num_vars);
-                pattern.pattern_args.add_variable_at(shared.extensions_of_zid[variable_zid].arg.unwrap(), num_vars + 1);
-            }
-            ExpandsToInner::IVar(i, _) => {
-                pattern.pattern_args.add_variable_at(variable_zid, i);
+                pattern.pattern_args.add_variable_at(original_var_zid_extension.func.unwrap(), num_vars);
+                pattern.pattern_args.add_variable_at(original_var_zid_extension.arg.unwrap(), num_vars + 1);
             }
             _ => {}
         }
