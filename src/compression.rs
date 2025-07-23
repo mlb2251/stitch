@@ -1103,6 +1103,28 @@ fn stitch_search(
 
 }
 
+fn should_prune_single_use(shared: &SharedData, locs: &[Idx]) -> bool {
+    // Pruning (SINGLE USE): prune inventions that only match at a single unique (structurally hashed) subtree. This only applies if we
+    // also are priming with arity 0 inventions. Basically if something only matches at one subtree then the best you can
+    // do is the arity zero invention which is the whole subtree, and since we already primed with arity 0 inventions we can
+    // prune here. The exception is when there are free variables so arity 0 wouldn't have applied.
+    // Also, note that upper bounding + arity 0 priming does nearly perfectly handle this already, but there are cases where
+    // you can't improve your structure penalty bound enough to catch everything hence this separate single_use thing.
+    !shared.cfg.no_opt_single_use && !shared.cfg.no_opt_arity_zero && locs.len()  == 1 && shared.analyzed_free_vars[locs[0]].is_empty() && shared.sym_var_info.as_ref().is_none_or(|svi| !svi.contains_symbols(locs[0]))
+}
+
+fn should_prune_single_task(shared: &SharedData, locs: &[usize]) -> bool {
+    // Pruning (SINGLE TASK): prune inventions that are only used in one task
+    !shared.cfg.allow_single_task
+            && locs.iter().all(|node| shared.tasks_of_node[*node].len() == 1)
+            && locs.iter().all(|node| shared.tasks_of_node[locs[0]].iter().next() == shared.tasks_of_node[*node].iter().next())
+}
+
+pub fn should_prune_single_use_or_task(shared: &SharedData, locs: &[Idx]) -> bool {
+    should_prune_single_use(shared, locs) || should_prune_single_task(shared, locs)
+}
+
+
 /// A finished abstraction
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FinishedPattern {
