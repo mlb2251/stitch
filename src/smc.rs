@@ -80,70 +80,51 @@ pub fn smc_expand_once(
     let Some(expands_to) = expands_to else {
         return Some(original_pattern.clone()); // no valid expansion found
     };
-    let (mut pattern, mut bad_zids) = perform_expansion_variable(
+    let mut pattern = perform_expansion_variable(
         pattern,
         shared,
         variable_ivar,
         expands_to.clone(),
     )?;
-    println!("Pattern args initially: {:?}", pattern.pattern_args);
-    println!("Cleaning up bad zids {:?}", bad_zids);
-    while let Some(bad_zid) = bad_zids.pop() {
-        println!("Expanding bad zid: {:?}; remaining bad zids: {:?}", bad_zid, bad_zids);
-        let Some(bad_ivar) = pattern.pattern_args.zid_to_ivar(bad_zid) else {
-            // no ivar found for this zid, skip it. Results whenever an ivar in multiple locations is being expanded.
+    pattern = clean_invalid_metavars(pattern, match_location, shared);
+    Some(pattern)
+}
+
+pub fn clean_invalid_metavars(pattern: Pattern, representative_loc: Idx, shared: &SharedData) -> Pattern {
+    let mut pattern = pattern;
+    while let Some(unvalidated_ivar) = pattern.pattern_args.unvalidated_ivar() {
+        let zid = pattern.pattern_args.variables[unvalidated_ivar as usize].0;
+        let arg_of_loc = &shared.arg_of_zid_node[zid as usize];
+        let arg_of_loc_this = arg_of_loc[&representative_loc].clone();
+        let is_metavar = !invalid_metavar_location(shared, arg_of_loc_this.shifted_id);
+        let is_symvar = shared.sym_var_info.as_ref().is_some_and(|symvar_info| symvar_info.is_symvar_spot(arg_of_loc_this.shifted_id));
+        assert!(!is_metavar || !is_symvar, "Unvalidated ivar {} with zid {} is both a metavar and a symvar: {:?}", unvalidated_ivar, zid, arg_of_loc_this);
+        if is_metavar {
+            pattern.pattern_args.variables[unvalidated_ivar as usize].1 = VariableType::Metavar;
+            pattern.match_locations.retain(
+                |loc| !invalid_metavar_location(shared, arg_of_loc[loc].shifted_id)
+            );
             continue;
-        };
-        // println!("Bad ivar: {}", bad_ivar);
-        let arg_of_loc = &shared.arg_of_zid_node[bad_zid];
-        // println!("arg_of_loc: {:?}", arg_of_loc.len());
-        // println!("pattern.match_locations: {:?}", pattern.match_locations.len());
-        let new_expands_to = arg_of_loc[&match_location].expands_to.clone(); // force a syntactic expansion here
-        // println!("*** Expands to: {:?}", new_expands_to);
-        // println!("New expands to: {:?}", new_expands_to);
-        if !valid_syntactic_expansion_loc(&shared.sym_var_info, &new_expands_to) {
+        }
+        if is_symvar {
+            pattern.pattern_args.variables[unvalidated_ivar as usize].1 = VariableType::Symvar;
             pattern.match_locations.retain(
                 |loc| shared.sym_var_info.as_ref().is_some_and(|symvar_info| symvar_info.is_symvar_spot(arg_of_loc[loc].shifted_id))
             );
             continue;
         }
-        pattern = filter_match_locs_for_syntactic_expansion(&pattern, arg_of_loc, &new_expands_to);
-        let (new_pattern, new_bad_zids) = perform_expansion_variable(
+        assert!(valid_syntactic_expansion_loc(&shared.sym_var_info, &arg_of_loc_this.expands_to));
+        pattern.match_locations.retain(
+            |loc| arg_of_loc[loc].expands_to == arg_of_loc_this.expands_to
+        );
+        pattern = perform_expansion_variable(
             pattern,
             shared,
-            bad_ivar as usize,
-            new_expands_to.clone(),
-        )?;
-        // for zid in &new_bad_zids {
-        //     for loc in &new_pattern.match_locations {
-        //         if(!shared.arg_of_zid_node[*zid].contains_key(loc)) {
-        //             println!(
-        //                 "ZID {} not found in match location: {:?}, despite the parent zid {} expanding to {}",
-        //                 zid, loc, bad_zid, new_expands_to
-        //             );
-        //         }
-        //     }
-        // }
-        pattern = new_pattern;
-        bad_zids.extend(new_bad_zids);
-    }
-    println!("Pattern args at end: {:?}", pattern.pattern_args);
-    for zid in pattern.pattern_args.iterate_one_zid_per_argument() {
-        for loc in &pattern.match_locations {
-            let arg = shared.arg_of_zid_node[zid][loc].clone();
-            if invalid_metavar_location(shared, arg.shifted_id) {
-                println!("Bad arg: {:?} for zid: {} at match location: {:?}, expands to: {}", 
-                    arg, zid, loc, expands_to.clone()
-                );
-                panic!("Bad ZID! {} found in match location: {:?}, despite the parent pattern expanding to {}", 
-                    zid, loc, expands_to.clone()
-                );
-            };
-        }
-    }
-    println!("Pattern after expansion: {}", pattern.info(shared));
-    TDFAInventionAnnotation::from_pattern(&pattern, &shared);
-    Some(pattern)
+            unvalidated_ivar as usize,
+            arg_of_loc_this.expands_to.clone(),
+        ).unwrap();
+    };
+    pattern
 }
 
 pub fn smc_expand_n_times(

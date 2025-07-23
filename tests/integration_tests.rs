@@ -245,8 +245,8 @@ fn python_args() -> String {
 
 #[test]
 fn python_symbols_regression() {
-    compare_out_jsons("data/python/10.json", "data/expected_outputs/10.json", &("-i10 -a2 --symvar-prefix & ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
     compare_out_jsons("data/python/10.json", "data/expected_outputs/10-smc.json", &("-i2 --symvar-prefix & ".to_owned() + SMC_ARGS + DFA_ARGS), InputFormat::ProgramsList);
+    compare_out_jsons("data/python/10.json", "data/expected_outputs/10.json", &("-i10 -a2 --symvar-prefix & ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
 }
 
 

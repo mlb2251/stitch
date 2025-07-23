@@ -222,7 +222,7 @@ pub fn perform_expansion_variable(
     shared: &SharedData,
     variable_ivar: usize,
     expands_to: ExpandsTo,
-) -> Option<(Pattern, Vec<ZId>)> {
+) -> Option<Pattern> {
     let mut pattern = pattern;
     let mut expands_to = expands_to;
 
@@ -245,17 +245,12 @@ pub fn perform_expansion_variable(
     let num_vars = pattern.pattern_args.arity() as i32;
 
     let ExpandsTo(expands_to) = expands_to;
-    let mut bad_ivars = vec![];
-
     let mut add_variable_at = |zid: ZId, var_id: i32| {
         pattern.pattern_args.add_variable_at(zid, var_id);
         // println!("Checking zid {zid} for invalid metavar location: zip={:?}", shared.zip_of_zid[zid]);
         // println!("Arg of node id: {:?}", shared.arg_of_zid_node[zid]);
         // println!("Checking match location {}", pattern.match_locations[0]);
         // println!("Match location contains: {}", shared.set.get(pattern.match_locations[0]));
-        if pattern.match_locations.iter().any(|loc| invalid_metavar_location(shared, shared.arg_of_zid_node[zid][loc].shifted_id)) {
-            bad_ivars.push(zid);
-        }
     };
 
     for variable_zid in variable_zids {
@@ -278,7 +273,7 @@ pub fn perform_expansion_variable(
         }
     }
 
-    Some ((pattern, bad_ivars))
+    Some (pattern)
 }
 
 

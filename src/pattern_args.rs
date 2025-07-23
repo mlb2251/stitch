@@ -10,6 +10,7 @@ use crate::*;
 pub enum VariableType {
     Metavar,
     Symvar,
+    Unvalidated, // this is used for variables that have not been validated to be metavars or symvars yet
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -46,6 +47,17 @@ impl PatternArgs {
         self.arg_choices.iter().filter(|labelled| labelled.zid == zid)
             .map(|labelled| labelled.ivar as i32)
             .next()
+    }
+
+    pub fn unvalidated_ivar(&self) -> Option<i32> {
+        // returns the first invalid ivar, or None if all are valid
+        self.variables.iter().enumerate().find_map(|(i, (_, vtype))| {
+            if *vtype == VariableType::Unvalidated {
+                Some(i as i32)
+            } else {
+                None
+            }
+        })
     }
 
     #[inline]
@@ -164,7 +176,7 @@ impl PatternArgs {
     pub fn add_variable_at(&mut self, at_loc: usize, var_id: i32) {
         self.arg_choices.push(LabelledZId::new(at_loc, var_id as usize));
         if var_id as usize ==  self.arity() {
-            self.variables.push((at_loc as u32, VariableType::Metavar));
+            self.variables.push((at_loc as u32, VariableType::Unvalidated));
         }
     }
 
@@ -258,6 +270,7 @@ impl LocationsForReusableArgs<'_> {
             // should  be safe because this only happens if there's a symvar
             VariableType::Symvar => self.sym_locs(arg_of_loc, sym_var_info.as_ref().unwrap()),
             VariableType::Metavar => self.all_locs,
+            VariableType::Unvalidated => panic!("Unvalidated variable type"),
         }
     }
 }
@@ -269,6 +282,7 @@ impl PatternArgs {
         let require_valid = match type_of_var {
             VariableType::Metavar => true,
             VariableType::Symvar => false,
+            VariableType::Unvalidated => panic!("Unvalidated variable type"),
         };
         match_locations.relevant_locs(type_of_var, arg_of_loc, &shared.sym_var_info).iter()
             .filter(|loc:&&Idx|
