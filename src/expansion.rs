@@ -82,17 +82,15 @@ impl ExpandsTo {
     }
 
     #[inline]
-    pub fn add_holes(&self, original_hole_zid_extension: &ZIdExtension, holes: &mut Vec<ZId>) {
+    pub fn syntactic_expansion<F>(&self, original_hole_zid_extension: &ZIdExtension, mut func: F) where F: FnMut(ZId, usize) {
         let ExpandsTo(expands_to) = self;
         match expands_to {
             ExpandsToInner::Lam(_) => {
-                // add new holes
-                holes.push(original_hole_zid_extension.body.unwrap());
+                func(original_hole_zid_extension.body.unwrap(), 0);
             }
             ExpandsToInner::App => {
-                // add new holes
-                    holes.push(original_hole_zid_extension.func.unwrap());
-                    holes.push(original_hole_zid_extension.arg.unwrap());
+                func(original_hole_zid_extension.func.unwrap(), 0);
+                func(original_hole_zid_extension.arg.unwrap(), 1);
             }
             _ => {}
         }
