@@ -8,20 +8,19 @@ use std::sync::Arc;
 fn sample_syntactic_expansion(
     original_pattern: &Pattern,
     arg_of_loc: &FxHashMap<Idx, Arg>,
-    match_location: usize,
-) -> (Pattern, ExpandsTo) {
-    let expands_to = arg_of_loc[&match_location].expands_to.clone();
-    let pattern = Pattern {
+    expands_to: &ExpandsTo,
+) -> Pattern {
+    let pattern: Pattern = Pattern {
         holes: original_pattern.holes.clone(),
         match_locations: original_pattern.match_locations.iter().filter(
-            |&loc| arg_of_loc[loc].expands_to == expands_to
+            |&loc| arg_of_loc[loc].expands_to == *expands_to
         ).cloned().collect(),
         pattern_args: original_pattern.pattern_args.clone(),
         body_utility: original_pattern.body_utility,
         utility_upper_bound: original_pattern.utility_upper_bound,
         tracked: original_pattern.tracked,
     };
-    (pattern, expands_to)
+    pattern
 }
 
 fn sample_expands_to(
@@ -31,7 +30,7 @@ fn sample_expands_to(
     match_location: usize,
     variable_ivar: usize,
     rng: &mut impl rand::Rng,
-) -> (Pattern, ExpandsTo) {
+) -> (Pattern, Option<ExpandsTo>) {
     if let Some(out) = sample_variable_reuse_expansion(
         original_pattern,
         shared,
@@ -39,13 +38,14 @@ fn sample_expands_to(
         match_location,
         rng,
     ) {
-        return out;
+        return (out.0, Some(out.1));
     }
-    sample_syntactic_expansion(
-        original_pattern,
-        arg_of_loc,
-        match_location,
-    )
+    let expands_to = arg_of_loc[&match_location].expands_to.clone();
+    if valid_syntactic_expansion_loc(&shared.sym_var_info, &expands_to) {
+        let pattern = sample_syntactic_expansion(original_pattern, arg_of_loc, &expands_to);
+        return (pattern, Some(expands_to));
+    }
+    return (original_pattern.clone(), None);
 }
 
 #[derive(Clone, Debug)]
@@ -75,6 +75,9 @@ pub fn smc_expand_once(
     let variable_zid = get_zid_for_ivar(original_pattern, variable_ivar);
     let arg_of_loc = &shared.arg_of_zid_node[variable_zid];
     let (pattern, expands_to) = sample_expands_to(original_pattern, shared, arg_of_loc, match_location, variable_ivar, rng);
+    let Some(expands_to) = expands_to else {
+        return Some(original_pattern.clone()); // no valid expansion found
+    };
     perform_expansion_variable(
         pattern,
         shared,

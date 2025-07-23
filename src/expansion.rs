@@ -162,9 +162,13 @@ pub fn expands_to_of_node(node: &Node) -> ExpandsTo {
 pub fn get_syntactic_expansions(arg_of_loc: &FxHashMap<usize, Arg>, match_locations: Vec<usize>, sym_var_info: &Option<SymvarInfo>) -> Vec<(ExpandsTo, Vec<Idx>)> {
     match_locations.into_iter()
         .group_by(|loc| &arg_of_loc[loc].expands_to).into_iter()
-        .filter(|(expands_to, _)| sym_var_info.as_ref().is_none_or(|s| !expands_to.is_prim_symbol(s)))
+        .filter(|(expands_to, _)| valid_syntactic_expansion_loc(sym_var_info, expands_to))
         .map(|(expands_to, locs)| (expands_to.clone(), locs.collect::<Vec<Idx>>()))
         .collect::<Vec<_>>()
+}
+
+pub fn valid_syntactic_expansion_loc(sym_var_info: &Option<SymvarInfo>, expands_to: &ExpandsTo) -> bool {
+    sym_var_info.as_ref().is_none_or(|s| !expands_to.is_prim_symbol(s))
 }
 
 
