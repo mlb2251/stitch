@@ -10,6 +10,7 @@ use crate::*;
 pub enum VariableType {
     Metavar,
     Symvar,
+    Unvalidated, // this is used for variables that have not been validated to be metavars or symvars yet
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -39,6 +40,34 @@ impl PatternArgs {
 
     pub fn num_ivars(&self) -> usize {
         self.variables.iter().filter(|(_,t)| *t == VariableType::Metavar).count()
+    }
+
+    pub fn zid_for_ivar(&self, ivar: i32) -> ZId {
+        self.variables[ivar as usize].0 as ZId
+    }
+
+    pub fn type_for_ivar(&self, ivar: i32) -> VariableType {
+        self.variables[ivar as usize].1
+    }
+
+    pub fn unvalidated_ivar(&self) -> Option<(i32, ZId)> {
+        // returns the first invalid ivar, or None if all are valid
+        self.variables.iter().enumerate().find_map(|(i, (_, vtype))| {
+            if *vtype == VariableType::Unvalidated {
+                let (zid, _) = self.variables[i];
+                Some((i as i32, zid as ZId))
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn validate_ivar(&mut self, ivar: i32, vtype: VariableType) {
+        // validate the ivar at the given index
+        assert!(ivar >= 0 && ivar < self.variables.len() as i32);
+        let ivar = ivar as usize;
+        assert!(self.variables[ivar].1 == VariableType::Unvalidated);
+        self.variables[ivar].1 = vtype;
     }
 
     #[inline]
@@ -153,6 +182,72 @@ impl PatternArgs {
         self.variables.len()
     }
 
+
+    pub fn add_variable_at(&mut self, at_loc: usize, var_id: i32) {
+        self.arg_choices.push(LabelledZId::new(at_loc, var_id as usize));
+        if var_id as usize ==  self.arity() {
+            self.variables.push((at_loc as u32, VariableType::Unvalidated));
+        }
+    }
+
+
+    pub fn remove_variable_at(&mut self, var_id: i32, var_to_shift: Option<&mut i32>) -> Vec<ZId> {
+        let mut zids = Vec::new();
+        // remove the variable from the arg choices
+        self.arg_choices.retain(|x: &LabelledZId| {
+            if x.ivar as i32 == var_id {
+                // if this is the variable we're removing, add its zid to the list of zids to remove
+                // and return false to remove it from the arg choices
+                zids.push(x.zid);
+                return false;
+            }
+            true
+        });
+        self.arg_choices.iter_mut().for_each(|x: &mut LabelledZId| {
+            if x.ivar as i32 > var_id {
+                x.ivar -= 1; // decrement the ivar index for all variables after the one we're removing
+            }
+        });
+        if let Some(i) = var_to_shift {
+            assert!(*i != var_id, "ExpandsTo::IVar should not be the variable we're removing");
+            if *i > var_id {
+                *i -= 1;
+            }
+        }
+        // remove the variable from the first_zid_of_ivar
+        self.variables.remove(var_id as usize);
+        zids
+    }
+
+    pub fn check_consistency(&self, shared: &SharedData, match_locations: &[Idx]) {
+        // let num_vars: usize = get_num_variables(p);
+        for labeled in self.arg_choices.iter() {
+            // check that the ivar is within bounds
+            let arg_of_loc = &shared.arg_of_zid_node[labeled.zid];
+            for loc in match_locations.iter() {
+                assert!(arg_of_loc.contains_key(loc), "Variable id={}, zid={} at location {} is not consistent with shared data", labeled.ivar, labeled.zid, loc);
+            }
+        }
+        for (ivar, (zid, _)) in self.variables.iter().enumerate() {
+            for labeled in self.arg_choices.iter() {
+                if labeled.ivar == ivar {
+                    // check that they expand to the same thing
+                    let arg_of_loc_1 = &shared.arg_of_zid_node[labeled.zid];
+                    let arg_of_loc_2 = &shared.arg_of_zid_node[*zid as ZId];
+                    // println!("Checking consistency for variable id={} (zid={} vs zid={})", ivar, zid, labeled.zid);
+                    for loc in match_locations.iter() {
+                        assert!(arg_of_loc_1.contains_key(loc) && arg_of_loc_2.contains_key(loc), 
+                            "Variable id={} at location {} is not consistent with shared data: {:?} vs {:?}", ivar, loc, arg_of_loc_1.get(loc), arg_of_loc_2.get(loc));
+                        assert_eq!(arg_of_loc_1[loc].shifted_id, arg_of_loc_2[loc].shifted_id,
+                            "Variable id={} at location {} has different shifted ids: {} vs {}", ivar, loc, arg_of_loc_1[loc].shifted_id, arg_of_loc_2[loc].shifted_id);
+                        assert_eq!(arg_of_loc_1[loc].expands_to, arg_of_loc_2[loc].expands_to,
+                            "Variable id={} at location {} expands to different things: {} vs {}", ivar, loc, arg_of_loc_1[loc].expands_to, arg_of_loc_2[loc].expands_to);
+                    }
+                }
+            }
+        }
+    }
+
 }
 
 pub struct LocationsForReusableArgs<'a> {
@@ -185,6 +280,7 @@ impl LocationsForReusableArgs<'_> {
             // should  be safe because this only happens if there's a symvar
             VariableType::Symvar => self.sym_locs(arg_of_loc, sym_var_info.as_ref().unwrap()),
             VariableType::Metavar => self.all_locs,
+            VariableType::Unvalidated => panic!("Unvalidated variable type"),
         }
     }
 }
@@ -196,4 +292,20 @@ impl PatternArgs {
         let relevant_locs = match_locations.relevant_locs(type_of_var, arg_of_loc, &shared.sym_var_info);
         compatible_locations(shared, relevant_locs, arg_of_loc, arg_of_loc_ivar, type_of_var)
     }
+}
+
+
+#[inline]
+pub fn compatible_locations(shared: &SharedData, locs: &[Idx], arg_of_loc_1:  &FxHashMap<Idx,Arg>, arg_of_loc_2:  &FxHashMap<Idx,Arg>, type_of_var: VariableType) -> Vec<usize> {
+    let require_valid = match type_of_var {
+        VariableType::Metavar => true,
+        VariableType::Symvar => false,
+        VariableType::Unvalidated => panic!("Unvalidated variables should not be used in compatible_locations"),
+    };
+    locs.iter()
+        .filter(|loc:&&Idx|
+            arg_of_loc_1[loc].shifted_id ==
+            arg_of_loc_2[loc].shifted_id
+            && (!require_valid || !invalid_metavar_location(shared, arg_of_loc_1[loc].shifted_id))
+        ).cloned().collect()
 }
