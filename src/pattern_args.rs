@@ -205,8 +205,8 @@ impl PatternArgs {
             }
         });
         if let Some(i) = var_to_shift {
-            assert!(*i != var_id as i32, "ExpandsTo::IVar should not be the variable we're removing");
-            if *i > var_id as i32 {
+            assert!(*i != var_id, "ExpandsTo::IVar should not be the variable we're removing");
+            if *i > var_id {
                 *i -= 1;
             }
         }
