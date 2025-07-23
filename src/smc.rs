@@ -28,7 +28,7 @@ fn sample_expands_to(
     shared: &SharedData,
     arg_of_loc: &FxHashMap<Idx,Arg>,
     match_location: usize,
-    variable_ivar: usize,
+    variable_ivar: i32,
     rng: &mut impl rand::Rng,
 ) -> (Pattern, Option<ExpandsTo>) {
     if let Some(out) = sample_variable_reuse_expansion(
@@ -71,7 +71,7 @@ pub fn smc_expand_once(
     if num_vars == 0 {
         return None
     }
-    let variable_ivar: usize = rng.gen_range(0..num_vars);
+    let variable_ivar = rng.gen_range(0..num_vars) as i32;
     let variable_zid = original_pattern.pattern_args.zid_for_ivar(variable_ivar as i32);
     let arg_of_loc = &shared.arg_of_zid_node[variable_zid];
     let (pattern, expands_to) = sample_expands_to(original_pattern, shared, arg_of_loc, match_location, variable_ivar, rng);
@@ -120,7 +120,7 @@ pub fn clean_invalid_metavars(pattern: Pattern, representative_loc: Idx, shared:
         pattern = perform_expansion_variable(
             pattern,
             shared,
-            unvalidated_ivar as usize,
+            unvalidated_ivar,
             arg_of_loc_this.expands_to.clone(),
         ).unwrap();
     };

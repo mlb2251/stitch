@@ -187,11 +187,11 @@ impl PatternArgs {
     }
 
 
-    pub fn remove_variable_at(&mut self, var_id: usize, var_to_shift: Option<&mut i32>) -> Vec<ZId> {
+    pub fn remove_variable_at(&mut self, var_id: i32, var_to_shift: Option<&mut i32>) -> Vec<ZId> {
         let mut zids = Vec::new();
         // remove the variable from the arg choices
         self.arg_choices.retain(|x: &LabelledZId| {
-            if x.ivar == var_id {
+            if x.ivar as i32 == var_id {
                 // if this is the variable we're removing, add its zid to the list of zids to remove
                 // and return false to remove it from the arg choices
                 zids.push(x.zid);
@@ -200,7 +200,7 @@ impl PatternArgs {
             true
         });
         self.arg_choices.iter_mut().for_each(|x: &mut LabelledZId| {
-            if x.ivar > var_id {
+            if x.ivar as i32 > var_id {
                 x.ivar -= 1; // decrement the ivar index for all variables after the one we're removing
             }
         });
@@ -211,7 +211,7 @@ impl PatternArgs {
             }
         }
         // remove the variable from the first_zid_of_ivar
-        self.variables.remove(var_id);
+        self.variables.remove(var_id as usize);
         zids
     }
 

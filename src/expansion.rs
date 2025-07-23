@@ -218,7 +218,7 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
 pub fn perform_expansion_variable(
     pattern: Pattern,
     shared: &SharedData,
-    variable_ivar: usize,
+    variable_ivar: i32,
     expands_to: ExpandsTo,
 ) -> Option<Pattern> {
     let mut pattern = pattern;
@@ -255,20 +255,20 @@ pub fn get_num_variables(pattern: &Pattern) -> usize {
 fn sample_new_ivar(
     original_pattern: &Pattern,
     shared: &SharedData,
-    variable_ivar: usize,
+    variable_ivar: i32,
     match_loc: &usize,
     rng: &mut impl rand::Rng,
-) -> Option<usize> {
+) -> Option<i32> {
     let num_vars = get_num_variables(original_pattern);
     if num_vars <= 1 {
         return None; // no other variable to expand to
     }
-    let mut new_ivar = rng.gen_range(0..num_vars - 1);
+    let mut new_ivar = rng.gen_range(0..num_vars - 1) as i32;
     if new_ivar >= variable_ivar {
         new_ivar += 1; // skip the variable we are expanding
     }
-    let zid_original = original_pattern.pattern_args.zid_for_ivar(variable_ivar as i32);
-    let zid_new = original_pattern.pattern_args.zid_for_ivar(new_ivar as i32);
+    let zid_original = original_pattern.pattern_args.zid_for_ivar(variable_ivar);
+    let zid_new = original_pattern.pattern_args.zid_for_ivar(new_ivar);
     if shared.arg_of_zid_node[zid_original][match_loc].shifted_id == shared.arg_of_zid_node[zid_new][match_loc].shifted_id {
         return Some(new_ivar);
     }
@@ -278,13 +278,13 @@ fn sample_new_ivar(
 pub fn sample_variable_reuse_expansion(
     pattern: &Pattern,
     shared: &SharedData,
-    variable_ivar: usize,
+    variable_ivar: i32,
     match_location: usize,
     rng: &mut impl rand::Rng,
 ) -> Option<(Pattern, ExpandsTo)> {
     let new_ivar = sample_new_ivar(pattern, shared, variable_ivar, &match_location, rng)?;
-    let zid_original = pattern.pattern_args.zid_for_ivar(variable_ivar as i32);
-    let zid_new = pattern.pattern_args.zid_for_ivar(new_ivar as i32);
+    let zid_original = pattern.pattern_args.zid_for_ivar(variable_ivar);
+    let zid_new = pattern.pattern_args.zid_for_ivar(new_ivar);
     let locs = compatible_locations(
         shared,
         pattern,
