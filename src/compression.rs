@@ -1164,7 +1164,7 @@ fn should_prune_single_task(shared: &SharedData, locs: &[usize]) -> bool {
             && locs.iter().all(|node| shared.tasks_of_node[locs[0]].iter().next() == shared.tasks_of_node[*node].iter().next())
 }
 
-pub fn should_prune_single_use_or_task(shared: &SharedData, locs: &Vec<Idx>) -> bool {
+pub fn should_prune_single_use_or_task(shared: &SharedData, locs: &[Idx]) -> bool {
     should_prune_single_use(shared, locs) || should_prune_single_task(shared, locs)
 }
 
