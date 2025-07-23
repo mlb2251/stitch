@@ -287,7 +287,7 @@ pub fn sample_variable_reuse_expansion(
     assert!(!locs.is_empty());
     let mut pattern = pattern.clone();
     pattern.match_locations = locs;
-    let expands_to = ExpandsTo(ExpandsToInner::IVar(new_ivar,  VariableType::Metavar));
+    let expands_to = ExpandsTo(ExpandsToInner::IVar(new_ivar,  pattern.pattern_args.type_for_ivar(new_ivar)));
     Some((pattern, expands_to))
 }
 

@@ -46,6 +46,10 @@ impl PatternArgs {
         self.variables[ivar as usize].0 as ZId
     }
 
+    pub fn type_for_ivar(&self, ivar: i32) -> VariableType {
+        self.variables[ivar as usize].1
+    }
+
     pub fn unvalidated_ivar(&self) -> Option<(i32, ZId)> {
         // returns the first invalid ivar, or None if all are valid
         self.variables.iter().enumerate().find_map(|(i, (_, vtype))| {
