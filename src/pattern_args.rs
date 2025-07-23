@@ -41,6 +41,13 @@ impl PatternArgs {
         self.variables.iter().filter(|(_,t)| *t == VariableType::Metavar).count()
     }
 
+    pub fn zid_to_ivar(&self, zid: ZId) -> Option<i32> {
+        // returns the ivar index for the given zid, or None if it is not a variable
+        self.arg_choices.iter().filter(|labelled| labelled.zid == zid)
+            .map(|labelled| labelled.ivar as i32)
+            .next()
+    }
+
     #[inline]
     pub fn iterate_arguments(&self) -> impl Iterator<Item = &LabelledZId> {
         self.arg_choices.iter()

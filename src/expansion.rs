@@ -222,10 +222,12 @@ pub fn perform_expansion_variable(
     shared: &SharedData,
     variable_ivar: usize,
     expands_to: ExpandsTo,
-    // locs: Vec<Idx>,
-) -> Option<Pattern> {
+) -> Option<(Pattern, Vec<ZId>)> {
     let mut pattern = pattern;
     let mut expands_to = expands_to;
+
+    // println!("Variable ivar: {}, expands to: {:?}", variable_ivar, expands_to);
+    // println!("Pattern args: {:?}", pattern.pattern_args);
 
     let variable_zids: Vec<usize> = pattern.pattern_args.remove_variable_at(variable_ivar, match &mut expands_to {
         ExpandsTo(ExpandsToInner::IVar(i, _)) => {
@@ -235,33 +237,50 @@ pub fn perform_expansion_variable(
 
     });
 
+    // println!("Variable zids: {:?}", variable_zids);
+
     let body_utility = pattern.body_utility +  expands_to.local_expansion_utility(shared) * variable_zids.len() as Cost;
     pattern.body_utility = body_utility;
 
     let num_vars = pattern.pattern_args.arity() as i32;
 
     let ExpandsTo(expands_to) = expands_to;
+    let mut bad_ivars = vec![];
+
+    let firstLoc = pattern.match_locations[0];
+
+    let mut add_variable_at = |zid: ZId, var_id: i32| {
+        pattern.pattern_args.add_variable_at(zid, var_id);
+        // println!("Checking zid {zid} for invalid metavar location: zip={:?}", shared.zip_of_zid[zid]);
+        // println!("Arg of node id: {:?}", shared.arg_of_zid_node[zid]);
+        // println!("Checking match location {}", pattern.match_locations[0]);
+        // println!("Match location contains: {}", shared.set.get(pattern.match_locations[0]));
+        if invalid_metavar_location(shared, shared.arg_of_zid_node[zid][&pattern.match_locations[0]].shifted_id) {
+            bad_ivars.push(zid);
+        }
+    };
 
     for variable_zid in variable_zids {
+        // assert!(shared.arg_of_zid_node[variable_zid][&firstLoc].expands_to == ExpandsTo(expands_to.clone()));
         // add any new holes to the list of holes
         match expands_to {
             ExpandsToInner::Lam(_) => {
                 // add new holes
-                pattern.pattern_args.add_variable_at(shared.extensions_of_zid[variable_zid].body.unwrap(), num_vars); 
+                add_variable_at(shared.extensions_of_zid[variable_zid].body.unwrap(), num_vars); 
             }
             ExpandsToInner::App => {
                 // add new holes
-                pattern.pattern_args.add_variable_at(shared.extensions_of_zid[variable_zid].func.unwrap(), num_vars);
-                pattern.pattern_args.add_variable_at(shared.extensions_of_zid[variable_zid].arg.unwrap(), num_vars + 1);
+                add_variable_at(shared.extensions_of_zid[variable_zid].func.unwrap(), num_vars);
+                add_variable_at(shared.extensions_of_zid[variable_zid].arg.unwrap(), num_vars + 1);
             }
             ExpandsToInner::IVar(i, _) => {
-                pattern.pattern_args.add_variable_at(variable_zid, i);
+                add_variable_at(variable_zid, i);
             }
             _ => {}
         }
     }
 
-    Some (pattern)
+    Some ((pattern, bad_ivars))
 }
 
 

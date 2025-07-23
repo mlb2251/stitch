@@ -5,7 +5,7 @@ use rustc_hash::{FxHashMap};
 use std::sync::Arc;
 
 
-fn sample_syntactic_expansion(
+fn filter_match_locs_for_syntactic_expansion(
     original_pattern: &Pattern,
     arg_of_loc: &FxHashMap<Idx, Arg>,
     expands_to: &ExpandsTo,
@@ -42,7 +42,7 @@ fn sample_expands_to(
     }
     let expands_to = arg_of_loc[&match_location].expands_to.clone();
     if valid_syntactic_expansion_loc(&shared.sym_var_info, &expands_to) {
-        let pattern = sample_syntactic_expansion(original_pattern, arg_of_loc, &expands_to);
+        let pattern = filter_match_locs_for_syntactic_expansion(original_pattern, arg_of_loc, &expands_to);
         return (pattern, Some(expands_to));
     }
     return (original_pattern.clone(), None);
@@ -73,17 +73,57 @@ pub fn smc_expand_once(
     }
     let variable_ivar: usize = rng.gen_range(0..num_vars);
     let variable_zid = get_zid_for_ivar(original_pattern, variable_ivar);
+    // println!("Checking consistency for variable ivar: {}, zid: {}", variable_ivar, variable_zid);
     let arg_of_loc = &shared.arg_of_zid_node[variable_zid];
     let (pattern, expands_to) = sample_expands_to(original_pattern, shared, arg_of_loc, match_location, variable_ivar, rng);
     let Some(expands_to) = expands_to else {
         return Some(original_pattern.clone()); // no valid expansion found
     };
-    perform_expansion_variable(
+    let (mut pattern, mut bad_zids) = perform_expansion_variable(
         pattern,
         shared,
         variable_ivar,
         expands_to,
-    )
+    )?;
+    // println!("Cleaning up bad zids {:?}", bad_zids);
+    while let Some(bad_zid) = bad_zids.pop() {
+        // println!("Expanding bad zid: {:?}; remaining bad zids: {:?}", bad_zid, bad_zids);
+        let Some(bad_ivar) = pattern.pattern_args.zid_to_ivar(bad_zid) else {
+            // no ivar found for this zid, skip it. Results whenever an ivar in multiple locations is being expanded.
+            continue;
+        };
+        // println!("Bad ivar: {}", bad_ivar);
+        let arg_of_loc = &shared.arg_of_zid_node[bad_zid];
+        // println!("arg_of_loc: {:?}", arg_of_loc.len());
+        // println!("pattern.match_locations: {:?}", pattern.match_locations.len());
+        let new_expands_to = arg_of_loc[&match_location].expands_to.clone(); // force a syntactic expansion here
+        // println!("*** Expands to: {:?}", new_expands_to);
+        // println!("New expands to: {:?}", new_expands_to);
+        if !valid_syntactic_expansion_loc(&shared.sym_var_info, &new_expands_to) {
+            // in this situation, it's a valid symvar.
+            continue;
+        }
+        pattern = filter_match_locs_for_syntactic_expansion(&pattern, arg_of_loc, &new_expands_to);
+        let (new_pattern, new_bad_zids) = perform_expansion_variable(
+            pattern,
+            shared,
+            bad_ivar as usize,
+            new_expands_to.clone(),
+        )?;
+        // for zid in &new_bad_zids {
+        //     for loc in &new_pattern.match_locations {
+        //         if(!shared.arg_of_zid_node[*zid].contains_key(loc)) {
+        //             println!(
+        //                 "ZID {} not found in match location: {:?}, despite the parent zid {} expanding to {}",
+        //                 zid, loc, bad_zid, new_expands_to
+        //             );
+        //         }
+        //     }
+        // }
+        pattern = new_pattern;
+        bad_zids.extend(new_bad_zids);
+    }
+    Some(pattern)
 }
 
 pub fn smc_expand_n_times(
