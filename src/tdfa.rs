@@ -5,7 +5,7 @@ use clap::Parser;
 use lambdas::{ExprOwned, ExprSet, Idx, Node, Symbol};
 use serde::Serialize;
 
-use crate::{invalid_metavar_location, CompressionStepConfig, CompressionStepResult, Pattern, SharedData, SymvarInfo};
+use crate::{CompressionStepConfig, CompressionStepResult, Pattern, SharedData, SymvarInfo};
 
 
 type State = String;
@@ -154,19 +154,11 @@ impl TDFAInventionAnnotation {
         for i in 1..pattern.match_locations.len() {
             let for_loc = TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[i], global_annotations).unwrap();
             if annotation != for_loc {
-                for zid in pattern.pattern_args.iterate_one_zid_per_argument() {
-                    let node1 = shared.arg_of_zid_node[zid][&pattern.match_locations[i]].clone();
-                    let node2 = shared.arg_of_zid_node[zid][&pattern.match_locations[0]].clone();
-                    println!("Inconsistency in node {zid}: {node2:?} vs {node2:?}");
-                    println!("first is invalid? {}", invalid_metavar_location(shared, node1.shifted_id));
-                    println!("second is invalid? {}", invalid_metavar_location(shared, node2.shifted_id));
-                }
-                println!("Inconsistent TDFAInventionAnnotation for match locations: {:?} and {:?} ({:?} vs {:?})",
+                panic!("Inconsistent TDFAInventionAnnotation for match locations: {:?} and {:?} ({:?} vs {:?})",
                     pattern.match_locations[0], pattern.match_locations[i],
                     annotation,
                     for_loc,
                 );
-                panic!();
             }
         }
         Some(annotation)
