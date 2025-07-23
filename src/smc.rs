@@ -72,7 +72,7 @@ pub fn smc_expand_once(
         return None
     }
     let variable_ivar: usize = rng.gen_range(0..num_vars);
-    let variable_zid = get_zid_for_ivar(original_pattern, variable_ivar);
+    let variable_zid = original_pattern.pattern_args.zid_for_ivar(variable_ivar as i32);
     let arg_of_loc = &shared.arg_of_zid_node[variable_zid];
     let (pattern, expands_to) = sample_expands_to(original_pattern, shared, arg_of_loc, match_location, variable_ivar, rng);
     let Some(expands_to) = expands_to else {
@@ -93,22 +93,21 @@ pub fn smc_expand_once(
 
 pub fn clean_invalid_metavars(pattern: Pattern, representative_loc: Idx, shared: &SharedData) -> Pattern {
     let mut pattern = pattern;
-    while let Some(unvalidated_ivar) = pattern.pattern_args.unvalidated_ivar() {
-        let zid = pattern.pattern_args.variables[unvalidated_ivar as usize].0;
-        let arg_of_loc = &shared.arg_of_zid_node[zid as usize];
+    while let Some((unvalidated_ivar, zid)) = pattern.pattern_args.unvalidated_ivar() {
+        let arg_of_loc = &shared.arg_of_zid_node[zid];
         let arg_of_loc_this = arg_of_loc[&representative_loc].clone();
         let is_metavar = !invalid_metavar_location(shared, arg_of_loc_this.shifted_id);
         let is_symvar = shared.sym_var_info.as_ref().is_some_and(|symvar_info| symvar_info.is_symvar_spot(arg_of_loc_this.shifted_id));
         assert!(!is_metavar || !is_symvar, "Unvalidated ivar {} with zid {} is both a metavar and a symvar: {:?}", unvalidated_ivar, zid, arg_of_loc_this);
         if is_metavar {
-            pattern.pattern_args.variables[unvalidated_ivar as usize].1 = VariableType::Metavar;
+            pattern.pattern_args.validate_ivar(unvalidated_ivar, VariableType::Metavar);
             pattern.match_locations.retain(
                 |loc| !invalid_metavar_location(shared, arg_of_loc[loc].shifted_id)
             );
             continue;
         }
         if is_symvar {
-            pattern.pattern_args.variables[unvalidated_ivar as usize].1 = VariableType::Symvar;
+            pattern.pattern_args.validate_ivar(unvalidated_ivar, VariableType::Symvar);
             pattern.match_locations.retain(
                 |loc| shared.sym_var_info.as_ref().is_some_and(|symvar_info| symvar_info.is_symvar_spot(arg_of_loc[loc].shifted_id))
             );

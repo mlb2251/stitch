@@ -268,10 +268,6 @@ pub fn get_num_variables(pattern: &Pattern) -> usize {
     pattern.pattern_args.arity()
 }
 
-pub fn get_zid_for_ivar(pattern: &Pattern, ivar: usize) -> ZId {
-    pattern.pattern_args.variables[ivar].0 as ZId
-}
-
 
 fn sample_new_ivar(
     original_pattern: &Pattern,
@@ -288,8 +284,8 @@ fn sample_new_ivar(
     if new_ivar >= variable_ivar {
         new_ivar += 1; // skip the variable we are expanding
     }
-    let zid_original = get_zid_for_ivar(original_pattern, variable_ivar);
-    let zid_new = get_zid_for_ivar(original_pattern, new_ivar);
+    let zid_original = original_pattern.pattern_args.zid_for_ivar(variable_ivar as i32);
+    let zid_new = original_pattern.pattern_args.zid_for_ivar(new_ivar as i32);
     if shared.arg_of_zid_node[zid_original][match_loc].shifted_id == shared.arg_of_zid_node[zid_new][match_loc].shifted_id {
         return Some(new_ivar);
     }
@@ -303,21 +299,20 @@ pub fn sample_variable_reuse_expansion(
     match_location: usize,
     rng: &mut impl rand::Rng,
 ) -> Option<(Pattern, ExpandsTo)> {
-    if let Some(new_ivar) = sample_new_ivar(pattern, shared, variable_ivar, &match_location, rng) {
-        let zid_original = get_zid_for_ivar(pattern, variable_ivar);
-        let zid_new = get_zid_for_ivar(pattern, new_ivar);
-        let locs = compatible_locations(
-            shared,
-            pattern,
-            &shared.arg_of_zid_node[zid_original],
-            &shared.arg_of_zid_node[zid_new],
-        );
-        if !locs.is_empty() {
-            let mut pattern = pattern.clone();
-            pattern.match_locations = locs;
-            let expands_to = ExpandsTo(ExpandsToInner::IVar(new_ivar as i32,  VariableType::Metavar));
-            return Some((pattern, expands_to));
-        }
+    let new_ivar = sample_new_ivar(pattern, shared, variable_ivar, &match_location, rng)?;
+    let zid_original = pattern.pattern_args.zid_for_ivar(variable_ivar as i32);
+    let zid_new = pattern.pattern_args.zid_for_ivar(new_ivar as i32);
+    let locs = compatible_locations(
+        shared,
+        pattern,
+        &shared.arg_of_zid_node[zid_original],
+        &shared.arg_of_zid_node[zid_new],
+    );
+    if !locs.is_empty() {
+        let mut pattern = pattern.clone();
+        pattern.match_locations = locs;
+        let expands_to = ExpandsTo(ExpandsToInner::IVar(new_ivar as i32,  VariableType::Metavar));
+        return Some((pattern, expands_to));
     }
     None
 }

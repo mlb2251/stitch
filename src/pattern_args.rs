@@ -16,7 +16,7 @@ pub enum VariableType {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct PatternArgs {
     arg_choices: Vec<LabelledZId>, // a hole gets moved into here when it becomes an abstraction argument, again these are in order of when they were added
-    pub variables: Vec<(u32, VariableType)>, //varibales[i].0 gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
+    variables: Vec<(u32, VariableType)>, //varibales[i].0 gives the index zipper to the ith argument (#i), i.e. this is zipper is also somewhere in arg_choices
 }
 
 impl PartialOrd for PatternArgs {
@@ -42,15 +42,28 @@ impl PatternArgs {
         self.variables.iter().filter(|(_,t)| *t == VariableType::Metavar).count()
     }
 
-    pub fn unvalidated_ivar(&self) -> Option<i32> {
+    pub fn zid_for_ivar(&self, ivar: i32) -> ZId {
+        self.variables[ivar as usize].0 as ZId
+    }
+
+    pub fn unvalidated_ivar(&self) -> Option<(i32, ZId)> {
         // returns the first invalid ivar, or None if all are valid
         self.variables.iter().enumerate().find_map(|(i, (_, vtype))| {
             if *vtype == VariableType::Unvalidated {
-                Some(i as i32)
+                let (zid, _) = self.variables[i];
+                Some((i as i32, zid as ZId))
             } else {
                 None
             }
         })
+    }
+
+    pub fn validate_ivar(&mut self, ivar: i32, vtype: VariableType) {
+        // validate the ivar at the given index
+        assert!(ivar >= 0 && ivar < self.variables.len() as i32);
+        let ivar = ivar as usize;
+        assert!(self.variables[ivar].1 == VariableType::Unvalidated);
+        self.variables[ivar].1 = vtype;
     }
 
     #[inline]
