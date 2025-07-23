@@ -1,10 +1,11 @@
+use core::panic;
 use std::{fmt::{self, Formatter}, sync::Arc};
 
 use itertools::Itertools;
 use lambdas::{Idx, Node, Symbol, Tag, ZId, ZNode};
 use rustc_hash::{FxHashMap, FxHashSet};
 
-use crate::{compatible_locations, invalid_metavar_location, Arg, Cost, LocationsForReusableArgs, Pattern, PatternArgs, SharedData, SymvarInfo, VariableType, ZIdExtension};
+use crate::{invalid_metavar_location, Arg, Cost, LocationsForReusableArgs, Pattern, PatternArgs, SharedData, SymvarInfo, VariableType, ZIdExtension};
 
 /// Tells us what a hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
@@ -321,6 +322,7 @@ pub fn compatible_locations(shared: &SharedData, locs: &[Idx], arg_of_loc_1:  &F
     let require_valid = match type_of_var {
         VariableType::Metavar => true,
         VariableType::Symvar => false,
+        VariableType::Unvalidated => panic!("Unvalidated variables should not be used in compatible_locations"),
     };
     locs.iter()
         .filter(|loc:&&Idx|
