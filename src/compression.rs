@@ -1169,13 +1169,18 @@ pub fn should_prune_single_use_or_task(shared: &SharedData, locs: &[Idx]) -> boo
 }
 
 
-pub fn compatible_locations(shared: &SharedData, original_pattern: &Pattern, arg_of_loc_1:  &FxHashMap<Idx,Arg>, arg_of_loc_2:  &FxHashMap<Idx,Arg>) -> Vec<usize> {
-    let locs: Vec<Idx> = original_pattern.match_locations.iter()
-        .filter(|loc:&&Idx| arg_of_loc_1[loc].shifted_id == 
+pub fn compatible_locations(shared: &SharedData, locs: &[Idx], arg_of_loc_1:  &FxHashMap<Idx,Arg>, arg_of_loc_2:  &FxHashMap<Idx,Arg>, type_of_var: VariableType) -> Vec<usize> {
+    let require_valid = match type_of_var {
+        VariableType::Metavar => true,
+        VariableType::Symvar => false,
+        VariableType::Unvalidated => panic!("Unvalidated variable type"),
+    };
+    locs.iter()
+        .filter(|loc:&&Idx|
+            arg_of_loc_1[loc].shifted_id == 
             arg_of_loc_2[loc].shifted_id
-            && !invalid_metavar_location(shared, arg_of_loc_1[loc].shifted_id)
-        ).cloned().collect();
-    locs
+            && (!require_valid || !invalid_metavar_location(shared, arg_of_loc_1[loc].shifted_id))
+        ).cloned().collect()
 }
 
 

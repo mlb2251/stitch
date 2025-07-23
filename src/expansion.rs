@@ -273,16 +273,24 @@ pub fn sample_variable_reuse_expansion(
     let new_ivar = sample_in_range_without_value(get_num_variables(pattern), variable_ivar, rng)?;
     let zid_original = pattern.pattern_args.zid_for_ivar(variable_ivar);
     let zid_new = pattern.pattern_args.zid_for_ivar(new_ivar);
-    if shared.arg_of_zid_node[zid_original][&match_location].shifted_id != shared.arg_of_zid_node[zid_new][&match_location].shifted_id {
-        // fail immediately if the match location is not the same
-        return None
+    let arg_of_loc_original = &shared.arg_of_zid_node[zid_original];
+    let arg_of_loc_new = &shared.arg_of_zid_node[zid_new];
+    if compatible_locations(
+        shared,
+        &[match_location],
+        arg_of_loc_original,
+        arg_of_loc_new,
+        pattern.pattern_args.type_for_ivar(new_ivar)
+    ).is_empty() {
+        return None; // no compatible locations for the new ivar
     }
 
     let locs = compatible_locations(
         shared,
-        pattern,
-        &shared.arg_of_zid_node[zid_original],
-        &shared.arg_of_zid_node[zid_new],
+        &pattern.match_locations,
+        arg_of_loc_original,
+        arg_of_loc_new,
+        pattern.pattern_args.type_for_ivar(new_ivar)
     );
     assert!(!locs.is_empty());
     let mut pattern = pattern.clone();
