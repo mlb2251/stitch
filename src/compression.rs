@@ -337,7 +337,7 @@ impl Hash for Pattern {
         self.holes.hash(state);
         self.pattern_args.hash(state);
         // Intentionally skip:
-        // - match_locations (dynamic)
+        // - match_locations (computed)
         // - utility_upper_bound (computed)
         // - body_utility (computed)
         // - tracked (debug flag)
@@ -1051,7 +1051,7 @@ fn stitch_search(
 
                 // add any new holes to the list of holes
                 let mut holes = holes_after_pop.clone();
-                expands_to.add_holes(&shared.extensions_of_zid[hole_zid], &mut holes);
+                expands_to.syntactic_expansion(&shared.extensions_of_zid[hole_zid], |zid, _| holes.push(zid));
 
                 // update arg_choices and possibly variables if a new ivar was added
                 let mut pattern_args = original_pattern.pattern_args.clone();
