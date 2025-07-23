@@ -289,13 +289,11 @@ pub fn sample_variable_reuse_expansion(
         &shared.arg_of_zid_node[zid_original],
         &shared.arg_of_zid_node[zid_new],
     );
-    if !locs.is_empty() {
-        let mut pattern = pattern.clone();
-        pattern.match_locations = locs;
-        let expands_to = ExpandsTo(ExpandsToInner::IVar(new_ivar,  VariableType::Metavar));
-        return Some((pattern, expands_to));
-    }
-    None
+    assert!(!locs.is_empty());
+    let mut pattern = pattern.clone();
+    pattern.match_locations = locs;
+    let expands_to = ExpandsTo(ExpandsToInner::IVar(new_ivar,  VariableType::Metavar));
+    Some((pattern, expands_to))
 }
 
 pub fn svar_locations(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,Arg>, reusable_locs: FxHashSet<Idx>, sym_var_info: &SymvarInfo) -> Vec<Idx> {
