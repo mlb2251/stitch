@@ -42,13 +42,6 @@ impl PatternArgs {
         self.variables.iter().filter(|(_,t)| *t == VariableType::Metavar).count()
     }
 
-    pub fn zid_to_ivar(&self, zid: ZId) -> Option<i32> {
-        // returns the ivar index for the given zid, or None if it is not a variable
-        self.arg_choices.iter().filter(|labelled| labelled.zid == zid)
-            .map(|labelled| labelled.ivar as i32)
-            .next()
-    }
-
     pub fn unvalidated_ivar(&self) -> Option<i32> {
         // returns the first invalid ivar, or None if all are valid
         self.variables.iter().enumerate().find_map(|(i, (_, vtype))| {

@@ -52,13 +52,12 @@ fn sample_expands_to(
 struct Particle {
     pattern: Pattern,
     utility: usize,
-    metavariables_valid: bool, // whether the metavariables in the pattern are valid
 }
 
 impl Particle {
-    fn new(pattern: Pattern, shared: &SharedData, metavariables_valid: bool) -> Self {
+    fn new(pattern: Pattern, shared: &SharedData) -> Self {
         let utility = calculate_utility(&pattern, shared);
-        Particle { pattern, utility, metavariables_valid }
+        Particle { pattern, utility }
     }
 }
 
@@ -74,7 +73,6 @@ pub fn smc_expand_once(
     }
     let variable_ivar: usize = rng.gen_range(0..num_vars);
     let variable_zid = get_zid_for_ivar(original_pattern, variable_ivar);
-    // println!("Checking consistency for variable ivar: {}, zid: {}", variable_ivar, variable_zid);
     let arg_of_loc = &shared.arg_of_zid_node[variable_zid];
     let (pattern, expands_to) = sample_expands_to(original_pattern, shared, arg_of_loc, match_location, variable_ivar, rng);
     let Some(expands_to) = expands_to else {
@@ -157,8 +155,7 @@ fn smc_expand_all(
     let mut expanded_particles = vec![];
     for particle in original_particles {
         if let Some(expanded) = smc_expand_n_times(&particle.pattern, shared, rng, shared.cfg.smc_expand_per_step) {
-            // get a guarantee that the metavariables are valid from smc_expand_n_times
-            expanded_particles.push(Particle::new(expanded, shared, true));
+            expanded_particles.push(Particle::new(expanded, shared));
         }
     }
     expanded_particles
@@ -303,8 +300,7 @@ pub fn compression_step_smc(
         return vec![];
     };
 
-    // initially there's no safety guarantee
-    let mut particles = vec![Particle::new(Pattern::single_var_from_shared(&shared), &shared, false); shared.cfg.smc_particles];
+    let mut particles = vec![Particle::new(Pattern::single_var_from_shared(&shared), &shared); shared.cfg.smc_particles];
     
     let rng = &mut rand::rngs::StdRng::seed_from_u64(shared.cfg.seed);
 
@@ -322,7 +318,7 @@ pub fn compression_step_smc(
         }
         particles = resample(particles, rng, shared.cfg.smc_particles, &shared);
         for p in &particles {
-            if !p.metavariables_valid {
+            if p.pattern.pattern_args.unvalidated_ivar().is_some() {
                 // skip particles with invalid metavariables
                 continue;
             }
@@ -332,7 +328,6 @@ pub fn compression_step_smc(
             if !TDFAInventionAnnotation::metavariables_are_consistent(&p.pattern, &shared) {
                 continue; // skip patterns with inconsistent metavariables
             }
-            TDFAInventionAnnotation::from_pattern(&p.pattern, &shared);
             best = Some(p.clone());
             if shared.cfg.verbose_best {
                 println!("Step {}: New best pattern found: {}. Fast utility: {}, Accurate utility: {}",
