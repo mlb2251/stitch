@@ -5,7 +5,7 @@ use rustc_hash::{FxHashMap,FxHashSet};
 use core::panic;
 use std::convert::TryInto;
 use std::fmt::{self, Formatter, Display};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use itertools::Itertools;
 use serde_json::json;
 use clap::{Parser};
@@ -288,7 +288,7 @@ impl Default for CompressionStepConfig {
 }
 
 /// A Pattern is a partial abstraction which may have holes
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pattern {
     pub holes: Vec<ZId>, // zipper to hole in order of when theyre added NOT left to right
     pub pattern_args: PatternArgs,
@@ -296,6 +296,19 @@ pub struct Pattern {
     pub utility_upper_bound: Cost,
     pub body_utility: Cost, // the size (in `cost`) of a single use of the pattern body so far
     pub tracked: bool, // for debugging
+}
+
+impl Hash for Pattern {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Only hash the structural components of the pattern
+        self.holes.hash(state);
+        self.pattern_args.hash(state);
+        // Intentionally skip:
+        // - match_locations (computed)
+        // - utility_upper_bound (computed)
+        // - body_utility (computed)
+        // - tracked (debug flag)
+    }
 }
 
 /// only used during tracking - gets the zippers to args of a pattern
