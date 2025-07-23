@@ -1007,7 +1007,7 @@ fn stitch_search(
 
                 // add any new holes to the list of holes
                 let mut holes = holes_after_pop.clone();
-                expands_to.add_holes(&shared.extensions_of_zid[hole_zid], &mut holes);
+                expands_to.syntactic_expansion(&shared.extensions_of_zid[hole_zid], |zid, _| holes.push(zid));
 
                 // update arg_choices and possibly variables if a new ivar was added
                 let mut pattern_args = original_pattern.pattern_args.clone();
