@@ -252,27 +252,15 @@ pub fn get_num_variables(pattern: &Pattern) -> usize {
 }
 
 
-fn sample_new_ivar(
-    original_pattern: &Pattern,
-    shared: &SharedData,
-    variable_ivar: i32,
-    match_loc: &usize,
-    rng: &mut impl rand::Rng,
-) -> Option<(i32, ZId, ZId)> {
-    let num_vars = get_num_variables(original_pattern);
-    if num_vars <= 1 {
+fn sample_in_range_without_value(max_range_excl: usize, avoid: i32, rng: &mut impl rand::Rng) -> Option<i32> {
+    if max_range_excl <= 1 {
         return None; // no other variable to expand to
     }
-    let mut new_ivar = rng.gen_range(0..num_vars - 1) as i32;
-    if new_ivar >= variable_ivar {
+    let mut new_ivar = rng.gen_range(0..max_range_excl - 1) as i32;
+    if new_ivar >= avoid {
         new_ivar += 1; // skip the variable we are expanding
     }
-    let zid_original = original_pattern.pattern_args.zid_for_ivar(variable_ivar);
-    let zid_new = original_pattern.pattern_args.zid_for_ivar(new_ivar);
-    if shared.arg_of_zid_node[zid_original][match_loc].shifted_id == shared.arg_of_zid_node[zid_new][match_loc].shifted_id {
-        return Some((new_ivar, zid_original, zid_new));
-    }
-    None
+    Some(new_ivar)
 }
 
 pub fn sample_variable_reuse_expansion(
@@ -282,7 +270,14 @@ pub fn sample_variable_reuse_expansion(
     match_location: usize,
     rng: &mut impl rand::Rng,
 ) -> Option<(Pattern, ExpandsTo)> {
-    let (new_ivar, zid_original, zid_new) = sample_new_ivar(pattern, shared, variable_ivar, &match_location, rng)?;
+    let new_ivar = sample_in_range_without_value(get_num_variables(pattern), variable_ivar, rng)?;
+    let zid_original = pattern.pattern_args.zid_for_ivar(variable_ivar);
+    let zid_new = pattern.pattern_args.zid_for_ivar(new_ivar);
+    if shared.arg_of_zid_node[zid_original][&match_location].shifted_id != shared.arg_of_zid_node[zid_new][&match_location].shifted_id {
+        // fail immediately if the match location is not the same
+        return None
+    }
+
     let locs = compatible_locations(
         shared,
         pattern,
