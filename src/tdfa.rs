@@ -157,10 +157,7 @@ impl TDFAInventionAnnotation {
                 for zid in pattern.pattern_args.iterate_one_zid_per_argument() {
                     let node1 = shared.arg_of_zid_node[zid][&pattern.match_locations[i]].clone();
                     let node2 = shared.arg_of_zid_node[zid][&pattern.match_locations[0]].clone();
-                    println!("Inconsistency in node {}: {:?} vs {:?}",
-                        zid,
-                        node1, node2
-                    );
+                    println!("Inconsistency in node {zid}: {node2:?} vs {node2:?}");
                     println!("first is invalid? {}", invalid_metavar_location(shared, node1.shifted_id));
                     println!("second is invalid? {}", invalid_metavar_location(shared, node2.shifted_id));
                 }

@@ -45,7 +45,7 @@ fn sample_expands_to(
         let pattern = filter_match_locs_for_syntactic_expansion(original_pattern, arg_of_loc, &expands_to);
         return (pattern, Some(expands_to));
     }
-    return (original_pattern.clone(), None);
+    (original_pattern.clone(), None)
 }
 
 #[derive(Clone, Debug)]
