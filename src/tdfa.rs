@@ -152,9 +152,14 @@ impl TDFAInventionAnnotation {
         }; 
         let annotation = TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[0], global_annotations).unwrap();
         for i in 1..pattern.match_locations.len() {
-            assert!(annotation == TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[i], global_annotations).unwrap(),
-                "Inconsistent TDFAInventionAnnotation for match locations: {:?} and {:?}",
-                pattern.match_locations[0], pattern.match_locations[i]);
+            let for_loc = TDFAInventionAnnotation::from_match_location(pattern, shared, pattern.match_locations[i], global_annotations).unwrap();
+            if annotation != for_loc {
+                panic!("Inconsistent TDFAInventionAnnotation for match locations: {:?} and {:?} ({:?} vs {:?})",
+                    pattern.match_locations[0], pattern.match_locations[i],
+                    annotation,
+                    for_loc,
+                );
+            }
         }
         Some(annotation)
     }
