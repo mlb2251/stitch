@@ -247,15 +247,13 @@ pub fn perform_expansion_variable(
     let ExpandsTo(expands_to) = expands_to;
     let mut bad_ivars = vec![];
 
-    let firstLoc = pattern.match_locations[0];
-
     let mut add_variable_at = |zid: ZId, var_id: i32| {
         pattern.pattern_args.add_variable_at(zid, var_id);
         // println!("Checking zid {zid} for invalid metavar location: zip={:?}", shared.zip_of_zid[zid]);
         // println!("Arg of node id: {:?}", shared.arg_of_zid_node[zid]);
         // println!("Checking match location {}", pattern.match_locations[0]);
         // println!("Match location contains: {}", shared.set.get(pattern.match_locations[0]));
-        if invalid_metavar_location(shared, shared.arg_of_zid_node[zid][&pattern.match_locations[0]].shifted_id) {
+        if pattern.match_locations.iter().any(|loc| invalid_metavar_location(shared, shared.arg_of_zid_node[zid][loc].shifted_id)) {
             bad_ivars.push(zid);
         }
     };

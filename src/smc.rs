@@ -52,12 +52,13 @@ fn sample_expands_to(
 struct Particle {
     pattern: Pattern,
     utility: usize,
+    metavariables_valid: bool, // whether the metavariables in the pattern are valid
 }
 
 impl Particle {
-    fn new(pattern: Pattern, shared: &SharedData) -> Self {
+    fn new(pattern: Pattern, shared: &SharedData, metavariables_valid: bool) -> Self {
         let utility = calculate_utility(&pattern, shared);
-        Particle { pattern, utility }
+        Particle { pattern, utility, metavariables_valid }
     }
 }
 
@@ -83,11 +84,12 @@ pub fn smc_expand_once(
         pattern,
         shared,
         variable_ivar,
-        expands_to,
+        expands_to.clone(),
     )?;
-    // println!("Cleaning up bad zids {:?}", bad_zids);
+    println!("Pattern args initially: {:?}", pattern.pattern_args);
+    println!("Cleaning up bad zids {:?}", bad_zids);
     while let Some(bad_zid) = bad_zids.pop() {
-        // println!("Expanding bad zid: {:?}; remaining bad zids: {:?}", bad_zid, bad_zids);
+        println!("Expanding bad zid: {:?}; remaining bad zids: {:?}", bad_zid, bad_zids);
         let Some(bad_ivar) = pattern.pattern_args.zid_to_ivar(bad_zid) else {
             // no ivar found for this zid, skip it. Results whenever an ivar in multiple locations is being expanded.
             continue;
@@ -100,7 +102,9 @@ pub fn smc_expand_once(
         // println!("*** Expands to: {:?}", new_expands_to);
         // println!("New expands to: {:?}", new_expands_to);
         if !valid_syntactic_expansion_loc(&shared.sym_var_info, &new_expands_to) {
-            // in this situation, it's a valid symvar.
+            pattern.match_locations.retain(
+                |loc| shared.sym_var_info.as_ref().is_some_and(|symvar_info| symvar_info.is_symvar_spot(arg_of_loc[loc].shifted_id))
+            );
             continue;
         }
         pattern = filter_match_locs_for_syntactic_expansion(&pattern, arg_of_loc, &new_expands_to);
@@ -123,6 +127,22 @@ pub fn smc_expand_once(
         pattern = new_pattern;
         bad_zids.extend(new_bad_zids);
     }
+    println!("Pattern args at end: {:?}", pattern.pattern_args);
+    for zid in pattern.pattern_args.iterate_one_zid_per_argument() {
+        for loc in &pattern.match_locations {
+            let arg = shared.arg_of_zid_node[zid][loc].clone();
+            if invalid_metavar_location(shared, arg.shifted_id) {
+                println!("Bad arg: {:?} for zid: {} at match location: {:?}, expands to: {}", 
+                    arg, zid, loc, expands_to.clone()
+                );
+                panic!("Bad ZID! {} found in match location: {:?}, despite the parent pattern expanding to {}", 
+                    zid, loc, expands_to.clone()
+                );
+            };
+        }
+    }
+    println!("Pattern after expansion: {}", pattern.info(shared));
+    TDFAInventionAnnotation::from_pattern(&pattern, &shared);
     Some(pattern)
 }
 
@@ -156,7 +176,8 @@ fn smc_expand_all(
     let mut expanded_particles = vec![];
     for particle in original_particles {
         if let Some(expanded) = smc_expand_n_times(&particle.pattern, shared, rng, shared.cfg.smc_expand_per_step) {
-            expanded_particles.push(Particle::new(expanded, shared));
+            // get a guarantee that the metavariables are valid from smc_expand_n_times
+            expanded_particles.push(Particle::new(expanded, shared, true));
         }
     }
     expanded_particles
@@ -301,7 +322,8 @@ pub fn compression_step_smc(
         return vec![];
     };
 
-    let mut particles = vec![Particle::new(Pattern::single_var_from_shared(&shared), &shared); shared.cfg.smc_particles];
+    // initially there's no safety guarantee
+    let mut particles = vec![Particle::new(Pattern::single_var_from_shared(&shared), &shared, false); shared.cfg.smc_particles];
     
     let rng = &mut rand::rngs::StdRng::seed_from_u64(shared.cfg.seed);
 
@@ -319,12 +341,17 @@ pub fn compression_step_smc(
         }
         particles = resample(particles, rng, shared.cfg.smc_particles, &shared);
         for p in &particles {
+            if !p.metavariables_valid {
+                // skip particles with invalid metavariables
+                continue;
+            }
             if p.utility <= best.as_ref().map(|p: &Particle| p.utility).unwrap_or(0) {
                 continue;
             }
             if !TDFAInventionAnnotation::metavariables_are_consistent(&p.pattern, &shared) {
                 continue; // skip patterns with inconsistent metavariables
             }
+            TDFAInventionAnnotation::from_pattern(&p.pattern, &shared);
             best = Some(p.clone());
             if shared.cfg.verbose_best {
                 println!("Step {}: New best pattern found: {}. Fast utility: {}, Accurate utility: {}",

@@ -213,7 +213,7 @@ fn symbol_weighting_test_lower_weight() {
     compare_out_jsons("data/basic/symbol_weighting_test_2.json", "data/expected_outputs/symbol_weighting_2_l_67.json", "-i1 -a3 --cost-prim {\"L1\":67,\"L2\":67,\"L3\":67}", InputFormat::ProgramsList);
 }
 
-const DFA_ARGS: &str = r#"--tdfa-json-path test_data/dfa.json --tdfa-root M --valid-metavars ["S","E","seqS"] --valid-roots ["S","E","seqS"] --tdfa-non-eta-long-states {"seqS":"S"}  --tdfa-split ~"#;
+const DFA_ARGS: &str = r#" --tdfa-json-path test_data/dfa.json --tdfa-root M --valid-metavars ["S","E","seqS"] --valid-roots ["S","E","seqS"] --tdfa-non-eta-long-states {"seqS":"S"}  --tdfa-split ~"#;
 
 #[test]
 fn tdfa_multi_arg_function() {
@@ -227,9 +227,11 @@ fn tdfa_sequence() {
     compare_out_jsons("data/python/back-of-sequence.json", "data/expected_outputs/back-of-sequence.json", &("-i2 -a3 ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
 }
 
+const SMC_ARGS: &str = " --smc --smc-particles 1000 --smc-extra-steps 40";
+
 #[test]
 fn smc_regression_tests() {
-    let args = "-i10 --smc --smc-particles 1000 --smc-extra-steps 40".to_owned();
+    let args = "-i10".to_owned() + SMC_ARGS;
     compare_out_jsons("data/cogsci/nuts-bolts.json", "data/expected_outputs/smc-nuts-bolts.json", &args, InputFormat::ProgramsList);
     compare_out_jsons("data/cogsci/wheels.json", "data/expected_outputs/smc-wheels.json", &args, InputFormat::ProgramsList);
     compare_out_jsons("data/cogsci/furniture.json", "data/expected_outputs/smc-furniture.json", &args, InputFormat::ProgramsList);
@@ -244,6 +246,7 @@ fn python_args() -> String {
 #[test]
 fn python_symbols_regression() {
     compare_out_jsons("data/python/10.json", "data/expected_outputs/10.json", &("-i10 -a2 --symvar-prefix & ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
+    compare_out_jsons("data/python/10.json", "data/expected_outputs/10-smc.json", &("-i2 --symvar-prefix & ".to_owned() + SMC_ARGS + DFA_ARGS), InputFormat::ProgramsList);
 }
 
 
