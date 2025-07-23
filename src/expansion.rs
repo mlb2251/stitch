@@ -226,6 +226,7 @@ pub fn svar_locations(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,Arg
     locations
 }
 
+#[inline]
 pub fn compatible_locations(shared: &SharedData, locs: &[Idx], arg_of_loc_1:  &FxHashMap<Idx,Arg>, arg_of_loc_2:  &FxHashMap<Idx,Arg>, type_of_var: VariableType) -> Vec<usize> {
     let require_valid = match type_of_var {
         VariableType::Metavar => true,
