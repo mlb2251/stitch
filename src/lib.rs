@@ -9,6 +9,7 @@ pub mod expansion;
 pub mod pattern_args;
 pub mod symvar;
 pub mod test_utils;
+pub mod zipper;
 
 pub use {
     compression::*,
@@ -22,6 +23,7 @@ pub use {
     pattern_args::*,
     symvar::*,
     test_utils::*,
+    zipper::*,
 };
 
 pub use colorful::{Color,Colorful,RGB};
