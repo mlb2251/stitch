@@ -3,8 +3,6 @@ pub use lambdas::{ZNode, ZId, LabelledZId};
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Zipper(Vec<ZNode>);
 
-// impl Slice for Zipper
-
 impl<Idx> std::ops::Index<Idx> for Zipper
 where
     Idx: std::slice::SliceIndex<[ZNode]>,
