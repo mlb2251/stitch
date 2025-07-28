@@ -1,6 +1,6 @@
 pub use lambdas::{ZNode, ZId, LabelledZId};
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Zipper(Vec<ZNode>);
 
 // impl Slice for Zipper
@@ -17,10 +17,6 @@ where
 }
 
 impl Zipper {
-
-    pub fn new() -> Self {
-        Zipper(Vec::new())
-    }
     
     pub fn ends_with_func(&self) -> bool {
         matches!(self.0.last(), Some(ZNode::Func))

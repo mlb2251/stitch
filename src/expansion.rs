@@ -1,7 +1,7 @@
 use std::{fmt::{self, Formatter}, sync::Arc};
 
 use itertools::Itertools;
-use lambdas::{Idx, Node, Symbol, Tag, ZId, ZNode};
+use lambdas::{Idx, Node, Symbol, Tag, ZId};
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{invalid_metavar_location, Arg, Cost, LocationsForReusableArgs, Pattern, PatternArgs, SharedData, SymvarInfo, VariableType, ZIdExtension};
