@@ -6,7 +6,7 @@ use core::panic;
 use std::convert::TryInto;
 use std::fmt::{self, Formatter, Display};
 use std::hash::{Hash, Hasher};
-use itertools::Itertools;
+use itertools::{Itertools, Zip};
 use serde_json::json;
 use clap::{Parser};
 use serde::Serialize;
@@ -324,7 +324,7 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Zipper,ZId>) ->
         }
     }
 
-    let mut curr_zip: Zipper = vec![];
+    let mut curr_zip: Zipper = Zipper::new();
     let mut zids_of_ivar = vec![vec![]; arity as usize];
 
     fn helper(expr: Expr, curr_zip: &mut Zipper, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &FxHashMap<Zipper,ZId>) -> Result<(), ()> {
@@ -335,17 +335,17 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Zipper,ZId>) ->
                 zids_of_ivar[*i as usize].push(zid_of_zip.get(curr_zip).cloned().ok_or(())?);
             },
             Node::Lam(b, _) => {
-                curr_zip.push(ZNode::Body);
+                curr_zip.add_to_end(ZNode::Body);
                 helper(expr.get(*b), curr_zip, zids_of_ivar, zid_of_zip)?;
-                curr_zip.pop();
+                curr_zip.remove_from_end();
             }
             Node::App(f,x) => {
-                curr_zip.push(ZNode::Func);
+                curr_zip.add_to_end(ZNode::Func);
                 helper(expr.get(*f), curr_zip, zids_of_ivar, zid_of_zip)?;
-                curr_zip.pop();
-                curr_zip.push(ZNode::Arg);
+                curr_zip.remove_from_end();
+                curr_zip.add_to_end(ZNode::Arg);
                 helper(expr.get(*x), curr_zip, zids_of_ivar, zid_of_zip)?;
-                curr_zip.pop();
+                curr_zip.remove_from_end();
             }
         }
         Ok(())
@@ -508,7 +508,7 @@ impl Pattern {
     fn to_expr(&self, shared: &SharedData) -> ExprOwned {
         let mut set = ExprSet::empty(Order::ChildFirst, false, false);
 
-        let mut curr_zip: Zipper = vec![];
+        let mut curr_zip: Zipper = Zipper::new();
         // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
         let zips: Vec<(Zipper,Node)> = self.holes.iter().map(|zid| (shared.zip_of_zid[*zid].clone(), Node::Prim(HOLE_SYM.clone())))
             .chain(self.pattern_args.iterate_arguments()
@@ -523,18 +523,18 @@ impl Pattern {
                 Node::Prim(p) => set.add(Node::Prim(p.clone())),
                 Node::Var(v, tag) => set.add(Node::Var(*v, *tag)),
                 Node::Lam(b, tag) => {
-                    curr_zip.push(ZNode::Body);
+                    curr_zip.add_to_end(ZNode::Body);
                     let b_idx = helper(set, *b, curr_zip, zips, shared);
-                    curr_zip.pop();
+                    curr_zip.remove_from_end();
                     set.add(Node::Lam(b_idx, *tag))
                 }
                 Node::App(f,x) => {
-                    curr_zip.push(ZNode::Func);
+                    curr_zip.add_to_end(ZNode::Func);
                     let f_idx = helper(set, *f, curr_zip, zips, shared);
-                    curr_zip.pop();
-                    curr_zip.push(ZNode::Arg);
+                    curr_zip.remove_from_end();
+                    curr_zip.add_to_end(ZNode::Arg);
                     let x_idx = helper(set, *x, curr_zip, zips, shared);
-                    curr_zip.pop();
+                    curr_zip.remove_from_end();
                     set.add(Node::App(f_idx,x_idx))
                 }
                 _ => unreachable!(),
@@ -550,7 +550,7 @@ impl Pattern {
         let mut expr = self.to_expr(shared);
         let expands_to = format!("{}",tracked_expands_to(self, hole_zid, shared)).magenta().bold().to_string();
         let replace_sentinel = Node::Prim("<REPLACE>".into());
-        let idx = expr.immut().zip(&shared.zip_of_zid[hole_zid]).idx;
+        let idx = expr.immut().zip(&shared.zip_of_zid[hole_zid][..]).idx;
         expr.set[idx] = replace_sentinel;
         expr.to_string().replace("<REPLACE>", &expands_to)
     }
@@ -971,7 +971,7 @@ fn stitch_search(
 
                 // Pruning (FREE VARS): if an invention has free variables in the body then it's not a real function and we can discard it
                 // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
-                if expands_to.free_variable(shared.zip_of_zid[hole_zid].iter().filter(|znode|**znode == ZNode::Body).count()) {
+                if expands_to.free_variable(shared.zip_of_zid[hole_zid].depth_root_to_arg()) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
                     if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
                     continue 'expansion; // free var
@@ -1192,8 +1192,8 @@ fn get_zippers(
     let mut arg_of_zid_node: Vec<FxHashMap<Idx,Arg>> = Default::default();
     let mut zids_of_node: FxHashMap<Idx,Vec<ZId>> = Default::default();
 
-    zid_of_zip.insert(vec![], EMPTY_ZID);
-    zip_of_zid.push(vec![]);
+    zid_of_zip.insert(Zipper::new(), EMPTY_ZID);
+    zip_of_zid.push(Zipper::new());
     arg_of_zid_node.push(FxHashMap::default());
     
     // loop over all nodes in all programs in bottom up order
@@ -1218,7 +1218,7 @@ fn get_zippers(
                 for f_zid in zids_of_node[&f].iter() {
                     // clone and extend zip to get new zid for this node
                     let mut zip = zip_of_zid[*f_zid].clone();
-                    zip.insert(0,ZNode::Func);
+                    zip.add_to_front(ZNode::Func);
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
@@ -1236,7 +1236,7 @@ fn get_zippers(
                 for x_zid in zids_of_node[&x].iter() {
                     // clone and extend zip to get new zid for this node
                     let mut zip = zip_of_zid[*x_zid].clone();
-                    zip.insert(0,ZNode::Arg);
+                    zip.add_to_front(ZNode::Arg);
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
@@ -1256,7 +1256,7 @@ fn get_zippers(
 
                     // clone and extend zip to get new zid for this node
                     let mut zip = zip_of_zid[*b_zid].clone();
-                    zip.insert(0,ZNode::Body);
+                    zip.add_to_front(ZNode::Body);
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip.clone());
@@ -1275,7 +1275,7 @@ fn get_zippers(
                             // by inserting an IVar to indicate this
 
                             // how many lambdas are along this zipper? (including most recent one)
-                            let depth_root_to_arg = zip.iter().filter(|x| **x == ZNode::Body).count() as i32;
+                            let depth_root_to_arg = zip.depth_root_to_arg() as i32;
 
                             // find all pointers to $0 (this is the `init_depth` parameter) and replace then with #(num_lams - 1) that is
                             // point past all lambdas except the newly added one. For example if there were no lambdas other than the
@@ -1294,11 +1294,11 @@ fn get_zippers(
 
     let extensions_of_zid = zip_of_zid.iter().map(|zip| {
         let mut zip_body = zip.clone();
-        zip_body.push(ZNode::Body);
+        zip_body.add_to_end(ZNode::Body);
         let mut zip_arg = zip.clone();
-        zip_arg.push(ZNode::Arg);
+        zip_arg.add_to_end(ZNode::Arg);
         let mut zip_func = zip.clone();
-        zip_func.push(ZNode::Func);
+        zip_func.add_to_end(ZNode::Func);
         ZIdExtension {
             body: zid_of_zip.get(&zip_body).copied(),
             arg: zid_of_zip.get(&zip_arg).copied(),
@@ -1666,7 +1666,7 @@ fn possible_to_uninline(counts: FxHashMap<Idx, (Cost, Vec<usize>)>, finished_usa
 
 /// not used in popl code - experimental
 fn use_counts(pattern: &Pattern, zip_of_zid: &[Zipper], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>) -> FxHashMap<Idx,(Cost,Vec<ZId>)> {
-    let mut curr_zip: Zipper = vec![];
+    let mut curr_zip: Zipper = Zipper::new();
     let curr_zid: ZId = EMPTY_ZID;
     let zids = &pattern.pattern_args.iterate_arguments().cloned().collect::<Vec<LabelledZId>>();
 
@@ -1695,20 +1695,20 @@ fn use_counts(pattern: &Pattern, zip_of_zid: &[Zipper], arg_of_zid_node: &[FxHas
             Node::Prim(_) => {},
             Node::Var(_, _) => {},
             Node::Lam(b, _) => {
-                curr_zip.push(ZNode::Body);
+                curr_zip.add_to_end(ZNode::Body);
                 let new_zid = extensions_of_zid[curr_zid].body.unwrap();
                 helper(*b, match_loc, curr_zip, new_zid, zips, zids,  arg_of_zid_node, extensions_of_zid, set, counts, analyzed_ivars);
-                curr_zip.pop();
+                curr_zip.remove_from_end();
             }
             Node::App(f,x) => {
-                curr_zip.push(ZNode::Func);
+                curr_zip.add_to_end(ZNode::Func);
                 let new_zid = extensions_of_zid[curr_zid].func.unwrap();
                 helper(*f, match_loc, curr_zip, new_zid, zips, zids,  arg_of_zid_node, extensions_of_zid, set, counts, analyzed_ivars);
-                curr_zip.pop();
-                curr_zip.push(ZNode::Arg);
+                curr_zip.remove_from_end();
+                curr_zip.add_to_end(ZNode::Arg);
                 let new_zid = extensions_of_zid[curr_zid].arg.unwrap();
                 helper(*x, match_loc, curr_zip, new_zid, zips, zids,  arg_of_zid_node, extensions_of_zid, set, counts, analyzed_ivars);
-                curr_zip.pop();
+                curr_zip.remove_from_end();
             }
             _ => unreachable!(),
         }
