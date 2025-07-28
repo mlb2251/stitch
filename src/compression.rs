@@ -550,7 +550,7 @@ impl Pattern {
         let mut expr = self.to_expr(shared);
         let expands_to = format!("{}",tracked_expands_to(self, hole_zid, shared)).magenta().bold().to_string();
         let replace_sentinel = Node::Prim("<REPLACE>".into());
-        let idx = expr.immut().zip(&shared.zip_of_zid[hole_zid][..]).idx;
+        let idx = expr.immut().zip_iter(shared.zip_of_zid[hole_zid].iter()).idx;
         expr.set[idx] = replace_sentinel;
         expr.to_string().replace("<REPLACE>", &expands_to)
     }

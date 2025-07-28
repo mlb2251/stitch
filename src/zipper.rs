@@ -1,21 +1,14 @@
-use std::ops::{self, RangeFull};
-
 pub use lambdas::{ZNode, ZId, LabelledZId};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Zipper(Vec<ZNode>);
 
-impl ops::Index<RangeFull> for Zipper
-where
-{
-    type Output = [ZNode];
-
-    fn index(&self, index: RangeFull) -> &Self::Output {
-        &self.0[index]
-    }
-}
 
 impl Zipper {
+
+    pub fn iter(&self) -> impl Iterator<Item = &ZNode> {
+        self.0.iter()
+    }
     
     pub fn ends_with_func(&self) -> bool {
         matches!(self.0.last(), Some(ZNode::Func))
