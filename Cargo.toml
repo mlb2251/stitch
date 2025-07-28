@@ -25,7 +25,7 @@ test-case = "3.3.1"
 
 
 # [patch.crates-io]
-lambdas = { path = "../lambdas"}
+# lambdas = { path = "../lambdas"}
 
 
 # enable for flamegraphs
