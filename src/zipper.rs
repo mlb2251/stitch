@@ -1,15 +1,16 @@
+use std::ops::{self, RangeFull};
+
 pub use lambdas::{ZNode, ZId, LabelledZId};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Zipper(Vec<ZNode>);
 
-impl<Idx> std::ops::Index<Idx> for Zipper
+impl ops::Index<RangeFull> for Zipper
 where
-    Idx: std::slice::SliceIndex<[ZNode]>,
 {
-    type Output = Idx::Output;
+    type Output = [ZNode];
 
-    fn index(&self, index: Idx) -> &Self::Output {
+    fn index(&self, index: RangeFull) -> &Self::Output {
         &self.0[index]
     }
 }
