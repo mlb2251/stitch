@@ -1222,23 +1222,22 @@ fn get_zippers(
             },
             Node::Lam(b, _) => {
                 for b_zid in zids_of_node[&b].iter() {
-                    let zid = zippers.extend_zipper(*b_zid, idx, b, ZNode::Body);
-                    zids.push(zid);
-                    zippers.handle_shift(zid, *b_zid, idx, b, analyzed_free_vars, set);
-                    
+                    let extended_zid = zippers.extend_zipper(*b_zid, idx, b, ZNode::Body);
+                    zids.push(extended_zid);
+                    zippers.handle_shift(extended_zid, *b_zid, idx, b, analyzed_free_vars, set);
                 }
             },
         }
         zids_of_node.insert(idx, zids);
     }
 
-    let extensions = zippers.compute_extensions();
+    let extensions_of_zid = zippers.compute_extensions();
 
     (zippers.zid_of_zip,
     zippers.zip_of_zid,
     zippers.arg_of_zid_node,
     zids_of_node,
-    extensions)
+    extensions_of_zid)
 }
 
 /// the complete result of a single step of compression, this is a somewhat expensive data structure

@@ -96,7 +96,7 @@ impl Zippers {
     }
 
     pub fn handle_shift(&mut self, extended_zid: ZId, unextended_zid: ZId, extended_node: Idx, unextended_node: Idx, analyzed_free_vars: &mut AnalyzedExpr<FreeVarAnalysis>, set: &mut ExprSet) {
-        let zip = &self.zip_of_zid[unextended_zid];
+        let zip = &self.zip_of_zid[extended_zid];
         let mut arg: Arg = self.arg_of_zid_node[unextended_zid][&unextended_node].clone();
         // shift the arg but keep the unshifted part the same
         if !analyzed_free_vars.analyze_get(set.get(arg.shifted_id)).is_empty() {
