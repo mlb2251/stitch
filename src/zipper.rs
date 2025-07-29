@@ -61,8 +61,8 @@ pub struct Zippers {
 
 impl Zippers {
 
-    pub fn get_interned_idx(&self, zipper: &Zipper) -> Result<ZId, ()> {
-        self.zid_of_zip.get(zipper).cloned().ok_or(())
+    pub fn get_interned_idx(&self, zipper: &Zipper) -> Option<ZId> {
+        self.zid_of_zip.get(zipper).cloned()
     }
 
     pub fn add_empty(&mut self, empty_zid: ZId) {

@@ -332,7 +332,10 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zippers: &Zippers) -> Option<Vec<Vec<Z
             Node::Prim(_) => {},
             Node::Var(_, _) => {},
             Node::IVar(i) => {
-                zids_of_ivar[*i as usize].push(zippers.get_interned_idx(curr_zip)?);
+                let Some(zid) = zippers.get_interned_idx(curr_zip) else {
+                    return Err(());
+                };
+                zids_of_ivar[*i as usize].push(zid);
             },
             Node::Lam(b, _) => {
                 curr_zip.add_to_end(ZNode::Body);
