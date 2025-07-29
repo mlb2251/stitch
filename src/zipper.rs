@@ -8,11 +8,6 @@ pub struct Zipper(Vec<ZNode>);
 impl Zipper {
 
     #[inline(always)]
-    pub fn iter(&self) -> impl Iterator<Item = &ZNode> {
-        self.0.iter()
-    }
-    
-    #[inline(always)]
     pub fn ends_with_func(&self) -> bool {
         matches!(self.0.last(), Some(ZNode::Func))
     }
