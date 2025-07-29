@@ -54,9 +54,9 @@ impl Zipper {
 
 #[derive(Clone, Debug, Default)]
 pub struct Zippers {
-    zid_of_zip: FxHashMap<Zipper, ZId>,
-    zip_of_zid: Vec<Zipper>,
-    arg_of_zid_node: Vec<FxHashMap<Idx,Arg>>,
+    pub(crate) zid_of_zip: FxHashMap<Zipper, ZId>,
+    pub(crate) zip_of_zid: Vec<Zipper>,
+    pub(crate) arg_of_zid_node: Vec<FxHashMap<Idx,Arg>>,
 }
 
 impl Zippers {

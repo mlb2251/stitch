@@ -312,7 +312,7 @@ impl Hash for Pattern {
 }
 
 /// only used during tracking - gets the zippers to args of a pattern
-fn zids_of_ivar_of_expr(expr: &ExprOwned, zippers: &Zippers) -> Option<Vec<Vec<ZId>>> {
+fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Zipper,ZId>) -> Option<Vec<Vec<ZId>>> {
 
     // quickly determine arity
     let mut arity = 0;
@@ -327,31 +327,31 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zippers: &Zippers) -> Option<Vec<Vec<Z
     let mut curr_zip: Zipper = Zipper::default();
     let mut zids_of_ivar = vec![vec![]; arity as usize];
 
-    fn helper(expr: Expr, curr_zip: &mut Zipper, zids_of_ivar: &mut Vec<Vec<ZId>>, zippers: &Zippers) -> Result<(), ()> {
+    fn helper(expr: Expr, curr_zip: &mut Zipper, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &FxHashMap<Zipper,ZId>) -> Result<(), ()> {
         match expr.node() {
             Node::Prim(_) => {},
             Node::Var(_, _) => {},
             Node::IVar(i) => {
-                zids_of_ivar[*i as usize].push(zippers.get_interned_idx(curr_zip)?);
+                zids_of_ivar[*i as usize].push(zid_of_zip.get(curr_zip).cloned().ok_or(())?);
             },
             Node::Lam(b, _) => {
                 curr_zip.add_to_end(ZNode::Body);
-                helper(expr.get(*b), curr_zip, zids_of_ivar, zippers)?;
+                helper(expr.get(*b), curr_zip, zids_of_ivar, zid_of_zip)?;
                 curr_zip.remove_from_end();
             }
             Node::App(f,x) => {
                 curr_zip.add_to_end(ZNode::Func);
-                helper(expr.get(*f), curr_zip, zids_of_ivar, zippers)?;
+                helper(expr.get(*f), curr_zip, zids_of_ivar, zid_of_zip)?;
                 curr_zip.remove_from_end();
                 curr_zip.add_to_end(ZNode::Arg);
-                helper(expr.get(*x), curr_zip, zids_of_ivar, zippers)?;
+                helper(expr.get(*x), curr_zip, zids_of_ivar, zid_of_zip)?;
                 curr_zip.remove_from_end();
             }
         }
         Ok(())
     }
     // we can pick any match location
-    if helper(expr.immut(), &mut curr_zip, &mut zids_of_ivar, zippers).is_err() {
+    if helper(expr.immut(), &mut curr_zip, &mut zids_of_ivar, zid_of_zip).is_err() {
         return None
     };
 
@@ -1185,7 +1185,7 @@ fn get_zippers(
     analyzed_cost: &AnalyzedExpr<ExprCost>,
     set: &mut ExprSet,
     analyzed_free_vars: &mut AnalyzedExpr<FreeVarAnalysis>,
-) -> (Zippers, FxHashMap<Idx,Vec<ZId>>, Vec<ZIdExtension>) {
+) -> (FxHashMap<Zipper, ZId>, Vec<Zipper>, Vec<FxHashMap<Idx,Arg>>, FxHashMap<Idx,Vec<ZId>>,  Vec<ZIdExtension>) {
 
     let mut zippers = Zippers::default();
     let mut zids_of_node: FxHashMap<Idx,Vec<ZId>> = Default::default();
@@ -1232,8 +1232,13 @@ fn get_zippers(
         zids_of_node.insert(idx, zids);
     }
 
+    let extensions = zippers.compute_extensions();
 
-    (zippers, zids_of_node, extensions_of_zid)
+    (zippers.zid_of_zip,
+    zippers.zip_of_zid,
+    zippers.arg_of_zid_node,
+    zids_of_node,
+    extensions)
 }
 
 /// the complete result of a single step of compression, this is a somewhat expensive data structure
@@ -1813,7 +1818,8 @@ pub fn construct_shared(
     if !cfg.quiet { println!("cost_of_node structs: {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
 
-    let (zippers,
+    let (zid_of_zip,
+        zip_of_zid,
         arg_of_zid_node,
         zids_of_node,
         extensions_of_zid) = get_zippers(&corpus_span, &analyzed_cost, &mut set, &mut analyzed_free_vars);
@@ -1830,7 +1836,7 @@ pub fn construct_shared(
             let mut set = ExprSet::empty(Order::ChildFirst, false, false);
             let idx = set.parse_extend(s).unwrap();
             let expr = ExprOwned::new(set,idx);
-            if let Some(zids_of_ivar) = zids_of_ivar_of_expr(&expr, &zippers) {
+            if let Some(zids_of_ivar) = zids_of_ivar_of_expr(&expr, &zid_of_zip) {
                 Some(Tracking { expr, zids_of_ivar })
             } else {
                 if !cfg.quiet { println!("Tracking: can't possibly find a match for this in corpus because one if the necessary zippers ZIDs doesnt exist in corpus")}
