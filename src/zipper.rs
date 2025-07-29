@@ -1,7 +1,8 @@
+use lambdas::ExprOwned;
 pub use lambdas::{ZNode, ZId, LabelledZId};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct Zipper(pub Vec<ZNode>);
+pub struct Zipper(Vec<ZNode>);
 
 
 impl Zipper {
@@ -45,4 +46,10 @@ impl Zipper {
     pub fn remove_from_end(&mut self) {
         self.0.pop();
     }
+
+    #[inline(always)]
+    pub fn zip(&self, expr: &ExprOwned) -> ZId {
+        expr.immut().zip(&self.0).idx
+    }
+
 }

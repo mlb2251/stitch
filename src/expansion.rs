@@ -134,7 +134,7 @@ impl std::fmt::Display for ExpandsTo {
 pub fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData) -> ExpandsTo {
     // apply the hole zipper to the original expr being tracked to get the subtree
     // this will expand into, then get the ExpandsTo of that
-    let idx = shared.tracking.as_ref().unwrap().expr.immut().zip(&shared.zip_of_zid[hole_zid].0).idx;
+    let idx = shared.zip_of_zid[hole_zid].zip(&shared.tracking.as_ref().unwrap().expr);
     match expands_to_of_node(&shared.tracking.as_ref().unwrap().expr.set[idx]) {
         ExpandsTo(ExpandsToInner::IVar(i, VariableType::Metavar)) => {
             ExpandsTo(ExpandsToInner::IVar(pattern.pattern_args.find_variable(shared, i as usize) as i32, VariableType::Metavar))
