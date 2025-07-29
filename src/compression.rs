@@ -335,17 +335,17 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Zipper,ZId>) ->
                 zids_of_ivar[*i as usize].push(zid_of_zip.get(curr_zip).cloned().ok_or(())?);
             },
             Node::Lam(b, _) => {
-                curr_zip.0.push(ZNode::Body);
+                curr_zip.add_to_end(ZNode::Body);
                 helper(expr.get(*b), curr_zip, zids_of_ivar, zid_of_zip)?;
-                curr_zip.0.pop();
+                curr_zip.remove_from_end();
             }
             Node::App(f,x) => {
-                curr_zip.0.push(ZNode::Func);
+                curr_zip.add_to_end(ZNode::Func);
                 helper(expr.get(*f), curr_zip, zids_of_ivar, zid_of_zip)?;
-                curr_zip.0.pop();
-                curr_zip.0.push(ZNode::Arg);
+                curr_zip.remove_from_end();
+                curr_zip.add_to_end(ZNode::Arg);
                 helper(expr.get(*x), curr_zip, zids_of_ivar, zid_of_zip)?;
-                curr_zip.0.pop();
+                curr_zip.remove_from_end();
             }
         }
         Ok(())
@@ -523,18 +523,18 @@ impl Pattern {
                 Node::Prim(p) => set.add(Node::Prim(p.clone())),
                 Node::Var(v, tag) => set.add(Node::Var(*v, *tag)),
                 Node::Lam(b, tag) => {
-                    curr_zip.0.push(ZNode::Body);
+                    curr_zip.add_to_end(ZNode::Body);
                     let b_idx = helper(set, *b, curr_zip, zips, shared);
-                    curr_zip.0.pop();
+                    curr_zip.remove_from_end();
                     set.add(Node::Lam(b_idx, *tag))
                 }
                 Node::App(f,x) => {
-                    curr_zip.0.push(ZNode::Func);
+                    curr_zip.add_to_end(ZNode::Func);
                     let f_idx = helper(set, *f, curr_zip, zips, shared);
-                    curr_zip.0.pop();
-                    curr_zip.0.push(ZNode::Arg);
+                    curr_zip.remove_from_end();
+                    curr_zip.add_to_end(ZNode::Arg);
                     let x_idx = helper(set, *x, curr_zip, zips, shared);
-                    curr_zip.0.pop();
+                    curr_zip.remove_from_end();
                     set.add(Node::App(f_idx,x_idx))
                 }
                 _ => unreachable!(),
@@ -1218,7 +1218,7 @@ fn get_zippers(
                 for f_zid in zids_of_node[&f].iter() {
                     // clone and extend zip to get new zid for this node
                     let mut zip = zip_of_zid[*f_zid].clone();
-                    zip.0.insert(0,ZNode::Func);
+                    zip.add_to_front(ZNode::Func);
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
@@ -1236,7 +1236,7 @@ fn get_zippers(
                 for x_zid in zids_of_node[&x].iter() {
                     // clone and extend zip to get new zid for this node
                     let mut zip = zip_of_zid[*x_zid].clone();
-                    zip.0.insert(0,ZNode::Arg);
+                    zip.add_to_front(ZNode::Arg);
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip);
@@ -1256,7 +1256,7 @@ fn get_zippers(
 
                     // clone and extend zip to get new zid for this node
                     let mut zip = zip_of_zid[*b_zid].clone();
-                    zip.0.insert(0,ZNode::Body);
+                    zip.add_to_front(ZNode::Body);
                     let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
                         let zid = zip_of_zid.len();
                         zip_of_zid.push(zip.clone());
@@ -1695,20 +1695,20 @@ fn use_counts(pattern: &Pattern, zip_of_zid: &[Zipper], arg_of_zid_node: &[FxHas
             Node::Prim(_) => {},
             Node::Var(_, _) => {},
             Node::Lam(b, _) => {
-                curr_zip.0.push(ZNode::Body);
+                curr_zip.add_to_end(ZNode::Body);
                 let new_zid = extensions_of_zid[curr_zid].body.unwrap();
                 helper(*b, match_loc, curr_zip, new_zid, zips, zids,  arg_of_zid_node, extensions_of_zid, set, counts, analyzed_ivars);
-                curr_zip.0.pop();
+                curr_zip.remove_from_end();
             }
             Node::App(f,x) => {
-                curr_zip.0.push(ZNode::Func);
+                curr_zip.add_to_end(ZNode::Func);
                 let new_zid = extensions_of_zid[curr_zid].func.unwrap();
                 helper(*f, match_loc, curr_zip, new_zid, zips, zids,  arg_of_zid_node, extensions_of_zid, set, counts, analyzed_ivars);
-                curr_zip.0.pop();
-                curr_zip.0.push(ZNode::Arg);
+                curr_zip.remove_from_end();
+                curr_zip.add_to_end(ZNode::Arg);
                 let new_zid = extensions_of_zid[curr_zid].arg.unwrap();
                 helper(*x, match_loc, curr_zip, new_zid, zips, zids,  arg_of_zid_node, extensions_of_zid, set, counts, analyzed_ivars);
-                curr_zip.0.pop();
+                curr_zip.remove_from_end();
             }
             _ => unreachable!(),
         }
