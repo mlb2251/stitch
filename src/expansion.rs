@@ -1,7 +1,7 @@
 use std::{fmt::{self, Formatter}, sync::Arc};
 
 use itertools::Itertools;
-use lambdas::{Idx, Node, Symbol, Tag, ZId, ZNode};
+use lambdas::{Idx, Node, Symbol, Tag, ZId};
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{invalid_metavar_location, Arg, Cost, LocationsForReusableArgs, Pattern, PatternArgs, SharedData, SymvarInfo, VariableType, ZIdExtension};
@@ -176,7 +176,7 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
 
     if shared.cfg.no_curried_metavars {
         // dont allow any expansions that result in a metavar to the left of an app
-        if let Some(ZNode::Func) = shared.zip_of_zid[hole_zid].0.last(){
+        if shared.zip_of_zid[hole_zid].ends_with_func(){
             return ivars_expansions;
         }
     }

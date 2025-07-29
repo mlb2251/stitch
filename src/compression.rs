@@ -971,7 +971,7 @@ fn stitch_search(
 
                 // Pruning (FREE VARS): if an invention has free variables in the body then it's not a real function and we can discard it
                 // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
-                if expands_to.free_variable(shared.zip_of_zid[hole_zid].0.iter().filter(|znode|**znode == ZNode::Body).count()) {
+                if expands_to.free_variable(shared.zip_of_zid[hole_zid].depth_root_to_arg()) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
                     if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
                     continue 'expansion; // free var
@@ -1275,7 +1275,7 @@ fn get_zippers(
                             // by inserting an IVar to indicate this
 
                             // how many lambdas are along this zipper? (including most recent one)
-                            let depth_root_to_arg = zip.0.iter().filter(|x| **x == ZNode::Body).count() as i32;
+                            let depth_root_to_arg = zip.depth_root_to_arg() as i32;
 
                             // find all pointers to $0 (this is the `init_depth` parameter) and replace then with #(num_lams - 1) that is
                             // point past all lambdas except the newly added one. For example if there were no lambdas other than the

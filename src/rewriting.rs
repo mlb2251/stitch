@@ -66,7 +66,7 @@ pub fn rewrite_fast(
                     // Also note that in the single_hole code --eta-long enforces that match locations never contains anything that starts to the left of a func so
                     // we dont need to worry about the case where the zipper would extend even past the root of the match location
                     // Also note that due to beta normal form, this will be zero and will be a no-op if the arg is a lambda
-                    let arity_of_arg = shared.zip_of_zid[zid].0.iter().rev().take_while(|znode| **znode == ZNode::Func).count();
+                    let arity_of_arg = shared.zip_of_zid[zid].function_arity();
                     if arity_of_arg > 0 {
                         let analyzed_free_vars = &mut AnalyzedExpr::new(FreeVarAnalysis);
 
