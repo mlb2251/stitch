@@ -7,15 +7,15 @@ pub struct Zipper(Vec<ZNode>);
 impl Zipper {
 
     pub fn iter(&self) -> impl Iterator<Item = &ZNode> {
-        self.0.iter().rev()
+        self.0.iter()
     }
     
     pub fn ends_with_func(&self) -> bool {
-        matches!(self.0.first(), Some(ZNode::Func))
+        matches!(self.0.last(), Some(ZNode::Func))
     }
 
     pub fn function_arity(&self) -> usize {
-        self.0.iter().take_while(|znode| **znode == ZNode::Func).count()
+        self.0.iter().rev().take_while(|znode| **znode == ZNode::Func).count()
     }
 
     pub fn depth_root_to_arg(&self) -> usize {
@@ -23,18 +23,18 @@ impl Zipper {
     }
 
     pub fn starts_with(&self, other: &Zipper) -> bool {
-        self.0.ends_with(&other.0)
+        self.0.starts_with(&other.0)
     }
 
     pub fn add_to_front(&mut self, node: ZNode) {
-        self.0.push(node);
+        self.0.insert(0, node);
     }
 
     pub fn add_to_end(&mut self, node: ZNode) {
-        self.0.insert(0, node)
+        self.0.push(node);
     }
 
     pub fn remove_from_end(&mut self) {
-        self.0.remove(0);
+        self.0.pop();
     }
 }
