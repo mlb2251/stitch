@@ -61,22 +61,26 @@ pub struct Zippers {
 
 impl Zippers {
 
+    #[inline(always)]
     pub fn get_interned_idx(&self, zipper: &Zipper) -> Option<ZId> {
         self.zid_of_zip.get(zipper).cloned()
     }
 
+    #[inline(always)]
     pub fn add_empty(&mut self, empty_zid: ZId) {
         self.zid_of_zip.insert(Zipper::default(), empty_zid);
         self.zip_of_zid.push(Zipper::default());
         self.arg_of_zid_node.push(FxHashMap::default());
     }
 
+    #[inline(always)]
     pub fn add_arg(&mut self, zid: ZId, node: Idx, cost: Cost, expands_to: ExpandsTo) { 
         self.arg_of_zid_node[zid].insert(node,
             Arg { shifted_id: node, unshifted_id: node, shift: 0, cost, expands_to });
 
     }
 
+    #[inline(always)]
     pub fn extend_zipper(&mut self, unextended_zid: ZId, extended_node: Idx, unextended_node: Idx, znode: ZNode) -> usize {
         let mut zip = self.zip_of_zid[unextended_zid].clone();
         zip.add_to_front(znode);
@@ -95,6 +99,7 @@ impl Zippers {
         *zid
     }
 
+    #[inline(always)]
     pub fn handle_shift(&mut self, extended_zid: ZId, unextended_zid: ZId, extended_node: Idx, unextended_node: Idx, analyzed_free_vars: &mut AnalyzedExpr<FreeVarAnalysis>, set: &mut ExprSet) {
         let zip = &self.zip_of_zid[extended_zid];
         let mut arg: Arg = self.arg_of_zid_node[unextended_zid][&unextended_node].clone();
@@ -119,6 +124,7 @@ impl Zippers {
         self.arg_of_zid_node[extended_zid].insert(extended_node, arg);
     }
 
+    #[inline(always)]
     pub fn compute_extensions(&self) -> Vec<ZIdExtension> {
         self.zip_of_zid.iter().map(|zip| {
             let mut zip_body = zip.clone();
