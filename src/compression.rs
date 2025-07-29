@@ -6,7 +6,7 @@ use core::panic;
 use std::convert::TryInto;
 use std::fmt::{self, Formatter, Display};
 use std::hash::{Hash, Hasher};
-use itertools::{Itertools};
+use itertools::Itertools;
 use serde_json::json;
 use clap::{Parser};
 use serde::Serialize;
