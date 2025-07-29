@@ -1,7 +1,7 @@
 pub use lambdas::{ZNode, ZId, LabelledZId};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct Zipper(Vec<ZNode>);
+pub struct Zipper(pub Vec<ZNode>);
 
 
 impl Zipper {

@@ -123,7 +123,7 @@ pub fn num_paths_to_node(roots: &[Idx], corpus_span: &Span, set: &ExprSet) -> (V
 
 
 pub fn zipper_replace(mut expr: ExprOwned, zipper: &Zipper, new: Node) -> ExprOwned {
-    let idx = expr.immut().zip_iter(zipper.iter()).idx;
+    let idx = expr.immut().zip_iter(zipper.0.iter()).idx;
     *expr.as_mut().get_node_mut(idx) = new;
     expr
 }

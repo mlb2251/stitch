@@ -1,7 +1,7 @@
 use std::{fmt::{self, Formatter}, sync::Arc};
 
 use itertools::Itertools;
-use lambdas::{Idx, Node, Symbol, Tag, ZId};
+use lambdas::{Idx, Node, Symbol, Tag, ZId, ZNode};
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{invalid_metavar_location, Arg, Cost, LocationsForReusableArgs, Pattern, PatternArgs, SharedData, SymvarInfo, VariableType, ZIdExtension};
@@ -134,7 +134,7 @@ impl std::fmt::Display for ExpandsTo {
 pub fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData) -> ExpandsTo {
     // apply the hole zipper to the original expr being tracked to get the subtree
     // this will expand into, then get the ExpandsTo of that
-    let idx = shared.tracking.as_ref().unwrap().expr.immut().zip_iter(shared.zip_of_zid[hole_zid].iter()).idx;
+    let idx = shared.tracking.as_ref().unwrap().expr.immut().zip(&shared.zip_of_zid[hole_zid].0).idx;
     match expands_to_of_node(&shared.tracking.as_ref().unwrap().expr.set[idx]) {
         ExpandsTo(ExpandsToInner::IVar(i, VariableType::Metavar)) => {
             ExpandsTo(ExpandsToInner::IVar(pattern.pattern_args.find_variable(shared, i as usize) as i32, VariableType::Metavar))
@@ -176,7 +176,7 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
 
     if shared.cfg.no_curried_metavars {
         // dont allow any expansions that result in a metavar to the left of an app
-        if shared.zip_of_zid[hole_zid].ends_with_func(){
+        if let Some(ZNode::Func) = shared.zip_of_zid[hole_zid].0.last(){
             return ivars_expansions;
         }
     }
