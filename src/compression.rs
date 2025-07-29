@@ -1294,11 +1294,11 @@ fn get_zippers(
 
     let extensions_of_zid = zip_of_zid.iter().map(|zip| {
         let mut zip_body = zip.clone();
-        zip_body.0.push(ZNode::Body);
+        zip_body.add_to_end(ZNode::Body);
         let mut zip_arg = zip.clone();
-        zip_arg.0.push(ZNode::Arg);
+        zip_arg.add_to_end(ZNode::Arg);
         let mut zip_func = zip.clone();
-        zip_func.0.push(ZNode::Func);
+        zip_func.add_to_end(ZNode::Func);
         ZIdExtension {
             body: zid_of_zip.get(&zip_body).copied(),
             arg: zid_of_zip.get(&zip_arg).copied(),
