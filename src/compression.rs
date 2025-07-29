@@ -312,7 +312,7 @@ impl Hash for Pattern {
 }
 
 /// only used during tracking - gets the zippers to args of a pattern
-fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Zipper,ZId>) -> Option<Vec<Vec<ZId>>> {
+fn zids_of_ivar_of_expr(expr: &ExprOwned, zippers: &Zippers) -> Option<Vec<Vec<ZId>>> {
 
     // quickly determine arity
     let mut arity = 0;
@@ -327,31 +327,31 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Zipper,ZId>) ->
     let mut curr_zip: Zipper = Zipper::default();
     let mut zids_of_ivar = vec![vec![]; arity as usize];
 
-    fn helper(expr: Expr, curr_zip: &mut Zipper, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &FxHashMap<Zipper,ZId>) -> Result<(), ()> {
+    fn helper(expr: Expr, curr_zip: &mut Zipper, zids_of_ivar: &mut Vec<Vec<ZId>>, zippers: &Zippers) -> Result<(), ()> {
         match expr.node() {
             Node::Prim(_) => {},
             Node::Var(_, _) => {},
             Node::IVar(i) => {
-                zids_of_ivar[*i as usize].push(zid_of_zip.get(curr_zip).cloned().ok_or(())?);
+                zids_of_ivar[*i as usize].push(zippers.get_interned_idx(curr_zip)?);
             },
             Node::Lam(b, _) => {
                 curr_zip.add_to_end(ZNode::Body);
-                helper(expr.get(*b), curr_zip, zids_of_ivar, zid_of_zip)?;
+                helper(expr.get(*b), curr_zip, zids_of_ivar, zippers)?;
                 curr_zip.remove_from_end();
             }
             Node::App(f,x) => {
                 curr_zip.add_to_end(ZNode::Func);
-                helper(expr.get(*f), curr_zip, zids_of_ivar, zid_of_zip)?;
+                helper(expr.get(*f), curr_zip, zids_of_ivar, zippers)?;
                 curr_zip.remove_from_end();
                 curr_zip.add_to_end(ZNode::Arg);
-                helper(expr.get(*x), curr_zip, zids_of_ivar, zid_of_zip)?;
+                helper(expr.get(*x), curr_zip, zids_of_ivar, zippers)?;
                 curr_zip.remove_from_end();
             }
         }
         Ok(())
     }
     // we can pick any match location
-    if helper(expr.immut(), &mut curr_zip, &mut zids_of_ivar, zid_of_zip).is_err() {
+    if helper(expr.immut(), &mut curr_zip, &mut zids_of_ivar, zippers).is_err() {
         return None
     };
 
@@ -510,9 +510,9 @@ impl Pattern {
 
         let mut curr_zip: Zipper = Zipper::default();
         // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
-        let zips: Vec<(Zipper,Node)> = self.holes.iter().map(|zid| (shared.zip_of_zid[*zid].clone(), Node::Prim(HOLE_SYM.clone())))
+        let zips: Vec<(Zipper,Node)> = self.holes.iter().map(|zid| (shared.zippers.zip_of_zid[*zid].clone(), Node::Prim(HOLE_SYM.clone())))
             .chain(self.pattern_args.iterate_arguments()
-            .map(|labelled_zid| (shared.zip_of_zid[labelled_zid.zid].clone(), Node::IVar(labelled_zid.ivar as i32)))).collect();
+            .map(|labelled_zid| (shared.zippers.zip_of_zid[labelled_zid.zid].clone(), Node::IVar(labelled_zid.ivar as i32)))).collect();
 
         fn helper(set: &mut ExprSet, curr_node: Idx, curr_zip: &mut Zipper, zips: &[(Zipper,Node)], shared: &SharedData) -> Idx {
             if let Some((_,e)) = zips.iter().find(|(zip,_)| zip == curr_zip) {
@@ -550,7 +550,7 @@ impl Pattern {
         let mut expr = self.to_expr(shared);
         let expands_to = format!("{}",tracked_expands_to(self, hole_zid, shared)).magenta().bold().to_string();
         let replace_sentinel = Node::Prim("<REPLACE>".into());
-        let idx = shared.zip_of_zid[hole_zid].zip(&expr);
+        let idx = shared.zippers.zip_of_zid[hole_zid].zip(&expr);
         expr.set[idx] = replace_sentinel;
         expr.to_string().replace("<REPLACE>", &expands_to)
     }
@@ -617,7 +617,7 @@ pub struct CriticalMultithreadData {
 pub struct SharedData {
     pub crit: Mutex<CriticalMultithreadData>,
     pub programs: Vec<ExprOwned>,
-    pub arg_of_zid_node: Vec<FxHashMap<Idx,Arg>>,
+    pub zippers: Zippers,
     pub cost_fn: ExprCost,
     pub analyzed_free_vars: AnalyzedExpr<FreeVarAnalysis>,
     pub sym_var_info: Option<SymvarInfo>,
@@ -626,8 +626,6 @@ pub struct SharedData {
     pub corpus_span: Span,
     pub roots: Vec<Idx>,
     pub zids_of_node: FxHashMap<Idx,Vec<ZId>>,
-    pub zip_of_zid: Vec<Zipper>,
-    pub zid_of_zip: FxHashMap<Zipper, ZId>,
     pub extensions_of_zid: Vec<ZIdExtension>,
     pub set: ExprSet,
     pub num_paths_to_node: Vec<Cost>,
@@ -783,17 +781,17 @@ impl HoleChoice {
             },
             HoleChoice::FewApps => {
                 pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().filter(|loc|shared.arg_of_zid_node[*hole_zid][loc].expands_to.is_app()).count()))
+                    (hole_idx, pattern.match_locations.iter().filter(|loc|shared.zippers.arg_of_zid_node[*hole_zid][loc].expands_to.is_app()).count()))
                         .min_by_key(|x|x.1).unwrap().0
             }
             HoleChoice::MaxCost => {
                 pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<Cost>()))
+                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.zippers.arg_of_zid_node[*hole_zid][loc].cost).sum::<Cost>()))
                         .max_by_key(|x|x.1).unwrap().0
             }
             HoleChoice::MinCost => {
                 pattern.holes.iter().enumerate().map(|(hole_idx,hole_zid)|
-                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.arg_of_zid_node[*hole_zid][loc].cost).sum::<Cost>()))
+                    (hole_idx, pattern.match_locations.iter().map(|loc|shared.zippers.arg_of_zid_node[*hole_zid][loc].cost).sum::<Cost>()))
                         .min_by_key(|x|x.1).unwrap().0
             }
             HoleChoice::MaxLargestSubset => {
@@ -801,7 +799,7 @@ impl HoleChoice {
                 // mainly because where there are like dozens of holes doing all these lookups and clones and hashmaps is a LOT
                 pattern.holes.iter().enumerate()
                     .map(|(hole_idx,hole_zid)| (hole_idx, *pattern.match_locations.iter()
-                        .map(|loc| shared.arg_of_zid_node[*hole_zid][loc].expands_to.clone()).counts().values().max().unwrap())).max_by_key(|&(_,max_count)| max_count).unwrap().0
+                        .map(|loc| shared.zippers.arg_of_zid_node[*hole_zid][loc].expands_to.clone()).counts().values().max().unwrap())).max_by_key(|&(_,max_count)| max_count).unwrap().0
             }
             _ => unimplemented!()
         }
@@ -935,7 +933,7 @@ fn stitch_search(
 
             // get the hashmap for looking up the Arg struct for this hole based on match location. The Arg
             // struct has a bunch of info about the hole, including what it expands into at each match location
-            let arg_of_loc = &shared.arg_of_zid_node[hole_zid];
+            let arg_of_loc = &shared.zippers.arg_of_zid_node[hole_zid];
 
             // sort the match locations by node type (ie what theyll expand into) so that we can do a group_by() on
             // node type in order to iterate over all the different expansions
@@ -965,13 +963,13 @@ fn stitch_search(
 
                 if should_prune_single_task(&shared, &locs) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
-                    if tracked && !shared.cfg.quiet { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], Node::Prim(format!("<{expands_to}>").into()))) }
+                    if tracked && !shared.cfg.quiet { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zippers.zip_of_zid[hole_zid], Node::Prim(format!("<{expands_to}>").into()))) }
                     continue 'expansion;
                 }
 
                 // Pruning (FREE VARS): if an invention has free variables in the body then it's not a real function and we can discard it
                 // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
-                if expands_to.free_variable(shared.zip_of_zid[hole_zid].depth_root_to_arg()) {
+                if expands_to.free_variable(shared.zippers.zip_of_zid[hole_zid].depth_root_to_arg()) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
                     if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
                     continue 'expansion; // free var
@@ -1048,7 +1046,7 @@ fn stitch_search(
                     }
 
                     if !shared.cfg.no_stats { shared.stats.lock().calc_unargcap += 1; };
-                    inverse_argument_capture(&mut finished_pattern, &shared.cfg, &shared.zip_of_zid, &shared.arg_of_zid_node, &shared.extensions_of_zid, &shared.set, &shared.analyzed_ivars, &shared.cost_fn);
+                    inverse_argument_capture(&mut finished_pattern, &shared.cfg, &shared.zippers, &shared.extensions_of_zid, &shared.set, &shared.analyzed_ivars, &shared.cost_fn);
 
                     // Pruning (UPPER BOUND)
                     if finished_pattern.utility <= weak_utility_pruning_cutoff {
@@ -1084,7 +1082,7 @@ fn stitch_search(
 
             if original_pattern.tracked && !found_tracked {
                 // let new = format!("<{}>",tracked_expands_to(&original_pattern, hole_zid, &shared));
-                // let mut s = original_pattern.to_expr(&shared).zipper_replace(&shared.zip_of_zid[hole_zid], &new ).to_string();
+                // let mut s = original_pattern.to_expr(&shared).zipper_replace(&shared.zippers.zip_of_zid[hole_zid], &new ).to_string();
                 // s = s.replace(&new, &new.clone().magenta().bold().to_string());
             if !shared.cfg.quiet { println!("{} pruned when expanding because there were no match locations for the target expansion of {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
             }
@@ -1185,7 +1183,7 @@ fn get_zippers(
     analyzed_cost: &AnalyzedExpr<ExprCost>,
     set: &mut ExprSet,
     analyzed_free_vars: &mut AnalyzedExpr<FreeVarAnalysis>,
-) -> (FxHashMap<Zipper, ZId>, Vec<Zipper>, Vec<FxHashMap<Idx,Arg>>, FxHashMap<Idx,Vec<ZId>>,  Vec<ZIdExtension>) {
+) -> (Zippers, FxHashMap<Idx,Vec<ZId>>, Vec<ZIdExtension>) {
 
     let mut zippers = Zippers::default();
     let mut zids_of_node: FxHashMap<Idx,Vec<ZId>> = Default::default();
@@ -1222,9 +1220,10 @@ fn get_zippers(
             },
             Node::Lam(b, _) => {
                 for b_zid in zids_of_node[&b].iter() {
-                    let extended_zid = zippers.extend_zipper(*b_zid, idx, b, ZNode::Body);
-                    zids.push(extended_zid);
-                    zippers.handle_shift(extended_zid, *b_zid, idx, b, analyzed_free_vars, set);
+                    let zid = zippers.extend_zipper(*b_zid, idx, b, ZNode::Body);
+                    zids.push(zid);
+                    zippers.handle_shift(zid, *b_zid, idx, b, analyzed_free_vars, set);
+                    
                 }
             },
         }
@@ -1233,11 +1232,8 @@ fn get_zippers(
 
     let extensions_of_zid = zippers.compute_extensions();
 
-    (zippers.zid_of_zip,
-    zippers.zip_of_zid,
-    zippers.arg_of_zid_node,
-    zids_of_node,
-    extensions_of_zid)
+
+    (zippers, zids_of_node, extensions_of_zid)
 }
 
 /// the complete result of a single step of compression, this is a somewhat expensive data structure
@@ -1476,7 +1472,7 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<Cost> 
         // extra utility. Note that it doesn't matter which
         // of the zids we use as long as it corresponds to the right ivar
         let multiuse_utility = ivar_multiuses.iter().map(|(zid,count)|
-            count * shared.arg_of_zid_node[*zid][loc].cost as Cost
+            count * shared.zippers.arg_of_zid_node[*zid][loc].cost as Cost
         ).sum::<Cost>();
         // if !shared.cfg.quiet { println!("multiuse {}", multiuse_utility) }
 
@@ -1506,7 +1502,7 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
             // this node is a potential rewrite location
 
             let utility_of_args: Cost = pattern.pattern_args.iterate_one_zid_per_argument()
-                .map(|zid| cumulative_utility_of_node[shared.arg_of_zid_node[zid][&node].unshifted_id])
+                .map(|zid| cumulative_utility_of_node[shared.zippers.arg_of_zid_node[zid][&node].unshifted_id])
                 .sum();
             let utility_with_rewrite = utility_of_args + utility_of_loc_once[idx];
 
@@ -1540,7 +1536,7 @@ pub fn inverse_delta(cost_once: Cost, usages: Cost, arg_uses: usize, cost_fn: &E
 
 // (not used in popl code - experimental; always exists at the first return statement unless --inv-arg-cap is turned on)
 #[allow(clippy::too_many_arguments)]
-pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &CompressionStepConfig, zip_of_zid: &[Zipper], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>, cost_fn: &ExprCost) {
+pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &CompressionStepConfig, zippers: &Zippers, extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>, cost_fn: &ExprCost) {
     if !cfg.inv_arg_cap || cfg.no_other_util {
         return
     }
@@ -1551,7 +1547,7 @@ pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &Compressio
     let _max_num_to_add = cfg.max_arity - finished.arity;
 
     while finished.arity < cfg.max_arity {
-    let counts = use_counts(&finished.pattern, zip_of_zid, arg_of_zid_node, extensions_of_zid, set, analyzed_ivars);
+    let counts = use_counts(&finished.pattern, zippers, extensions_of_zid, set, analyzed_ivars);
     let possible_to_uninline = possible_to_uninline(counts, finished.usages, cost_fn);
     
     let best = possible_to_uninline.into_iter().max_by_key(|(delta, _compressive_delta, _noncompressive_delta, _cost, _zids)| *delta);
@@ -1592,14 +1588,14 @@ fn possible_to_uninline(counts: FxHashMap<Idx, (Cost, Vec<usize>)>, finished_usa
 }
 
 /// not used in popl code - experimental
-fn use_counts(pattern: &Pattern, zip_of_zid: &[Zipper], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>) -> FxHashMap<Idx,(Cost,Vec<ZId>)> {
+fn use_counts(pattern: &Pattern, zippers: &Zippers, extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>) -> FxHashMap<Idx,(Cost,Vec<ZId>)> {
     let mut curr_zip: Zipper = Zipper::default();
     let curr_zid: ZId = EMPTY_ZID;
     let zids = &pattern.pattern_args.iterate_arguments().cloned().collect::<Vec<LabelledZId>>();
 
     // map zids to zips with a bool thats true if this is a hole and false if its a future ivar
     let zips: Vec<Zipper> = zids.iter()
-        .map(|labelled_zid| zip_of_zid[labelled_zid.zid].clone()).collect();
+        .map(|labelled_zid| zippers.zip_of_zid[labelled_zid.zid].clone()).collect();
 
     let mut counts: FxHashMap<Idx,(Cost,Vec<ZId>)> = Default::default();
 
@@ -1641,7 +1637,7 @@ fn use_counts(pattern: &Pattern, zip_of_zid: &[Zipper], arg_of_zid_node: &[FxHas
         }
     }
     // we can pick any match location
-    helper(pattern.match_locations[0], pattern.match_locations[0], &mut curr_zip, curr_zid, &zips, zids, arg_of_zid_node, extensions_of_zid, set, &mut counts, analyzed_ivars);
+    helper(pattern.match_locations[0], pattern.match_locations[0], &mut curr_zip, curr_zid, &zips, zids, &zippers.arg_of_zid_node, extensions_of_zid, set, &mut counts, analyzed_ivars);
     counts
 }
 
@@ -1817,17 +1813,14 @@ pub fn construct_shared(
     if !cfg.quiet { println!("cost_of_node structs: {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
 
-    let (zid_of_zip,
-        zip_of_zid,
-        arg_of_zid_node,
+    let (zippers,
         zids_of_node,
         extensions_of_zid) = get_zippers(&corpus_span, &analyzed_cost, &mut set, &mut analyzed_free_vars);
     
     if !cfg.quiet { println!("get_zippers(): {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
     
-    if !cfg.quiet { println!("{} zips", zip_of_zid.len()) }
-    if !cfg.quiet { println!("arg_of_zid_node size: {}", arg_of_zid_node.len()) }
+    if !cfg.quiet { zippers.print_stats() }
 
     // set up tracking if any
     let tracking: Option<Tracking> = {
@@ -1835,7 +1828,7 @@ pub fn construct_shared(
             let mut set = ExprSet::empty(Order::ChildFirst, false, false);
             let idx = set.parse_extend(s).unwrap();
             let expr = ExprOwned::new(set,idx);
-            if let Some(zids_of_ivar) = zids_of_ivar_of_expr(&expr, &zid_of_zip) {
+            if let Some(zids_of_ivar) = zids_of_ivar_of_expr(&expr, &zippers) {
                 Some(Tracking { expr, zids_of_ivar })
             } else {
                 if !cfg.quiet { println!("Tracking: can't possibly find a match for this in corpus because one if the necessary zippers ZIDs doesnt exist in corpus")}
@@ -1945,7 +1938,7 @@ pub fn construct_shared(
             };
 
             // This handle the case covered by Appendix B in the paper
-            inverse_argument_capture(&mut finished_pattern, cfg, &zip_of_zid, &arg_of_zid_node, &extensions_of_zid, &set, &analyzed_ivars, cost_fn);
+            inverse_argument_capture(&mut finished_pattern, cfg, &zippers, &extensions_of_zid, &set, &analyzed_ivars, cost_fn);
             if !cfg.no_stats { stats.azero_calc_unargcap += 1; };
 
             // Pruning (UPPER BOUND): This is the full upper bound pruning
@@ -1983,7 +1976,7 @@ pub fn construct_shared(
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
         programs: programs.to_vec(),
-        arg_of_zid_node,
+        zippers,
         cost_fn: cost_fn.clone(),
         analyzed_free_vars,
         analyzed_ivars,
@@ -1992,8 +1985,6 @@ pub fn construct_shared(
         corpus_span: corpus_span.clone(),
         roots: roots.to_vec(),
         zids_of_node,
-        zip_of_zid,
-        zid_of_zip,
         extensions_of_zid,
         set,
         num_paths_to_node,

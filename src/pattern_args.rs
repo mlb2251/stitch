@@ -60,7 +60,7 @@ impl PatternArgs {
 
     pub fn use_args(&self, shared: &SharedData, node: &Idx) -> Vec<ZId> {
         self.variables.iter().map(|(zid, _)|
-            shared.arg_of_zid_node[*zid as usize][node].shifted_id
+            shared.zippers.arg_of_zid_node[*zid as usize][node].shifted_id
         ).collect()
     }
 
@@ -77,7 +77,7 @@ impl PatternArgs {
                 continue;
             }
             let zid = self.variables[i].0 as ZId;
-            let shifted_arg = shared.arg_of_zid_node[zid][loc].shifted_id;
+            let shifted_arg = shared.zippers.arg_of_zid_node[zid][loc].shifted_id;
             if !shared.analyzed_ivars[shifted_arg].is_empty() {
                 return true;
             }
@@ -95,8 +95,8 @@ impl PatternArgs {
                     continue;
                 }
                 // if its the same arg in every place, and doesnt have any free vars (ie it's safe to inline)
-                if locs.iter().map(|loc| shared.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
-                    && shared.analyzed_free_vars[shared.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].is_empty()
+                if locs.iter().map(|loc| shared.zippers.arg_of_zid_node[argchoice.zid][loc].shifted_id).all_equal()
+                    && shared.analyzed_free_vars[shared.zippers.arg_of_zid_node[argchoice.zid][&locs[0]].shifted_id].is_empty()
                 {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().useless_abstract_fired += 1; };
                     return true;
@@ -117,13 +117,13 @@ impl PatternArgs {
                 if *type_1 != VariableType::Metavar {
                     continue;
                 }
-                let arg_of_loc_1 = &shared.arg_of_zid_node[*ivar_zid_1 as ZId];
+                let arg_of_loc_1 = &shared.zippers.arg_of_zid_node[*ivar_zid_1 as ZId];
                 // for some reason, the enumerate makes it like 1% faster?????
                 for (_j, (ivar_zid_2, type_2)) in self.variables.iter().enumerate().skip(i+1) {
                     if *type_2 != VariableType::Metavar {
                         continue;
                     }
-                    let arg_of_loc_2 = &shared.arg_of_zid_node[*ivar_zid_2 as ZId];
+                    let arg_of_loc_2 = &shared.zippers.arg_of_zid_node[*ivar_zid_2 as ZId];
                     if locs.iter().all(|loc|
                         arg_of_loc_1[loc].shifted_id == arg_of_loc_2[loc].shifted_id)
                     {
@@ -192,7 +192,7 @@ impl LocationsForReusableArgs<'_> {
 impl PatternArgs {
     pub fn reusable_args_location(&self, shared: &SharedData, ivar: Idx, arg_of_loc: &FxHashMap<Idx, Arg>, match_locations: &mut LocationsForReusableArgs) -> Vec<Idx> {
         let (first_zid_of_var, type_of_var) = self.variables[ivar];
-        let arg_of_loc_ivar = &shared.arg_of_zid_node[first_zid_of_var as ZId];
+        let arg_of_loc_ivar = &shared.zippers.arg_of_zid_node[first_zid_of_var as ZId];
         let relevant_locs = match_locations.relevant_locs(type_of_var, arg_of_loc, &shared.sym_var_info);
         compatible_locations(shared, relevant_locs, arg_of_loc, arg_of_loc_ivar, type_of_var)
     }

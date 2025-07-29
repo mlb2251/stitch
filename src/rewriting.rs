@@ -39,13 +39,13 @@ pub fn rewrite_fast(
            && (!pattern.util_calc.corrected_utils.contains_key(&unshifted_id) // and either we have no conflict (ie corrected_utils doesnt have an entry)
              || pattern.util_calc.corrected_utils[&unshifted_id]) // or we have a conflict but we choose to accept it (which is contextless in this top down approach so its the right move)
         //    && !pattern.pattern.variables.iter().any(|zid| // and there are no negative vars anywhere in the arguments
-        //         shared.egraph[shared.arg_of_zid_node[*zid][&unshifted_id].Idx].data.free_vars.iter().any(|var| *var < 0))
+        //         shared.egraph[shared.zippers.arg_of_zid_node[*zid][&unshifted_id].Idx].data.free_vars.iter().any(|var| *var < 0))
         {
             //  if !shared.cfg.quiet { println!("inv applies at unshifted={} with shift={}", extract(unshifted_id,&shared.egraph), shift) }
             let mut expr = owned_set.add(inv_name.clone());
             // wrap the prim in all the Apps to args
             for zid in pattern.pattern.pattern_args.iterate_one_zid_per_argument() {
-                let arg: &Arg = &shared.arg_of_zid_node[zid][&unshifted_id];
+                let arg: &Arg = &shared.zippers.arg_of_zid_node[zid][&unshifted_id];
 
                 if arg.shift != 0 {
                     shift_rules.push(ShiftRule{depth_cutoff: total_depth, shift: arg.shift});
@@ -66,7 +66,7 @@ pub fn rewrite_fast(
                     // Also note that in the single_hole code --eta-long enforces that match locations never contains anything that starts to the left of a func so
                     // we dont need to worry about the case where the zipper would extend even past the root of the match location
                     // Also note that due to beta normal form, this will be zero and will be a no-op if the arg is a lambda
-                    let arity_of_arg = shared.zip_of_zid[zid].function_arity();
+                    let arity_of_arg = shared.zippers.zip_of_zid[zid].function_arity();
                     if arity_of_arg > 0 {
                         let analyzed_free_vars = &mut AnalyzedExpr::new(FreeVarAnalysis);
 

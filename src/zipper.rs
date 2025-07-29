@@ -54,9 +54,9 @@ impl Zipper {
 
 #[derive(Clone, Debug, Default)]
 pub struct Zippers {
-    pub(crate) zid_of_zip: FxHashMap<Zipper, ZId>,
-    pub(crate) zip_of_zid: Vec<Zipper>,
-    pub(crate) arg_of_zid_node: Vec<FxHashMap<Idx,Arg>>,
+    pub zid_of_zip: FxHashMap<Zipper, ZId>,
+    pub zip_of_zid: Vec<Zipper>,
+    pub arg_of_zid_node: Vec<FxHashMap<Idx,Arg>>,
 }
 
 impl Zippers {
@@ -133,6 +133,11 @@ impl Zippers {
                 func: self.zid_of_zip.get(&zip_func).copied(),
             }
         }).collect()
+    }
+
+    pub fn print_stats(&self) {
+        println!("{} zips", self.zip_of_zid.len());
+        println!("arg_of_zid_node size: {}", self.arg_of_zid_node.len())
     }
 
 }

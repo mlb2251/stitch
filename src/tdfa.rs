@@ -173,7 +173,7 @@ impl TDFAInventionAnnotation {
         let root_sym = global_annotations.symbols[match_location].clone()?;
         let mut ivar_states: Vec<String> = vec![];
         let all_found = pattern.pattern_args.iterate_one_zid_per_argument().all(|ivar_zid| {
-            let Some(node) = shared.arg_of_zid_node[ivar_zid].get(&match_location) else {
+            let Some(node) = shared.zippers.arg_of_zid_node[ivar_zid].get(&match_location) else {
                 return false;
             };
             let Some(ivar_sym) = global_annotations.symbols[node.unshifted_id].clone() else {
