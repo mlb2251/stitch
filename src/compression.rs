@@ -312,7 +312,7 @@ impl Hash for Pattern {
 }
 
 /// only used during tracking - gets the zippers to args of a pattern
-fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Zipper,ZId>) -> Option<Vec<Vec<ZId>>> {
+fn zids_of_ivar_of_expr(expr: &ExprOwned, zippers: &Zippers) -> Option<Vec<Vec<ZId>>> {
 
     // quickly determine arity
     let mut arity = 0;
@@ -327,31 +327,31 @@ fn zids_of_ivar_of_expr(expr: &ExprOwned, zid_of_zip: &FxHashMap<Zipper,ZId>) ->
     let mut curr_zip: Zipper = Zipper::default();
     let mut zids_of_ivar = vec![vec![]; arity as usize];
 
-    fn helper(expr: Expr, curr_zip: &mut Zipper, zids_of_ivar: &mut Vec<Vec<ZId>>, zid_of_zip: &FxHashMap<Zipper,ZId>) -> Result<(), ()> {
+    fn helper(expr: Expr, curr_zip: &mut Zipper, zids_of_ivar: &mut Vec<Vec<ZId>>, zippers: &Zippers) -> Result<(), ()> {
         match expr.node() {
             Node::Prim(_) => {},
             Node::Var(_, _) => {},
             Node::IVar(i) => {
-                zids_of_ivar[*i as usize].push(zid_of_zip.get(curr_zip).cloned().ok_or(())?);
+                zids_of_ivar[*i as usize].push(zippers.get_interned_idx(curr_zip)?);
             },
             Node::Lam(b, _) => {
                 curr_zip.add_to_end(ZNode::Body);
-                helper(expr.get(*b), curr_zip, zids_of_ivar, zid_of_zip)?;
+                helper(expr.get(*b), curr_zip, zids_of_ivar, zippers)?;
                 curr_zip.remove_from_end();
             }
             Node::App(f,x) => {
                 curr_zip.add_to_end(ZNode::Func);
-                helper(expr.get(*f), curr_zip, zids_of_ivar, zid_of_zip)?;
+                helper(expr.get(*f), curr_zip, zids_of_ivar, zippers)?;
                 curr_zip.remove_from_end();
                 curr_zip.add_to_end(ZNode::Arg);
-                helper(expr.get(*x), curr_zip, zids_of_ivar, zid_of_zip)?;
+                helper(expr.get(*x), curr_zip, zids_of_ivar, zippers)?;
                 curr_zip.remove_from_end();
             }
         }
         Ok(())
     }
     // we can pick any match location
-    if helper(expr.immut(), &mut curr_zip, &mut zids_of_ivar, zid_of_zip).is_err() {
+    if helper(expr.immut(), &mut curr_zip, &mut zids_of_ivar, zippers).is_err() {
         return None
     };
 
@@ -1185,16 +1185,12 @@ fn get_zippers(
     analyzed_cost: &AnalyzedExpr<ExprCost>,
     set: &mut ExprSet,
     analyzed_free_vars: &mut AnalyzedExpr<FreeVarAnalysis>,
-) -> (FxHashMap<Zipper, ZId>, Vec<Zipper>, Vec<FxHashMap<Idx,Arg>>, FxHashMap<Idx,Vec<ZId>>,  Vec<ZIdExtension>) {
+) -> (Zippers, FxHashMap<Idx,Vec<ZId>>, Vec<ZIdExtension>) {
 
-    let mut zid_of_zip: FxHashMap<Zipper, ZId> = Default::default();
-    let mut zip_of_zid: Vec<Zipper> = Default::default();
-    let mut arg_of_zid_node: Vec<FxHashMap<Idx,Arg>> = Default::default();
+    let mut zippers = Zippers::default();
     let mut zids_of_node: FxHashMap<Idx,Vec<ZId>> = Default::default();
 
-    zid_of_zip.insert(Zipper::default(), EMPTY_ZID);
-    zip_of_zid.push(Zipper::default());
-    arg_of_zid_node.push(FxHashMap::default());
+    zippers.add_empty(EMPTY_ZID);
     
     // loop over all nodes in all programs in bottom up order
     for idx in corpus_span.clone() {
@@ -1207,8 +1203,7 @@ fn get_zippers(
         // clone to appease the borrow checker
         let node = set.get(idx).node().clone();
 
-        arg_of_zid_node[EMPTY_ZID].insert(idx,
-            Arg { shifted_id: idx, unshifted_id: idx, shift: 0, cost: analyzed_cost[idx] as Cost, expands_to: expands_to_of_node(&node) });
+        zippers.add_arg(EMPTY_ZID, idx, analyzed_cost[idx] as Cost, expands_to_of_node(&node));
 
         match node {
             Node::IVar(_) => { unreachable!() }
@@ -1217,100 +1212,28 @@ fn get_zippers(
                 // bubble from `f`
                 for f_zid in zids_of_node[&f].iter() {
                     // clone and extend zip to get new zid for this node
-                    let mut zip = zip_of_zid[*f_zid].clone();
-                    zip.add_to_front(ZNode::Func);
-                    let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
-                        let zid = zip_of_zid.len();
-                        zip_of_zid.push(zip);
-                        arg_of_zid_node.push(FxHashMap::default());
-                        zid
-                    });
-                    // add new zid to this node
-                    zids.push(*zid);
-                    // give it the same arg
-                    let arg = arg_of_zid_node[*f_zid][&f].clone();
-                    arg_of_zid_node[*zid].insert(idx, arg);
+                    zids.push(zippers.extend_zipper(*f_zid, idx, f, ZNode::Func))
                 }
 
                 // bubble from `x`
                 for x_zid in zids_of_node[&x].iter() {
-                    // clone and extend zip to get new zid for this node
-                    let mut zip = zip_of_zid[*x_zid].clone();
-                    zip.add_to_front(ZNode::Arg);
-                    let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
-                        let zid = zip_of_zid.len();
-                        zip_of_zid.push(zip);
-                        arg_of_zid_node.push(FxHashMap::default());
-                        zid
-                    });
-                    // add new zid to this node
-                    zids.push(*zid);
-                    // give it the same arg
-                    let arg = arg_of_zid_node[*x_zid][&x].clone();
-                    arg_of_zid_node[*zid].insert(idx, arg);
-
+                    zids.push(zippers.extend_zipper(*x_zid, idx, x, ZNode::Arg))
                 }
             },
             Node::Lam(b, _) => {
                 for b_zid in zids_of_node[&b].iter() {
-
-                    // clone and extend zip to get new zid for this node
-                    let mut zip = zip_of_zid[*b_zid].clone();
-                    zip.add_to_front(ZNode::Body);
-                    let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
-                        let zid = zip_of_zid.len();
-                        zip_of_zid.push(zip.clone());
-                        arg_of_zid_node.push(FxHashMap::default());
-                        zid
-                    });
-                    // add new zid to this node
-                    zids.push(*zid);
-                    // shift the arg but keep the unshifted part the same
-                    let mut arg: Arg = arg_of_zid_node[*b_zid][&b].clone();
-
-                    if !analyzed_free_vars.analyze_get(set.get(arg.shifted_id)).is_empty() {
-                        // the arg has free vars so we should actually downshift it by 1
-                        if analyzed_free_vars[arg.shifted_id].contains(&0) {
-                            // furthermore one of those vars is a 0 then it will get shifted to -1, so we handle that slightly specially
-                            // by inserting an IVar to indicate this
-
-                            // how many lambdas are along this zipper? (including most recent one)
-                            let depth_root_to_arg = zip.depth_root_to_arg() as i32;
-
-                            // find all pointers to $0 (this is the `init_depth` parameter) and replace then with #(num_lams - 1) that is
-                            // point past all lambdas except the newly added one. For example if there were no lambdas other than the
-                            // newly added one this would be num_lams=1 so it'd be #0.
-                            arg.shifted_id = insert_arg_ivars(&mut set.get_mut(arg.shifted_id), depth_root_to_arg-1, 0, analyzed_free_vars);
-                        }
-                        arg.shifted_id = set.get_mut(arg.shifted_id).shift(-1, 0, analyzed_free_vars);
-                        arg.shift -= 1;
-                    }
-                    arg_of_zid_node[*zid].insert(idx, arg);
+                    let zid = zippers.extend_zipper(*b_zid, idx, b, ZNode::Body);
+                    zids.push(zid);
+                    zippers.handle_shift(zid, *b_zid, idx, b, analyzed_free_vars, set);
+                    
                 }
             },
         }
         zids_of_node.insert(idx, zids);
     }
 
-    let extensions_of_zid = zip_of_zid.iter().map(|zip| {
-        let mut zip_body = zip.clone();
-        zip_body.add_to_end(ZNode::Body);
-        let mut zip_arg = zip.clone();
-        zip_arg.add_to_end(ZNode::Arg);
-        let mut zip_func = zip.clone();
-        zip_func.add_to_end(ZNode::Func);
-        ZIdExtension {
-            body: zid_of_zip.get(&zip_body).copied(),
-            arg: zid_of_zip.get(&zip_arg).copied(),
-            func: zid_of_zip.get(&zip_func).copied(),
-        }
-    }).collect();
 
-    (zid_of_zip,
-    zip_of_zid,
-    arg_of_zid_node,
-    zids_of_node,
-    extensions_of_zid)
+    (zippers, zids_of_node, extensions_of_zid)
 }
 
 /// the complete result of a single step of compression, this is a somewhat expensive data structure
@@ -1890,8 +1813,7 @@ pub fn construct_shared(
     if !cfg.quiet { println!("cost_of_node structs: {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
 
-    let (zid_of_zip,
-        zip_of_zid,
+    let (zippers,
         arg_of_zid_node,
         zids_of_node,
         extensions_of_zid) = get_zippers(&corpus_span, &analyzed_cost, &mut set, &mut analyzed_free_vars);
@@ -1908,7 +1830,7 @@ pub fn construct_shared(
             let mut set = ExprSet::empty(Order::ChildFirst, false, false);
             let idx = set.parse_extend(s).unwrap();
             let expr = ExprOwned::new(set,idx);
-            if let Some(zids_of_ivar) = zids_of_ivar_of_expr(&expr, &zid_of_zip) {
+            if let Some(zids_of_ivar) = zids_of_ivar_of_expr(&expr, &zippers) {
                 Some(Tracking { expr, zids_of_ivar })
             } else {
                 if !cfg.quiet { println!("Tracking: can't possibly find a match for this in corpus because one if the necessary zippers ZIDs doesnt exist in corpus")}
