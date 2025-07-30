@@ -564,7 +564,7 @@ impl Pattern {
 
 
 /// the index of the empty zipper `[]` in the list of zippers
-const EMPTY_ZID: ZId = 0;
+pub const EMPTY_ZID: ZId = 0;
 
 /// an argument to an abstraction.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -966,13 +966,13 @@ fn stitch_search(
 
                 if should_prune_single_task(&shared, &locs) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().single_task_fired += 1; }
-                    if tracked && !shared.cfg.quiet { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zippers.zip_of_zid[hole_zid], Node::Prim(format!("<{expands_to}>").into()))) }
+                    if tracked && !shared.cfg.quiet { println!("{} single task pruned when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zippers.zip_of_zid[hole_zid], Node::Prim(format!("<{expands_to}>").into()), &shared.zippers)) }
                     continue 'expansion;
                 }
 
                 // Pruning (FREE VARS): if an invention has free variables in the body then it's not a real function and we can discard it
                 // Here we just check if our expansion just yielded a variable, and if that is bound based on how many lambdas there are above it.
-                if expands_to.free_variable(shared.zippers.zip_of_zid[hole_zid].depth_root_to_arg()) {
+                if expands_to.free_variable(shared.zippers.zip_of_zid[hole_zid].depth_root_to_arg(&shared.zippers)) {
                     if !shared.cfg.no_stats { shared.stats.lock().deref_mut().free_vars_fired += 1; };
                     if tracked && !shared.cfg.quiet { println!("{} pruned by free var in body when expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), original_pattern.show_track_expansion(hole_zid, &shared)) }
                     continue 'expansion; // free var
@@ -1539,7 +1539,7 @@ pub fn inverse_delta(cost_once: Cost, usages: Cost, arg_uses: usize, cost_fn: &E
 
 // (not used in popl code - experimental; always exists at the first return statement unless --inv-arg-cap is turned on)
 #[allow(clippy::too_many_arguments)]
-pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &CompressionStepConfig, zippers: &Zippers, extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>, cost_fn: &ExprCost) {
+pub fn inverse_argument_capture(finished: &mut FinishedPattern, cfg: &CompressionStepConfig, zippers: &mut Zippers, extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>, cost_fn: &ExprCost) {
     if !cfg.inv_arg_cap || cfg.no_other_util {
         return
     }
@@ -1591,7 +1591,7 @@ fn possible_to_uninline(counts: FxHashMap<Idx, (Cost, Vec<usize>)>, finished_usa
 }
 
 /// not used in popl code - experimental
-fn use_counts(pattern: &Pattern, zippers: &Zippers, extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>) -> FxHashMap<Idx,(Cost,Vec<ZId>)> {
+fn use_counts(pattern: &Pattern, zippers: &mut Zippers, extensions_of_zid: &[ZIdExtension], set: &ExprSet, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>) -> FxHashMap<Idx,(Cost,Vec<ZId>)> {
     let mut curr_zip: Zipper = Zipper::default();
     let curr_zid: ZId = EMPTY_ZID;
     let zids = &pattern.pattern_args.iterate_arguments().cloned().collect::<Vec<LabelledZId>>();
@@ -1603,14 +1603,14 @@ fn use_counts(pattern: &Pattern, zippers: &Zippers, extensions_of_zid: &[ZIdExte
     let mut counts: FxHashMap<Idx,(Cost,Vec<ZId>)> = Default::default();
 
     #[allow(clippy::too_many_arguments)]
-    fn helper(curr_node: Idx, match_loc: Idx, curr_zip: &mut Zipper, curr_zid: ZId, zips: &[Zipper], zids: &[LabelledZId], arg_of_zid_node: &[FxHashMap<Idx,Arg>], extensions_of_zid: &[ZIdExtension], set: &ExprSet,  counts: &mut FxHashMap<Idx,(Cost,Vec<ZId>)>, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>) {
+    fn helper(curr_node: Idx, match_loc: Idx, curr_zip: &mut Zipper, curr_zid: ZId, zips: &[Zipper], zids: &[LabelledZId], extensions_of_zid: &[ZIdExtension], set: &ExprSet,  counts: &mut FxHashMap<Idx,(Cost,Vec<ZId>)>, analyzed_ivars: &AnalyzedExpr<IVarAnalysis>, zippers: &mut Zippers) {
         if zids.iter().any(|labelled| labelled.zid == curr_zid){
             return // current zip matches an arg
         }
         // if curr_zip is not a prefix of any arg zipper, then increment its count
-        if zips.iter().all(|zip| !zip.starts_with(curr_zip)) {
+        if zips.iter().all(|zip| !zip.starts_with(curr_zip, zippers)) {
             // also make sure its valid ie doesnt have any free ivars as ew do during normal checks
-            let arg = arg_of_zid_node[curr_zid].get(&match_loc).unwrap();
+            let arg = zippers.arg_of_zid_node[curr_zid].get(&match_loc).unwrap();
             if analyzed_ivars[arg.shifted_id].is_empty() {
                 counts.entry(arg.shifted_id)
                     .or_insert_with(||(arg.cost as Cost, vec![]))
@@ -1621,26 +1621,26 @@ fn use_counts(pattern: &Pattern, zippers: &Zippers, extensions_of_zid: &[ZIdExte
             Node::Prim(_) => {},
             Node::Var(_, _) => {},
             Node::Lam(b, _) => {
-                curr_zip.add_to_end(ZNode::Body);
+                curr_zip.add_to_end(ZNode::Body, zippers);
                 let new_zid = extensions_of_zid[curr_zid].body.unwrap();
-                helper(*b, match_loc, curr_zip, new_zid, zips, zids,  arg_of_zid_node, extensions_of_zid, set, counts, analyzed_ivars);
-                curr_zip.remove_from_end();
+                helper(*b, match_loc, curr_zip, new_zid, zips, zids, extensions_of_zid, set, counts, analyzed_ivars, zippers);
+                curr_zip.remove_from_end(zippers);
             }
             Node::App(f,x) => {
-                curr_zip.add_to_end(ZNode::Func);
+                curr_zip.add_to_end(ZNode::Func, zippers);
                 let new_zid = extensions_of_zid[curr_zid].func.unwrap();
-                helper(*f, match_loc, curr_zip, new_zid, zips, zids,  arg_of_zid_node, extensions_of_zid, set, counts, analyzed_ivars);
-                curr_zip.remove_from_end();
-                curr_zip.add_to_end(ZNode::Arg);
+                helper(*f, match_loc, curr_zip, new_zid, zips, zids, extensions_of_zid, set, counts, analyzed_ivars, zippers);
+                curr_zip.remove_from_end(zippers);
+                curr_zip.add_to_end(ZNode::Arg, zippers);
                 let new_zid = extensions_of_zid[curr_zid].arg.unwrap();
-                helper(*x, match_loc, curr_zip, new_zid, zips, zids,  arg_of_zid_node, extensions_of_zid, set, counts, analyzed_ivars);
-                curr_zip.remove_from_end();
+                helper(*x, match_loc, curr_zip, new_zid, zips, zids, extensions_of_zid, set, counts, analyzed_ivars, zippers);
+                curr_zip.remove_from_end(zippers);
             }
             _ => unreachable!(),
         }
     }
     // we can pick any match location
-    helper(pattern.match_locations[0], pattern.match_locations[0], &mut curr_zip, curr_zid, &zips, zids, &zippers.arg_of_zid_node, extensions_of_zid, set, &mut counts, analyzed_ivars);
+    helper(pattern.match_locations[0], pattern.match_locations[0], &mut curr_zip, curr_zid, &zips, zids, extensions_of_zid, set, &mut counts, analyzed_ivars, zippers);
     counts
 }
 
@@ -1816,7 +1816,7 @@ pub fn construct_shared(
     if !cfg.quiet { println!("cost_of_node structs: {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
 
-    let (zippers,
+    let (mut zippers,
         zids_of_node,
         extensions_of_zid) = get_zippers(&corpus_span, &analyzed_cost, &mut set, &mut analyzed_free_vars);
     
@@ -1941,7 +1941,7 @@ pub fn construct_shared(
             };
 
             // This handle the case covered by Appendix B in the paper
-            inverse_argument_capture(&mut finished_pattern, cfg, &zippers, &extensions_of_zid, &set, &analyzed_ivars, cost_fn);
+            inverse_argument_capture(&mut finished_pattern, cfg, &mut zippers, &extensions_of_zid, &set, &analyzed_ivars, cost_fn);
             if !cfg.no_stats { stats.azero_calc_unargcap += 1; };
 
             // Pruning (UPPER BOUND): This is the full upper bound pruning
