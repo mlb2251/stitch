@@ -20,12 +20,12 @@ parking_lot = "0.12.0"
 colorful = "0.2.1"
 rustc-hash = "1.1.0"
 # lambdas = "0.2.0"
-lambdas = { git = "https://github.com/mlb2251/lambdas", rev = "2c9bfd0"}
+# lambdas = { git = "https://github.com/mlb2251/lambdas", rev = "2c9bfd0"}
 test-case = "3.3.1"
 
 
 # [patch.crates-io]
-# lambdas = { path = "../lambdas"}
+lambdas = { path = "../lambdas"}
 
 
 # enable for flamegraphs
