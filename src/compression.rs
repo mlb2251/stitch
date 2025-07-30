@@ -1557,6 +1557,19 @@ fn noncompressive_utility_upper_bound(
     
 }
 
+pub fn get_compressive_utility_assuming_no_corrections(
+    pattern: &Pattern,
+    shared: &SharedData,
+) -> Cost {
+    // this is a utility that assumes no corrections are needed, so it is just the sum of the utility of each match location
+    // minus the cost of applying the invention
+    let app_penalty = - (shared.cost_fn.compute_cost_new_prim() as Cost + shared.cost_fn.cost_app as Cost * pattern.pattern_args.arity() as Cost);
+    let updated_util = pattern.body_utility + app_penalty;
+    pattern.match_locations.iter().map(|loc| {
+        updated_util * shared.num_paths_to_node[*loc]
+    }).sum::<Cost>()
+}
+
 //#[inline(never)]
 pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
@@ -1564,7 +1577,11 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
     // Roughly speaking compressive utility is num_usages(invention) * size(invention), however there are a few extra
     // terms we need to take care of too.
 
-    let utility_of_loc_once: Vec<Cost> = get_utility_of_loc_once(pattern, shared);
+    let Some(utility_of_loc_once) = get_utility_of_loc_once(pattern, shared) else {
+        // All utilities were 0 or negative, so we should autoreject this pattern
+        return UtilityCalculation { util: 0, corrected_utils: Default::default() };
+    };
+    // let util = utility_of_loc_once.iter().enumerate().map(|(idx, util)| util * shared.num_paths_to_node[pattern.match_locations[idx]]).sum::<Cost>();
 
     let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
 
@@ -1572,22 +1589,39 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
         root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - (cumulative_utility_of_node[shared.roots[*idx]] as f32 * shared.weight_by_root_idx[*idx])).round() as Cost).min().unwrap()
     ).sum::<Cost>();
 
-    // pattern.match_locations.
+    // let any_corrections: usize = corrected_utils.iter().filter(|(_,v)| !**v).count();
+    // let any_non_corrections: usize = corrected_utils.iter().filter(|(_,v)| **v).count();
+    // // println!("any corrections? {any_corrections}");
+    // if any_corrections == 0 {
+    //     // let util = get_compressive_utility_assuming_no_corrections(pattern, shared);
+    //     assert!(compressive_utility == util,
+    //         "compressive utility {} != utility assuming no corrections {} in {}",
+    //         compressive_utility, util, pattern.info(shared));
+    // } else if any_non_corrections == 0 {
+    //     assert!(util <= 0, "compressive utility {} < 0 in {}",
+    //         compressive_utility, pattern.info(shared));
+    //     // println!("{}", pattern.info(shared));
+    //     // println!("{:?}", corrected_utils);
+    //     // println!("util: {}", util);
+    // }
+    // // pattern.match_locations.
 
     UtilityCalculation { util: compressive_utility, corrected_utils }
 }
 
 //#[inline(never)]
-fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<Cost> {
+fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Option<Vec<Cost>> {
     // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
     // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
     // Also an extra COST_NONTERMINAL for each argument that is refined (for the lambda).
+    // Returns None if all utilities are 0 or negative, in which case the pattern should be autorejected.
     let app_penalty = - (shared.cost_fn.compute_cost_new_prim() as Cost + shared.cost_fn.cost_app as Cost * pattern.pattern_args.arity() as Cost);
 
     // get a list of (ivar,usages-1) filtering out things that are only used once, this will come in handy for adding multi-use utility later
     let ivar_multiuses: Vec<(usize,Cost)> = pattern.pattern_args.multiuses();
+    let mut at_least_one_util_valid = false;
 
-    pattern.match_locations.iter().map(|loc| {
+    let results = pattern.match_locations.iter().map(|loc| {
 
         if pattern.pattern_args.has_free_ivars(shared, loc) {
             return 0; // set whole util to 0 for this loc, causing an autoreject
@@ -1606,8 +1640,17 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<Cost> 
         ).sum::<Cost>();
         // if !shared.cfg.quiet { println!("multiuse {}", multiuse_utility) }
 
-        base_utility + multiuse_utility
-    }).collect()
+        let util = base_utility + multiuse_utility;
+        if util > 0 {
+            at_least_one_util_valid = true;
+        }
+        util
+    }).collect();
+    if !at_least_one_util_valid {
+        // if all utilities are 0 or negative, we should autoreject this pattern
+        return None;
+    }
+    Some(results)
 }
 
 //#[inline(never)]
