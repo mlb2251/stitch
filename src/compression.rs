@@ -630,7 +630,7 @@ pub struct SharedData {
     pub zid_of_zip: FxHashMap<Vec<ZNode>, ZId>,
     pub extensions_of_zid: Vec<ZIdExtension>,
     pub set: ExprSet,
-    pub parent_of_node: Vec<Option<(ZNode, Idx)>>,
+    pub parent_of_node: Vec<Vec<(ZNode, Idx)>>,
     pub num_paths_to_node: Vec<Cost>,
     pub num_paths_to_node_by_root_idx: Vec<Vec<Cost>>,
     pub tdfa_global_annotations: Option<TDFAGlobalAnnotations>,
