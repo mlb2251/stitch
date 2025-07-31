@@ -1581,6 +1581,8 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
         // All utilities were 0 or negative, so we should autoreject this pattern
         return UtilityCalculation { util: 0, corrected_utils: Default::default() };
     };
+    let locs_set = pattern.match_locations.iter().collect::<FxHashSet<_>>();
+    println!("{:?}", locs_set);
     // let util = utility_of_loc_once.iter().enumerate().map(|(idx, util)| util * shared.num_paths_to_node[pattern.match_locations[idx]]).sum::<Cost>();
 
     let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
@@ -1591,18 +1593,27 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
 
     // let any_corrections: usize = corrected_utils.iter().filter(|(_,v)| !**v).count();
     // let any_non_corrections: usize = corrected_utils.iter().filter(|(_,v)| **v).count();
+    // assert!(any_non_corrections > 0);
     // // println!("any corrections? {any_corrections}");
     // if any_corrections == 0 {
     //     // let util = get_compressive_utility_assuming_no_corrections(pattern, shared);
     //     assert!(compressive_utility == util,
     //         "compressive utility {} != utility assuming no corrections {} in {}",
     //         compressive_utility, util, pattern.info(shared));
-    // } else if any_non_corrections == 0 {
-    //     assert!(util <= 0, "compressive utility {} < 0 in {}",
-    //         compressive_utility, pattern.info(shared));
-    //     // println!("{}", pattern.info(shared));
-    //     // println!("{:?}", corrected_utils);
-    //     // println!("util: {}", util);
+    // } else {
+    //     let x = pattern.info(shared);
+    //     if (x.len() < 300) {
+    //         for (i, loc) in pattern.match_locations.iter().enumerate() {
+    //             if *loc != 14900 && *loc != 14942 {
+    //                 continue;
+    //             }
+    //             println!("{i} {loc}: corrected_utils?: {:?}, original util?: {}",
+    //                 corrected_utils.get(loc),
+    //                 utility_of_loc_once[i]);
+    //             // println!("expr at site: {}", shared.set.get(*loc));
+    //         }
+    //         panic!("{}", x);
+    //     }
     // }
     // // pattern.match_locations.
 
@@ -1687,6 +1698,12 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
                 .map(|zid| cumulative_utility_of_node[shared.arg_of_zid_node[zid][&node].unshifted_id])
                 .sum();
             let utility_with_rewrite = utility_of_args + utility_of_loc_once[idx];
+
+            // if node == 14900 || node == 14942 {
+            //     println!("Node: {node}, Utility of args: {}, utility of loc once: {}, utility with rewrite: {}, utility without rewrite: {}",
+            //         utility_of_args, utility_of_loc_once[idx], utility_with_rewrite, utility_without_rewrite);
+            //     println!("Arg locations: {:?}", pattern.pattern_args.iterate_one_zid_per_argument().map(|zid| shared.arg_of_zid_node[zid][&node].unshifted_id).collect::<Vec<Idx>>());
+            // }
 
             let chose_to_rewrite = utility_with_rewrite > utility_without_rewrite;
 
