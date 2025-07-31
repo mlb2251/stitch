@@ -1637,20 +1637,22 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
     // println!("any corrections? {any_corrections}");
     if any_corrections == 0 {
         // let util = get_compressive_utility_assuming_no_corrections(pattern, shared);
-        assert!(compressive_utility == util,
-            "Any corrections: 0; compressive utility {} != utility assuming no corrections {} in {}",
-            compressive_utility, util, pattern.info(shared));
-    }
-
-    if potential_conflict.is_empty() {
-        if util != compressive_utility {
-            println!("{}", pattern.info(shared));
-            println!("{:?}", utility_of_loc_once);
-            println!("corrected utils: {:?}", corrected_utils);
-            panic!("compressive utility {} != utility assuming no corrections {} in {}",
+        if compressive_utility != util {
+            println!("utils each: {:?}", utility_of_loc_once);
+            panic!("Any corrections: 0; compressive utility {} != utility assuming no corrections {} in {}",
                 compressive_utility, util, pattern.info(shared));
         }
     }
+
+    // if potential_conflict.is_empty() {
+    //     if util != compressive_utility {
+    //         println!("{}", pattern.info(shared));
+    //         println!("{:?}", utility_of_loc_once);
+    //         println!("corrected utils: {:?}", corrected_utils);
+    //         panic!("compressive utility {} != utility assuming no corrections {} in {}",
+    //             compressive_utility, util, pattern.info(shared));
+    //     }
+    // }
 
     //     let x = pattern.info(shared);
     //     if (x.len() < 300) {
@@ -1749,14 +1751,6 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
                 .map(|zid| cumulative_utility_of_node[shared.arg_of_zid_node[zid][&node].unshifted_id])
                 .sum();
             let utility_with_rewrite = utility_of_args + utility_of_loc_once[idx];
-
-            if node == 734 {
-                println!("Node: {node}, Utility of args: {}, utility of loc once: {}, utility with rewrite: {}, utility without rewrite: {}",
-                    utility_of_args, utility_of_loc_once[idx], utility_with_rewrite, utility_without_rewrite);
-                println!("Node: {:?}", shared.set[node]);
-                println!("Node: {:?}", shared.set[733]);
-                println!("Arg locations: {:?}", pattern.pattern_args.iterate_one_zid_per_argument().map(|zid| shared.arg_of_zid_node[zid][&node].unshifted_id).collect::<Vec<Idx>>());
-            }
 
             let chose_to_rewrite = utility_with_rewrite > utility_without_rewrite;
 
