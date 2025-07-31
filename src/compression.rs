@@ -1627,6 +1627,10 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
 
     let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
 
+    println!("what {:?}", shared.weight_by_root_idx);
+
+    println!("Faster compressed utility: {}", shared.root_idxs_of_task.iter().flat_map(|root_idxs| root_idxs.iter().map(|idx| cumulative_utility_of_node[shared.roots[*idx]])).sum::<Cost>());
+
     let compressive_utility: Cost = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
         root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - (cumulative_utility_of_node[shared.roots[*idx]] as f32 * shared.weight_by_root_idx[*idx])).round() as Cost).min().unwrap()
     ).sum::<Cost>();
@@ -1635,7 +1639,7 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
     let any_non_corrections: usize = corrected_utils.iter().filter(|(_,v)| **v).count();
     assert!(any_non_corrections > 0);
     // println!("any corrections? {any_corrections}");
-    if any_corrections == 0 {
+    if potential_conflict.len() == 0 {
         // let util = get_compressive_utility_assuming_no_corrections(pattern, shared);
         if compressive_utility != util {
             println!("utils each: {:?}", utility_of_loc_once);
