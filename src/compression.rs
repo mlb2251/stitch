@@ -1571,6 +1571,28 @@ pub fn get_compressive_utility_assuming_no_corrections(
     }).sum::<Cost>()
 }
 
+fn collect_conflicts(
+    start_loc: Idx,
+    locs_set: &FxHashSet<Idx>,
+    shared: &SharedData,
+    potential_conflicts: &mut Vec<(Idx, Idx)>,
+) {
+    let mut fringe = vec![start_loc];
+    while let Some(loc) = fringe.pop() {
+        if locs_set.contains(&loc) {
+            // we found a match location in the zipper, so this is invalid
+            potential_conflicts.push((start_loc, loc));
+        }
+        for (_, parent) in shared.parent_of_node[loc].iter().cloned() {
+            fringe.push(parent);
+            if locs_set.contains(&parent) {
+                // we found a match location in the zipper, so this is invalid
+                potential_conflicts.push((start_loc, parent));
+            }
+        }
+    }
+}
+
 //#[inline(never)]
 pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
@@ -1582,25 +1604,26 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
         // All utilities were 0 or negative, so we should autoreject this pattern
         return UtilityCalculation { util: 0, corrected_utils: Default::default() };
     };
-    let locs_set = pattern.match_locations.iter().collect::<FxHashSet<_>>();
+    let locs_set = pattern.match_locations.iter().cloned().collect::<FxHashSet<_>>();
     let mut potential_conflict = vec![];
-    println!("{:?}", locs_set);
+    // println!("{:?}", locs_set);
     for loc in &pattern.match_locations {
-        println!("Finding conflicts for loc {}", loc);
-        let mut ptr = *loc;
-        let mut zipper = vec![];
-        while let Some((znode, parent)) = shared.parent_of_node[ptr].clone() {
-            zipper.push(znode);
-            ptr = parent;
-            println!("    Parent {}", ptr);
-            if locs_set.contains(&ptr) {
-                // we found a match location in the zipper, so this is invalid
-                potential_conflict.push(*loc);
-            }
-        }
+        // println!("Finding conflicts for loc {}", loc);
+        // let mut ptr = *loc;
+        // let mut zipper = vec![];
+        // while let Some((znode, parent)) = shared.parent_of_node[ptr].clone() {
+        //     zipper.push(znode);
+        //     ptr = parent;
+        //     println!("    Parent {}", ptr);
+        //     if locs_set.contains(&ptr) {
+        //         // we found a match location in the zipper, so this is invalid
+        //         potential_conflict.push(*loc);
+        //     }
+        // }
+        collect_conflicts(*loc, &locs_set, shared, &mut potential_conflict);
     }
     // shared.parent_of_node;
-    let util = utility_of_loc_once.iter().enumerate().map(|(idx, util)| util * shared.num_paths_to_node[pattern.match_locations[idx]]).sum::<Cost>();
+    let util = utility_of_loc_once.iter().enumerate().map(|(idx, util)| std::cmp::max(*util, 0) * shared.num_paths_to_node[pattern.match_locations[idx]]).sum::<Cost>();
 
     let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
 
@@ -1615,7 +1638,7 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
     if any_corrections == 0 {
         // let util = get_compressive_utility_assuming_no_corrections(pattern, shared);
         assert!(compressive_utility == util,
-            "compressive utility {} != utility assuming no corrections {} in {}",
+            "Any corrections: 0; compressive utility {} != utility assuming no corrections {} in {}",
             compressive_utility, util, pattern.info(shared));
     }
 
