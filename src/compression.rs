@@ -678,6 +678,7 @@ pub struct SharedData {
     pub analyzed_cost: AnalyzedExpr<ExprCost>,
     pub corpus_span: Span,
     pub roots: Vec<Idx>,
+    pub root_for_node: Vec<Idx>,
     pub zids_of_node: FxHashMap<Idx,Vec<ZId>>,
     pub zip_of_zid: Vec<Vec<ZNode>>,
     pub zid_of_zip: FxHashMap<Vec<ZNode>, ZId>,
@@ -1562,12 +1563,36 @@ pub fn get_compressive_utility_assuming_no_corrections(
     pattern: &Pattern,
     shared: &SharedData,
     utility_of_loc_once: Vec<Cost>
-) -> Cost {
+) -> UtilityCalculation {
     // this is a utility that assumes no corrections are needed, so it is just the sum of the utility of each match location
     // minus the cost of applying the invention
-    utility_of_loc_once.into_iter().enumerate().map(|(idx, util)|
-        std::cmp::max(util, 0) * shared.num_paths_to_node[pattern.match_locations[idx]]
-    ).sum::<Cost>()
+    let corrected_utils: FxHashMap<Idx, bool> = utility_of_loc_once.iter().enumerate().map(|(idx, util)|
+        (pattern.match_locations[idx], *util > 0)
+    ).collect();
+    let mut util_by_root = vec![0; shared.roots.len()];
+    utility_of_loc_once.into_iter().enumerate().for_each(|(idx, util)|
+        {
+            let loc = pattern.match_locations[idx];
+            // let root = shared.root_for_node[loc];
+            for root_idx in 0..shared.roots.len() {
+                util_by_root[root_idx] += std::cmp::max(util, 0) * shared.num_paths_to_node_by_root_idx[root_idx][loc];
+            }
+        }
+    );
+
+    println!("util_by_root: {:?}", util_by_root);
+    println!("root idxs: {:?}", shared.root_idxs_of_task);
+    println!("util by root (grouped by task): {:?}", shared.root_idxs_of_task.iter().map(|root_idxs|
+        root_idxs.iter().map(|idx| util_by_root[*idx]).collect::<Vec<_>>()
+    ).collect::<Vec<_>>());
+
+    let util = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
+        root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - util_by_root[*idx] as f32 * shared.weight_by_root_idx[*idx]).round() as Cost).min().unwrap()
+    ).sum::<Cost>();
+
+    println!("Utility assuming no corrections: as comptued {}", util);
+
+    UtilityCalculation {util, corrected_utils}
 }
 
 fn collect_conflicts(
@@ -1605,32 +1630,43 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
     for loc in &pattern.match_locations {
         collect_conflicts(*loc, &locs_set, shared, &mut potential_conflict);
     }
-    if potential_conflict.len() == 0 {
-        return UtilityCalculation {
-            util: get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once),
-            corrected_utils: Default::default(),
-        };
-    }
+    // if potential_conflict.len() == 0 {
+    //     return get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once);
+    // }
     // shared.parent_of_node;
     let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
 
     // println!("what {:?}", shared.weight_by_root_idx);
 
-    // println!("Faster compressed utility: {}", shared.root_idxs_of_task.iter().flat_map(|root_idxs| root_idxs.iter().map(|idx| cumulative_utility_of_node[shared.roots[*idx]])).sum::<Cost>());
 
     let compressive_utility: Cost = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
         root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - (cumulative_utility_of_node[shared.roots[*idx]] as f32 * shared.weight_by_root_idx[*idx])).round() as Cost).min().unwrap()
     ).sum::<Cost>();
 
-    // if potential_conflict.is_empty() {
-    //     if util != compressive_utility {
-    //         println!("{}", pattern.info(shared));
-    //         println!("{:?}", utility_of_loc_once);
-    //         println!("corrected utils: {:?}", corrected_utils);
-    //         panic!("compressive utility {} != utility assuming no corrections {} in {}",
-    //             compressive_utility, util, pattern.info(shared));
-    //     }
-    // }
+    if potential_conflict.is_empty() {
+        let ur = get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once.clone());
+        fn keys_pointing_to_false(map: &FxHashMap<Idx,bool>) -> Vec<Idx> {
+            let mut res: Vec<Idx> = map.iter().filter_map(|(k,v)| if !v { Some(*k) } else { None }).collect();
+            res.sort_unstable();
+            res
+        }
+        if ur.util != compressive_utility || keys_pointing_to_false(&ur.corrected_utils) != keys_pointing_to_false(&corrected_utils) {
+            println!("Weights: {:?}", shared.weight_by_root_idx);
+            println!("ABC by root: {:?}", shared.roots.iter().map(|r| cumulative_utility_of_node[*r]).collect::<Vec<_>>());
+            println!("Faster compressed utility: {}", 
+                shared.root_idxs_of_task.iter().map(|root_idxs|
+                    root_idxs.iter().map(|idx| (cumulative_utility_of_node[shared.roots[*idx]]) as Cost).min().unwrap()
+                ).sum::<Cost>());
+            println!("{}", pattern.info(shared));
+            println!("{:?}", utility_of_loc_once);
+            println!("corrected utils: {:?}", corrected_utils);
+            println!("predicted corrected utils: {:?}", ur.corrected_utils);
+            println!("Pointing to false 1: {:?}", keys_pointing_to_false(&corrected_utils));
+            println!("Pointing to false 2: {:?}", keys_pointing_to_false(&ur.corrected_utils));
+            panic!("compressive utility {} != utility assuming no corrections {} in {}",
+                compressive_utility, ur.util, pattern.info(shared));
+        }
+    }
 
     //     let x = pattern.info(shared);
     //     if (x.len() < 300) {
@@ -1731,6 +1767,9 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
             let utility_with_rewrite = utility_of_args + utility_of_loc_once[idx];
 
             let chose_to_rewrite = utility_with_rewrite > utility_without_rewrite;
+
+            println!("{}: chose to rewrite: {} vs {} ({} vs {})",
+                node, utility_with_rewrite, utility_without_rewrite, chose_to_rewrite, idxi);
 
             cumulative_utility_of_node[node] = std::cmp::max(utility_with_rewrite, utility_without_rewrite);
 
@@ -1991,7 +2030,17 @@ pub fn construct_shared(
 
     // structurally hashed exprset
     let mut set = ExprSet::empty(Order::ChildFirst, false, true);
-    let roots: Vec<Idx> = programs.iter().map(|e| e.immut().copy_rec(&mut set)).collect();
+    let mut root_for_node = vec![];
+    let roots: Vec<Idx> = programs.iter().enumerate().map(|(idx, e)| {
+        // this should be folded into the number paths value.
+        let start = set.len();
+        let root = e.immut().copy_rec(&mut set);
+        let end = set.len();
+        for _ in start..end {
+            root_for_node.push(idx);
+        }
+        root
+    }).collect();
     let corpus_span: Span = 0..set.len();
 
     let mut analyzed_cost = AnalyzedExpr::new(cost_fn.clone());
@@ -2222,6 +2271,7 @@ pub fn construct_shared(
         analyzed_cost,    
         corpus_span: corpus_span.clone(),
         roots: roots.to_vec(),
+        root_for_node,
         zids_of_node,
         zip_of_zid,
         zid_of_zip,
