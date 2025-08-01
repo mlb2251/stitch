@@ -127,3 +127,22 @@ pub fn zipper_replace(mut expr: ExprOwned, zipper: &[ZNode], new: Node) -> ExprO
     *expr.as_mut().get_node_mut(idx) = new;
     expr
 }
+
+pub fn compute_parents_of(set: &ExprSet) -> Vec<Vec<Idx>> {
+    let mut parent_of_node = vec![vec![]; set.len()];
+    for (idx, node) in set.nodes.iter().enumerate() {
+        match node {
+            Node::App(f, x) => {
+                parent_of_node[*f].push(idx);
+                parent_of_node[*x].push(idx);
+            },
+            Node::Lam(b, _) => {
+                parent_of_node[*b].push(idx);
+            },
+            Node::Prim(_) | Node::Var(_, _) | Node::IVar(_) => {
+                // these have no children
+            },
+        }
+    }
+    parent_of_node
+}
