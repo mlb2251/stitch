@@ -630,7 +630,7 @@ pub struct SharedData {
     pub zid_of_zip: FxHashMap<Vec<ZNode>, ZId>,
     pub extensions_of_zid: Vec<ZIdExtension>,
     pub set: ExprSet,
-    pub parent_of_node: Vec<Vec<(ZNode, Idx)>>,
+    pub parent_of_node: Vec<Vec<Idx>>,
     pub num_paths_to_node: Vec<Cost>,
     pub num_paths_to_node_by_root_idx: Vec<Vec<Cost>>,
     pub tdfa_global_annotations: Option<TDFAGlobalAnnotations>,
@@ -1525,7 +1525,7 @@ fn has_conflict(
     let minimum = locations[0];
     let mut fringe = locations;
     while let Some(loc) = fringe.pop() {
-        for (_, parent) in shared.parent_of_node[loc].iter().cloned() {
+        for parent in shared.parent_of_node[loc].iter().cloned() {
             if parent < minimum {
                 // no possibility for conflict, above highest location
                 continue;
