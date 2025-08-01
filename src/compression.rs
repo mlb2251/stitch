@@ -1509,12 +1509,20 @@ pub fn get_compressive_utility_assuming_no_corrections(
     pattern: &Pattern,
     shared: &SharedData,
     utility_of_loc_once: Vec<Cost>
-) -> Cost {
+) -> UtilityCalculation {
     // this is a utility that assumes no corrections are needed, so it is just the sum of the utility of each match location
     // minus the cost of applying the invention
-    utility_of_loc_once.into_iter().enumerate().map(|(idx, util)|
-        std::cmp::max(util, 0) * shared.num_paths_to_node[pattern.match_locations[idx]]
-    ).sum::<Cost>()
+    let mut corrected_utils: FxHashMap<Idx, bool> = Default::default();
+    let util = utility_of_loc_once.into_iter().enumerate().map(|(idx, util)|
+        if util > 0 {
+            util * shared.num_paths_to_node[pattern.match_locations[idx]]
+        } else {
+            corrected_utils.insert(pattern.match_locations[idx], false);
+            0
+        }
+    ).sum::<Cost>();
+
+    UtilityCalculation {util, corrected_utils}
 }
 
 fn has_conflict(
@@ -1548,10 +1556,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     let locs_set = pattern.match_locations.iter().cloned().collect::<FxHashSet<_>>();
     // println!("{:?}", locs_set);
     if !has_conflict(pattern.match_locations.clone(), &locs_set, shared) {
-        return UtilityCalculation {
-            util: get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once),
-            corrected_utils: Default::default(),
-        };
+        return get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once);
     }
     // shared.parent_of_node;
     let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
