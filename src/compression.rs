@@ -1522,14 +1522,9 @@ fn has_conflict(
     locs_set: &FxHashSet<Idx>,
     shared: &SharedData,
 ) -> bool {
-    let minimum = locations[0];
     let mut fringe = locations;
     while let Some(loc) = fringe.pop() {
         for parent in shared.parent_of_node[loc].iter().cloned() {
-            if parent < minimum {
-                // no possibility for conflict, above highest location
-                continue;
-            }
             fringe.push(parent);
             if locs_set.contains(&parent) {
                 return true;
