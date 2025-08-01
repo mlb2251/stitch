@@ -1517,22 +1517,27 @@ pub fn get_compressive_utility_assuming_no_corrections(
     ).sum::<Cost>()
 }
 
-fn collect_conflicts(
-    start_loc: Idx,
+fn has_conflict(
+    locations: Vec<Idx>,
     locs_set: &FxHashSet<Idx>,
     shared: &SharedData,
-    potential_conflicts: &mut Vec<(Idx, Idx)>,
-) {
-    let mut fringe = vec![start_loc];
+) -> bool {
+    // let mut visited = FxHashSet::default();
+    let mut fringe = locations;
     while let Some(loc) = fringe.pop() {
+        // if visited.contains(&loc) {
+        //     continue; // already visited this location
+        // }
+        // visited.insert(loc);
         for (_, parent) in shared.parent_of_node[loc].iter().cloned() {
             fringe.push(parent);
             if locs_set.contains(&parent) {
                 // we found a match location in the zipper, so this is invalid
-                potential_conflicts.push((start_loc, parent));
+                return true;
             }
         }
     }
+    false
 }
 
 //#[inline(never)]
@@ -1547,12 +1552,8 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
         return UtilityCalculation { util: 0, corrected_utils: Default::default() };
     };
     let locs_set = pattern.match_locations.iter().cloned().collect::<FxHashSet<_>>();
-    let mut potential_conflict = vec![];
     // println!("{:?}", locs_set);
-    for loc in &pattern.match_locations {
-        collect_conflicts(*loc, &locs_set, shared, &mut potential_conflict);
-    }
-    if potential_conflict.len() == 0 {
+    if !has_conflict(pattern.match_locations.clone(), &locs_set, shared) {
         return UtilityCalculation {
             util: get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once),
             corrected_utils: Default::default(),
