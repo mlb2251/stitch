@@ -1505,8 +1505,38 @@ fn noncompressive_utility_upper_bound(
     
 }
 
+pub fn get_compressive_utility_assuming_no_corrections(
+    pattern: &Pattern,
+    shared: &SharedData,
+    utility_of_loc_once: Vec<Cost>
+) -> Cost {
+    // this is a utility that assumes no corrections are needed, so it is just the sum of the utility of each match location
+    // minus the cost of applying the invention
+    utility_of_loc_once.into_iter().enumerate().map(|(idx, util)|
+        std::cmp::max(util, 0) * shared.num_paths_to_node[pattern.match_locations[idx]]
+    ).sum::<Cost>()
+}
+
+fn collect_conflicts(
+    start_loc: Idx,
+    locs_set: &FxHashSet<Idx>,
+    shared: &SharedData,
+    potential_conflicts: &mut Vec<(Idx, Idx)>,
+) {
+    let mut fringe = vec![start_loc];
+    while let Some(loc) = fringe.pop() {
+        for (_, parent) in shared.parent_of_node[loc].iter().cloned() {
+            fringe.push(parent);
+            if locs_set.contains(&parent) {
+                // we found a match location in the zipper, so this is invalid
+                potential_conflicts.push((start_loc, parent));
+            }
+        }
+    }
+}
+
 //#[inline(never)]
-fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
+pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
     // * BASIC CALCULATION
     // Roughly speaking compressive utility is num_usages(invention) * size(invention), however there are a few extra
@@ -1516,13 +1546,28 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         // All utilities were 0 or negative, so we should autoreject this pattern
         return UtilityCalculation { util: 0, corrected_utils: Default::default() };
     };
-
+    let locs_set = pattern.match_locations.iter().cloned().collect::<FxHashSet<_>>();
+    let mut potential_conflict = vec![];
+    // println!("{:?}", locs_set);
+    for loc in &pattern.match_locations {
+        collect_conflicts(*loc, &locs_set, shared, &mut potential_conflict);
+    }
+    if potential_conflict.len() == 0 {
+        return UtilityCalculation {
+            util: get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once),
+            corrected_utils: Default::default(),
+        };
+    }
+    // shared.parent_of_node;
     let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
+
+    // println!("what {:?}", shared.weight_by_root_idx);
+
+    // println!("Faster compressed utility: {}", shared.root_idxs_of_task.iter().flat_map(|root_idxs| root_idxs.iter().map(|idx| cumulative_utility_of_node[shared.roots[*idx]])).sum::<Cost>());
 
     let compressive_utility: Cost = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
         root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - (cumulative_utility_of_node[shared.roots[*idx]] as f32 * shared.weight_by_root_idx[*idx])).round() as Cost).min().unwrap()
     ).sum::<Cost>();
-
     // pattern.match_locations.
 
     UtilityCalculation { util: compressive_utility, corrected_utils }
