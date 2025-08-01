@@ -1561,14 +1561,13 @@ fn noncompressive_utility_upper_bound(
 pub fn get_compressive_utility_assuming_no_corrections(
     pattern: &Pattern,
     shared: &SharedData,
+    utility_of_loc_once: Vec<Cost>
 ) -> Cost {
     // this is a utility that assumes no corrections are needed, so it is just the sum of the utility of each match location
     // minus the cost of applying the invention
-    let app_penalty = - (shared.cost_fn.compute_cost_new_prim() as Cost + shared.cost_fn.cost_app as Cost * pattern.pattern_args.arity() as Cost);
-    let updated_util = pattern.body_utility + app_penalty;
-    pattern.match_locations.iter().map(|loc| {
-        updated_util * shared.num_paths_to_node[*loc]
-    }).sum::<Cost>()
+    utility_of_loc_once.into_iter().enumerate().map(|(idx, util)|
+        std::cmp::max(util, 0) * shared.num_paths_to_node[pattern.match_locations[idx]]
+    ).sum::<Cost>()
 }
 
 fn collect_conflicts(
@@ -1608,45 +1607,24 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
     let mut potential_conflict = vec![];
     // println!("{:?}", locs_set);
     for loc in &pattern.match_locations {
-        // println!("Finding conflicts for loc {}", loc);
-        // let mut ptr = *loc;
-        // let mut zipper = vec![];
-        // while let Some((znode, parent)) = shared.parent_of_node[ptr].clone() {
-        //     zipper.push(znode);
-        //     ptr = parent;
-        //     println!("    Parent {}", ptr);
-        //     if locs_set.contains(&ptr) {
-        //         // we found a match location in the zipper, so this is invalid
-        //         potential_conflict.push(*loc);
-        //     }
-        // }
         collect_conflicts(*loc, &locs_set, shared, &mut potential_conflict);
     }
+    if potential_conflict.len() == 0 {
+        return UtilityCalculation {
+            util: get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once),
+            corrected_utils: Default::default(),
+        };
+    }
     // shared.parent_of_node;
-    let util = utility_of_loc_once.iter().enumerate().map(|(idx, util)| std::cmp::max(*util, 0) * shared.num_paths_to_node[pattern.match_locations[idx]]).sum::<Cost>();
-
     let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
 
-    println!("what {:?}", shared.weight_by_root_idx);
+    // println!("what {:?}", shared.weight_by_root_idx);
 
-    println!("Faster compressed utility: {}", shared.root_idxs_of_task.iter().flat_map(|root_idxs| root_idxs.iter().map(|idx| cumulative_utility_of_node[shared.roots[*idx]])).sum::<Cost>());
+    // println!("Faster compressed utility: {}", shared.root_idxs_of_task.iter().flat_map(|root_idxs| root_idxs.iter().map(|idx| cumulative_utility_of_node[shared.roots[*idx]])).sum::<Cost>());
 
     let compressive_utility: Cost = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
         root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - (cumulative_utility_of_node[shared.roots[*idx]] as f32 * shared.weight_by_root_idx[*idx])).round() as Cost).min().unwrap()
     ).sum::<Cost>();
-
-    let any_corrections: usize = corrected_utils.iter().filter(|(_,v)| !**v).count();
-    let any_non_corrections: usize = corrected_utils.iter().filter(|(_,v)| **v).count();
-    assert!(any_non_corrections > 0);
-    // println!("any corrections? {any_corrections}");
-    if potential_conflict.len() == 0 {
-        // let util = get_compressive_utility_assuming_no_corrections(pattern, shared);
-        if compressive_utility != util {
-            println!("utils each: {:?}", utility_of_loc_once);
-            panic!("Any corrections: 0; compressive utility {} != utility assuming no corrections {} in {}",
-                compressive_utility, util, pattern.info(shared));
-        }
-    }
 
     // if potential_conflict.is_empty() {
     //     if util != compressive_utility {
