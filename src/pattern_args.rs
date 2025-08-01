@@ -50,6 +50,11 @@ impl PatternArgs {
         self.variables[ivar as usize].1
     }
 
+    pub fn variable_exists(&self, ivar: i32) -> bool {
+        // check if the variable exists in the pattern args
+        ivar >= 0 && ivar < self.variables.len() as i32
+    }
+
     pub fn unvalidated_ivar(&self) -> Option<(i32, ZId)> {
         // returns the first invalid ivar, or None if all are valid
         self.variables.iter().enumerate().find_map(|(i, (_, vtype))| {
