@@ -1522,17 +1522,16 @@ fn has_conflict(
     locs_set: &FxHashSet<Idx>,
     shared: &SharedData,
 ) -> bool {
-    // let mut visited = FxHashSet::default();
+    let minimum = locations[0];
     let mut fringe = locations;
     while let Some(loc) = fringe.pop() {
-        // if visited.contains(&loc) {
-        //     continue; // already visited this location
-        // }
-        // visited.insert(loc);
         for (_, parent) in shared.parent_of_node[loc].iter().cloned() {
+            if parent < minimum {
+                // no possibility for conflict, above highest location
+                continue;
+            }
             fringe.push(parent);
             if locs_set.contains(&parent) {
-                // we found a match location in the zipper, so this is invalid
                 return true;
             }
         }
@@ -1541,7 +1540,7 @@ fn has_conflict(
 }
 
 //#[inline(never)]
-pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
+fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
     // * BASIC CALCULATION
     // Roughly speaking compressive utility is num_usages(invention) * size(invention), however there are a few extra
@@ -1562,13 +1561,10 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
     // shared.parent_of_node;
     let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
 
-    // println!("what {:?}", shared.weight_by_root_idx);
-
-    // println!("Faster compressed utility: {}", shared.root_idxs_of_task.iter().flat_map(|root_idxs| root_idxs.iter().map(|idx| cumulative_utility_of_node[shared.roots[*idx]])).sum::<Cost>());
-
     let compressive_utility: Cost = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
         root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - (cumulative_utility_of_node[shared.roots[*idx]] as f32 * shared.weight_by_root_idx[*idx])).round() as Cost).min().unwrap()
     ).sum::<Cost>();
+
     // pattern.match_locations.
 
     UtilityCalculation { util: compressive_utility, corrected_utils }
