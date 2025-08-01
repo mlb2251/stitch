@@ -1605,12 +1605,15 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
     for loc in &pattern.match_locations {
         collect_conflicts(*loc, &locs_set, shared, &mut potential_conflict);
     }
-    if potential_conflict.len() == 0 {
-        return UtilityCalculation {
-            util: get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once),
-            corrected_utils: Default::default(),
-        };
-    }
+
+    let util = get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once.clone());
+
+    // if potential_conflict.len() == 0 {
+    //     return UtilityCalculation {
+    //         util,
+    //         corrected_utils: Default::default(),
+    //     };
+    // }
     // shared.parent_of_node;
     let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
 
@@ -1621,6 +1624,31 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
     let compressive_utility: Cost = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
         root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - (cumulative_utility_of_node[shared.roots[*idx]] as f32 * shared.weight_by_root_idx[*idx])).round() as Cost).min().unwrap()
     ).sum::<Cost>();
+
+    if potential_conflict.is_empty() {
+
+        if compressive_utility != util {
+            // this is a bit of a hack to make sure that the compressive utility is correct
+            // if there are no conflicts then we can just use the utility assuming no corrections
+            // but if there are conflicts then we need to use the corrected utilities
+            println!("{}: compressive utility {} != utility assuming no corrections {} in {}",
+                pattern.info(shared), compressive_utility, util, pattern.to_expr(shared));
+            println!("utility of loc once: {:?}", utility_of_loc_once);
+            println!("cumulative utility of node: {:?}", cumulative_utility_of_node);
+            println!("corrected utils: {:?}", corrected_utils);
+            panic!("A");
+        }
+        let any_not_corrected = corrected_utils.iter().any(|(_, &corrected)| !corrected);
+        if any_not_corrected {
+            println!("{}: compressive utility {} != utility assuming no corrections {} in {}",
+                pattern.info(shared), compressive_utility, util, pattern.to_expr(shared));
+            println!("utility of loc once: {:?}", utility_of_loc_once);
+            println!("cumulative utility of node: {:?}", cumulative_utility_of_node);
+            println!("corrected utils: {:?}", corrected_utils);    
+            panic!("B");
+        }
+        // assert!(!any_not_corrected, "There are some corrected utilities that were not corrected: {:?}", corrected_utils);
+    }
 
     // if potential_conflict.is_empty() {
     //     if util != compressive_utility {
