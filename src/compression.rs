@@ -1578,10 +1578,6 @@ fn collect_conflicts(
 ) {
     let mut fringe = vec![start_loc];
     while let Some(loc) = fringe.pop() {
-        if locs_set.contains(&loc) {
-            // we found a match location in the zipper, so this is invalid
-            potential_conflicts.push((start_loc, loc));
-        }
         for (_, parent) in shared.parent_of_node[loc].iter().cloned() {
             fringe.push(parent);
             if locs_set.contains(&parent) {
