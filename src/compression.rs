@@ -1622,6 +1622,10 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
     for loc in &pattern.match_locations {
         collect_conflicts(*loc, &locs_set, shared, &mut potential_conflict);
     }
+    if potential_conflict.is_empty() {
+        // no conflicts, so we can just return the utility assuming no corrections
+        return get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once);
+    }
     // if potential_conflict.len() == 0 {
     //     return get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once);
     // }
@@ -1634,19 +1638,6 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
     let compressive_utility: Cost = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
         root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - (cumulative_utility_of_node[shared.roots[*idx]] as f32 * shared.weight_by_root_idx[*idx])).round() as Cost).min().unwrap()
     ).sum::<Cost>();
-
-    if potential_conflict.is_empty() {
-        let ur = get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once.clone());
-        fn keys_pointing_to_false(map: &FxHashMap<Idx,bool>) -> Vec<Idx> {
-            let mut res: Vec<Idx> = map.iter().filter_map(|(k,v)| if !v { Some(*k) } else { None }).collect();
-            res.sort_unstable();
-            res
-        }
-        if ur.util != compressive_utility || keys_pointing_to_false(&ur.corrected_utils) != keys_pointing_to_false(&corrected_utils) {
-            panic!("compressive utility {compressive_utility} != utility assuming no corrections {} in {}",
-                ur.util, pattern.info(shared));
-        }
-    }
 
     //     let x = pattern.info(shared);
     //     if (x.len() < 300) {
@@ -1747,9 +1738,6 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
             let utility_with_rewrite = utility_of_args + utility_of_loc_once[idx];
 
             let chose_to_rewrite = utility_with_rewrite > utility_without_rewrite;
-
-            println!("{}: chose to rewrite: {} vs {} ({} vs {})",
-                node, utility_with_rewrite, utility_without_rewrite, chose_to_rewrite, idxi);
 
             cumulative_utility_of_node[node] = std::cmp::max(utility_with_rewrite, utility_without_rewrite);
 
