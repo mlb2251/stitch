@@ -630,6 +630,7 @@ pub struct SharedData {
     pub zid_of_zip: FxHashMap<Vec<ZNode>, ZId>,
     pub extensions_of_zid: Vec<ZIdExtension>,
     pub set: ExprSet,
+    pub parent_of_node: Vec<Vec<Idx>>,
     pub num_paths_to_node: Vec<Cost>,
     pub num_paths_to_node_by_root_idx: Vec<Vec<Cost>>,
     pub tdfa_global_annotations: Option<TDFAGlobalAnnotations>,
@@ -1504,6 +1505,51 @@ fn noncompressive_utility_upper_bound(
     
 }
 
+pub fn get_compressive_utility_assuming_no_corrections(
+    pattern: &Pattern,
+    shared: &SharedData,
+    utility_of_loc_once: Vec<Cost>
+) -> UtilityCalculation {
+    // this is a utility that assumes no corrections are needed, so it is just the sum of the utility of each match location
+    // minus the cost of applying the invention
+    let corrected_utils: FxHashMap<Idx, bool> = utility_of_loc_once.iter().enumerate().map(|(idx, util)|
+        (pattern.match_locations[idx], *util > 0)
+    ).collect();
+    let mut util_by_root = vec![0; shared.roots.len()];
+    utility_of_loc_once.into_iter().enumerate().for_each(|(idx, util)|
+        {
+            let loc = pattern.match_locations[idx];
+            // let root = shared.root_for_node[loc];
+            for (root_idx, u) in util_by_root.iter_mut().enumerate() {
+                *u += std::cmp::max(util, 0) * shared.num_paths_to_node_by_root_idx[root_idx][loc];
+            }
+        }
+    );
+
+    let util = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
+        root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - util_by_root[*idx] as f32 * shared.weight_by_root_idx[*idx]).round() as Cost).min().unwrap()
+    ).sum::<Cost>();
+
+    UtilityCalculation {util, corrected_utils}
+}
+
+fn has_conflict(
+    locations: Vec<Idx>,
+    locs_set: &FxHashSet<Idx>,
+    shared: &SharedData,
+) -> bool {
+    let mut fringe = locations;
+    while let Some(loc) = fringe.pop() {
+        for parent in shared.parent_of_node[loc].iter().cloned() {
+            fringe.push(parent);
+            if locs_set.contains(&parent) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 //#[inline(never)]
 fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
@@ -1515,7 +1561,12 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         // All utilities were 0 or negative, so we should autoreject this pattern
         return UtilityCalculation { util: 0, corrected_utils: Default::default() };
     };
-
+    let locs_set = pattern.match_locations.iter().cloned().collect::<FxHashSet<_>>();
+    // println!("{:?}", locs_set);
+    if !has_conflict(pattern.match_locations.clone(), &locs_set, shared) {
+        return get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once);
+    }
+    // shared.parent_of_node;
     let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
 
     let compressive_utility: Cost = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
@@ -2066,6 +2117,8 @@ pub fn construct_shared(
     } else {
         None
     };
+
+    let parent_of_node = compute_parents_of(&set);
     
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
@@ -2083,6 +2136,7 @@ pub fn construct_shared(
         zid_of_zip,
         extensions_of_zid,
         set,
+        parent_of_node,
         num_paths_to_node,
         num_paths_to_node_by_root_idx,
         tdfa_global_annotations,
