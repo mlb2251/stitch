@@ -1512,14 +1512,22 @@ pub fn get_compressive_utility_assuming_no_corrections(
 ) -> UtilityCalculation {
     // this is a utility that assumes no corrections are needed, so it is just the sum of the utility of each match location
     // minus the cost of applying the invention
-    let mut corrected_utils: FxHashMap<Idx, bool> = Default::default();
-    let util = utility_of_loc_once.into_iter().enumerate().map(|(idx, util)|
-        if util > 0 {
-            util * shared.num_paths_to_node[pattern.match_locations[idx]]
-        } else {
-            corrected_utils.insert(pattern.match_locations[idx], false);
-            0
+    let corrected_utils: FxHashMap<Idx, bool> = utility_of_loc_once.iter().enumerate().map(|(idx, util)|
+        (pattern.match_locations[idx], *util > 0)
+    ).collect();
+    let mut util_by_root = vec![0; shared.roots.len()];
+    utility_of_loc_once.into_iter().enumerate().for_each(|(idx, util)|
+        {
+            let loc = pattern.match_locations[idx];
+            // let root = shared.root_for_node[loc];
+            for (root_idx, u) in util_by_root.iter_mut().enumerate() {
+                *u += std::cmp::max(util, 0) * shared.num_paths_to_node_by_root_idx[root_idx][loc];
+            }
         }
+    );
+
+    let util = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
+        root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - util_by_root[*idx] as f32 * shared.weight_by_root_idx[*idx]).round() as Cost).min().unwrap()
     ).sum::<Cost>();
 
     UtilityCalculation {util, corrected_utils}
