@@ -1580,17 +1580,9 @@ pub fn get_compressive_utility_assuming_no_corrections(
         }
     );
 
-    println!("util_by_root: {:?}", util_by_root);
-    println!("root idxs: {:?}", shared.root_idxs_of_task);
-    println!("util by root (grouped by task): {:?}", shared.root_idxs_of_task.iter().map(|root_idxs|
-        root_idxs.iter().map(|idx| util_by_root[*idx]).collect::<Vec<_>>()
-    ).collect::<Vec<_>>());
-
     let util = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
         root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - util_by_root[*idx] as f32 * shared.weight_by_root_idx[*idx]).round() as Cost).min().unwrap()
     ).sum::<Cost>();
-
-    println!("Utility assuming no corrections: as comptued {}", util);
 
     UtilityCalculation {util, corrected_utils}
 }
@@ -1651,20 +1643,8 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
             res
         }
         if ur.util != compressive_utility || keys_pointing_to_false(&ur.corrected_utils) != keys_pointing_to_false(&corrected_utils) {
-            println!("Weights: {:?}", shared.weight_by_root_idx);
-            println!("ABC by root: {:?}", shared.roots.iter().map(|r| cumulative_utility_of_node[*r]).collect::<Vec<_>>());
-            println!("Faster compressed utility: {}", 
-                shared.root_idxs_of_task.iter().map(|root_idxs|
-                    root_idxs.iter().map(|idx| (cumulative_utility_of_node[shared.roots[*idx]]) as Cost).min().unwrap()
-                ).sum::<Cost>());
-            println!("{}", pattern.info(shared));
-            println!("{:?}", utility_of_loc_once);
-            println!("corrected utils: {:?}", corrected_utils);
-            println!("predicted corrected utils: {:?}", ur.corrected_utils);
-            println!("Pointing to false 1: {:?}", keys_pointing_to_false(&corrected_utils));
-            println!("Pointing to false 2: {:?}", keys_pointing_to_false(&ur.corrected_utils));
-            panic!("compressive utility {} != utility assuming no corrections {} in {}",
-                compressive_utility, ur.util, pattern.info(shared));
+            panic!("compressive utility {compressive_utility} != utility assuming no corrections {} in {}",
+                ur.util, pattern.info(shared));
         }
     }
 
