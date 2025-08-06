@@ -1574,8 +1574,8 @@ pub fn get_compressive_utility_assuming_no_corrections(
         {
             let loc = pattern.match_locations[idx];
             // let root = shared.root_for_node[loc];
-            for root_idx in 0..shared.roots.len() {
-                util_by_root[root_idx] += std::cmp::max(util, 0) * shared.num_paths_to_node_by_root_idx[root_idx][loc];
+            for (root_idx, u) in util_by_root.iter_mut().enumerate() {
+                *u += std::cmp::max(util, 0) * shared.num_paths_to_node_by_root_idx[root_idx][loc];
             }
         }
     );
