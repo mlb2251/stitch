@@ -10,6 +10,7 @@ pub mod expansion;
 pub mod pattern_args;
 pub mod symvar;
 pub mod test_utils;
+pub mod ziptrie;
 
 pub use {
     compression::*,
@@ -24,6 +25,7 @@ pub use {
     pattern_args::*,
     symvar::*,
     test_utils::*,
+    ziptrie::*,
 };
 
 pub use colorful::{Color,Colorful,RGB};
