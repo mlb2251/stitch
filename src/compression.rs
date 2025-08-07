@@ -1586,21 +1586,6 @@ pub fn get_compressive_utility_assuming_no_corrections(
     UtilityCalculation {util, corrected_utils}
 }
 
-fn zippers_starting_with(
-    zippers: &Vec<Vec<ZNode>>,
-    start: ZNode,
-) -> Vec<Vec<ZNode>> {
-    let mut res = vec![];
-    for zip in zippers {
-        if zip[0] == start {
-            let mut zip = zip.clone();
-            zip.remove(0); // remove the start node
-            res.push(zip);
-        }
-    }
-    res
-}
-
 fn collect_conflicts(
     start_loc: Idx,
     current_loc: Idx,
@@ -1621,11 +1606,11 @@ fn collect_conflicts(
             // leaves
         }
         Node::App(f, x) => {
-            collect_conflicts(start_loc, f, locs_set, shared, potential_conflicts, variables.clone().map(|v| v.func()).flatten());
-            collect_conflicts(start_loc, x, locs_set, shared, potential_conflicts, variables.map(|v| v.arg()).flatten());
+            collect_conflicts(start_loc, f, locs_set, shared, potential_conflicts, variables.clone().and_then(|v| v.func()));
+            collect_conflicts(start_loc, x, locs_set, shared, potential_conflicts, variables.and_then(|v| v.arg()));
         }
         Node::Lam(b, _) => {
-            collect_conflicts(start_loc, b, locs_set, shared, potential_conflicts, variables.map(|v| v.body()).flatten());
+            collect_conflicts(start_loc, b, locs_set, shared, potential_conflicts, variables.and_then(|v| v.body()));
         }
     }
 }
