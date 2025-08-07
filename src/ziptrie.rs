@@ -13,28 +13,28 @@ struct ZipTrieNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ZipTree {
+pub struct ZipTrie {
     root: ZipTrieIdx,
     trie: Vec<ZipTrieNode>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ZipTrieSlice<'a> {
-    trie: &'a ZipTree,
+    trie: &'a ZipTrie,
     start: ZipTrieIdx,
 }
 
-impl ZipTree {
+impl ZipTrie {
     pub fn new(mut zippers: Vec<Vec<ZNode>>) -> Self {
         let mut trie = vec![];
         zippers.sort();
         let index = add_to_trie(&mut trie, &zippers[..], 0);
-        ZipTree {root: index.unwrap(), trie}
+        ZipTrie {root: index.unwrap(), trie}
     }
 }
 
 impl <'a> ZipTrieSlice<'a> {
-    pub fn new(trie: &'a ZipTree) -> Self {
+    pub fn new(trie: &'a ZipTrie) -> Self {
         ZipTrieSlice {trie, start: trie.root}
     }
 

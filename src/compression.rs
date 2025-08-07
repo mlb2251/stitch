@@ -1629,7 +1629,7 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
     let locs_set = pattern.match_locations.iter().cloned().collect::<FxHashSet<_>>();
     let mut potential_conflict = vec![];
     let zippers = pattern.pattern_args.zippers(shared);
-    let trie = ZipTree::new(zippers.clone());
+    let trie = ZipTrie::new(zippers.clone());
     // for (i, x) in trie.trie.iter().enumerate() {
     //     println!("trie[{}]: {:?} -> func: {:?}, arg: {:?}, body: {:?}", i, x.present, x.func, x.arg, x.body);
     // }
