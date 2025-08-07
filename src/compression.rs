@@ -614,7 +614,7 @@ impl Pattern {
 
 
 /// the index of the empty zipper `[]` in the list of zippers
-const EMPTY_ZID: ZId = 0;
+pub const EMPTY_ZID: ZId = 0;
 
 /// an argument to an abstraction.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -1626,18 +1626,25 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
         // All utilities were 0 or negative, so we should autoreject this pattern
         return UtilityCalculation { util: 0, corrected_utils: Default::default() };
     };
-    let locs_set = pattern.match_locations.iter().cloned().collect::<FxHashSet<_>>();
-    let mut potential_conflict = vec![];
-    let zippers = pattern.pattern_args.zippers(shared);
-    let trie = ZipTrie::new(zippers.clone());
-    // for (i, x) in trie.trie.iter().enumerate() {
-    //     println!("trie[{}]: {:?} -> func: {:?}, arg: {:?}, body: {:?}", i, x.present, x.func, x.arg, x.body);
+    // let locs_set = pattern.match_locations.iter().cloned().collect::<FxHashSet<_>>();
+    // let mut potential_conflict = vec![];
+    // let zippers = pattern.pattern_args.zippers(shared);
+    // let trie = ZipTrie::new(zippers.clone());
+    // // for (i, x) in trie.trie.iter().enumerate() {
+    // //     println!("trie[{}]: {:?} -> func: {:?}, arg: {:?}, body: {:?}", i, x.present, x.func, x.arg, x.body);
+    // // }
+    // for loc in &pattern.match_locations {
+    //     collect_conflicts(*loc, *loc, &locs_set, shared, &mut potential_conflict, Some(ZipTrieSlice::new(&trie)));
     // }
-    for loc in &pattern.match_locations {
-        collect_conflicts(*loc, *loc, &locs_set, shared, &mut potential_conflict, Some(ZipTrieSlice::new(&trie)));
-    }
+    let self_intersects = can_self_unify(&pattern.pattern_args, shared, pattern.match_locations[0]);
     // println!("potential conflicts: {:?}", potential_conflict);
-    if potential_conflict.is_empty() {
+    if self_intersects.is_empty() {
+        // if !potential_conflict.is_empty() {
+        //     println!("Pattern: {}", pattern.info(shared));
+        //     let (a, b) = potential_conflict[0];
+        //     println!("Potential conflict between\n{}\n{}", shared.set.get(a), shared.set.get(b));
+        //     panic!("self intersects is empty but potential conflicts are not: {:?}", potential_conflict);
+        // }
         // no conflicts, so we can just return the utility assuming no corrections
         return get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once);
     }

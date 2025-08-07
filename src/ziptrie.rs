@@ -18,7 +18,7 @@ pub struct ZipTrie {
     trie: Vec<ZipTrieNode>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ZipTrieSlice<'a> {
     trie: &'a ZipTrie,
     start: ZipTrieIdx,
@@ -55,6 +55,28 @@ impl <'a> ZipTrieSlice<'a> {
     pub fn body(&self) -> Option<ZipTrieSlice<'a>> {
         let idx = self.trie.trie[self.start].body?;
         Some(ZipTrieSlice {trie: self.trie, start: idx})
+    }
+
+    pub fn to_list(&self) -> Vec<Vec<ZNode>> {
+        // not optimized because it only exists for debugging purposes
+        let mut overall = vec![];
+        if self.is_present() {
+            overall.push(vec![]);
+        }
+        for (sub, znode) in [
+            (self.func(), ZNode::Func),
+            (self.arg(), ZNode::Arg),
+            (self.body(), ZNode::Body),
+        ] {
+            if let Some(sub) = sub {
+                let mut sublist = sub.to_list();
+                for sub in &mut sublist {
+                    sub.insert(0, znode.clone());
+                }
+                overall.extend(sublist);
+            }
+        }
+        overall
     }
 }
 
