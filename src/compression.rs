@@ -1589,35 +1589,6 @@ pub fn get_compressive_utility_assuming_no_corrections(
     UtilityCalculation {util, corrected_utils}
 }
 
-fn collect_conflicts(
-    start_loc: Idx,
-    current_loc: Idx,
-    locs_set: &FxHashSet<Idx>,
-    shared: &SharedData,
-    potential_conflicts: &mut Vec<(Idx, Idx)>,
-    variables: Option<ZipTrieSlice<'_>>,
-) {
-    if variables.as_ref().is_none_or(|v| v.is_present()) {
-        // this is a variable, so we shouldn't collect conflicts for its children.
-        return;
-    }
-    if start_loc != current_loc && locs_set.contains(&current_loc) {
-        potential_conflicts.push((start_loc, current_loc));
-    }
-    match shared.set[current_loc] {
-        Node::IVar(_) | Node::Var(_, _) | Node::Prim(_) => {
-            // leaves
-        }
-        Node::App(f, x) => {
-            collect_conflicts(start_loc, f, locs_set, shared, potential_conflicts, variables.clone().and_then(|v| v.func()));
-            collect_conflicts(start_loc, x, locs_set, shared, potential_conflicts, variables.and_then(|v| v.arg()));
-        }
-        Node::Lam(b, _) => {
-            collect_conflicts(start_loc, b, locs_set, shared, potential_conflicts, variables.and_then(|v| v.body()));
-        }
-    }
-}
-
 //#[inline(never)]
 pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
@@ -1667,7 +1638,7 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
         }
         relative_utilities.push(relative_utility);
     }
-    return get_compressive_utility_assuming_no_corrections(pattern, shared, relative_utilities);
+    get_compressive_utility_assuming_no_corrections(pattern, shared, relative_utilities)
     // // println!("self intersects: {:?}", self_intersects.iter().map(|x| shared.zip_of_zid[*x].clone()).collect::<Vec<_>>());
     // let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
 
@@ -1723,56 +1694,6 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Option<Vec
     }
     Some(results)
 }
-
-#[inline(never)]
-/// calculate correction factor for the utility that comes from mutually exclusive match locations, where we need
-/// to pick only one of the locations to apply the invention at.
-fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_of_loc_once: &[Cost]) -> (Vec<Cost>,FxHashMap<Idx,bool>) {
-    let mut cumulative_utility_of_node: Vec<Cost> = vec![0; shared.corpus_span.len()];
-    let mut corrected_utils: FxHashMap<Idx,bool> = Default::default();
-    let mut indices = vec![-1; shared.corpus_span.len()];
-    for (idx, node) in pattern.match_locations.iter().enumerate() {
-        // we want to keep track of the index of the match location in the pattern
-        // so that we can use it later to determine whether to rewrite or not
-        indices[*node] = idx as i32;
-    }
-
-    for node in shared.corpus_span.clone() {
-
-        let utility_without_rewrite: Cost = match &shared.set[node] {
-            Node::Lam(b, _) => cumulative_utility_of_node[*b],
-            Node::App(f,x) => cumulative_utility_of_node[*f] + cumulative_utility_of_node[*x],
-            Node::Prim(_) | Node::Var(_, _) => 0,
-            Node::IVar(_) => unreachable!(),
-        };
-
-        assert!(utility_without_rewrite >= 0);
-
-        let idxi = indices[node];
-
-        if idxi >= 0 {
-            // this node is a potential rewrite location
-            let idx = idxi as usize;
-
-            let utility_of_args: Cost = pattern.pattern_args.iterate_one_zid_per_argument()
-                .map(|zid| cumulative_utility_of_node[shared.arg_of_zid_node[zid][&node].unshifted_id])
-                .sum();
-            let utility_with_rewrite = utility_of_args + utility_of_loc_once[idx];
-
-            let chose_to_rewrite = utility_with_rewrite > utility_without_rewrite;
-
-            cumulative_utility_of_node[node] = std::cmp::max(utility_with_rewrite, utility_without_rewrite);
-
-            corrected_utils.insert(node,chose_to_rewrite);
-
-
-        } else if utility_without_rewrite != 0 {
-            cumulative_utility_of_node[node] = utility_without_rewrite;
-        }
-    }
-    (cumulative_utility_of_node,corrected_utils)
-}
-
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UtilityCalculation {
