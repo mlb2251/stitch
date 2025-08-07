@@ -92,6 +92,12 @@ impl PatternArgs {
         }
     }
 
+    pub fn zippers(&self, shared: &SharedData) -> Vec<Vec<ZNode>> {
+        self.variables.iter().map(|(zid, _)|
+            shared.zip_of_zid[*zid as usize].clone()
+        ).collect()
+    }
+
     pub fn use_args(&self, shared: &SharedData, node: &Idx) -> Vec<ZId> {
         self.variables.iter().map(|(zid, _)|
             shared.arg_of_zid_node[*zid as usize][node].shifted_id

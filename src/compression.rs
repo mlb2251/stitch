@@ -1586,22 +1586,166 @@ pub fn get_compressive_utility_assuming_no_corrections(
     UtilityCalculation {util, corrected_utils}
 }
 
+fn zippers_starting_with(
+    zippers: &Vec<Vec<ZNode>>,
+    start: ZNode,
+) -> Vec<Vec<ZNode>> {
+    let mut res = vec![];
+    for zip in zippers {
+        if zip[0] == start {
+            let mut zip = zip.clone();
+            zip.remove(0); // remove the start node
+            res.push(zip);
+        }
+    }
+    res
+}
+
 fn collect_conflicts(
     start_loc: Idx,
+    current_loc: Idx,
     locs_set: &FxHashSet<Idx>,
     shared: &SharedData,
     potential_conflicts: &mut Vec<(Idx, Idx)>,
+    variables: Option<ZipTrieSlice<'_>>,
 ) {
-    let mut fringe = vec![start_loc];
-    while let Some(loc) = fringe.pop() {
-        for (_, parent) in shared.parent_of_node[loc].iter().cloned() {
-            fringe.push(parent);
-            if locs_set.contains(&parent) {
-                // we found a match location in the zipper, so this is invalid
-                potential_conflicts.push((start_loc, parent));
-            }
+    if variables.as_ref().is_none_or(|v| v.is_present()) {
+        // this is a variable, so we shouldn't collect conflicts for its children.
+        return;
+    }
+    if start_loc != current_loc && locs_set.contains(&current_loc) {
+        potential_conflicts.push((start_loc, current_loc));
+    }
+    match shared.set[current_loc] {
+        Node::IVar(_) | Node::Var(_, _) | Node::Prim(_) => {
+            // leaves
+        }
+        Node::App(f, x) => {
+            collect_conflicts(start_loc, f, locs_set, shared, potential_conflicts, variables.clone().map(|v| v.func()).flatten());
+            collect_conflicts(start_loc, x, locs_set, shared, potential_conflicts, variables.map(|v| v.arg()).flatten());
+        }
+        Node::Lam(b, _) => {
+            collect_conflicts(start_loc, b, locs_set, shared, potential_conflicts, variables.map(|v| v.body()).flatten());
         }
     }
+}
+
+type ZipTrieIdx = usize;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct ZipTrieNode {
+    present: bool,
+    func: Option<ZipTrieIdx>,
+    arg: Option<ZipTrieIdx>,
+    body: Option<ZipTrieIdx>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct ZipTree {
+    root: ZipTrieIdx,
+    trie: Vec<ZipTrieNode>,
+}
+
+#[derive(Debug, Clone)]
+struct ZipTrieSlice<'a> {
+    trie: &'a ZipTree,
+    start: ZipTrieIdx,
+}
+
+impl ZipTree {
+    fn new(mut zippers: Vec<Vec<ZNode>>) -> Self {
+        let mut trie = vec![];
+        zippers.sort();
+        let index = add_to_trie(&mut trie, &zippers[..], 0);
+        ZipTree {root: index.unwrap(), trie}
+    }
+}
+
+impl <'a> ZipTrieSlice<'a> {
+    fn new(trie: &'a ZipTree) -> Self {
+        ZipTrieSlice {trie, start: trie.root}
+    }
+
+    fn is_present(&self) -> bool {
+        self.trie.trie[self.start].present
+    }
+
+    fn func(&self) -> Option<ZipTrieSlice<'a>> {
+        let idx = self.trie.trie[self.start].func?;
+        Some(ZipTrieSlice {trie: self.trie, start: idx})
+    }
+
+    fn arg(&self) -> Option<ZipTrieSlice<'a>> {
+        let idx = self.trie.trie[self.start].arg?;
+        Some(ZipTrieSlice {trie: self.trie, start: idx})
+    }
+
+    fn body(&self) -> Option<ZipTrieSlice<'a>> {
+        let idx = self.trie.trie[self.start].body?;
+        Some(ZipTrieSlice {trie: self.trie, start: idx})
+    }
+}
+
+fn add_to_trie(
+    trie: &mut Vec<ZipTrieNode>,
+    zippers: &[Vec<ZNode>],
+    depth: usize,
+) -> Option<ZipTrieIdx> {
+    if zippers.is_empty() {
+        return None;
+    }
+    let mut zippers = zippers;
+    let present = zippers[0].len() == depth;
+    if present {
+        zippers = &zippers[1..];
+    }
+    let mut ztnode = ZipTrieNode {
+        present,
+        func: None,
+        arg: None,
+        body: None,
+    };
+    let mut fire = |
+        current: ZNode,
+        start_idx: usize,
+        end_idx: usize,
+    | {
+        let loc_zippers = &zippers[start_idx..end_idx];
+        let idx = add_to_trie(trie, loc_zippers, depth + 1);
+        match current {
+            ZNode::Func => {
+                ztnode.func = idx;
+            }
+            ZNode::Arg => {
+                ztnode.arg = idx;
+            }
+            ZNode::Body => {
+                ztnode.body = idx;
+            }
+        }
+    };
+
+    let mut start_idx = None;
+    let mut current = None;
+    for (idx, zip) in zippers.iter().enumerate() {
+        let znode = zip[depth].clone();
+        if current == Some(znode.clone()) {
+            // we are at the same node, so we can just continue
+            continue;
+        }
+        if current.is_some() {
+            fire(current.clone().unwrap(), start_idx.unwrap(), idx);
+        }
+        current = Some(znode);
+        start_idx = Some(idx);
+    }
+    if let Some(current) = current {
+        fire(current, start_idx.unwrap(), zippers.len());
+    }
+    
+    let idx = trie.len();
+    trie.push(ztnode);
+    Some(idx)
 }
 
 //#[inline(never)]
@@ -1617,9 +1761,15 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
     };
     let locs_set = pattern.match_locations.iter().cloned().collect::<FxHashSet<_>>();
     let mut potential_conflict = vec![];
+    let zippers = pattern.pattern_args.zippers(shared);
+    let trie = ZipTree::new(zippers.clone());
+    // for (i, x) in trie.trie.iter().enumerate() {
+    //     println!("trie[{}]: {:?} -> func: {:?}, arg: {:?}, body: {:?}", i, x.present, x.func, x.arg, x.body);
+    // }
     for loc in &pattern.match_locations {
-        collect_conflicts(*loc, &locs_set, shared, &mut potential_conflict);
+        collect_conflicts(*loc, *loc, &locs_set, shared, &mut potential_conflict, Some(ZipTrieSlice::new(&trie)));
     }
+    // println!("potential conflicts: {:?}", potential_conflict);
     if potential_conflict.is_empty() {
         // no conflicts, so we can just return the utility assuming no corrections
         return get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once);
@@ -1679,7 +1829,7 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Option<Vec
     Some(results)
 }
 
-//#[inline(never)]
+#[inline(never)]
 /// calculate correction factor for the utility that comes from mutually exclusive match locations, where we need
 /// to pick only one of the locations to apply the invention at.
 fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_of_loc_once: &[Cost]) -> (Vec<Cost>,FxHashMap<Idx,bool>) {
