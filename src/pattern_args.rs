@@ -58,6 +58,12 @@ impl PatternArgs {
         }
     }
 
+    pub fn zippers(&self, shared: &SharedData) -> Vec<Vec<ZNode>> {
+        self.arg_choices.iter().map(|lzid|
+            shared.zip_of_zid[lzid.zid].clone()
+        ).collect()
+    }
+
     pub fn use_args(&self, shared: &SharedData, node: &Idx) -> Vec<ZId> {
         self.variables.iter().map(|(zid, _)|
             shared.arg_of_zid_node[*zid as usize][node].shifted_id
@@ -211,4 +217,117 @@ pub fn compatible_locations(shared: &SharedData, locs: &[Idx], arg_of_loc_1:  &F
             arg_of_loc_2[loc].shifted_id
             && (!require_valid || !invalid_metavar_location(shared, arg_of_loc_1[loc].shifted_id))
         ).cloned().collect()
+}
+
+fn unifies(
+    shared: &SharedData,
+    overall_abs: Option<ZipTrieSlice>,
+    partial_abs: Option<ZipTrieSlice>,
+    overall_loc: Idx,
+    partial_loc: Idx
+) -> bool {
+    // println!("Checking unification of {:?} and {:?} at locations {} and {}", overall_abs.map(|x| x.to_list()), partial_abs.map(|x| x.to_list()), overall_loc, partial_loc);
+    // if either is a variable, then we can unify
+    if overall_abs.is_some_and(|x| x.is_present()) || partial_abs.is_some_and(|x| x.is_present()) {
+        return true;
+    }
+    // if they are the same location, then we can unify
+    if overall_loc == partial_loc {
+        return true;
+    }
+    // if neither has any variables, and they are not the same location (struct-hashed), then we cannot unify
+    if overall_abs.is_none() && partial_abs.is_none() {
+        return false
+    }
+    // neither is a variable. Match on the literal structure of overall
+    match &shared.set[overall_loc] {
+        Node::App(overall_f, overall_x) => {
+            let Node::App(partial_f, partial_x) = &shared.set[partial_loc] else {
+                return false; // if the overall is an application, the partial must also be an application
+            };
+            unifies(
+                shared,
+                overall_abs.and_then(|x| x.func()),
+                partial_abs.and_then(|x| x.func()),
+                *overall_f,
+                *partial_f
+            ) && unifies(
+                shared,
+                overall_abs.and_then(|x| x.arg()),
+                partial_abs.and_then(|x| x.arg()),
+                *overall_x,
+                *partial_x
+            )
+        },
+        Node::Lam(b, _) => {
+            let Node::Lam(partial_b, _) = &shared.set[partial_loc] else {
+                return false; // if the overall is a lambda, the partial must also be a lambda
+            };
+            unifies(
+                shared,
+                overall_abs.and_then(|x| x.body()),
+                partial_abs.and_then(|x| x.body()),
+                *b,
+                *partial_b
+            )
+        },
+        _ => shared.set[overall_loc] == shared.set[partial_loc], // if they are not applications or lambdas, they must be the same node
+    }
+}
+
+fn find_self_unification_points(
+    shared: &SharedData,
+    self_unify_zids: &mut Vec<ZId>,
+    overall_abs: ZipTrieSlice,
+    partial_abs: Option<ZipTrieSlice>,
+    partial_zid: ZId,
+    overall_loc: Idx,
+    partial_loc: Idx
+) {
+    // println!("Checking {:?}", shared.zip_of_zid[partial_zid]);
+    let Some(partial_abs) = partial_abs else {
+        // if there's no variables in the partial abstraction, we can't unify with the overall abstraction,
+        // since it's either equal (and we skip this) or strictly smaller
+        return;
+    };
+    if partial_abs.is_present() {
+        // variables do not count as self-unification points
+        return;
+    }
+    // println!("Here");
+    if partial_zid != EMPTY_ZID && unifies(shared, Some(overall_abs), Some(partial_abs), overall_loc, partial_loc) {
+        // if the overall abstraction unifies with the partial abstraction at this location
+        // then we can add the partial abstraction's zid to the self-unification points
+        self_unify_zids.push(partial_zid);
+    }
+    let ext = &shared.extensions_of_zid[partial_zid];
+    match &shared.set[partial_loc] {
+        Node::App(f, x) => {
+            // if the partial abstraction is an application, we can recurse into its children
+            find_self_unification_points(shared, self_unify_zids, overall_abs, partial_abs.func(), ext.func.unwrap(), overall_loc, *f);
+            find_self_unification_points(shared, self_unify_zids, overall_abs, partial_abs.arg(), ext.arg.unwrap(), overall_loc, *x);
+        },
+        Node::Lam(b, _) => {
+            find_self_unification_points(shared, self_unify_zids, overall_abs, partial_abs.body(), ext.body.unwrap(), overall_loc, *b);
+        },
+        _ => {}
+    }
+}
+
+
+pub fn can_self_unify(pattern_args: &PatternArgs, shared: &SharedData, example_match_loc: Idx) -> Vec<ZId> {
+    // println!("Checking self-unification for pattern args: {:?}", pattern_args);
+    // check if a given set of pattern arguments can self-unify (i.e., if the abstraction unifies with one of its
+    // non-variable subtrees). An example is the pattern (#0 #1 x), which unifies with (#0 #1).
+    // This is an overapproximation that does not take into account variable reuse.
+    let zippers = pattern_args.zippers(shared);
+    // println!("Zippers: {:?}", zippers);
+    let zippers = ZipTrie::new(zippers);
+    // println!("Zippers: {:?}", zippers);
+    let zippers = ZipTrieSlice::new(&zippers);
+    let mut self_unify_zids = Vec::new();
+
+    find_self_unification_points(shared, &mut self_unify_zids, zippers, Some(zippers), EMPTY_ZID, example_match_loc, example_match_loc);
+
+    self_unify_zids
 }

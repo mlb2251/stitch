@@ -561,7 +561,7 @@ impl Pattern {
 
 
 /// the index of the empty zipper `[]` in the list of zippers
-const EMPTY_ZID: ZId = 0;
+pub const EMPTY_ZID: ZId = 0;
 
 /// an argument to an abstraction.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -1504,6 +1504,37 @@ fn noncompressive_utility_upper_bound(
     
 }
 
+pub fn get_compressive_utility_assuming_no_corrections(
+    pattern: &Pattern,
+    shared: &SharedData,
+    utility_of_loc_once: Vec<Cost>
+) -> UtilityCalculation {
+    assert!(utility_of_loc_once.len() == pattern.match_locations.len(),
+        "utility_of_loc_once should have the same length as match_locations, but got {} and {}",
+        utility_of_loc_once.len(), pattern.match_locations.len());
+    // this is a utility that assumes no corrections are needed, so it is just the sum of the utility of each match location
+    // minus the cost of applying the invention
+    let corrected_utils: FxHashMap<Idx, bool> = utility_of_loc_once.iter().enumerate().map(|(idx, util)|
+        (pattern.match_locations[idx], *util > 0)
+    ).collect();
+    let mut util_by_root = vec![0; shared.roots.len()];
+    utility_of_loc_once.into_iter().enumerate().for_each(|(idx, util)|
+        {
+            let loc = pattern.match_locations[idx];
+            // let root = shared.root_for_node[loc];
+            for (root_idx, u) in util_by_root.iter_mut().enumerate() {
+                *u += std::cmp::max(util, 0) * shared.num_paths_to_node_by_root_idx[root_idx][loc];
+            }
+        }
+    );
+
+    let util = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
+        root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - util_by_root[*idx] as f32 * shared.weight_by_root_idx[*idx]).round() as Cost).min().unwrap()
+    ).sum::<Cost>();
+
+    UtilityCalculation {util, corrected_utils}
+}
+
 //#[inline(never)]
 fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
@@ -1515,16 +1546,55 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         // All utilities were 0 or negative, so we should autoreject this pattern
         return UtilityCalculation { util: 0, corrected_utils: Default::default() };
     };
+    let loc_to_idx = pattern.match_locations.iter().enumerate().map(|(idx, loc)| (*loc, idx)).collect::<FxHashMap<_,_>>();
+    // let mut potential_conflict = vec![];
+    // let zippers = pattern.pattern_args.zippers(shared);
+    // let trie = ZipTrie::new(zippers.clone());
+    // // for (i, x) in trie.trie.iter().enumerate() {
+    // //     println!("trie[{}]: {:?} -> func: {:?}, arg: {:?}, body: {:?}", i, x.present, x.func, x.arg, x.body);
+    // // }
+    // for loc in &pattern.match_locations {
+    //     collect_conflicts(*loc, *loc, &locs_set, shared, &mut potential_conflict, Some(ZipTrieSlice::new(&trie)));
+    // }
+    let self_intersects = can_self_unify(&pattern.pattern_args, shared, pattern.match_locations[0]);
+    // println!("potential conflicts: {:?}", potential_conflict);
+    if self_intersects.is_empty() {
+        // if !potential_conflict.is_empty() {
+        //     println!("Pattern: {}", pattern.info(shared));
+        //     let (a, b) = potential_conflict[0];
+        //     println!("Potential conflict between\n{}\n{}", shared.set.get(a), shared.set.get(b));
+        //     panic!("self intersects is empty but potential conflicts are not: {:?}", potential_conflict);
+        // }
+        // no conflicts, so we can just return the utility assuming no corrections
+        return get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once);
+    }
+    let mut relative_utilities = vec![];
+    for (i, loc) in pattern.match_locations.iter().enumerate() {
+        let mut alternate_utility = 0;
+        for zid in &self_intersects {
+            let child = shared.arg_of_zid_node[*zid][loc].unshifted_id;
+            if loc_to_idx.contains_key(&child) {
+                let idx = loc_to_idx[&child];
+                alternate_utility += relative_utilities[idx];
+            }
+        }
+        let mut relative_utility = utility_of_loc_once[i] - alternate_utility;
+        if relative_utility < 0 {
+            relative_utility = 0; // we don't want to count negative utilities
+        }
+        relative_utilities.push(relative_utility);
+    }
+    get_compressive_utility_assuming_no_corrections(pattern, shared, relative_utilities)
+    // // println!("self intersects: {:?}", self_intersects.iter().map(|x| shared.zip_of_zid[*x].clone()).collect::<Vec<_>>());
+    // let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
 
-    let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
+    // let compressive_utility: Cost = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
+    //     root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - (cumulative_utility_of_node[shared.roots[*idx]] as f32 * shared.weight_by_root_idx[*idx])).round() as Cost).min().unwrap()
+    // ).sum::<Cost>();
 
-    let compressive_utility: Cost = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
-        root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - (cumulative_utility_of_node[shared.roots[*idx]] as f32 * shared.weight_by_root_idx[*idx])).round() as Cost).min().unwrap()
-    ).sum::<Cost>();
+    // // pattern.match_locations.
 
-    // pattern.match_locations.
-
-    UtilityCalculation { util: compressive_utility, corrected_utils }
+    // UtilityCalculation { util: compressive_utility, corrected_utils }
 }
 
 //#[inline(never)]
@@ -1570,47 +1640,6 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Option<Vec
     }
     Some(results)
 }
-
-//#[inline(never)]
-/// calculate correction factor for the utility that comes from mutually exclusive match locations, where we need
-/// to pick only one of the locations to apply the invention at.
-fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_of_loc_once: &[Cost]) -> (Vec<Cost>,FxHashMap<Idx,bool>) {
-    let mut cumulative_utility_of_node: Vec<Cost> = vec![0; shared.corpus_span.len()];
-    let mut corrected_utils: FxHashMap<Idx,bool> = Default::default();
-
-    for node in shared.corpus_span.clone() {
-
-        let utility_without_rewrite: Cost = match &shared.set[node] {
-            Node::Lam(b, _) => cumulative_utility_of_node[*b],
-            Node::App(f,x) => cumulative_utility_of_node[*f] + cumulative_utility_of_node[*x],
-            Node::Prim(_) | Node::Var(_, _) => 0,
-            Node::IVar(_) => unreachable!(),
-        };
-
-        assert!(utility_without_rewrite >= 0);
-
-        if let Ok(idx) = pattern.match_locations.binary_search(&node) {
-            // this node is a potential rewrite location
-
-            let utility_of_args: Cost = pattern.pattern_args.iterate_one_zid_per_argument()
-                .map(|zid| cumulative_utility_of_node[shared.arg_of_zid_node[zid][&node].unshifted_id])
-                .sum();
-            let utility_with_rewrite = utility_of_args + utility_of_loc_once[idx];
-
-            let chose_to_rewrite = utility_with_rewrite > utility_without_rewrite;
-
-            cumulative_utility_of_node[node] = std::cmp::max(utility_with_rewrite, utility_without_rewrite);
-
-            corrected_utils.insert(node,chose_to_rewrite);
-
-
-        } else if utility_without_rewrite != 0 {
-            cumulative_utility_of_node[node] = utility_without_rewrite;
-        }
-    }
-    (cumulative_utility_of_node,corrected_utils)
-}
-
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UtilityCalculation {
@@ -2066,7 +2095,7 @@ pub fn construct_shared(
     } else {
         None
     };
-    
+
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
         programs: programs.to_vec(),
