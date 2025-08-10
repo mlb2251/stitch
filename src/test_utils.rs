@@ -1,7 +1,6 @@
 use serde_json::Value;
 use clap::Parser;
 use std::path::Path;
-use std::fs;
 
 use crate::{multistep_compression, Input, MultistepCompressionConfig, InputFormat};
 use crate::util::timestamp;
