@@ -18,7 +18,7 @@ pub fn run_compression_testing(inputs: &Input, cfg: &MultistepCompressionConfig)
 }
 
 
-pub fn write_json_for_diff(out: &Value, expected_out_path: &str) {
+fn write_json_for_diff(out: &Value, expected_out_path: &str) {
     let path = format!("out/test_outputs/{}_{}.json",timestamp(), Path::new(expected_out_path).file_stem().unwrap().to_str().unwrap());
     let out_path = std::path::Path::new(&path);
     if let Some(out_path_dir) = out_path.parent() {
@@ -57,7 +57,7 @@ pub fn compare_out_jsons(file: &str, expected_out_file: &str, args: &str, input_
 
 //todo add write_json_for_diff calls and also make it add a random suffix too
 
-pub fn check_eq(actual: &Value, expected: &Value, path: Vec<String>, out: &Value, expected_out_path: &str) {
+fn check_eq(actual: &Value, expected: &Value, path: Vec<String>, out: &Value, expected_out_path: &str) {
     match (actual,expected) {
         (Value::Null,Value::Null) => {}
         (Value::Bool(actual),Value::Bool(expected)) => {
