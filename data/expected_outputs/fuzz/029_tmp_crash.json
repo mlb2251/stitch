@@ -1,0 +1,104 @@
+{
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/fuzz_symbol_weighting_test-07c6ce7ba98f4348",
+  "args": {
+    "iterations": 1,
+    "abstraction_prefix": "fn_",
+    "previous_abstractions": 0,
+    "shuffle": false,
+    "truncate": null,
+    "no_opt": false,
+    "silent": false,
+    "verbose_rewrite": false,
+    "step": {
+      "max_arity": 3,
+      "threads": 1,
+      "no_stats": false,
+      "batch": 1,
+      "dynamic_batch": false,
+      "eta_long": false,
+      "no_curried_metavars": false,
+      "no_curried_bodies": false,
+      "inv_candidates": 1,
+      "hole_choice": "DepthFirst",
+      "cost": {
+        "cost_lam": 1,
+        "cost_app": 1,
+        "cost_var": 100,
+        "cost_ivar": 100,
+        "cost_prim_default": 100,
+        "cost_prim": "{\"+\":14,\"1\":445,\"cons\":626}"
+      },
+      "no_mismatch_check": false,
+      "follow": null,
+      "follow_prune": false,
+      "verbose_worklist": false,
+      "verbose_best": true,
+      "print_stats": 0,
+      "show_rewritten": false,
+      "rewritten_dreamcoder": false,
+      "rewritten_intermediates": false,
+      "inv_arg_cap": false,
+      "allow_single_task": false,
+      "no_opt_single_use": false,
+      "no_opt_upper_bound": false,
+      "no_opt_force_multiuse": false,
+      "no_opt_useless_abstract": false,
+      "no_opt_arity_zero": false,
+      "no_other_util": false,
+      "structure_penalty": 1.0,
+      "rewrite_check": false,
+      "utility_by_rewrite": false,
+      "dreamcoder_comparison": false,
+      "quiet": false,
+      "fused_lambda_tags": {
+        "tags": null
+      },
+      "tdfa": {
+        "tdfa_json_path": null,
+        "tdfa_root": null,
+        "valid_metavars": null,
+        "valid_roots": null,
+        "tdfa_non_eta_long_states": null,
+        "tdfa_split": null
+      },
+      "symvar": {
+        "symvar_prefix": null
+      }
+    }
+  },
+  "original_cost": 2321,
+  "final_cost": 1269,
+  "compression_ratio": 1.8289992119779355,
+  "num_abstractions": 1,
+  "original": [
+    "(a (lam (cons (car $0))))",
+    "(a (lam (cons (+ 1 (car $0)))))"
+  ],
+  "rewritten": [
+    "(a (lam (fn_0 (car $0))))",
+    "(a (lam (fn_0 (+ 1 (car $0)))))"
+  ],
+  "rewritten_dreamcoder": null,
+  "abstractions": [
+    {
+      "body": "cons",
+      "dreamcoder": "#cons",
+      "arity": 0,
+      "name": "fn_0",
+      "utility": 426,
+      "final_cost": 1269,
+      "compression_ratio": 1.8289992119779355,
+      "cumulative_compression_ratio": 1.8289992119779355,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_0 ": "cons"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    }
+  ]
+}
