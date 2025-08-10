@@ -1,5 +1,11 @@
 use stitch_core::*;
 
+
+#[test]
+fn test_do_not_clobber() {
+    assert!(!CLOBBER, "CLOBBER is true, so the tests will clobber the expected outputs. This should not be committed.");
+}
+
 #[test]
 fn simple1_a1_i1() {
     compare_out_jsons_testing("data/basic/simple1.json", "data/expected_outputs/simple1-a1-i1.json", "-i1 -a1 --rewrite-check", InputFormat::ProgramsList);

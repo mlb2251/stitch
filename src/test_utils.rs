@@ -5,6 +5,8 @@ use std::path::Path;
 use crate::{multistep_compression, Input, MultistepCompressionConfig, InputFormat};
 use crate::util::timestamp;
 
+pub const CLOBBER: bool = false;
+
 pub fn run_compression_testing(inputs: &Input, cfg: &MultistepCompressionConfig) -> Value {
     multistep_compression(
         &inputs.train_programs,
@@ -29,6 +31,9 @@ fn write_json_for_diff(out: &Value, expected_out_path: &str) {
     println!("Wrote test output to {out_path:?} diff with expected out path {expected_out_path:?}");
     println!("Command to replace:");
     println!("cp {out_path:?} {expected_out_path:?}");
+    if CLOBBER {
+        std::fs::copy(out_path, expected_out_path).unwrap();
+    }
 }
 
 pub fn compare_out_jsons_testing(file: &str, expected_out_file: &str, args: &str, input_format: InputFormat) {
@@ -41,6 +46,11 @@ pub fn compare_out_jsons_testing(file: &str, expected_out_file: &str, args: &str
     let output = run_compression_testing(&input, &cfg);
 
     println!("{}", serde_json::to_string(&output).unwrap());
+
+    let expected_out_file_path = std::path::Path::new(expected_out_file);
+    if !expected_out_file_path.exists() {
+        write_json_for_diff(&output, expected_out_file);
+    }
 
     let expected_output: Value = serde_json::from_str(&std::fs::read_to_string(std::path::Path::new(expected_out_file)).unwrap()).unwrap();
 
