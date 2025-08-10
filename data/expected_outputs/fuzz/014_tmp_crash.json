@@ -26,7 +26,7 @@
         "cost_var": 100,
         "cost_ivar": 100,
         "cost_prim_default": 100,
-        "cost_prim": "{\"-\":99,\"+\":97,\"cons\":76}"
+        "cost_prim": "{\"car\":242,\"cons\":13,\"a\":44}"
       },
       "no_mismatch_check": false,
       "follow": null,
@@ -66,38 +66,35 @@
       }
     }
   },
-  "original_cost": 1364,
-  "final_cost": 398,
-  "compression_ratio": 3.4271356783919598,
+  "original_cost": 1008,
+  "final_cost": 724,
+  "compression_ratio": 1.3922651933701657,
   "num_abstractions": 1,
   "original": [
-    "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))",
-    "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
+    "(a (lam (cons (car $0))))",
+    "(a (lam (cons (+ 1 (car $0)))))"
   ],
   "rewritten": [
-    "(fn_0 +)",
-    "(fn_0 -)"
+    "(a (lam (cons (fn_0 $0))))",
+    "(a (lam (cons (+ 1 (fn_0 $0)))))"
   ],
   "rewritten_dreamcoder": null,
   "abstractions": [
     {
-      "body": "(Y (lam (lam (is_nil $0 nil (cons (#0 $0))))))",
-      "dreamcoder": "#(lambda (Y (lambda (lambda (is_nil $0 nil (cons ($2 $0)))))))",
-      "arity": 1,
+      "body": "car",
+      "dreamcoder": "#car",
+      "arity": 0,
       "name": "fn_0",
-      "utility": 382,
-      "final_cost": 398,
-      "compression_ratio": 3.4271356783919598,
-      "cumulative_compression_ratio": 3.4271356783919598,
+      "utility": 42,
+      "final_cost": 724,
+      "compression_ratio": 1.3922651933701657,
+      "cumulative_compression_ratio": 1.3922651933701657,
       "num_uses": 2,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_0 +": "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))"
-        },
-        {
-          "fn_0 -": "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
+          "fn_0 ": "car"
         }
       ],
       "dc_comparison_millis": null,

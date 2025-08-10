@@ -26,7 +26,7 @@
         "cost_var": 100,
         "cost_ivar": 100,
         "cost_prim_default": 100,
-        "cost_prim": "{\"-\":99,\"+\":97,\"cons\":76}"
+        "cost_prim": "{\"1\":51,\"2\":235,\"L3\":920}"
       },
       "no_mismatch_check": false,
       "follow": null,
@@ -66,38 +66,59 @@
       }
     }
   },
-  "original_cost": 1364,
-  "final_cost": 398,
-  "compression_ratio": 3.4271356783919598,
-  "num_abstractions": 1,
+  "original_cost": 4838,
+  "final_cost": 400,
+  "compression_ratio": 12.095,
+  "num_abstractions": 2,
   "original": [
-    "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))",
-    "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
+    "(+ (+ 1 2) (+ 3 4))",
+    "(+ (+ 1 2) (+ 3 4))",
+    "(* (/ 5 6) (& L1 L2 L3))",
+    "(* (/ 5 6) (& L1 L2 L3))"
   ],
   "rewritten": [
-    "(fn_0 +)",
-    "(fn_0 -)"
+    "fn_1",
+    "fn_1",
+    "fn_0",
+    "fn_0"
   ],
   "rewritten_dreamcoder": null,
   "abstractions": [
     {
-      "body": "(Y (lam (lam (is_nil $0 nil (cons (#0 $0))))))",
-      "dreamcoder": "#(lambda (Y (lambda (lambda (is_nil $0 nil (cons ($2 $0)))))))",
-      "arity": 1,
+      "body": "(* (/ 5 6) (& L1 L2 L3))",
+      "dreamcoder": "#(* (/ 5 6) (& L1 L2 L3))",
+      "arity": 0,
       "name": "fn_0",
-      "utility": 382,
-      "final_cost": 398,
-      "compression_ratio": 3.4271356783919598,
-      "cumulative_compression_ratio": 3.4271356783919598,
+      "utility": 1427,
+      "final_cost": 1784,
+      "compression_ratio": 2.7118834080717487,
+      "cumulative_compression_ratio": 2.7118834080717487,
       "num_uses": 2,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_0 +": "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))"
-        },
+          "fn_0 ": "(* (/ 5 6) (& L1 L2 L3))"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    },
+    {
+      "body": "(+ (+ 1 2) (+ 3 4))",
+      "dreamcoder": "#(+ (+ 1 2) (+ 3 4))",
+      "arity": 0,
+      "name": "fn_1",
+      "utility": 592,
+      "final_cost": 400,
+      "compression_ratio": 4.46,
+      "cumulative_compression_ratio": 12.095,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
         {
-          "fn_0 -": "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
+          "fn_1 ": "(+ (+ 1 2) (+ 3 4))"
         }
       ],
       "dc_comparison_millis": null,

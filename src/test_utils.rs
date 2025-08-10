@@ -5,7 +5,7 @@ use std::path::Path;
 use crate::{multistep_compression, Input, MultistepCompressionConfig, InputFormat};
 use crate::util::timestamp;
 
-pub const CLOBBER: bool = false;
+pub const CLOBBER: bool = true;
 
 pub fn run_compression_testing(inputs: &Input, cfg: &MultistepCompressionConfig) -> Value {
     multistep_compression(

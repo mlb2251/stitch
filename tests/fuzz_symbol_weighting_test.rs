@@ -2,10 +2,12 @@ use std::time::Duration;
 use std::thread;
 use std::sync::mpsc;
 
+use rand_chacha::rand_core::{RngCore, SeedableRng};
+use rand_chacha::ChaCha8Rng;
+use rand_chacha; // 0.3.0
 use stitch_core::*;
 use stitch_core::test_utils::compare_out_jsons_testing;
 use std::fs;
-use rand::prelude::*;
 use test_case::test_matrix;
 
 fn collect_test_files() -> Vec<std::path::PathBuf> {
@@ -22,8 +24,10 @@ fn collect_test_files() -> Vec<std::path::PathBuf> {
     test_files
 }
 
-fn select_random_file<'a>(files: &'a [std::path::PathBuf], rng: &mut impl Rng) -> String {
-    files.choose(rng).unwrap().to_str().unwrap().to_owned()
+fn select_random_file<'a>(files: &'a [std::path::PathBuf], rng: &mut ChaCha8Rng) -> String {
+    // files.choose(rng).unwrap().to_str().unwrap().to_owned()
+    let index = rng.next_u64() as usize % files.len();
+    files[index].to_str().unwrap().to_owned()
 }
 
 fn extract_unique_symbols(input: &Input) -> std::collections::HashSet<String> {
@@ -42,19 +46,24 @@ fn extract_unique_symbols(input: &Input) -> std::collections::HashSet<String> {
     symbols
 }
 
-fn select_random_symbols<'a>(symbols: &'a [String], n: usize, rng: &mut impl Rng) -> Vec<&'a String> {
+fn select_random_symbols<'a>(symbols: &'a [String], n: usize, rng: &mut ChaCha8Rng) -> Vec<&'a String> {
+    let mut selected = Vec::new();
     let mut indices: Vec<usize> = (0..symbols.len()).collect();
-    indices.shuffle(rng);
-    indices.into_iter().take(n).map(|i| &symbols[i]).collect()
+    while selected.len() < n && !indices.is_empty() {
+        let index = rng.next_u64() as usize % indices.len();
+        selected.push(&symbols[indices[index]]);
+        indices.remove(index);
+    }
+    selected
 }
 
-fn generate_random_weights(selected_symbols: &[&String], rng: &mut impl Rng) -> serde_json::Value {
+fn generate_random_weights(selected_symbols: &[&String], rng: &mut ChaCha8Rng) -> serde_json::Value {
     let mut cost_prims = serde_json::json!({});
     for symbol in selected_symbols {
-        let weight = if rng.gen_bool(0.5) {
-            rng.gen_range(1..100)
+        let weight = if rng.next_u64() % 2 == 0 {
+            rng.next_u64() % 100 + 1 // Random weight between 1 and 100
         } else {
-            rng.gen_range(100..1000)
+            rng.next_u64() % 1000 + 101 // Random weight between 101 and 1100
         };
         cost_prims[symbol] = serde_json::json!(weight);
     }
@@ -71,7 +80,7 @@ fn run_fuzz_compression(cost_prims: &serde_json::Value, test_file: &String, seed
 #[test_matrix(1..=100)]
 fn fuzz_test_symbol_weighting(seed: u64) {
     println!("\nRunning fuzz test with seed {}", seed);
-    let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
     let test_files = collect_test_files();
     let test_file = select_random_file(&test_files, &mut rng);
     let input = InputFormat::ProgramsList.load_programs_and_tasks(std::path::Path::new(&test_file)).unwrap();

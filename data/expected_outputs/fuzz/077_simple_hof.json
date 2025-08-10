@@ -26,7 +26,7 @@
         "cost_var": 100,
         "cost_ivar": 100,
         "cost_prim_default": 100,
-        "cost_prim": "{\"-\":99,\"+\":97,\"cons\":76}"
+        "cost_prim": "{\"b\":368,\"a\":557}"
       },
       "no_mismatch_check": false,
       "follow": null,
@@ -66,38 +66,58 @@
       }
     }
   },
-  "original_cost": 1364,
-  "final_cost": 398,
-  "compression_ratio": 3.4271356783919598,
-  "num_abstractions": 1,
+  "original_cost": 3374,
+  "final_cost": 1076,
+  "compression_ratio": 3.1356877323420074,
+  "num_abstractions": 2,
   "original": [
-    "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))",
-    "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
+    "(a (lam (a $0 (a $0))))",
+    "(a (lam ($0 b ($0 b))))"
   ],
   "rewritten": [
-    "(fn_0 +)",
-    "(fn_0 -)"
+    "(fn_0 (lam (fn_1 (fn_0 $0))))",
+    "(fn_0 (lam (fn_1 ($0 b))))"
   ],
   "rewritten_dreamcoder": null,
   "abstractions": [
     {
-      "body": "(Y (lam (lam (is_nil $0 nil (cons (#0 $0))))))",
-      "dreamcoder": "#(lambda (Y (lambda (lambda (is_nil $0 nil (cons ($2 $0)))))))",
-      "arity": 1,
+      "body": "a",
+      "dreamcoder": "#a",
+      "arity": 0,
       "name": "fn_0",
-      "utility": 382,
-      "final_cost": 398,
-      "compression_ratio": 3.4271356783919598,
-      "cumulative_compression_ratio": 3.4271356783919598,
+      "utility": 1271,
+      "final_cost": 1546,
+      "compression_ratio": 2.182406209573092,
+      "cumulative_compression_ratio": 2.182406209573092,
+      "num_uses": 4,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_0 ": "a"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    },
+    {
+      "body": "(#0 #0)",
+      "dreamcoder": "#(lambda ($0 $0))",
+      "arity": 1,
+      "name": "fn_1",
+      "utility": 469,
+      "final_cost": 1076,
+      "compression_ratio": 1.436802973977695,
+      "cumulative_compression_ratio": 3.1356877323420074,
       "num_uses": 2,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_0 +": "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))"
+          "fn_1 ($0 b)": "($0 b ($0 b))"
         },
         {
-          "fn_0 -": "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
+          "fn_1 (fn_0 $0)": "(fn_0 $0 (fn_0 $0))"
         }
       ],
       "dc_comparison_millis": null,
