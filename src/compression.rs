@@ -683,7 +683,6 @@ pub struct SharedData {
     pub zid_of_zip: FxHashMap<Vec<ZNode>, ZId>,
     pub extensions_of_zid: Vec<ZIdExtension>,
     pub set: ExprSet,
-    pub parent_of_node: Vec<Vec<(ZNode, Idx)>>,
     pub num_paths_to_node: Vec<Cost>,
     pub num_paths_to_node_by_root_idx: Vec<Vec<Cost>>,
     pub tdfa_global_annotations: Option<TDFAGlobalAnnotations>,
@@ -2159,8 +2158,6 @@ pub fn construct_shared(
         None
     };
 
-    let parent_of_node = compute_parents_of(&set);
-    
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
         programs: programs.to_vec(),
@@ -2177,7 +2174,6 @@ pub fn construct_shared(
         zid_of_zip,
         extensions_of_zid,
         set,
-        parent_of_node,
         num_paths_to_node,
         num_paths_to_node_by_root_idx,
         tdfa_global_annotations,
