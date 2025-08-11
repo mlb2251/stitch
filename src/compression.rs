@@ -1553,23 +1553,22 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         // no conflicts, so we can just return the utility assuming no corrections
         return compressive_utility_from_marginals(pattern, shared, marginal_utilities);
     }
-    let mut relative_utilities = vec![];
+    let mut marginal_utilities = marginal_utilities;
     for (i, loc) in pattern.match_locations.iter().enumerate() {
         let mut alternate_utility = 0;
         for zid in &self_intersects {
             let child = shared.arg_of_zid_node[*zid][loc].unshifted_id;
             if loc_to_idx.contains_key(&child) {
                 let idx = loc_to_idx[&child];
-                alternate_utility += relative_utilities[idx];
+                alternate_utility += marginal_utilities[idx];
             }
         }
-        let mut relative_utility = marginal_utilities[i] - alternate_utility;
-        if relative_utility < 0 {
-            relative_utility = 0; // we don't want to count negative utilities
+        marginal_utilities[i] -= alternate_utility;
+        if marginal_utilities[i] < 0 {
+            marginal_utilities[i] = 0; // we don't want to count negative utilities
         }
-        relative_utilities.push(relative_utility);
     }
-    compressive_utility_from_marginals(pattern, shared, relative_utilities)
+    compressive_utility_from_marginals(pattern, shared, marginal_utilities)
 }
 
 //#[inline(never)]
