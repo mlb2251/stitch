@@ -1489,8 +1489,10 @@ fn compressive_utility_upper_bound(
     root_idxs_of_task.iter().map(|root_idxs|
         match_locations.iter().map(|node|
             root_idxs.iter().map(|idx|
-                weight_by_root_idx[*idx] * (num_paths_to_node_by_root_idx[*idx][*node] *
-                (analyzed_cost[*node] as Cost - cost_fn.compute_cost_new_prim() as Cost)) as f32
+                f32::max(0.,
+                    weight_by_root_idx[*idx] * (num_paths_to_node_by_root_idx[*idx][*node] *
+                    (analyzed_cost[*node] as Cost - cost_fn.compute_cost_new_prim() as Cost)) as f32
+                )
             ).fold(0.0, |acc, x| f32::max(acc, x))
         ).sum::<f32>()
     ).sum::<f32>().ceil() as Cost
