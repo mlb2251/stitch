@@ -151,6 +151,7 @@ fn main() {
         InputFormat::ProgramsList => {
             let json: Value = json!({ "rewritten": rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>() });
             std::fs::write(&args.out, serde_json::to_string_pretty(&json).unwrap()).unwrap();
-        }
+        },
+        InputFormat::ProgramsByTask => todo!(),
     }
 }

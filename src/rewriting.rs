@@ -44,17 +44,20 @@ pub fn rewrite_fast(
             //  if !shared.cfg.quiet { println!("inv applies at unshifted={} with shift={}", extract(unshifted_id,&shared.egraph), shift) }
             let mut expr = owned_set.add(inv_name.clone());
             // wrap the prim in all the Apps to args
-            for (_ivar,zid) in pattern.pattern.first_zid_of_ivar.iter().enumerate() {
+            for (ivar,zid) in pattern.pattern.first_zid_of_ivar.iter().enumerate() {
                 let arg: &Arg = &shared.arg_of_zid_node[*zid][&unshifted_id];
+                let threading_amt = pattern.util_calc.context_threading[ivar];
 
-                if arg.shift != 0 {
+                // context threading: we actually can just skip on shifting things if we're threading. I dont totally know how
+                // this works when nested with other shift rules though. But in this case we can just skip the shift rule
+                // because we'll be adding as many lambdas as we hoist it over
+                if arg.shift != 0 && threading_amt == 0 {
                     shift_rules.push(ShiftRule{depth_cutoff: total_depth, shift: arg.shift});
                     // println!("pushing shift rule: {:?}", shift_rules.last().unwrap());
                 }
-                // println!("rewriting arg: {}", shared.set.get(arg.unshifted_id));
                 // recurse with the shift added (subtracted since it's negative) to the depth
-                let mut rewritten_arg = helper(owned_set, pattern, shared, arg.unshifted_id, total_depth - arg.shift, shift_rules, inv_name);
-                if arg.shift != 0 {
+                let mut rewritten_arg: usize = helper(owned_set, pattern, shared, arg.unshifted_id, total_depth - arg.shift, shift_rules, inv_name);
+                if arg.shift != 0 && threading_amt == 0 {
                     // println!("popping shift rule");
                     shift_rules.pop(); // pop the rule back off after
                 }
@@ -90,6 +93,23 @@ pub fn rewrite_fast(
                         rewritten_arg = shifted_rewritten_arg;
                     }
                 }
+
+
+                // context threading
+                if threading_amt > 0 {
+                    // println!("threading_amt: {}", pattern.util_calc.context_threading[ivar]);
+                    // shift body by arity_of_arg
+                    // let mut shifted_rewritten_arg = owned_set.get_mut(rewritten_arg).shift(threading_amt as i32, 0, &mut AnalyzedExpr::new(FreeVarAnalysis));
+                    // shifted_rewritten_arg = ivars_to_vars(&mut owned_set.get_mut(shifted_rewritten_arg));
+                    // wrap in lambdas: e => (lam (lam e))
+                    for _ in 0..threading_amt {
+                        // Just hardcode -1 here, there's no way to infer the tag of the new var
+                        // In practice, eta long form should not be used with tagged inputs
+                        rewritten_arg = owned_set.add(Node::Lam(rewritten_arg, -1));
+                    }
+                    // rewritten_arg = shifted_rewritten_arg;
+                }
+
 
 
                 expr = owned_set.add(Node::App(expr, rewritten_arg));

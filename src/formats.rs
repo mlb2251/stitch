@@ -9,7 +9,8 @@ use serde_json::de::from_reader;
 #[derive(Debug, Clone, ArgEnum, Serialize)]
 pub enum InputFormat {
     Dreamcoder,
-    ProgramsList
+    ProgramsList,
+    ProgramsByTask,
 }
 
 #[derive(Debug, Clone)]
@@ -64,6 +65,26 @@ impl InputFormat {
                 let input = Input {
                     train_programs: programs,
                     tasks: None,
+                    name_mapping: None,
+                };
+                Ok(input)
+            },
+            InputFormat::ProgramsByTask => {
+                let tasks: Vec<Value> = from_reader(File::open(path).expect("file not found")).expect("json deserializing error");
+                let mut programs: Vec<String> = vec![];
+                let mut task_names: Vec<String> = vec![];
+                for task in tasks {
+                    let task_name = task["task"].as_str().unwrap_or_else(||panic!("json parse error, are you sure you wanted format {:?}?", self)).to_string();
+                    for program in task["programs"].as_array().unwrap_or_else(||panic!("json parse error, are you sure you wanted format {:?}?", self)) {
+                        programs.push(program.as_str().unwrap().to_string());
+                        task_names.push(task_name.clone());
+                    }
+                }
+
+                // let programs: Vec<String> = from_reader(File::open(path).map_err(|e| format!("file not found, error code {e:?}"))?).map_err(|e| format!("json parser error, are you sure you wanted format {self:?}? Error code was {e:?}"))?;
+                let input = Input {
+                    train_programs: programs,
+                    tasks: Some(task_names),
                     name_mapping: None,
                 };
                 Ok(input)

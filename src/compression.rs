@@ -104,6 +104,10 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub no_curried_bodies: bool,
 
+    /// Enabled a limited form of context threading
+    #[clap(long)]
+    pub context_threading: bool,
+
     /// [currently not used] Number of invention candidates compression_step should return in a *single* step. Note that
     /// these will be the top n optimal candidates modulo subsumption pruning (and the top-1 is guaranteed
     /// to be globally optimal)
@@ -1272,7 +1276,17 @@ impl FinishedPattern {
     }
     // convert finished invention to an Expr
     pub fn to_expr(&self, shared: &SharedData) -> ExprOwned {
-        self.pattern.to_expr(shared)
+        let res = self.pattern.to_expr(shared);
+        let mut idx = res.idx;
+        let mut set = res.set;
+        // now fix up any ivars that need to be context threaded
+        let context_threading = &self.util_calc.context_threading;
+        for (ivar, threading_amt)  in context_threading.iter().enumerate() {
+            if *threading_amt > 0 {
+                idx = add_context_threading(&mut set.get_mut(idx), ivar as i32, *threading_amt as i32);
+            }
+        }
+        ExprOwned { idx, set }
     }
     pub fn to_invention(&self, name: &str, shared: &SharedData) -> Invention {
         Invention::new(self.to_expr(shared), self.arity, name)
@@ -1606,7 +1620,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     // Roughly speaking compressive utility is num_usages(invention) * size(invention), however there are a few extra
     // terms we need to take care of too.
 
-    let utility_of_loc_once: Vec<i32> = get_utility_of_loc_once(pattern, shared);
+    let (utility_of_loc_once, context_threading) = get_utility_of_loc_once(pattern, shared);
 
     let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
 
@@ -1614,13 +1628,12 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - (cumulative_utility_of_node[shared.roots[*idx]] as f32 * shared.weight_by_root_idx[*idx])).round() as i32).min().unwrap()
     ).sum::<i32>();
 
-    // pattern.match_locations.
 
-    UtilityCalculation { util: compressive_utility, corrected_utils }
+    UtilityCalculation { util: compressive_utility, corrected_utils, context_threading }
 }
 
 //#[inline(never)]
-fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
+fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> (Vec<i32>, Vec<usize>) {
     // it costs a tiny bit to apply the invention, for example (app (app inv0 x) y) incurs a cost
     // of COST_TERMINAL for the `inv0` primitive and 2 * COST_NONTERMINAL for the two `app`s.
     // Also an extra COST_NONTERMINAL for each argument that is refined (for the lambda).
@@ -1630,13 +1643,69 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
     let ivar_multiuses: Vec<(usize,i32)> = pattern.arg_choices.iter().map(|labelled|labelled.ivar).counts()
         .iter().filter_map(|(ivar,count)| if *count > 1 { Some((*ivar, (*count-1) as i32)) } else { None }).collect();
 
-    pattern.match_locations.iter().map(|loc| {
+    // Context threading: if a variables refers to an argument bound by a lambda within the body of of
+    // the abstraction itself, then we need to thread that variable from the body context to the argument context
+    // by wrapping the abstraction in a lambda and then applying it within the body.
+    let context_threading: Vec<usize> = pattern.first_zid_of_ivar.iter().enumerate().map(|(ivar,zid)| {
+
+        if !shared.cfg.context_threading {
+            return 0 // no threading
+        }
+
+        // forbid context threading if the variable is used more than once
+        if ivar_multiuses.iter().any(|(ivar2,_count)| *ivar2 == ivar) {
+            return 0 // no threading
+        }
+        // context threading is only needed if analyzed ivars is nonempty which indicates that the variable is used in the body
+        if pattern.match_locations.iter().any(|loc| {
+            let shifted_arg = shared.arg_of_zid_node[*zid][loc].shifted_id;
+            return !shared.analyzed_ivars[shifted_arg].is_empty()    
+            // return shared.analyzed_free_vars[shifted_arg].iter().any(|fv| *fv < 0)
+        }) {
+            // let threading_amt = shared.zip_of_zid[*zid].iter().filter(|z| **z == ZNode::Body ).count();
+
+            
+            let threading_amt = (pattern.match_locations.iter().filter_map(|loc| {
+                let unshifted_arg = shared.arg_of_zid_node[*zid][loc].unshifted_id;
+                return shared.analyzed_free_vars[unshifted_arg].iter().max()
+            }).max().unwrap() + 1) as usize;
+
+            // let threading_amt = (pattern.match_locations.iter().filter_map(|loc| {
+            //     let shifted_arg = shared.arg_of_zid_node[*zid][loc].shifted_id;
+            //     return shared.analyzed_ivars[shifted_arg].iter().max()
+            // }).max().unwrap() + 1) as usize;
+
+
+            // TODO calcluate which vars need to be threaded here, thru a loop over match locs.
+            // Just make an array of booleans of length equal to the threading amt, and mutate it in the loop
+            // to OR in the vars that need to be threaded.
+            // let mut threading_vars = vec![false; threading_amt];
+            // for loc in pattern.match_locations.iter() {
+            //     let shifted_arg = shared.arg_of_zid_node[*zid][loc].shifted_id;
+            //     for fv in shared.analyzed_ivars[shifted_arg].iter() {
+            //         // this somehow tells us the index...   
+            //     }
+            // }
+                
+
+            return threading_amt
+        } else {
+            return 0 // no threading
+        }
+    }).collect();
+
+    let res = pattern.match_locations.iter().map(|loc| {
 
         //  if there are any free ivars in the arg at this location then we can't apply this invention here so *total* util should be 0
-        for (_ivar,zid) in pattern.first_zid_of_ivar.iter().enumerate() {
+        for (ivar,zid) in pattern.first_zid_of_ivar.iter().enumerate() {
             let shifted_arg = shared.arg_of_zid_node[*zid][loc].shifted_id;
             if !shared.analyzed_ivars[shifted_arg].is_empty() {
-                return 0; // set whole util to 0 for this loc, causing an autoreject
+            // if shared.analyzed_free_vars[shifted_arg].iter().any(|fv| *fv < 0) {
+                if context_threading[ivar] == 0 {
+                    return 0 // context threading was forbidden here
+                }
+                    // if we need to thread this variable then we can't apply this invention here so *total* util should be 0
+                // return 0; // set whole util to 0 for this loc, causing an autoreject
             }
         }
 
@@ -1654,7 +1723,8 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Vec<i32> {
         // if !shared.cfg.quiet { println!("multiuse {}", multiuse_utility) }
 
         base_utility + multiuse_utility
-    }).collect()
+    }).collect();
+    (res, context_threading)
 }
 
 //#[inline(never)]
@@ -1702,6 +1772,7 @@ fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_o
 pub struct UtilityCalculation {
     pub util: i32,
     pub corrected_utils: FxHashMap<Idx,bool>, // whether to accept
+    pub context_threading: Vec<usize> // which ivars need to be threaded and if so then how many context vars should be threaded
 }
 
 // (not used in popl code - experimental)
@@ -2102,7 +2173,7 @@ pub fn compression_step(
                 pattern,
                 utility,
                 compressive_utility,
-                util_calc: UtilityCalculation { util: compressive_utility, corrected_utils: Default::default()},
+                util_calc: UtilityCalculation { util: compressive_utility, corrected_utils: Default::default(), context_threading: Default::default() },
                 arity: 0,
                 usages: num_paths_to_node[node]
             };

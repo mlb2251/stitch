@@ -58,7 +58,7 @@ pub fn insert_arg_ivars(e: &mut ExprMut, set_to: i32, init_depth: i32, analyzed_
 
     match e.node().clone() {
         Node::Prim(_) => e.idx,
-        Node::Var(i, _) => if i == init_depth { e.set.add(Node::IVar(set_to)) } else { e.idx },
+        Node::Var(i, _) => if i == init_depth { e.set.add(Node::IVar(i)) } else { e.idx },
         Node::IVar(_) => e.idx,
         Node::App(f, x) => {
             let f = insert_arg_ivars(&mut e.get(f), set_to, init_depth, analyzed_free_vars);
@@ -71,3 +71,45 @@ pub fn insert_arg_ivars(e: &mut ExprMut, set_to: i32, init_depth: i32, analyzed_
         },
     }
 }
+
+pub fn add_context_threading(e: &mut ExprMut, ivar: i32, threading_amt: i32) -> Idx {
+    match e.node().clone() {
+        Node::Prim(_) => e.idx,
+        Node::Var(_, _) => e.idx,
+        Node::IVar(i) => if i == ivar {
+            let mut expr = e.idx;
+            for j in (0..threading_amt).rev() {
+                let var = e.set.add(Node::Var(j, -1));
+                expr = e.set.add(Node::App(expr, var))
+            }
+            expr
+        } else { e.idx },
+        Node::App(f, x) => {
+            let f = add_context_threading(&mut e.get(f), ivar, threading_amt);
+            let x = add_context_threading(&mut e.get(x), ivar, threading_amt);
+            e.set.add(Node::App(f, x))
+        },
+        Node::Lam(b, tag) => {
+            let b = add_context_threading(&mut e.get(b), ivar, threading_amt);
+            e.set.add(Node::Lam(b, tag))
+        },
+    }
+}
+
+// #[inline]
+// pub fn ivars_to_vars(e: &mut ExprMut) -> Idx {
+//     match e.node().clone() {
+//         Node::Prim(_) => e.idx,
+//         Node::Var(_, _) => e.idx,
+//         Node::IVar(i) => e.set.add(Node::Var(i, -1)),
+//         Node::App(f, x) => {
+//             let f = ivars_to_vars(&mut e.get(f));
+//             let x = ivars_to_vars(&mut e.get(x));
+//             e.set.add(Node::App(f, x))
+//         },
+//         Node::Lam(b, tag) => {
+//             let b = ivars_to_vars(&mut e.get(b));
+//             e.set.add(Node::Lam(b, tag))
+//         },
+//     }
+// }

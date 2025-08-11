@@ -1,0 +1,20 @@
+[
+    {
+        "task": "boop",
+        "programs": [
+            "((Y{list,list} (lam (lam (case{list} $0 make_nil (lam (lam (cons (- $1 1) ($3 $0)))))))) $0)"
+        ]
+    },
+    {
+        "task": "beep",
+        "programs": [
+            "((Y{list,list} (lam (lam (case{list} $0 make_nil (lam (lam (cons (+ $1 $1) ($3 $0)))))))) $0)"
+        ]
+    },
+    {
+        "task": "bop",
+        "programs": [
+            "((Y{list,list} (lam (lam (case{list} $0 make_nil (lam (lam (cons (+ 1 $1) ($3 $0)))))))) $0)"
+        ]
+    }
+]

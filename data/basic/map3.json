@@ -1,0 +1,5 @@
+[
+    "((Y{list,list} (lam (lam (case{list} $0 make_nil (lam (lam (cons (- $1 1) ($3 $0)))))))) $0)",
+    "((Y{list,list} (lam (lam (case{list} $0 make_nil (lam (lam (cons (+ $1 $1) ($3 $0)))))))) $0)",
+    "((Y{list,list} (lam (lam (case{list} $0 make_nil (lam (lam (cons (+ 1 $1) ($3 $0)))))))) $0)"
+]
