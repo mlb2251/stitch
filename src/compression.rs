@@ -428,7 +428,7 @@ impl CostConfig {
 impl Pattern {
     /// create a single hole pattern `??`
     //#[inline(never)]
-    fn single_hole(corpus_span: &Span, cost_of_node_sym: &[Cost], cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], tdfa_global_annotations: &Option<TDFAGlobalAnnotations>, set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
+    fn single_hole(corpus_span: &Span, cost_fn: &ExprCost, cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], tdfa_global_annotations: &Option<TDFAGlobalAnnotations>, set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
         let body_utility = 0;
         let mut match_locations: Vec<Idx> = corpus_span.clone().collect();
         match_locations.sort(); // we assume match_locations is always sorted
@@ -494,7 +494,7 @@ impl Pattern {
             match_locations.retain(|node| expands_to_of_node(&set[*node]).is_lam());
         }
 
-        let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_of_node_sym, cost_of_node_all, num_paths_to_node, cfg);
+        let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_fn, cost_of_node_all, num_paths_to_node, cfg);
         Pattern {
             holes: vec![EMPTY_ZID], // (zid 0 is the empty zipper)
             pattern_args: PatternArgs::default(),
@@ -637,7 +637,6 @@ pub struct SharedData {
     pub task_name_of_task: Vec<String>,
     pub task_of_root_idx: Vec<usize>,
     pub root_idxs_of_task: Vec<Vec<usize>>,
-    pub cost_of_node_sym: Vec<Cost>,
     pub cost_of_node_all: Vec<Cost>,
     pub init_cost: Cost,
     pub init_cost_weighted: Cost,
@@ -981,8 +980,8 @@ fn stitch_search(
                 let body_utility = original_pattern.body_utility + expands_to.local_expansion_utility(&shared);
 
                 // update the upper bound
-                let util_upper_bound: Cost = utility_upper_bound(&locs, body_utility, &shared.cost_of_node_sym, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
-                assert!(util_upper_bound <= original_pattern.utility_upper_bound);
+                let util_upper_bound: Cost = utility_upper_bound(&locs, body_utility, &shared.cost_fn, &shared.cost_of_node_all, &shared.num_paths_to_node, &shared.cfg);
+                assert!(util_upper_bound <= original_pattern.utility_upper_bound, "{} > {}", util_upper_bound, original_pattern.utility_upper_bound);
 
                 // Pruning (UPPER BOUND): if the upper bound is less than the best invention we've found so far (our cutoff), we can discard this pattern
                 if !shared.cfg.no_opt_upper_bound && util_upper_bound <= weak_utility_pruning_cutoff {
@@ -1445,12 +1444,12 @@ impl fmt::Display for CompressionStepResult {
 fn utility_upper_bound(
     match_locations: &[Idx],
     body_utility_lower_bound: Cost,
-    cost_of_node_sym: &[Cost],
+    cost_fn: &ExprCost,
     cost_of_node_all: &[Cost],
     num_paths_to_node: &[Cost],
     cfg: &CompressionStepConfig,
 ) -> Cost {
-    compressive_utility_upper_bound(match_locations, cost_of_node_sym, cost_of_node_all, num_paths_to_node)
+    compressive_utility_upper_bound(match_locations, cost_fn, cost_of_node_all, num_paths_to_node)
         + noncompressive_utility_upper_bound(body_utility_lower_bound, cfg)
 }
 
@@ -1474,13 +1473,13 @@ fn noncompressive_utility(
 //#[inline(never)]
 fn compressive_utility_upper_bound(
     match_locations: &[Idx],
-    cost_of_node_sym: &[Cost],
+    cost_fn: &ExprCost,
     cost_of_node_all: &[Cost],
     num_paths_to_node: &[Cost],
 ) -> Cost {
     match_locations.iter().map(|node|
-        cost_of_node_all[*node] 
-        - num_paths_to_node[*node] * cost_of_node_sym[*node]).sum::<Cost>()
+        std::cmp::max(0, cost_of_node_all[*node] - num_paths_to_node[*node] * cost_fn.compute_cost_new_prim() as Cost)
+    ).sum::<Cost>()
     
     // shared.init_cost - shared.root_idxs_of_task.iter().map(|root_idxs|
     //     root_idxs.iter().map(|idx| shared.init_cost_by_root_idx[*idx] - adjusted_util_by_root_idx[*idx]).min().unwrap()
@@ -1892,10 +1891,6 @@ pub fn construct_shared(
     if !cfg.quiet { println!("num unique programs: {}", roots.len()) }
     tstart = std::time::Instant::now();
     
-    // cost of just the symbolic cost of a node, ie the cost of the node itself without the children
-    let cost_of_node_sym: Vec<Cost> = corpus_span.clone().map(
-        |node| cost_fn.compute_cost_at_node(&set[node]) as Cost
-    ).collect();
     // cost of a single usage times number of paths to node
     let cost_of_node_all: Vec<Cost> = corpus_span.clone().map(|node| analyzed_cost[node] as Cost * num_paths_to_node[node]).collect();
 
@@ -1957,7 +1952,7 @@ pub fn construct_shared(
 
     let tdfa_global_annotations = TDFAGlobalAnnotations::new(cfg, &set, &roots, prev_results, &sym_var_info);
 
-    let single_hole = Pattern::single_hole(&corpus_span, &cost_of_node_sym, &cost_of_node_all, &num_paths_to_node, &tdfa_global_annotations, &set, cfg);
+    let single_hole = Pattern::single_hole(&corpus_span, cost_fn, &cost_of_node_all, &num_paths_to_node, &tdfa_global_annotations, &set, cfg);
 
     let mut azero_pruning_cutoff = 0;
 
@@ -2090,7 +2085,6 @@ pub fn construct_shared(
         task_name_of_task,
         task_of_root_idx,
         root_idxs_of_task,
-        cost_of_node_sym,
         cost_of_node_all,
         init_cost,
         init_cost_weighted,
