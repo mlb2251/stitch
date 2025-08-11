@@ -99,9 +99,11 @@ pub fn replace_prim_with(s: &str, prim: &str, new: &str) -> String {
     res
 }
 
+type SparseNumPaths = Vec<Vec<(usize, Cost)>>;
+
 /// Returns a vec from node Idx to number of places that node is used in the tree. Essentially this just
 /// follows all paths down from the root and logs how many times it encounters each node
-pub fn num_paths_to_node(roots: &[Idx], corpus_span: &Span, set: &ExprSet) -> (Vec<Cost>, Vec<Vec<Cost>>, Vec<Vec<(usize, Cost)>>) {
+pub fn num_paths_to_node(roots: &[Idx], corpus_span: &Span, set: &ExprSet) -> (Vec<Cost>, Vec<Vec<Cost>>, SparseNumPaths) {
     let mut num_paths_to_node_by_root_idx: Vec<Vec<Cost>> = vec![vec![0; corpus_span.len()]; roots.len()];
 
     fn helper(num_paths_to_node: &mut Vec<Cost>, idx: Idx, set: &ExprSet) {
