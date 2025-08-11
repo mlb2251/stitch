@@ -26,7 +26,7 @@
         "cost_var": 100,
         "cost_ivar": 100,
         "cost_prim_default": 100,
-        "cost_prim": "{\"-\":99,\"+\":97,\"cons\":76}"
+        "cost_prim": "{\"dec\":71,\"app\":89,\"plus\":892}"
       },
       "no_mismatch_check": false,
       "follow": null,
@@ -66,38 +66,69 @@
       }
     }
   },
-  "original_cost": 1364,
-  "final_cost": 398,
-  "compression_ratio": 3.4271356783919598,
-  "num_abstractions": 1,
+  "original_cost": 5649,
+  "final_cost": 1659,
+  "compression_ratio": 3.4050632911392404,
+  "num_abstractions": 2,
   "original": [
-    "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))",
-    "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
+    "(lam (app (app cons (app inc $0)) (app (app cons (app inc $0)) empty)))",
+    "(lam (app (app cons (app dec $0)) (app (app cons (app dec $0)) empty)))",
+    "(lam (app (app cons (app (app plus $0) $0)) (app (app cons (app (app plus $0) $0)) empty)))"
   ],
   "rewritten": [
-    "(fn_0 +)",
-    "(fn_0 -)"
+    "(fn_1 inc)",
+    "(fn_1 dec)",
+    "(lam (fn_0 $0 (app plus $0)))"
   ],
   "rewritten_dreamcoder": null,
   "abstractions": [
     {
-      "body": "(Y (lam (lam (is_nil $0 nil (cons (#0 $0))))))",
-      "dreamcoder": "#(lambda (Y (lambda (lambda (is_nil $0 nil (cons ($2 $0)))))))",
-      "arity": 1,
+      "body": "(app (app cons (app #1 #0)) (app (app cons (app #1 #0)) empty))",
+      "dreamcoder": "#(lambda (lambda (app (app cons (app $0 $1)) (app (app cons (app $0 $1)) empty))))",
+      "arity": 2,
       "name": "fn_0",
-      "utility": 382,
-      "final_cost": 398,
-      "compression_ratio": 3.4271356783919598,
-      "cumulative_compression_ratio": 3.4271356783919598,
-      "num_uses": 2,
+      "utility": 2940,
+      "final_cost": 1863,
+      "compression_ratio": 3.032206119162641,
+      "cumulative_compression_ratio": 3.032206119162641,
+      "num_uses": 3,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_0 +": "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))"
+          "fn_0 $0 (app plus $0)": "(app (app cons (app (app plus $0) $0)) (app (app cons (app (app plus $0) $0)) empty))"
         },
         {
-          "fn_0 -": "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
+          "fn_0 $0 dec": "(app (app cons (app dec $0)) (app (app cons (app dec $0)) empty))"
+        },
+        {
+          "fn_0 $0 inc": "(app (app cons (app inc $0)) (app (app cons (app inc $0)) empty))"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    },
+    {
+      "body": "(lam (fn_0 $0 #0))",
+      "dreamcoder": "#(lambda (lambda (#(lambda (lambda (app (app cons (app $0 $1)) (app (app cons (app $0 $1)) empty)))) $0 $1)))",
+      "arity": 1,
+      "name": "fn_1",
+      "utility": 1,
+      "final_cost": 1659,
+      "compression_ratio": 1.1229656419529837,
+      "cumulative_compression_ratio": 3.4050632911392404,
+      "num_uses": 3,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_1 (app plus #0)": "(lam (fn_0 $0 (app plus $0)))"
+        },
+        {
+          "fn_1 dec": "(lam (fn_0 $0 dec))"
+        },
+        {
+          "fn_1 inc": "(lam (fn_0 $0 inc))"
         }
       ],
       "dc_comparison_millis": null,

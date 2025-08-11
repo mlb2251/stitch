@@ -26,7 +26,7 @@
         "cost_var": 100,
         "cost_ivar": 100,
         "cost_prim_default": 100,
-        "cost_prim": "{\"-\":99,\"+\":97,\"cons\":76}"
+        "cost_prim": "{\"+\":436,\"-\":59,\"car\":18}"
       },
       "no_mismatch_check": false,
       "follow": null,
@@ -66,38 +66,38 @@
       }
     }
   },
-  "original_cost": 1364,
-  "final_cost": 398,
-  "compression_ratio": 3.4271356783919598,
+  "original_cost": 3281,
+  "final_cost": 1223,
+  "compression_ratio": 2.6827473426001633,
   "num_abstractions": 1,
   "original": [
-    "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))",
-    "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
+    "(lam (app (app cons (app (app + (app car $0)) (app car $0))) (app rec (app cdr $0))))",
+    "(lam (app (app cons (app (app - (app car $0)) t1)) (app rec (app cdr $0))))"
   ],
   "rewritten": [
-    "(fn_0 +)",
-    "(fn_0 -)"
+    "(lam (fn_0 $0 (app car $0) +))",
+    "(lam (fn_0 $0 t1 -))"
   ],
   "rewritten_dreamcoder": null,
   "abstractions": [
     {
-      "body": "(Y (lam (lam (is_nil $0 nil (cons (#0 $0))))))",
-      "dreamcoder": "#(lambda (Y (lambda (lambda (is_nil $0 nil (cons ($2 $0)))))))",
-      "arity": 1,
+      "body": "(app (app cons (app (app #2 (app car #0)) #1)) (app rec (app cdr #0)))",
+      "dreamcoder": "#(lambda (lambda (lambda (app (app cons (app (app $0 (app car $2)) $1)) (app rec (app cdr $2))))))",
+      "arity": 3,
       "name": "fn_0",
-      "utility": 382,
-      "final_cost": 398,
-      "compression_ratio": 3.4271356783919598,
-      "cumulative_compression_ratio": 3.4271356783919598,
+      "utility": 1026,
+      "final_cost": 1223,
+      "compression_ratio": 2.6827473426001633,
+      "cumulative_compression_ratio": 2.6827473426001633,
       "num_uses": 2,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_0 +": "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))"
+          "fn_0 $0 (app car $0) +": "(app (app cons (app (app + (app car $0)) (app car $0))) (app rec (app cdr $0)))"
         },
         {
-          "fn_0 -": "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
+          "fn_0 $0 t1 -": "(app (app cons (app (app - (app car $0)) t1)) (app rec (app cdr $0)))"
         }
       ],
       "dc_comparison_millis": null,

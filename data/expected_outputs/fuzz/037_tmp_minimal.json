@@ -26,7 +26,7 @@
         "cost_var": 100,
         "cost_ivar": 100,
         "cost_prim_default": 100,
-        "cost_prim": "{\"-\":99,\"+\":97,\"cons\":76}"
+        "cost_prim": "{\"left\":13,\"2x1\":1048,\"9\":303}"
       },
       "no_mismatch_check": false,
       "follow": null,
@@ -66,42 +66,16 @@
       }
     }
   },
-  "original_cost": 1364,
-  "final_cost": 398,
-  "compression_ratio": 3.4271356783919598,
-  "num_abstractions": 1,
+  "original_cost": 11949,
+  "final_cost": 11949,
+  "compression_ratio": 1.0,
+  "num_abstractions": 0,
   "original": [
-    "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))",
-    "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
+    "(right (right (left 1 (1x2 (right 10 (1x2 (left 9 (2x1 (right 2 (2x1 (right 6 (2x1 (left 2 (2x1 (left 6 (2x1 (right 4 (2x1 (right 4 (2x1 (left 6 (2x1 (right 4 (2x1 (left 6)))))))))))))))))))))))))"
   ],
   "rewritten": [
-    "(fn_0 +)",
-    "(fn_0 -)"
+    "(right (right (left 1 (1x2 (right 10 (1x2 (left 9 (2x1 (right 2 (2x1 (right 6 (2x1 (left 2 (2x1 (left 6 (2x1 (right 4 (2x1 (right 4 (2x1 (left 6 (2x1 (right 4 (2x1 (left 6)))))))))))))))))))))))))"
   ],
   "rewritten_dreamcoder": null,
-  "abstractions": [
-    {
-      "body": "(Y (lam (lam (is_nil $0 nil (cons (#0 $0))))))",
-      "dreamcoder": "#(lambda (Y (lambda (lambda (is_nil $0 nil (cons ($2 $0)))))))",
-      "arity": 1,
-      "name": "fn_0",
-      "utility": 382,
-      "final_cost": 398,
-      "compression_ratio": 3.4271356783919598,
-      "cumulative_compression_ratio": 3.4271356783919598,
-      "num_uses": 2,
-      "rewritten": null,
-      "rewritten_dreamcoder": null,
-      "uses": [
-        {
-          "fn_0 +": "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))"
-        },
-        {
-          "fn_0 -": "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
-        }
-      ],
-      "dc_comparison_millis": null,
-      "tdfa_annotation": null
-    }
-  ]
+  "abstractions": []
 }

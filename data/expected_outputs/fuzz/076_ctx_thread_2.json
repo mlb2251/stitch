@@ -26,7 +26,7 @@
         "cost_var": 100,
         "cost_ivar": 100,
         "cost_prim_default": 100,
-        "cost_prim": "{\"-\":99,\"+\":97,\"cons\":76}"
+        "cost_prim": "{\"+\":179,\"f\":549,\"a\":65}"
       },
       "no_mismatch_check": false,
       "follow": null,
@@ -66,38 +66,61 @@
       }
     }
   },
-  "original_cost": 1364,
-  "final_cost": 398,
-  "compression_ratio": 3.4271356783919598,
-  "num_abstractions": 1,
+  "original_cost": 4038,
+  "final_cost": 402,
+  "compression_ratio": 10.044776119402986,
+  "num_abstractions": 2,
   "original": [
-    "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))",
-    "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
+    "(lam (lam (+ (a b c $0 f) (a b c $0 f))))",
+    "(lam (lam (+ (a b z $0 f) (a b z $0 f))))"
   ],
   "rewritten": [
-    "(fn_0 +)",
-    "(fn_0 -)"
+    "(fn_1 c)",
+    "(fn_1 z)"
   ],
   "rewritten_dreamcoder": null,
   "abstractions": [
     {
-      "body": "(Y (lam (lam (is_nil $0 nil (cons (#0 $0))))))",
-      "dreamcoder": "#(lambda (Y (lambda (lambda (is_nil $0 nil (cons ($2 $0)))))))",
+      "body": "(lam (lam (+ (#0 $0 f) (#0 $0 f))))",
+      "dreamcoder": "#(lambda (lambda (lambda (+ ($2 $0 f) ($2 $0 f)))))",
       "arity": 1,
       "name": "fn_0",
-      "utility": 382,
-      "final_cost": 398,
-      "compression_ratio": 3.4271356783919598,
-      "cumulative_compression_ratio": 3.4271356783919598,
+      "utility": 1817,
+      "final_cost": 736,
+      "compression_ratio": 5.486413043478261,
+      "cumulative_compression_ratio": 5.486413043478261,
       "num_uses": 2,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_0 +": "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))"
+          "fn_0 (a b c)": "(lam (lam (+ (a b c $0 f) (a b c $0 f))))"
         },
         {
-          "fn_0 -": "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
+          "fn_0 (a b z)": "(lam (lam (+ (a b z $0 f) (a b z $0 f))))"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    },
+    {
+      "body": "(fn_0 (a b #0))",
+      "dreamcoder": "#(lambda (#(lambda (lambda (lambda (+ ($2 $0 f) ($2 $0 f))))) (a b $0)))",
+      "arity": 1,
+      "name": "fn_1",
+      "utility": 66,
+      "final_cost": 402,
+      "compression_ratio": 1.8308457711442787,
+      "cumulative_compression_ratio": 10.044776119402986,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_1 c": "(fn_0 (a b c))"
+        },
+        {
+          "fn_1 z": "(fn_0 (a b z))"
         }
       ],
       "dc_comparison_millis": null,

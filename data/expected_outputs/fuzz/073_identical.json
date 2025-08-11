@@ -1,7 +1,7 @@
 {
-  "cmd": "/home/kavi/mit/stitch/target/debug/deps/fuzz_symbol_weighting_test-07c6ce7ba98f4348",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/fuzz_symbol_weighting_test-bb90388a4968aabc",
   "args": {
-    "iterations": 1,
+    "iterations": 3,
     "abstraction_prefix": "fn_",
     "previous_abstractions": 0,
     "shuffle": false,
@@ -26,7 +26,7 @@
         "cost_var": 100,
         "cost_ivar": 100,
         "cost_prim_default": 100,
-        "cost_prim": "{\"a\":214,\"e\":25,\"b\":612}"
+        "cost_prim": "{\"d\":195,\"e\":94,\"a\":199}"
       },
       "no_mismatch_check": false,
       "follow": null,
@@ -66,9 +66,9 @@
       }
     }
   },
-  "original_cost": 2110,
+  "original_cost": 1384,
   "final_cost": 200,
-  "compression_ratio": 10.55,
+  "compression_ratio": 6.92,
   "num_abstractions": 1,
   "original": [
     "(a b c d e)",
@@ -85,10 +85,10 @@
       "dreamcoder": "#(a b c d e)",
       "arity": 0,
       "name": "fn_0",
-      "utility": 855,
+      "utility": 492,
       "final_cost": 200,
-      "compression_ratio": 10.55,
-      "cumulative_compression_ratio": 10.55,
+      "compression_ratio": 6.92,
+      "cumulative_compression_ratio": 6.92,
       "num_uses": 2,
       "rewritten": null,
       "rewritten_dreamcoder": null,

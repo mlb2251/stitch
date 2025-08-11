@@ -26,7 +26,7 @@
         "cost_var": 100,
         "cost_ivar": 100,
         "cost_prim_default": 100,
-        "cost_prim": "{\"-\":99,\"+\":97,\"cons\":76}"
+        "cost_prim": "{\"d\":729,\"C\":99,\"e\":945}"
       },
       "no_mismatch_check": false,
       "follow": null,
@@ -66,38 +66,35 @@
       }
     }
   },
-  "original_cost": 1364,
-  "final_cost": 398,
-  "compression_ratio": 3.4271356783919598,
+  "original_cost": 6978,
+  "final_cost": 200,
+  "compression_ratio": 34.89,
   "num_abstractions": 1,
   "original": [
-    "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))",
-    "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
+    "(a b c d e f g h (A B C) (A B C) (A B C) (A B C))",
+    "(a b c d e f g h (A B C) (A B C) (A B C) (A B C))"
   ],
   "rewritten": [
-    "(fn_0 +)",
-    "(fn_0 -)"
+    "fn_0",
+    "fn_0"
   ],
   "rewritten_dreamcoder": null,
   "abstractions": [
     {
-      "body": "(Y (lam (lam (is_nil $0 nil (cons (#0 $0))))))",
-      "dreamcoder": "#(lambda (Y (lambda (lambda (is_nil $0 nil (cons ($2 $0)))))))",
-      "arity": 1,
+      "body": "(a b c d e f g h (A B C) (A B C) (A B C) (A B C))",
+      "dreamcoder": "#(a b c d e f g h (A B C) (A B C) (A B C) (A B C))",
+      "arity": 0,
       "name": "fn_0",
-      "utility": 382,
-      "final_cost": 398,
-      "compression_ratio": 3.4271356783919598,
-      "cumulative_compression_ratio": 3.4271356783919598,
+      "utility": 3289,
+      "final_cost": 200,
+      "compression_ratio": 34.89,
+      "cumulative_compression_ratio": 34.89,
       "num_uses": 2,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_0 +": "(Y (lam (lam (is_nil $0 nil (cons (+ $0))))))"
-        },
-        {
-          "fn_0 -": "(Y (lam (lam (is_nil $0 nil (cons (- $0))))))"
+          "fn_0 ": "(a b c d e f g h (A B C) (A B C) (A B C) (A B C))"
         }
       ],
       "dc_comparison_millis": null,
