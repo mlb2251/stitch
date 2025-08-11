@@ -1600,12 +1600,12 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
         // All utilities were 0 or negative, so we should autoreject this pattern
         return UtilityCalculation { util: 0, corrected_utils: Default::default() };
     };
-    let loc_to_idx = pattern.match_locations.iter().enumerate().map(|(idx, loc)| (*loc, idx)).collect::<FxHashMap<_,_>>();
     let self_intersects = can_self_unify(&pattern.pattern_args, shared, pattern.match_locations[0]);
     if self_intersects.is_empty() {
         // no conflicts, so we can just return the utility assuming no corrections
         return compressive_utility_from_marginals(pattern, shared, marginal_utilities);
     }
+    let loc_to_idx = pattern.match_locations.iter().enumerate().map(|(idx, loc)| (*loc, idx)).collect::<FxHashMap<_,_>>();
     let mut marginal_utilities = marginal_utilities;
     for (i, loc) in pattern.match_locations.iter().enumerate() {
         let mut alternate_utility = 0;
