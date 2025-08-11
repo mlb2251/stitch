@@ -92,7 +92,7 @@ impl PatternArgs {
         }
     }
 
-    pub fn zippers(&self, shared: &SharedData) -> Vec<Vec<ZNode>> {
+    fn zippers(&self, shared: &SharedData) -> Vec<Vec<ZNode>> {
         self.arg_choices.iter().map(|lzid|
             shared.zip_of_zid[lzid.zid].clone()
         ).collect()
@@ -418,14 +418,11 @@ fn find_self_unification_points(
 
 
 pub fn can_self_unify(pattern_args: &PatternArgs, shared: &SharedData, example_match_loc: Idx) -> Vec<ZId> {
-    // println!("Checking self-unification for pattern args: {:?}", pattern_args);
     // check if a given set of pattern arguments can self-unify (i.e., if the abstraction unifies with one of its
     // non-variable subtrees). An example is the pattern (#0 #1 x), which unifies with (#0 #1).
     // This is an overapproximation that does not take into account variable reuse.
     let zippers = pattern_args.zippers(shared);
-    // println!("Zippers: {:?}", zippers);
     let zippers = ZipTrie::new(zippers);
-    // println!("Zippers: {:?}", zippers);
     let zippers = ZipTrieSlice::new(&zippers);
     let mut self_unify_zids = Vec::new();
 

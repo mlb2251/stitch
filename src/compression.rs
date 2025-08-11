@@ -1600,24 +1600,8 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
         return UtilityCalculation { util: 0, corrected_utils: Default::default() };
     };
     let loc_to_idx = pattern.match_locations.iter().enumerate().map(|(idx, loc)| (*loc, idx)).collect::<FxHashMap<_,_>>();
-    // let mut potential_conflict = vec![];
-    // let zippers = pattern.pattern_args.zippers(shared);
-    // let trie = ZipTrie::new(zippers.clone());
-    // // for (i, x) in trie.trie.iter().enumerate() {
-    // //     println!("trie[{}]: {:?} -> func: {:?}, arg: {:?}, body: {:?}", i, x.present, x.func, x.arg, x.body);
-    // // }
-    // for loc in &pattern.match_locations {
-    //     collect_conflicts(*loc, *loc, &locs_set, shared, &mut potential_conflict, Some(ZipTrieSlice::new(&trie)));
-    // }
     let self_intersects = can_self_unify(&pattern.pattern_args, shared, pattern.match_locations[0]);
-    // println!("potential conflicts: {:?}", potential_conflict);
     if self_intersects.is_empty() {
-        // if !potential_conflict.is_empty() {
-        //     println!("Pattern: {}", pattern.info(shared));
-        //     let (a, b) = potential_conflict[0];
-        //     println!("Potential conflict between\n{}\n{}", shared.set.get(a), shared.set.get(b));
-        //     panic!("self intersects is empty but potential conflicts are not: {:?}", potential_conflict);
-        // }
         // no conflicts, so we can just return the utility assuming no corrections
         return get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once);
     }
@@ -1638,16 +1622,6 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
         relative_utilities.push(relative_utility);
     }
     get_compressive_utility_assuming_no_corrections(pattern, shared, relative_utilities)
-    // // println!("self intersects: {:?}", self_intersects.iter().map(|x| shared.zip_of_zid[*x].clone()).collect::<Vec<_>>());
-    // let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
-
-    // let compressive_utility: Cost = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
-    //     root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - (cumulative_utility_of_node[shared.roots[*idx]] as f32 * shared.weight_by_root_idx[*idx])).round() as Cost).min().unwrap()
-    // ).sum::<Cost>();
-
-    // // pattern.match_locations.
-
-    // UtilityCalculation { util: compressive_utility, corrected_utils }
 }
 
 //#[inline(never)]
@@ -2157,7 +2131,7 @@ pub fn construct_shared(
     } else {
         None
     };
-
+    
     let shared = Arc::new(SharedData {
         crit: Mutex::new(crit),
         programs: programs.to_vec(),
