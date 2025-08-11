@@ -685,6 +685,7 @@ pub struct SharedData {
     pub set: ExprSet,
     pub num_paths_to_node: Vec<Cost>,
     pub num_paths_to_node_by_root_idx: Vec<Vec<Cost>>,
+    num_paths_to_node_by_root_idx_sparse: Vec<Vec<(usize, Cost)>>,
     pub tdfa_global_annotations: Option<TDFAGlobalAnnotations>,
     pub tasks_of_node: Vec<FxHashSet<usize>>,
     pub task_name_of_task: Vec<String>,
@@ -1557,29 +1558,29 @@ fn noncompressive_utility_upper_bound(
     
 }
 
-pub fn get_compressive_utility_assuming_no_corrections(
+pub fn compressive_utility_from_marginals(
     pattern: &Pattern,
     shared: &SharedData,
-    utility_of_loc_once: Vec<Cost>
+    marginal_util: Vec<Cost>
 ) -> UtilityCalculation {
-    assert!(utility_of_loc_once.len() == pattern.match_locations.len(),
+    assert!(marginal_util.len() == pattern.match_locations.len(),
         "utility_of_loc_once should have the same length as match_locations, but got {} and {}",
-        utility_of_loc_once.len(), pattern.match_locations.len());
+        marginal_util.len(), pattern.match_locations.len());
     // this is a utility that assumes no corrections are needed, so it is just the sum of the utility of each match location
     // minus the cost of applying the invention
-    let corrected_utils: FxHashMap<Idx, bool> = utility_of_loc_once.iter().enumerate().map(|(idx, util)|
+    let corrected_utils: FxHashMap<Idx, bool> = marginal_util.iter().enumerate().map(|(idx, util)|
         (pattern.match_locations[idx], *util > 0)
     ).collect();
     let mut util_by_root = vec![0; shared.roots.len()];
-    utility_of_loc_once.into_iter().enumerate().for_each(|(idx, util)|
-        {
-            let loc = pattern.match_locations[idx];
-            // let root = shared.root_for_node[loc];
-            for (root_idx, u) in util_by_root.iter_mut().enumerate() {
-                *u += std::cmp::max(util, 0) * shared.num_paths_to_node_by_root_idx[root_idx][loc];
+    for (loc_idx, loc) in pattern.match_locations.iter().enumerate() {
+        // for each match location, we add the utility of that location to the util_by_root for each root
+        let util = marginal_util[loc_idx];
+        if util > 0 {
+            for (root_idx, num_paths) in shared.num_paths_to_node_by_root_idx_sparse[*loc].iter() {
+                util_by_root[*root_idx] += util * num_paths;
             }
         }
-    );
+    }
 
     let util = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
         root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - util_by_root[*idx] as f32 * shared.weight_by_root_idx[*idx]).round() as Cost).min().unwrap()
@@ -1595,7 +1596,7 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
     // Roughly speaking compressive utility is num_usages(invention) * size(invention), however there are a few extra
     // terms we need to take care of too.
 
-    let Some(utility_of_loc_once) = get_utility_of_loc_once(pattern, shared) else {
+    let Some(marginal_utilities) = get_utility_of_loc_once(pattern, shared) else {
         // All utilities were 0 or negative, so we should autoreject this pattern
         return UtilityCalculation { util: 0, corrected_utils: Default::default() };
     };
@@ -1603,25 +1604,24 @@ pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCal
     let self_intersects = can_self_unify(&pattern.pattern_args, shared, pattern.match_locations[0]);
     if self_intersects.is_empty() {
         // no conflicts, so we can just return the utility assuming no corrections
-        return get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once);
+        return compressive_utility_from_marginals(pattern, shared, marginal_utilities);
     }
-    let mut relative_utilities = vec![];
+    let mut marginal_utilities = marginal_utilities;
     for (i, loc) in pattern.match_locations.iter().enumerate() {
         let mut alternate_utility = 0;
         for zid in &self_intersects {
             let child = shared.arg_of_zid_node[*zid][loc].unshifted_id;
             if loc_to_idx.contains_key(&child) {
                 let idx = loc_to_idx[&child];
-                alternate_utility += relative_utilities[idx];
+                alternate_utility += marginal_utilities[idx];
             }
         }
-        let mut relative_utility = utility_of_loc_once[i] - alternate_utility;
-        if relative_utility < 0 {
-            relative_utility = 0; // we don't want to count negative utilities
+        marginal_utilities[i] -= alternate_utility;
+        if marginal_utilities[i] < 0 {
+            marginal_utilities[i] = 0; // we don't want to count negative utilities
         }
-        relative_utilities.push(relative_utility);
     }
-    get_compressive_utility_assuming_no_corrections(pattern, shared, relative_utilities)
+    compressive_utility_from_marginals(pattern, shared, marginal_utilities)
 }
 
 //#[inline(never)]
@@ -1922,7 +1922,7 @@ pub fn construct_shared(
 
     // populate num_paths_to_node so we know how many different parts of the programs tree
     // a node participates in (ie multiple uses within a single program or among programs)
-    let (num_paths_to_node, num_paths_to_node_by_root_idx) : (Vec<Cost>, Vec<Vec<Cost>>) = num_paths_to_node(&roots, &corpus_span, &set);
+    let (num_paths_to_node, num_paths_to_node_by_root_idx, num_paths_to_node_by_root_idx_sparse) = num_paths_to_node(&roots, &corpus_span, &set);
 
     if !cfg.quiet { println!("num_paths_to_node(): {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
@@ -2150,6 +2150,7 @@ pub fn construct_shared(
         set,
         num_paths_to_node,
         num_paths_to_node_by_root_idx,
+        num_paths_to_node_by_root_idx_sparse,
         tdfa_global_annotations,
         tasks_of_node,
         task_name_of_task,

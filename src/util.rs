@@ -1,3 +1,5 @@
+use std::vec;
+
 use crate::*;
 use lambdas::*;
 
@@ -97,9 +99,11 @@ pub fn replace_prim_with(s: &str, prim: &str, new: &str) -> String {
     res
 }
 
+type SparseNumPaths = Vec<Vec<(usize, Cost)>>;
+
 /// Returns a vec from node Idx to number of places that node is used in the tree. Essentially this just
 /// follows all paths down from the root and logs how many times it encounters each node
-pub fn num_paths_to_node(roots: &[Idx], corpus_span: &Span, set: &ExprSet) -> (Vec<Cost>, Vec<Vec<Cost>>) {
+pub fn num_paths_to_node(roots: &[Idx], corpus_span: &Span, set: &ExprSet) -> (Vec<Cost>, Vec<Vec<Cost>>, SparseNumPaths) {
     let mut num_paths_to_node_by_root_idx: Vec<Vec<Cost>> = vec![vec![0; corpus_span.len()]; roots.len()];
 
     fn helper(num_paths_to_node: &mut Vec<Cost>, idx: Idx, set: &ExprSet) {
@@ -117,8 +121,17 @@ pub fn num_paths_to_node(roots: &[Idx], corpus_span: &Span, set: &ExprSet) -> (V
             num_paths_to_node_all[i] += num_paths_to_node[i];
         }
     });
+
+    let mut num_paths_to_node_by_root_idx_sparse = vec![vec![]; corpus_span.len()];
+    for (i, num_paths) in num_paths_to_node_by_root_idx.iter().enumerate() {
+        for (j, &count) in num_paths.iter().enumerate() {
+            if count > 0 {
+                num_paths_to_node_by_root_idx_sparse[j].push((i, count));
+            }
+        }
+    }
     
-    (num_paths_to_node_all, num_paths_to_node_by_root_idx)
+    (num_paths_to_node_all, num_paths_to_node_by_root_idx, num_paths_to_node_by_root_idx_sparse)
 }
 
 
