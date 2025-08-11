@@ -1483,17 +1483,17 @@ fn compressive_utility_upper_bound(
     cost_fn: &ExprCost,
 ) -> Cost {
     // sum over tasks
-    // of max over root_idxs
     // of sum over match locations
+    // of max over root_idxs
     // of upper bound for that match location within that root idx, weighted by the root idx weight
     root_idxs_of_task.iter().map(|root_idxs|
         match_locations.iter().map(|node|
             root_idxs.iter().map(|idx|
                 weight_by_root_idx[*idx] * (num_paths_to_node_by_root_idx[*idx][*node] *
                 (analyzed_cost[*node] as Cost - cost_fn.compute_cost_new_prim() as Cost)) as f32
-            ).sum::<f32>()
-        ).fold(0.0, |acc, x| f32::max(acc, x))
-    ).sum::<f32>() as Cost
+            ).fold(0.0, |acc, x| f32::max(acc, x))
+        ).sum::<f32>()
+    ).sum::<f32>().ceil() as Cost
 
     // match_locations.iter().map(|node|
     //     cost_of_node_all[*node] 
