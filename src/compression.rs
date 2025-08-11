@@ -1518,15 +1518,24 @@ pub fn get_compressive_utility_assuming_no_corrections(
         (pattern.match_locations[idx], *util > 0)
     ).collect();
     let mut util_by_root = vec![0; shared.roots.len()];
-    utility_of_loc_once.into_iter().enumerate().for_each(|(idx, util)|
-        {
-            let loc = pattern.match_locations[idx];
-            // let root = shared.root_for_node[loc];
-            for (root_idx, u) in util_by_root.iter_mut().enumerate() {
-                *u += std::cmp::max(util, 0) * shared.num_paths_to_node_by_root_idx[root_idx][loc];
+    for (loc_idx, loc) in pattern.match_locations.iter().enumerate() {
+        // for each match location, we add the utility of that location to the util_by_root for each root
+        let util = utility_of_loc_once[loc_idx];
+        if util > 0 {
+            for root_idx in 0..shared.roots.len() {
+                util_by_root[root_idx] += util * shared.num_paths_to_node_by_root_idx[root_idx][*loc];
             }
         }
-    );
+    }
+    // utility_of_loc_once.into_iter().enumerate().for_each(|(idx, util)|
+    //     {
+    //         let loc = pattern.match_locations[idx];
+    //         // let root = shared.root_for_node[loc];
+    //         for (root_idx, u) in util_by_root.iter_mut().enumerate() {
+    //             *u += std::cmp::max(util, 0) * shared.num_paths_to_node_by_root_idx[root_idx][loc];
+    //         }
+    //     }
+    // );
 
     let util = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
         root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - util_by_root[*idx] as f32 * shared.weight_by_root_idx[*idx]).round() as Cost).min().unwrap()
