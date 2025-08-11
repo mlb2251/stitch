@@ -2,12 +2,13 @@ use std::time::Duration;
 use std::thread;
 use std::sync::mpsc;
 
+use rand_chacha::rand_core::{RngCore, SeedableRng};
+use rand_chacha::ChaCha8Rng;
+use rand_chacha; // 0.3.0
 use stitch_core::*;
-use clap::Parser;
+use stitch_core::test_utils::compare_out_jsons_testing;
 use std::fs;
-use rand::prelude::*;
 use test_case::test_matrix;
-
 
 fn collect_test_files() -> Vec<std::path::PathBuf> {
     let mut test_files = Vec::new();
@@ -20,11 +21,14 @@ fn collect_test_files() -> Vec<std::path::PathBuf> {
             }
         }
     }
+    test_files.sort(); // Sort for consistent order
     test_files
 }
 
-fn select_random_file<'a>(files: &'a [std::path::PathBuf], rng: &mut impl Rng) -> &'a std::path::Path {
-    files.choose(rng).unwrap().as_path()
+fn select_random_file<'a>(files: &'a [std::path::PathBuf], rng: &mut ChaCha8Rng) -> String {
+    // files.choose(rng).unwrap().to_str().unwrap().to_owned()
+    let index = rng.next_u64() as usize % files.len();
+    files[index].to_str().unwrap().to_owned()
 }
 
 fn extract_unique_symbols(input: &Input) -> std::collections::HashSet<String> {
@@ -43,42 +47,44 @@ fn extract_unique_symbols(input: &Input) -> std::collections::HashSet<String> {
     symbols
 }
 
-fn select_random_symbols<'a>(symbols: &'a [String], n: usize, rng: &mut impl Rng) -> Vec<&'a String> {
+fn select_random_symbols<'a>(symbols: &'a [String], n: usize, rng: &mut ChaCha8Rng) -> Vec<&'a String> {
+    let mut selected = Vec::new();
     let mut indices: Vec<usize> = (0..symbols.len()).collect();
-    indices.shuffle(rng);
-    indices.into_iter().take(n).map(|i| &symbols[i]).collect()
+    while selected.len() < n && !indices.is_empty() {
+        let index = rng.next_u64() as usize % indices.len();
+        selected.push(&symbols[indices[index]]);
+        indices.remove(index);
+    }
+    selected
 }
 
-fn generate_random_weights(selected_symbols: &[&String], rng: &mut impl Rng) -> serde_json::Value {
+fn generate_random_weights(selected_symbols: &[&String], rng: &mut ChaCha8Rng) -> serde_json::Value {
     let mut cost_prims = serde_json::json!({});
     for symbol in selected_symbols {
-        let weight = if rng.gen_bool(0.5) {
-            rng.gen_range(1..100)
+        let weight = if rng.next_u64() % 2 == 0 {
+            rng.next_u64() % 100 + 1 // Random weight between 1 and 100
         } else {
-            rng.gen_range(100..1000)
+            rng.next_u64() % 1000 + 101 // Random weight between 101 and 1100
         };
         cost_prims[symbol] = serde_json::json!(weight);
     }
     cost_prims
 }
 
-fn run_fuzz_compression(input: &Input, cost_prims: &serde_json::Value, test_file: &std::path::Path) {
+fn run_fuzz_compression(cost_prims: &serde_json::Value, test_file: &String, seed: u64) {
     let cost_prims_str = cost_prims.to_string();
-    let args = vec!["compress", "-i1", "-a3", "--verbose-best", "--cost-prim", &cost_prims_str];
-    println!("Running fuzz test with command: {}", args.join(" "));
-    println!("Test file: {}", test_file.display());
-    let cfg = MultistepCompressionConfig::parse_from(args);
-    let _output = run_compression_testing(input, &cfg);
+    let args = format!("-i3 -a3 --verbose-best --cost-prim {}", cost_prims_str);
+    let output_file = format!("data/expected_outputs/fuzz/{:0>3}_{}.json", seed, test_file.split("/").last().unwrap().split(".").next().unwrap());
+    compare_out_jsons_testing(test_file, &output_file, &args, InputFormat::ProgramsList);
 }
 
 #[test_matrix(1..=100)]
 fn fuzz_test_symbol_weighting(seed: u64) {
     println!("\nRunning fuzz test with seed {}", seed);
-    let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
     let test_files = collect_test_files();
     let test_file = select_random_file(&test_files, &mut rng);
-    let test_file = test_file.to_path_buf();
-    let input = InputFormat::ProgramsList.load_programs_and_tasks(&test_file).unwrap();
+    let input = InputFormat::ProgramsList.load_programs_and_tasks(std::path::Path::new(&test_file)).unwrap();
     let symbols = extract_unique_symbols(&input);
     let mut symbols_vec: Vec<_> = symbols.into_iter().collect();
     symbols_vec.sort(); // Sort symbols for consistent selection
@@ -87,12 +93,12 @@ fn fuzz_test_symbol_weighting(seed: u64) {
 
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
-        run_fuzz_compression(&input, &cost_prims, &test_file);
+        let _output = run_fuzz_compression(&cost_prims, &test_file, seed);
         tx.send(()).unwrap();
     });
 
-    match rx.recv_timeout(Duration::from_secs(300)) {
+    match rx.recv_timeout(Duration::from_secs(600)) {
         Ok(_) => (),
-        Err(_) => panic!("Test timed out after 300 seconds"),
+        Err(_) => panic!("Test timed out after 600 seconds"),
     }
 }
