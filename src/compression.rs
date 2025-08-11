@@ -637,7 +637,6 @@ pub struct SharedData {
     pub task_name_of_task: Vec<String>,
     pub task_of_root_idx: Vec<usize>,
     pub root_idxs_of_task: Vec<Vec<usize>>,
-    pub cost_of_node_sym: Vec<Cost>,
     pub cost_of_node_all: Vec<Cost>,
     pub init_cost: Cost,
     pub init_cost_weighted: Cost,
@@ -1892,10 +1891,6 @@ pub fn construct_shared(
     if !cfg.quiet { println!("num unique programs: {}", roots.len()) }
     tstart = std::time::Instant::now();
     
-    // cost of just the symbolic cost of a node, ie the cost of the node itself without the children
-    let cost_of_node_sym: Vec<Cost> = corpus_span.clone().map(
-        |node| cost_fn.compute_cost_at_node(&set[node]) as Cost
-    ).collect();
     // cost of a single usage times number of paths to node
     let cost_of_node_all: Vec<Cost> = corpus_span.clone().map(|node| analyzed_cost[node] as Cost * num_paths_to_node[node]).collect();
 
@@ -2090,7 +2085,6 @@ pub fn construct_shared(
         task_name_of_task,
         task_of_root_idx,
         root_idxs_of_task,
-        cost_of_node_sym,
         cost_of_node_all,
         init_cost,
         init_cost_weighted,
