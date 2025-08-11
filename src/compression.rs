@@ -1952,7 +1952,7 @@ pub fn construct_shared(
 
     let tdfa_global_annotations = TDFAGlobalAnnotations::new(cfg, &set, &roots, prev_results, &sym_var_info);
 
-    let single_hole = Pattern::single_hole(&corpus_span, &cost_fn, &cost_of_node_all, &num_paths_to_node, &tdfa_global_annotations, &set, cfg);
+    let single_hole = Pattern::single_hole(&corpus_span, cost_fn, &cost_of_node_all, &num_paths_to_node, &tdfa_global_annotations, &set, cfg);
 
     let mut azero_pruning_cutoff = 0;
 
