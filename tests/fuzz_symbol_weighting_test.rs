@@ -21,6 +21,7 @@ fn collect_test_files() -> Vec<std::path::PathBuf> {
             }
         }
     }
+    test_files.sort(); // Sort for consistent order
     test_files
 }
 
