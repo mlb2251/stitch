@@ -1568,8 +1568,8 @@ pub fn compressive_utility_from_marginals(
         marginal_util.len(), pattern.match_locations.len());
     // this is a utility that assumes no corrections are needed, so it is just the sum of the utility of each match location
     // minus the cost of applying the invention
-    let corrected_utils: FxHashMap<Idx, bool> = marginal_util.iter().enumerate().map(|(idx, util)|
-        (pattern.match_locations[idx], *util > 0)
+    let corrected_utils: FxHashSet<Idx> = marginal_util.iter().enumerate().filter_map(|(idx, util)|
+        if *util > 0 {None} else {Some(pattern.match_locations[idx])}
     ).collect();
     let mut util_by_root = vec![0; shared.roots.len()];
     for (loc_idx, loc) in pattern.match_locations.iter().enumerate() {
@@ -1671,7 +1671,7 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Option<Vec
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UtilityCalculation {
     pub util: Cost,
-    pub corrected_utils: FxHashMap<Idx,bool>, // whether to accept
+    pub corrected_utils: FxHashSet<Idx>, // if present, do not accept
 }
 
 // (not used in popl code - experimental)

@@ -328,7 +328,6 @@ fn unifies(
     overall_loc: Idx,
     partial_loc: Idx
 ) -> bool {
-    // println!("Checking unification of {:?} and {:?} at locations {} and {}", overall_abs.map(|x| x.to_list()), partial_abs.map(|x| x.to_list()), overall_loc, partial_loc);
     // if either is a variable, then we can unify
     if overall_abs.is_some_and(|x| x.is_present()) || partial_abs.is_some_and(|x| x.is_present()) {
         return true;
@@ -386,7 +385,6 @@ fn find_self_unification_points(
     overall_loc: Idx,
     partial_loc: Idx
 ) {
-    // println!("Checking {:?}", shared.zip_of_zid[partial_zid]);
     let Some(partial_abs) = partial_abs else {
         // if there's no variables in the partial abstraction, we can't unify with the overall abstraction,
         // since it's either equal (and we skip this) or strictly smaller
@@ -396,7 +394,6 @@ fn find_self_unification_points(
         // variables do not count as self-unification points
         return;
     }
-    // println!("Here");
     if partial_zid != EMPTY_ZID && unifies(shared, Some(overall_abs), Some(partial_abs), overall_loc, partial_loc) {
         // if the overall abstraction unifies with the partial abstraction at this location
         // then we can add the partial abstraction's zid to the self-unification points
