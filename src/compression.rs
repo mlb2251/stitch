@@ -1505,23 +1505,23 @@ fn noncompressive_utility_upper_bound(
     
 }
 
-pub fn get_compressive_utility_assuming_no_corrections(
+pub fn compressive_utility_from_marginals(
     pattern: &Pattern,
     shared: &SharedData,
-    utility_of_loc_once: Vec<Cost>
+    marginal_util: Vec<Cost>
 ) -> UtilityCalculation {
-    assert!(utility_of_loc_once.len() == pattern.match_locations.len(),
+    assert!(marginal_util.len() == pattern.match_locations.len(),
         "utility_of_loc_once should have the same length as match_locations, but got {} and {}",
-        utility_of_loc_once.len(), pattern.match_locations.len());
+        marginal_util.len(), pattern.match_locations.len());
     // this is a utility that assumes no corrections are needed, so it is just the sum of the utility of each match location
     // minus the cost of applying the invention
-    let corrected_utils: FxHashMap<Idx, bool> = utility_of_loc_once.iter().enumerate().map(|(idx, util)|
+    let corrected_utils: FxHashMap<Idx, bool> = marginal_util.iter().enumerate().map(|(idx, util)|
         (pattern.match_locations[idx], *util > 0)
     ).collect();
     let mut util_by_root = vec![0; shared.roots.len()];
     for (loc_idx, loc) in pattern.match_locations.iter().enumerate() {
         // for each match location, we add the utility of that location to the util_by_root for each root
-        let util = utility_of_loc_once[loc_idx];
+        let util = marginal_util[loc_idx];
         if util > 0 {
             for (root_idx, num_paths) in shared.num_paths_to_node_by_root_idx_sparse[*loc].iter() {
                 util_by_root[*root_idx] += util * num_paths;
@@ -1543,7 +1543,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     // Roughly speaking compressive utility is num_usages(invention) * size(invention), however there are a few extra
     // terms we need to take care of too.
 
-    let Some(utility_of_loc_once) = get_utility_of_loc_once(pattern, shared) else {
+    let Some(marginal_utilities) = get_utility_of_loc_once(pattern, shared) else {
         // All utilities were 0 or negative, so we should autoreject this pattern
         return UtilityCalculation { util: 0, corrected_utils: Default::default() };
     };
@@ -1551,7 +1551,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     let self_intersects = can_self_unify(&pattern.pattern_args, shared, pattern.match_locations[0]);
     if self_intersects.is_empty() {
         // no conflicts, so we can just return the utility assuming no corrections
-        return get_compressive_utility_assuming_no_corrections(pattern, shared, utility_of_loc_once);
+        return compressive_utility_from_marginals(pattern, shared, marginal_utilities);
     }
     let mut relative_utilities = vec![];
     for (i, loc) in pattern.match_locations.iter().enumerate() {
@@ -1563,13 +1563,13 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
                 alternate_utility += relative_utilities[idx];
             }
         }
-        let mut relative_utility = utility_of_loc_once[i] - alternate_utility;
+        let mut relative_utility = marginal_utilities[i] - alternate_utility;
         if relative_utility < 0 {
             relative_utility = 0; // we don't want to count negative utilities
         }
         relative_utilities.push(relative_utility);
     }
-    get_compressive_utility_assuming_no_corrections(pattern, shared, relative_utilities)
+    compressive_utility_from_marginals(pattern, shared, relative_utilities)
 }
 
 //#[inline(never)]
