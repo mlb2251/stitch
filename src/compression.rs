@@ -632,6 +632,7 @@ pub struct SharedData {
     pub set: ExprSet,
     pub num_paths_to_node: Vec<Cost>,
     pub num_paths_to_node_by_root_idx: Vec<Vec<Cost>>,
+    num_paths_to_node_by_root_idx_sparse: Vec<Vec<(usize, Cost)>>,
     pub tdfa_global_annotations: Option<TDFAGlobalAnnotations>,
     pub tasks_of_node: Vec<FxHashSet<usize>>,
     pub task_name_of_task: Vec<String>,
@@ -1869,7 +1870,7 @@ pub fn construct_shared(
 
     // populate num_paths_to_node so we know how many different parts of the programs tree
     // a node participates in (ie multiple uses within a single program or among programs)
-    let (num_paths_to_node, num_paths_to_node_by_root_idx) : (Vec<Cost>, Vec<Vec<Cost>>) = num_paths_to_node(&roots, &corpus_span, &set);
+    let (num_paths_to_node, num_paths_to_node_by_root_idx, num_paths_to_node_by_root_idx_sparse) = num_paths_to_node(&roots, &corpus_span, &set);
 
     if !cfg.quiet { println!("num_paths_to_node(): {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
@@ -2097,6 +2098,7 @@ pub fn construct_shared(
         set,
         num_paths_to_node,
         num_paths_to_node_by_root_idx,
+        num_paths_to_node_by_root_idx_sparse,
         tdfa_global_annotations,
         tasks_of_node,
         task_name_of_task,
