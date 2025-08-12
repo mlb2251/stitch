@@ -86,7 +86,7 @@ fn fuzz_test_symbol_weighting(seed: u64) {
     let cost_prims = generate_random_weights(&selected_symbols, &mut rng);
 
     let weights = if rng.gen_bool(0.5) {
-        Some(input.train_programs.iter().map(|_| rng.gen_range(0..=2) as f32).collect())
+        Some(input.train_programs.iter().map(|_| rng.gen_range(0.0..=2.0) as f32).collect())
     } else {
         None
     };
