@@ -561,7 +561,7 @@ impl Pattern {
 
 
 /// the index of the empty zipper `[]` in the list of zippers
-const EMPTY_ZID: ZId = 0;
+pub const EMPTY_ZID: ZId = 0;
 
 /// an argument to an abstraction.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -632,6 +632,7 @@ pub struct SharedData {
     pub set: ExprSet,
     pub num_paths_to_node: Vec<Cost>,
     pub num_paths_to_node_by_root_idx: Vec<Vec<Cost>>,
+    num_paths_to_node_by_root_idx_sparse: Vec<Vec<(usize, Cost)>>,
     pub tdfa_global_annotations: Option<TDFAGlobalAnnotations>,
     pub tasks_of_node: Vec<FxHashSet<usize>>,
     pub task_name_of_task: Vec<String>,
@@ -1503,6 +1504,35 @@ fn noncompressive_utility_upper_bound(
     
 }
 
+pub fn compressive_utility_from_marginals(
+    pattern: &Pattern,
+    shared: &SharedData,
+    marginal_util: Vec<Cost>
+) -> UtilityCalculation {
+    assert!(marginal_util.len() == pattern.match_locations.len(),
+        "utility_of_loc_once should have the same length as match_locations, but got {} and {}",
+        marginal_util.len(), pattern.match_locations.len());
+    let unused_locations: FxHashSet<Idx> = marginal_util.iter().enumerate().filter_map(|(idx, util)|
+        if *util > 0 {None} else {Some(pattern.match_locations[idx])}
+    ).collect();
+    let mut util_by_root = vec![0; shared.roots.len()];
+    for (loc_idx, loc) in pattern.match_locations.iter().enumerate() {
+        // for each match location, we add the utility of that location to the util_by_root for each root
+        let util = marginal_util[loc_idx];
+        if util > 0 {
+            for (root_idx, num_paths) in shared.num_paths_to_node_by_root_idx_sparse[*loc].iter() {
+                util_by_root[*root_idx] += util * num_paths;
+            }
+        }
+    }
+
+    let util = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
+        root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - util_by_root[*idx] as f32 * shared.weight_by_root_idx[*idx]).round() as Cost).min().unwrap()
+    ).sum::<Cost>();
+
+    UtilityCalculation {util, unused_locations}
+}
+
 //#[inline(never)]
 fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
@@ -1510,20 +1540,33 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     // Roughly speaking compressive utility is num_usages(invention) * size(invention), however there are a few extra
     // terms we need to take care of too.
 
-    let Some(utility_of_loc_once) = get_utility_of_loc_once(pattern, shared) else {
+    let Some(marginal_utilities) = get_utility_of_loc_once(pattern, shared) else {
         // All utilities were 0 or negative, so we should autoreject this pattern
-        return UtilityCalculation { util: 0, corrected_utils: Default::default() };
+        return UtilityCalculation { util: 0, unused_locations: Default::default() };
     };
-
-    let (cumulative_utility_of_node, corrected_utils) = bottom_up_utility_correction(pattern,shared,&utility_of_loc_once);
-
-    let compressive_utility: Cost = shared.init_cost_weighted - shared.root_idxs_of_task.iter().map(|root_idxs|
-        root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - (cumulative_utility_of_node[shared.roots[*idx]] as f32 * shared.weight_by_root_idx[*idx])).round() as Cost).min().unwrap()
-    ).sum::<Cost>();
-
-    // pattern.match_locations.
-
-    UtilityCalculation { util: compressive_utility, corrected_utils }
+    let self_intersects = can_self_unify(&pattern.pattern_args, shared, pattern.match_locations[0]);
+    if self_intersects.is_empty() {
+        // no conflicts, so we can just return the utility assuming no corrections
+        return compressive_utility_from_marginals(pattern, shared, marginal_utilities);
+    }
+    let loc_to_idx = pattern.match_locations.iter().enumerate().map(|(idx, loc)| (*loc, idx)).collect::<FxHashMap<_,_>>();
+    let mut marginal_utilities = marginal_utilities;
+    // match locations are sorted by location in ExprSet, so are in bottom up order
+    for (i, loc) in pattern.match_locations.iter().enumerate() {
+        let mut alternate_utility = 0;
+        for zid in &self_intersects {
+            let child = shared.arg_of_zid_node[*zid][loc].unshifted_id;
+            if loc_to_idx.contains_key(&child) {
+                let idx = loc_to_idx[&child];
+                alternate_utility += marginal_utilities[idx];
+            }
+        }
+        marginal_utilities[i] -= alternate_utility;
+        if marginal_utilities[i] < 0 {
+            marginal_utilities[i] = 0; // we don't want to count negative utilities
+        }
+    }
+    compressive_utility_from_marginals(pattern, shared, marginal_utilities)
 }
 
 //#[inline(never)]
@@ -1570,51 +1613,10 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Option<Vec
     Some(results)
 }
 
-//#[inline(never)]
-/// calculate correction factor for the utility that comes from mutually exclusive match locations, where we need
-/// to pick only one of the locations to apply the invention at.
-fn bottom_up_utility_correction(pattern: &Pattern, shared:&SharedData, utility_of_loc_once: &[Cost]) -> (Vec<Cost>,FxHashMap<Idx,bool>) {
-    let mut cumulative_utility_of_node: Vec<Cost> = vec![0; shared.corpus_span.len()];
-    let mut corrected_utils: FxHashMap<Idx,bool> = Default::default();
-
-    for node in shared.corpus_span.clone() {
-
-        let utility_without_rewrite: Cost = match &shared.set[node] {
-            Node::Lam(b, _) => cumulative_utility_of_node[*b],
-            Node::App(f,x) => cumulative_utility_of_node[*f] + cumulative_utility_of_node[*x],
-            Node::Prim(_) | Node::Var(_, _) => 0,
-            Node::IVar(_) => unreachable!(),
-        };
-
-        assert!(utility_without_rewrite >= 0);
-
-        if let Ok(idx) = pattern.match_locations.binary_search(&node) {
-            // this node is a potential rewrite location
-
-            let utility_of_args: Cost = pattern.pattern_args.iterate_one_zid_per_argument()
-                .map(|zid| cumulative_utility_of_node[shared.arg_of_zid_node[zid][&node].unshifted_id])
-                .sum();
-            let utility_with_rewrite = utility_of_args + utility_of_loc_once[idx];
-
-            let chose_to_rewrite = utility_with_rewrite > utility_without_rewrite;
-
-            cumulative_utility_of_node[node] = std::cmp::max(utility_with_rewrite, utility_without_rewrite);
-
-            corrected_utils.insert(node,chose_to_rewrite);
-
-
-        } else if utility_without_rewrite != 0 {
-            cumulative_utility_of_node[node] = utility_without_rewrite;
-        }
-    }
-    (cumulative_utility_of_node,corrected_utils)
-}
-
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UtilityCalculation {
     pub util: Cost,
-    pub corrected_utils: FxHashMap<Idx,bool>, // whether to accept
+    pub unused_locations: FxHashSet<Idx>, // if present, do not accept
 }
 
 // (not used in popl code - experimental)
@@ -1856,7 +1858,7 @@ pub fn construct_shared(
 
     // populate num_paths_to_node so we know how many different parts of the programs tree
     // a node participates in (ie multiple uses within a single program or among programs)
-    let (num_paths_to_node, num_paths_to_node_by_root_idx) : (Vec<Cost>, Vec<Vec<Cost>>) = num_paths_to_node(&roots, &corpus_span, &set);
+    let (num_paths_to_node, num_paths_to_node_by_root_idx, num_paths_to_node_by_root_idx_sparse) = num_paths_to_node(&roots, &corpus_span, &set);
 
     if !cfg.quiet { println!("num_paths_to_node(): {:?}ms", tstart.elapsed().as_millis()) }
     tstart = std::time::Instant::now();
@@ -2021,7 +2023,7 @@ pub fn construct_shared(
                 pattern,
                 utility,
                 compressive_utility,
-                util_calc: UtilityCalculation { util: compressive_utility, corrected_utils: Default::default()},
+                util_calc: UtilityCalculation { util: compressive_utility, unused_locations: Default::default()},
                 arity: 0,
                 usages: num_paths_to_node[node]
             };
@@ -2080,6 +2082,7 @@ pub fn construct_shared(
         set,
         num_paths_to_node,
         num_paths_to_node_by_root_idx,
+        num_paths_to_node_by_root_idx_sparse,
         tdfa_global_annotations,
         tasks_of_node,
         task_name_of_task,

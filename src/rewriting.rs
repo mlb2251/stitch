@@ -36,8 +36,8 @@ pub fn rewrite_fast(
 
         // we search using the the *unshifted* one since its an original program tree node
         if pattern.pattern.match_locations.binary_search(&unshifted_id).is_ok() // if the pattern matches here
-           && (!pattern.util_calc.corrected_utils.contains_key(&unshifted_id) // and either we have no conflict (ie corrected_utils doesnt have an entry)
-             || pattern.util_calc.corrected_utils[&unshifted_id]) // or we have a conflict but we choose to accept it (which is contextless in this top down approach so its the right move)
+           && !pattern.util_calc.unused_locations.contains(&unshifted_id) // and we have no conflict
+        // or we have a conflict but we choose to accept it (which is contextless in this top down approach so its the right move)
         //    && !pattern.pattern.variables.iter().any(|zid| // and there are no negative vars anywhere in the arguments
         //         shared.egraph[shared.arg_of_zid_node[*zid][&unshifted_id].Idx].data.free_vars.iter().any(|var| *var < 0))
         {
