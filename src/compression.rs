@@ -1553,6 +1553,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
     }
     let loc_to_idx = pattern.match_locations.iter().enumerate().map(|(idx, loc)| (*loc, idx)).collect::<FxHashMap<_,_>>();
     let mut marginal_utilities = marginal_utilities;
+    // match locations are sorted by location in ExprSet, so are in bottom up order
     for (i, loc) in pattern.match_locations.iter().enumerate() {
         let mut alternate_utility = 0;
         for zid in &self_intersects {
