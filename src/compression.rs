@@ -1512,9 +1512,7 @@ pub fn compressive_utility_from_marginals(
     assert!(marginal_util.len() == pattern.match_locations.len(),
         "utility_of_loc_once should have the same length as match_locations, but got {} and {}",
         marginal_util.len(), pattern.match_locations.len());
-    // this is a utility that assumes no corrections are needed, so it is just the sum of the utility of each match location
-    // minus the cost of applying the invention
-    let corrected_utils: FxHashSet<Idx> = marginal_util.iter().enumerate().filter_map(|(idx, util)|
+    let unused_locations: FxHashSet<Idx> = marginal_util.iter().enumerate().filter_map(|(idx, util)|
         if *util > 0 {None} else {Some(pattern.match_locations[idx])}
     ).collect();
     let mut util_by_root = vec![0; shared.roots.len()];
@@ -1532,7 +1530,7 @@ pub fn compressive_utility_from_marginals(
         root_idxs.iter().map(|idx| (shared.init_cost_by_root_idx_weighted[*idx] - util_by_root[*idx] as f32 * shared.weight_by_root_idx[*idx]).round() as Cost).min().unwrap()
     ).sum::<Cost>();
 
-    UtilityCalculation {util, corrected_utils}
+    UtilityCalculation {util, unused_locations}
 }
 
 //#[inline(never)]
@@ -1544,7 +1542,7 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
 
     let Some(marginal_utilities) = get_utility_of_loc_once(pattern, shared) else {
         // All utilities were 0 or negative, so we should autoreject this pattern
-        return UtilityCalculation { util: 0, corrected_utils: Default::default() };
+        return UtilityCalculation { util: 0, unused_locations: Default::default() };
     };
     let self_intersects = can_self_unify(&pattern.pattern_args, shared, pattern.match_locations[0]);
     if self_intersects.is_empty() {
@@ -1618,7 +1616,7 @@ fn get_utility_of_loc_once(pattern: &Pattern, shared: &SharedData) -> Option<Vec
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UtilityCalculation {
     pub util: Cost,
-    pub corrected_utils: FxHashSet<Idx>, // if present, do not accept
+    pub unused_locations: FxHashSet<Idx>, // if present, do not accept
 }
 
 // (not used in popl code - experimental)
@@ -2025,7 +2023,7 @@ pub fn construct_shared(
                 pattern,
                 utility,
                 compressive_utility,
-                util_calc: UtilityCalculation { util: compressive_utility, corrected_utils: Default::default()},
+                util_calc: UtilityCalculation { util: compressive_utility, unused_locations: Default::default()},
                 arity: 0,
                 usages: num_paths_to_node[node]
             };
