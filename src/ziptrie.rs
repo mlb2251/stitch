@@ -83,12 +83,13 @@ impl <'a> ZipTrieSlice<'a> {
 fn add_to_trie(
     trie: &mut Vec<ZipTrieNode>,
     zippers: &[Vec<ZNode>],
-    depth: usize,
+    depth: usize, // semantically, we are processing [z[depth..] for each z in zippers]
 ) -> Option<ZipTrieIdx> {
     if zippers.is_empty() {
         return None;
     }
     let mut zippers = zippers;
+    // these are sorted, so we know the first one is empty if any
     let present = zippers[0].len() == depth;
     if present {
         zippers = &zippers[1..];
@@ -119,6 +120,7 @@ fn add_to_trie(
         }
     };
 
+    // these are sorted, so we are just looking for boundary points
     let mut start_idx = None;
     let mut current = None;
     for (idx, zip) in zippers.iter().enumerate() {
