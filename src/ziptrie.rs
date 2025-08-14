@@ -25,11 +25,11 @@ pub struct ZipTrieSlice<'a> {
 }
 
 impl ZipTrie {
-    pub fn new(mut zippers: Vec<Vec<ZNode>>) -> Self {
+    pub fn new(mut zippers: Vec<Vec<ZNode>>) -> Option<Self> {
         let mut trie = vec![];
         zippers.sort();
-        let index = add_to_trie(&mut trie, &zippers[..], 0);
-        ZipTrie {root: index.unwrap(), trie}
+        let index = add_to_trie(&mut trie, &zippers[..], 0)?;
+        Some(ZipTrie {root: index, trie})
     }
 }
 
