@@ -85,9 +85,9 @@ pub fn smc_expand_once(
         expands_to.clone(),
     )?;
     pattern = clean_invalid_metavars(pattern, match_location, shared);
-    if should_prune_single_use_or_task(shared, &pattern.match_locations) {
-        return None;
-    }
+    // if should_prune_single_use_or_task(shared, &pattern.match_locations) {
+    //     return None;
+    // }
     Some(pattern)
 }
 
