@@ -168,8 +168,6 @@ pub fn rewrite_with_inventions(
 
     let mut cfg = cfg.clone();
 
-    assert!(!cfg.step.smc);
-
     // programs.to_vec()
     let follow = Some(invs.to_vec());
     cfg.iterations = invs.len();
@@ -177,6 +175,7 @@ pub fn rewrite_with_inventions(
     cfg.silent = true;
     cfg.no_opt = true;
     cfg.step.allow_single_task = true;
+    cfg.step.smc = false;
 
     if cfg.verbose_rewrite {
         cfg.silent = false;
