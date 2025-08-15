@@ -353,6 +353,8 @@ pub fn compression_step_smc(
 
     let mut pat = best.pattern;
 
+    pat.pattern_args.sort_args(&shared);
+
     // println!("Pattern: {}", pat.info(&shared));
 
     // println!("Pattern: {}", pat.info(&shared));

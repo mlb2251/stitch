@@ -1183,10 +1183,6 @@ pub struct FinishedPattern {
 impl FinishedPattern {
     //#[inline(never)]
     pub fn new(pattern: Pattern, shared: &SharedData) -> Self {
-        let mut pattern = pattern;
-        println!("Before sort: {}", pattern.info(shared));
-        pattern.pattern_args.sort_args(shared);
-        println!("After sort: {}", pattern.info(shared));
         let arity = pattern.pattern_args.arity();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum();
         let compressive_utility = compressive_utility(&pattern,shared);
