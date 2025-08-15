@@ -2300,7 +2300,7 @@ fn check_same_up_to_ivars(
 ) {
     let set1 = &follow.set;
     let set2 = &rewritten.set;
-    // assert!(follow.to_string() == rewritten.to_string(), "Follow and rewritten expressions are not the same: Follow: {}, Rewritten: {}", follow.to_string(), rewritten.to_string());
+    assert!(follow.to_string() == rewritten.to_string(), "Follow and rewritten expressions are not the same: Follow: {}, Rewritten: {}", follow.to_string(), rewritten.to_string());
     let mut ivar_mapping = FxHashMap::default();
     fn helper(set1: &ExprSet, set2: &ExprSet, ivar_mapping: &mut FxHashMap<i32, i32>, node1: Idx, node2: Idx) -> bool {
         match &set1[node1] {
