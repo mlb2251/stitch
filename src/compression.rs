@@ -1185,7 +1185,7 @@ impl FinishedPattern {
     pub fn new(pattern: Pattern, shared: &SharedData) -> Self {
         let mut pattern = pattern;
         println!("Before sort: {}", pattern.info(shared));
-        pattern.pattern_args.sort_args();
+        pattern.pattern_args.sort_args(shared);
         println!("After sort: {}", pattern.info(shared));
         let arity = pattern.pattern_args.arity();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum();
@@ -2301,6 +2301,7 @@ fn check_same_up_to_ivars(
 ) {
     let set1 = &follow.set;
     let set2 = &rewritten.set;
+    assert!(follow.to_string() == rewritten.to_string(), "Follow and rewritten expressions are not the same: Follow: {}, Rewritten: {}", follow.to_string(), rewritten.to_string());
     let mut ivar_mapping = FxHashMap::default();
     fn helper(set1: &ExprSet, set2: &ExprSet, ivar_mapping: &mut FxHashMap<i32, i32>, node1: Idx, node2: Idx) -> bool {
         match &set1[node1] {

@@ -135,11 +135,17 @@ const SMC_ARGS: &str = " --smc --smc-particles 1000 --smc-extra-steps 40";
 #[test]
 fn smc_regression_tests() {
     let args = "-i10 --rewrite-check".to_owned() + SMC_ARGS;
-    // compare_out_jsons_testing("data/cogsci/nuts-bolts.json", "data/expected_outputs/smc-nuts-bolts.json", &args, InputFormat::ProgramsList);
-    // compare_out_jsons_testing("data/cogsci/wheels.json", "data/expected_outputs/smc-wheels.json", &args, InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/cogsci/nuts-bolts.json", "data/expected_outputs/smc-nuts-bolts.json", &args, InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/cogsci/wheels.json", "data/expected_outputs/smc-wheels.json", &args, InputFormat::ProgramsList);
     compare_out_jsons_testing("data/cogsci/furniture.json", "data/expected_outputs/smc-furniture.json", &args, InputFormat::ProgramsList);
-    // compare_out_jsons_testing("data/cogsci/dials.json", "data/expected_outputs/smc-dials.json", &args, InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/cogsci/dials.json", "data/expected_outputs/smc-dials.json", &args, InputFormat::ProgramsList);
     // compare_out_jsons("data/cogsci/city.json", "data/expected_outputs/smc-city.json", &args, InputFormat::ProgramsList);
+}
+
+#[test]
+fn smc_regression_tests_small() {
+    let args = "-i10 --rewrite-check".to_owned() + SMC_ARGS;
+    compare_out_jsons_testing("data/basic/furniture-small.json", "data/expected_outputs/smc-furniture-small.json", &args, InputFormat::ProgramsList);
 }
 
 fn python_args() -> String {

@@ -254,16 +254,19 @@ impl PatternArgs {
         }
     }
 
-    pub fn sort_args(&mut self) {
+    pub fn sort_args(&mut self, shared: &SharedData) {
         println!("Sorting args. Before: {:?}", self);
-        let mut min_zid_for_ivar: Vec<ZId> = vec![usize::MAX; self.variables.len()];
+        let mut min_zip_for_ivar: Vec<Option<&Vec<ZNode>>> = vec![None; self.variables.len()];
         for labeled in self.arg_choices.iter() {
-            if labeled.zid < min_zid_for_ivar[labeled.ivar] {
-                min_zid_for_ivar[labeled.ivar] = labeled.zid;
+            let ivar = labeled.ivar;
+            let zip = &shared.zip_of_zid[labeled.zid];
+            if min_zip_for_ivar[ivar].is_none_or(|current| compare_zips(zip, current) == std::cmp::Ordering::Less) {
+                min_zip_for_ivar[ivar] = Some(zip);
             }
         }
         let mut ivar_order: Vec<usize> = (0..self.variables.len()).collect();
-        ivar_order.sort_by_key(|&i| min_zid_for_ivar[i]);
+        ivar_order.sort_by(|&i, &j| compare_zips(min_zip_for_ivar[i].unwrap(),
+                                                min_zip_for_ivar[j].unwrap()));
         // ivar_order.reverse();
         let mut new_variables = vec![(0u32, VariableType::Unvalidated); self.variables.len()];
         for (new_ivar, &old_ivar) in ivar_order.iter().enumerate() {
@@ -278,6 +281,26 @@ impl PatternArgs {
         println!("After: {:?}", self);
     }
 
+}
+
+fn compare_zips(zip1: &[ZNode], zip2: &[ZNode]) -> std::cmp::Ordering {
+    // compare two zips lexicographically
+    for (node1, node2) in zip1.iter().zip(zip2.iter()) {
+        if node1 == node2 {
+            continue;
+        }
+        assert!(*node1 != ZNode::Body && *node2 != ZNode::Body, "these zippers should be compatibly children of one argument");
+        if *node1 == ZNode::Arg {
+            assert!(*node2 == ZNode::Func);
+            return std::cmp::Ordering::Less; // args come first
+        }
+        assert!(*node1 == ZNode::Func && *node2 == ZNode::Arg, "these zippers should be compatibly children of one argument");
+        return std::cmp::Ordering::Greater;
+    }
+    if zip1.len() == zip2.len() {
+        return std::cmp::Ordering::Equal;
+    }
+    panic!("Zippers need to be the same length at this point, otherwise one variable is a child of another.");
 }
 
 pub struct LocationsForReusableArgs<'a> {
