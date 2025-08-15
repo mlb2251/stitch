@@ -175,6 +175,7 @@ pub fn rewrite_with_inventions(
     cfg.silent = true;
     cfg.no_opt = true;
     cfg.step.allow_single_task = true;
+    cfg.step.smc = false;
 
     if cfg.verbose_rewrite {
         cfg.silent = false;
