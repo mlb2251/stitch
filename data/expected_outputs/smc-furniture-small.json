@@ -1,0 +1,423 @@
+{
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-4e3648a1d71e7700 smc_regression_tests_small",
+  "args": {
+    "iterations": 10,
+    "abstraction_prefix": "fn_",
+    "previous_abstractions": 0,
+    "shuffle": false,
+    "truncate": null,
+    "no_opt": false,
+    "silent": false,
+    "verbose_rewrite": false,
+    "step": {
+      "max_arity": 2,
+      "threads": 1,
+      "no_stats": false,
+      "batch": 1,
+      "dynamic_batch": false,
+      "eta_long": false,
+      "no_curried_metavars": false,
+      "no_curried_bodies": false,
+      "inv_candidates": 1,
+      "hole_choice": "DepthFirst",
+      "cost": {
+        "cost_lam": 1,
+        "cost_app": 1,
+        "cost_var": 100,
+        "cost_ivar": 100,
+        "cost_prim_default": 100,
+        "cost_prim": "{}"
+      },
+      "no_mismatch_check": false,
+      "follow": null,
+      "follow_prune": false,
+      "verbose_worklist": false,
+      "verbose_best": false,
+      "print_stats": 0,
+      "show_rewritten": false,
+      "rewritten_dreamcoder": false,
+      "rewritten_intermediates": false,
+      "inv_arg_cap": false,
+      "allow_single_task": false,
+      "no_opt_single_use": false,
+      "no_opt_upper_bound": false,
+      "no_opt_force_multiuse": false,
+      "no_opt_useless_abstract": false,
+      "no_opt_arity_zero": false,
+      "no_other_util": false,
+      "structure_penalty": 1.0,
+      "rewrite_check": true,
+      "utility_by_rewrite": false,
+      "dreamcoder_comparison": false,
+      "quiet": false,
+      "fused_lambda_tags": {
+        "tags": null
+      },
+      "smc": true,
+      "seed": 0,
+      "smc_particles": 1000,
+      "smc_fast_utility": false,
+      "smc_extra_steps": 40,
+      "smc_expand_per_step": 1,
+      "smc_temperature": 1.0,
+      "tdfa": {
+        "tdfa_json_path": null,
+        "tdfa_root": null,
+        "valid_metavars": null,
+        "valid_roots": null,
+        "tdfa_non_eta_long_states": null,
+        "tdfa_split": null
+      },
+      "symvar": {
+        "symvar_prefix": null
+      }
+    }
+  },
+  "original_cost": 77661,
+  "final_cost": 9284,
+  "compression_ratio": 8.365036622145627,
+  "num_abstractions": 10,
+  "original": [
+    "(T (repeat (repeat (T (C (C (T (T c (M 2 0 0 0)) (M 1.125 0 0 0)) (T (T c (M 2 0 0 0)) (M 1.625 0 0 0))) (T r (M 0.84375 0 0 0))) (M 1 0 0 0)) 1 (M 1 0 0 0)) 1 (M 1 0 0 0)) (M 1 0 -6.9375 0))",
+    "(T (repeat (repeat (T (C (T r (M 1.125 0 0 0)) (T c (M 0.84375 0 0 0))) (M 1 0 0 0)) 1 (M 1 0 0 0)) 1 (M 1 0 0 0)) (M 1 0 -7.1875 0))",
+    "(T (repeat (repeat (T (C (T (T (repeat (T l (M 1 0 -0.5 1.20711)) 8 (M 1 0.785398 0 0)) (M 0.75 0 0 0)) (M 1.125 0 0 0)) (T c (M 0.84375 0 0 0))) (M 1 0 0 0)) 1 (M 1 0 0 0)) 1 (M 1 0 0 0)) (M 1 0 -7.1875 0))",
+    "(T (repeat (repeat (T (C (T (T (repeat (T l (M 1 0 -0.5 1.20711)) 8 (M 1 0.785398 0 0)) (M 0.75 0 0 0)) (M 1.125 0 0 0)) (T c (M 0.84375 0 0 0))) (M 1 0 0 0)) 2 (M 1 0 14.375 0)) 1 (M 1 0 0 0)) (M 1 0 -7.1875 0))",
+    "(C (C (T (T (repeat (repeat (T (C (T (T (r_s 13.5 3) (M 1 0 0 0)) (M 1 0 0 0)) (T (repeat (repeat (T (T c (M 0.84375 0 0 0)) (M 1 0 0 0)) 2 (M 1 0 5.625 0)) 1 (M 1 0 0 0)) (M 1 0 -2.8125 0))) (M 1 0 0 1.5)) 1 (M 1 0 0 0)) 2 (M 1 0 0 3.75)) (M 1 0 0 0)) (M 1 0 0 0.75)) (T (T (r_s 15 8.25) (M 1 0 0 4.125)) (M 1 0 0 0))) (T (repeat (repeat (T (T (T (T l (M 1 0 -0.5 0)) (M 1 1.5708 0 0)) (M 3 0 0 0)) (M 1 0 0 -1.5)) 3 (M 1 0 7.5 0)) 1 (M 1 0 0 0)) (M 1 0 -7.5 0)))",
+    "(C (C (T (T (repeat (repeat (T (C (T (T (r_s 13.5 3) (M 1 0 0 0)) (M 1 0 0 0)) (T (repeat (repeat (T (T c (M 0.84375 0 0 0)) (M 1 0 0 0)) 2 (M 1 0 5.625 0)) 1 (M 1 0 0 0)) (M 1 0 -2.8125 0))) (M 1 0 0 1.5)) 1 (M 1 0 0 0)) 2 (M 1 0 0 3.75)) (M 1 0 0 0)) (M 1 0 0 0.75)) (T (T (r_s 15 8.25) (M 1 0 0 4.125)) (M 1 0 0 0))) (T (repeat (repeat (T (T (T (T l (M 1 0 -0.5 0)) (M 1 1.5708 0 0)) (M 6 0 0 0)) (M 1 0 0 -3)) 2 (M 1 0 15 0)) 1 (M 1 0 0 0)) (M 1 0 -7.5 0)))",
+    "(C (T (repeat (repeat (T (C (T (T (r_s 9 4) (M 1 0 0 0)) (M 1 0 0 0)) (T (repeat (repeat (T (C (T (T (repeat (T l (M 1 0 -0.5 1.20711)) 8 (M 1 0.785398 0 0)) (M 0.75 0 0 0)) (M 1.125 0 0 0)) (T c (M 0.84375 0 0 0))) (M 1 0 0 0)) 2 (M 1 0 2.875 0)) 1 (M 1 0 0 0)) (M 1 0 -1.4375 0))) (M 1 0 0 0)) 1 (M 1 0 0 0)) 4 (M 1 0 0 5)) (M 1 0 0 -7.5)) (T (T (r_s 11 21) (M 1 0 0 0)) (M 1 0 0 0)))",
+    "(C (C (T (T (repeat (repeat (T (C (T (T (r_s 13.5 3) (M 1 0 0 0)) (M 1 0 0 0)) (T (repeat (repeat (T (T r (M 0.84375 0 0 0)) (M 1 0 0 0)) 2 (M 1 0 5.625 0)) 1 (M 1 0 0 0)) (M 1 0 -2.8125 0))) (M 1 0 0 1.5)) 1 (M 1 0 0 0)) 2 (M 1 0 0 3.75)) (M 1 0 0 0)) (M 1 0 0 0.75)) (T (T (r_s 15 8.25) (M 1 0 0 4.125)) (M 1 0 0 0))) (T (repeat (repeat (T (T (T (T l (M 1 0 -0.5 0)) (M 1 1.5708 0 0)) (M 6 0 0 0)) (M 1 0 0 -3)) 4 (M 1 0 5 0)) 1 (M 1 0 0 0)) (M 1 0 -7.5 0)))"
+  ],
+  "rewritten": [
+    "(fn_9 -6.9375 r (C (T (T c (fn_0 2)) (fn_0 1.125)) (T (T c (fn_0 2)) (fn_0 1.625))))",
+    "(fn_9 -7.1875 c (T r (fn_0 1.125)))",
+    "(fn_3 (fn_0 1) 1 (fn_1 -7.1875 0))",
+    "(fn_3 (fn_1 14.375 0) 2 (fn_1 -7.1875 0))",
+    "(fn_8 c (fn_4 7.5 3 -1.5 3))",
+    "(fn_8 c (fn_4 15 2 -3 6))",
+    "(C (T (repeat (fn_7 (fn_5 (C (fn_5 (fn_5 (r_s 9 4))) (fn_3 (fn_1 2.875 0) 2 (fn_1 -1.4375 0))))) 4 (fn_1 0 5)) (fn_1 0 -7.5)) (fn_5 (fn_5 (r_s 11 21))))",
+    "(fn_8 r (fn_4 5 4 -3 6))"
+  ],
+  "rewritten_dreamcoder": null,
+  "abstractions": [
+    {
+      "body": "(M #0 0 0 0)",
+      "dreamcoder": "#(lambda (M $0 0 0 0))",
+      "arity": 1,
+      "name": "fn_0",
+      "utility": 19291,
+      "final_cost": 57966,
+      "compression_ratio": 1.3397681399441053,
+      "cumulative_compression_ratio": 1.3397681399441053,
+      "num_uses": 65,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_0 0.75": "(M 0.75 0 0 0)"
+        },
+        {
+          "fn_0 0.84375": "(M 0.84375 0 0 0)"
+        },
+        {
+          "fn_0 1": "(M 1 0 0 0)"
+        },
+        {
+          "fn_0 1.125": "(M 1.125 0 0 0)"
+        },
+        {
+          "fn_0 1.625": "(M 1.625 0 0 0)"
+        },
+        {
+          "fn_0 2": "(M 2 0 0 0)"
+        },
+        {
+          "fn_0 3": "(M 3 0 0 0)"
+        },
+        {
+          "fn_0 6": "(M 6 0 0 0)"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    },
+    {
+      "body": "(M 1 0 #0)",
+      "dreamcoder": "#(lambda (M 1 0 $0))",
+      "arity": 1,
+      "name": "fn_1",
+      "utility": 8181,
+      "final_cost": 49482,
+      "compression_ratio": 1.1714562871347156,
+      "cumulative_compression_ratio": 1.1714562871347156,
+      "num_uses": 42,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_1 -0.5": "(M 1 0 -0.5)"
+        },
+        {
+          "fn_1 -1.4375": "(M 1 0 -1.4375)"
+        },
+        {
+          "fn_1 -2.8125": "(M 1 0 -2.8125)"
+        },
+        {
+          "fn_1 -6.9375": "(M 1 0 -6.9375)"
+        },
+        {
+          "fn_1 -7.1875": "(M 1 0 -7.1875)"
+        },
+        {
+          "fn_1 -7.5": "(M 1 0 -7.5)"
+        },
+        {
+          "fn_1 0": "(M 1 0 0)"
+        },
+        {
+          "fn_1 14.375": "(M 1 0 14.375)"
+        },
+        {
+          "fn_1 15": "(M 1 0 15)"
+        },
+        {
+          "fn_1 2.875": "(M 1 0 2.875)"
+        },
+        {
+          "fn_1 5": "(M 1 0 5)"
+        },
+        {
+          "fn_1 5.625": "(M 1 0 5.625)"
+        },
+        {
+          "fn_1 7.5": "(M 1 0 7.5)"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    },
+    {
+      "body": "(repeat (T (C (T (T (r_s 13.5 3) (fn_0 1)) (fn_0 1)) (T (repeat (repeat (T (T #0 (fn_0 0.84375)) (fn_0 1)) 2 (fn_1 5.625 0)) 1 (fn_0 1)) (fn_1 -2.8125 0))) (fn_1 0 1.5)) 1 (fn_0 1))",
+      "dreamcoder": "#(lambda (repeat (T (C (T (T (r_s 13.5 3) (fn_0 1)) (fn_0 1)) (T (repeat (repeat (T (T $0 (fn_0 0.84375)) (fn_0 1)) 2 (fn_1 5.625 0)) 1 (fn_0 1)) (fn_1 -2.8125 0))) (fn_1 0 1.5)) 1 (fn_0 1)))",
+      "arity": 1,
+      "name": "fn_2",
+      "utility": 7171,
+      "final_cost": 38574,
+      "compression_ratio": 1.2827811479234719,
+      "cumulative_compression_ratio": 1.2827811479234719,
+      "num_uses": 3,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_2 c": "(repeat (T (C (T (T (r_s 13.5 3) (fn_0 1)) (fn_0 1)) (T (repeat (repeat (T (T c (fn_0 0.84375)) (fn_0 1)) 2 (fn_1 5.625 0)) 1 (fn_0 1)) (fn_1 -2.8125 0))) (fn_1 0 1.5)) 1 (fn_0 1))"
+        },
+        {
+          "fn_2 r": "(repeat (T (C (T (T (r_s 13.5 3) (fn_0 1)) (fn_0 1)) (T (repeat (repeat (T (T r (fn_0 0.84375)) (fn_0 1)) 2 (fn_1 5.625 0)) 1 (fn_0 1)) (fn_1 -2.8125 0))) (fn_1 0 1.5)) 1 (fn_0 1))"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    },
+    {
+      "body": "(T (repeat (repeat (T (C (T (T (repeat (T l (fn_1 -0.5 1.20711)) 8 (M 1 0.785398 0 0)) (fn_0 0.75)) (fn_0 1.125)) (T c (fn_0 0.84375))) (fn_0 1)) #1 #0) 1 (fn_0 1)))",
+      "dreamcoder": "#(lambda (lambda (T (repeat (repeat (T (C (T (T (repeat (T l (fn_1 -0.5 1.20711)) 8 (M 1 0.785398 0 0)) (fn_0 0.75)) (fn_0 1.125)) (T c (fn_0 0.84375))) (fn_0 1)) $0 $1) 1 (fn_0 1)))))",
+      "arity": 2,
+      "name": "fn_3",
+      "utility": 6160,
+      "final_cost": 29181,
+      "compression_ratio": 1.3218875295569035,
+      "cumulative_compression_ratio": 1.3218875295569035,
+      "num_uses": 3,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_3 (fn_0 1) 1": "(T (repeat (repeat (T (C (T (T (repeat (T l (fn_1 -0.5 1.20711)) 8 (M 1 0.785398 0 0)) (fn_0 0.75)) (fn_0 1.125)) (T c (fn_0 0.84375))) (fn_0 1)) 1 (fn_0 1)) 1 (fn_0 1)))"
+        },
+        {
+          "fn_3 (fn_1 14.375 0) 2": "(T (repeat (repeat (T (C (T (T (repeat (T l (fn_1 -0.5 1.20711)) 8 (M 1 0.785398 0 0)) (fn_0 0.75)) (fn_0 1.125)) (T c (fn_0 0.84375))) (fn_0 1)) 2 (fn_1 14.375 0)) 1 (fn_0 1)))"
+        },
+        {
+          "fn_3 (fn_1 2.875 0) 2": "(T (repeat (repeat (T (C (T (T (repeat (T l (fn_1 -0.5 1.20711)) 8 (M 1 0.785398 0 0)) (fn_0 0.75)) (fn_0 1.125)) (T c (fn_0 0.84375))) (fn_0 1)) 2 (fn_1 2.875 0)) 1 (fn_0 1)))"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    },
+    {
+      "body": "(T (repeat (repeat (T (T (T (T l (fn_1 -0.5 0)) (M 1 1.5708 0 0)) (fn_0 #3)) (fn_1 0 #2)) #1 (fn_1 #0 0)) 1 (fn_0 1)) (fn_1 -7.5 0))",
+      "dreamcoder": "#(lambda (lambda (lambda (lambda (T (repeat (repeat (T (T (T (T l (fn_1 -0.5 0)) (M 1 1.5708 0 0)) (fn_0 $0)) (fn_1 0 $1)) $2 (fn_1 $3 0)) 1 (fn_0 1)) (fn_1 -7.5 0))))))",
+      "arity": 4,
+      "name": "fn_4",
+      "utility": 5148,
+      "final_cost": 21303,
+      "compression_ratio": 1.3698070694268414,
+      "cumulative_compression_ratio": 1.3698070694268414,
+      "num_uses": 3,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_4 7.5 3 -1.5 3": "(T (repeat (repeat (T (T (T (T l (fn_1 -0.5 0)) (M 1 1.5708 0 0)) (fn_0 3)) (fn_1 0 -1.5)) 3 (fn_1 7.5 0)) 1 (fn_0 1)) (fn_1 -7.5 0))"
+        },
+        {
+          "fn_4 15 2 -3 6": "(T (repeat (repeat (T (T (T (T l (fn_1 -0.5 0)) (M 1 1.5708 0 0)) (fn_0 6)) (fn_1 0 -3)) 2 (fn_1 15 0)) 1 (fn_0 1)) (fn_1 -7.5 0))"
+        },
+        {
+          "fn_4 5 4 -3 6": "(T (repeat (repeat (T (T (T (T l (fn_1 -0.5 0)) (M 1 1.5708 0 0)) (fn_0 6)) (fn_1 0 -3)) 4 (fn_1 5 0)) 1 (fn_0 1)) (fn_1 -7.5 0))"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    },
+    {
+      "body": "(T #0 (fn_0 1))",
+      "dreamcoder": "#(lambda (T $0 (fn_0 1)))",
+      "arity": 1,
+      "name": "fn_5",
+      "utility": 2323,
+      "final_cost": 18677,
+      "compression_ratio": 1.1406007388766932,
+      "cumulative_compression_ratio": 1.1406007388766932,
+      "num_uses": 13,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_5 (C (C (T (T c (fn_0 2)) (fn_0 1.125)) (T (T c (fn_0 2)) (fn_0 1.625))) (T r (fn_0 0.84375)))": "(T (C (C (T (T c (fn_0 2)) (fn_0 1.125)) (T (T c (fn_0 2)) (fn_0 1.625))) (T r (fn_0 0.84375))) (fn_0 1))"
+        },
+        {
+          "fn_5 (C (T (T (r_s 9 4) (fn_0 1)) (fn_0 1)) (fn_3 (fn_1 2.875 0) 2 (fn_1 -1.4375 0)))": "(T (C (T (T (r_s 9 4) (fn_0 1)) (fn_0 1)) (fn_3 (fn_1 2.875 0) 2 (fn_1 -1.4375 0))) (fn_0 1))"
+        },
+        {
+          "fn_5 (C (T r (fn_0 1.125)) (T c (fn_0 0.84375)))": "(T (C (T r (fn_0 1.125)) (T c (fn_0 0.84375))) (fn_0 1))"
+        },
+        {
+          "fn_5 (T (r_s 11 21) (fn_0 1))": "(T (T (r_s 11 21) (fn_0 1)) (fn_0 1))"
+        },
+        {
+          "fn_5 (T (r_s 15 8.25) (fn_1 0 4.125))": "(T (T (r_s 15 8.25) (fn_1 0 4.125)) (fn_0 1))"
+        },
+        {
+          "fn_5 (T (r_s 9 4) (fn_0 1))": "(T (T (r_s 9 4) (fn_0 1)) (fn_0 1))"
+        },
+        {
+          "fn_5 (r_s 11 21)": "(T (r_s 11 21) (fn_0 1))"
+        },
+        {
+          "fn_5 (r_s 9 4)": "(T (r_s 9 4) (fn_0 1))"
+        },
+        {
+          "fn_5 (repeat (fn_2 c) 2 (fn_1 0 3.75))": "(T (repeat (fn_2 c) 2 (fn_1 0 3.75)) (fn_0 1))"
+        },
+        {
+          "fn_5 (repeat (fn_2 r) 2 (fn_1 0 3.75))": "(T (repeat (fn_2 r) 2 (fn_1 0 3.75)) (fn_0 1))"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    },
+    {
+      "body": "(C (T (fn_5 (repeat (fn_2 #0) 2 (fn_1 0 3.75))) (fn_1 0 0.75)))",
+      "dreamcoder": "#(lambda (C (T (fn_5 (repeat (fn_2 $0) 2 (fn_1 0 3.75))) (fn_1 0 0.75))))",
+      "arity": 1,
+      "name": "fn_6",
+      "utility": 2121,
+      "final_cost": 15344,
+      "compression_ratio": 1.217218456725756,
+      "cumulative_compression_ratio": 1.217218456725756,
+      "num_uses": 3,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_6 c": "(C (T (fn_5 (repeat (fn_2 c) 2 (fn_1 0 3.75))) (fn_1 0 0.75)))"
+        },
+        {
+          "fn_6 r": "(C (T (fn_5 (repeat (fn_2 r) 2 (fn_1 0 3.75))) (fn_1 0 0.75)))"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    },
+    {
+      "body": "(repeat #0 1 (fn_0 1))",
+      "dreamcoder": "#(lambda (repeat $0 1 (fn_0 1)))",
+      "arity": 1,
+      "name": "fn_7",
+      "utility": 1111,
+      "final_cost": 13829,
+      "compression_ratio": 1.1095523899052715,
+      "cumulative_compression_ratio": 1.1095523899052715,
+      "num_uses": 5,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_7 (fn_5 (C (C (T (T c (fn_0 2)) (fn_0 1.125)) (T (T c (fn_0 2)) (fn_0 1.625))) (T r (fn_0 0.84375))))": "(repeat (fn_5 (C (C (T (T c (fn_0 2)) (fn_0 1.125)) (T (T c (fn_0 2)) (fn_0 1.625))) (T r (fn_0 0.84375)))) 1 (fn_0 1))"
+        },
+        {
+          "fn_7 (fn_5 (C (T r (fn_0 1.125)) (T c (fn_0 0.84375))))": "(repeat (fn_5 (C (T r (fn_0 1.125)) (T c (fn_0 0.84375)))) 1 (fn_0 1))"
+        },
+        {
+          "fn_7 (fn_5 (C (fn_5 (fn_5 (r_s 9 4))) (fn_3 (fn_1 2.875 0) 2 (fn_1 -1.4375 0))))": "(repeat (fn_5 (C (fn_5 (fn_5 (r_s 9 4))) (fn_3 (fn_1 2.875 0) 2 (fn_1 -1.4375 0)))) 1 (fn_0 1))"
+        },
+        {
+          "fn_7 (repeat (fn_5 (C (C (T (T c (fn_0 2)) (fn_0 1.125)) (T (T c (fn_0 2)) (fn_0 1.625))) (T r (fn_0 0.84375)))) 1 (fn_0 1))": "(repeat (repeat (fn_5 (C (C (T (T c (fn_0 2)) (fn_0 1.125)) (T (T c (fn_0 2)) (fn_0 1.625))) (T r (fn_0 0.84375)))) 1 (fn_0 1)) 1 (fn_0 1))"
+        },
+        {
+          "fn_7 (repeat (fn_5 (C (T r (fn_0 1.125)) (T c (fn_0 0.84375)))) 1 (fn_0 1))": "(repeat (repeat (fn_5 (C (T r (fn_0 1.125)) (T c (fn_0 0.84375)))) 1 (fn_0 1)) 1 (fn_0 1))"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    },
+    {
+      "body": "(C (fn_6 #0 (fn_5 (T (r_s 15 8.25) (fn_1 0 4.125)))))",
+      "dreamcoder": "#(lambda (C (fn_6 $0 (fn_5 (T (r_s 15 8.25) (fn_1 0 4.125))))))",
+      "arity": 1,
+      "name": "fn_8",
+      "utility": 1717,
+      "final_cost": 11102,
+      "compression_ratio": 1.2456314177625654,
+      "cumulative_compression_ratio": 1.2456314177625654,
+      "num_uses": 3,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_8 c": "(C (fn_6 c (fn_5 (T (r_s 15 8.25) (fn_1 0 4.125)))))"
+        },
+        {
+          "fn_8 r": "(C (fn_6 r (fn_5 (T (r_s 15 8.25) (fn_1 0 4.125)))))"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    },
+    {
+      "body": "(T (fn_7 (fn_7 (fn_5 (C #2 (T #1 (fn_0 0.84375)))))) (fn_1 #0 0))",
+      "dreamcoder": "#(lambda (lambda (lambda (T (fn_7 (fn_7 (fn_5 (C $0 (T $1 (fn_0 0.84375)))))) (fn_1 $2 0)))))",
+      "arity": 3,
+      "name": "fn_9",
+      "utility": 806,
+      "final_cost": 9284,
+      "compression_ratio": 1.1958207669108143,
+      "cumulative_compression_ratio": 1.1958207669108143,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_9 -6.9375 r (C (T (T c (fn_0 2)) (fn_0 1.125)) (T (T c (fn_0 2)) (fn_0 1.625)))": "(T (fn_7 (fn_7 (fn_5 (C (C (T (T c (fn_0 2)) (fn_0 1.125)) (T (T c (fn_0 2)) (fn_0 1.625))) (T r (fn_0 0.84375)))))) (fn_1 -6.9375 0))"
+        },
+        {
+          "fn_9 -7.1875 c (T r (fn_0 1.125))": "(T (fn_7 (fn_7 (fn_5 (C (T r (fn_0 1.125)) (T c (fn_0 0.84375)))))) (fn_1 -7.1875 0))"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    }
+  ]
+}
