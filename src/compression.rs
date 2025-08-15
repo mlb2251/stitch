@@ -1271,6 +1271,23 @@ fn get_zippers(
             Node::IVar(_) => { unreachable!() }
             Node::Var(_, _) | Node::Prim(_) => {},
             Node::App(f,x) => {
+                // bubble from `f`
+                for f_zid in zids_of_node[&f].iter() {
+                    // clone and extend zip to get new zid for this node
+                    let mut zip = zip_of_zid[*f_zid].clone();
+                    zip.insert(0,ZNode::Func);
+                    let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
+                        let zid = zip_of_zid.len();
+                        zip_of_zid.push(zip);
+                        arg_of_zid_node.push(FxHashMap::default());
+                        zid
+                    });
+                    // add new zid to this node
+                    zids.push(*zid);
+                    // give it the same arg
+                    let arg = arg_of_zid_node[*f_zid][&f].clone();
+                    arg_of_zid_node[*zid].insert(idx, arg);
+                }
                 // bubble from `x`
                 for x_zid in zids_of_node[&x].iter() {
                     // clone and extend zip to get new zid for this node
@@ -1289,24 +1306,6 @@ fn get_zippers(
                     arg_of_zid_node[*zid].insert(idx, arg);
 
                 }
-                // bubble from `f`
-                for f_zid in zids_of_node[&f].iter() {
-                    // clone and extend zip to get new zid for this node
-                    let mut zip = zip_of_zid[*f_zid].clone();
-                    zip.insert(0,ZNode::Func);
-                    let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
-                        let zid = zip_of_zid.len();
-                        zip_of_zid.push(zip);
-                        arg_of_zid_node.push(FxHashMap::default());
-                        zid
-                    });
-                    // add new zid to this node
-                    zids.push(*zid);
-                    // give it the same arg
-                    let arg = arg_of_zid_node[*f_zid][&f].clone();
-                    arg_of_zid_node[*zid].insert(idx, arg);
-                }
-
             },
             Node::Lam(b, _) => {
                 for b_zid in zids_of_node[&b].iter() {
