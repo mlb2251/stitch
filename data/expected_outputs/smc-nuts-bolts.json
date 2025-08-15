@@ -1,5 +1,5 @@
 {
-  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-bce40e9cd3aead80",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-4e3648a1d71e7700",
   "args": {
     "iterations": 10,
     "abstraction_prefix": "fn_",
@@ -46,7 +46,7 @@
       "no_opt_arity_zero": false,
       "no_other_util": false,
       "structure_penalty": 1.0,
-      "rewrite_check": false,
+      "rewrite_check": true,
       "utility_by_rewrite": false,
       "dreamcoder_comparison": false,
       "quiet": false,
@@ -74,8 +74,8 @@
     }
   },
   "original_cost": 1919558,
-  "final_cost": 211446,
-  "compression_ratio": 9.07824219895387,
+  "final_cost": 228010,
+  "compression_ratio": 8.418744791895092,
   "num_abstractions": 10,
   "original": [
     "(C (C (T (T c (M 2 0 0 0)) (M 4 0 0 0)) (T (T c (M 2 0 0 0)) (M 4.25 0 0 0))) (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi 6))))) 6 (M 1 (/ (* 2 pi) 6) 0 0)) (M 2 0 0 0)))",
@@ -330,256 +330,256 @@
     "(C (C (C (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi 6))))) 6 (M 1 (/ (* 2 pi) 6) 0 0)) (M 4 0 0 0)) (T (repeat (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi 6))))) 6 (M 1 (/ (* 2 pi) 6) 0 0)) (M 4.25 0 0 0))) (T r (M 1 0 0 0))) (repeat (T (T r (M 0.5 0 0 0)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 6 (M 1 (/ (* 2 pi) 6) 0 0)))"
   ],
   "rewritten": [
-    "(fn_5 (fn_6 4) 4.25 (fn_3 2))",
-    "(C (fn_3 2) (fn_3 1))",
-    "(C (C (fn_3 2) (fn_3 2.25)) (fn_3 1))",
-    "(C (C (fn_3 2) (fn_3 2.25)) (fn_3 0.5))",
-    "(C (fn_8 4.25) (fn_6 2))",
-    "(C (fn_8 4.25) (T r (fn_2 2)))",
-    "(fn_7 2 (fn_6 1))",
-    "(fn_7 2 (fn_6 0.5))",
-    "(fn_7 2 (T r (fn_2 0.5)))",
-    "(fn_7 4 (fn_3 2))",
-    "(fn_7 4 (fn_3 1))",
-    "(fn_7 4 (T r (fn_2 1)))",
-    "(fn_5 (fn_6 4) 2 (fn_4 4 r 3))",
-    "(fn_5 (fn_6 4) 1 (fn_4 4 r 1.5))",
-    "(fn_5 (fn_6 4) 1 (fn_4 6 r 1.5))",
-    "(fn_5 (fn_6 4) 1 (fn_4 8 r 1.5))",
-    "(C (C (fn_6 4) (fn_3 2)) (fn_4 4 c 3))",
-    "(C (C (fn_6 4) (fn_3 1)) (fn_4 4 c 1.5))",
-    "(C (C (fn_6 4) (fn_3 1)) (fn_4 8 c 1.5))",
-    "(C (C (fn_6 4) (fn_3 1)) (fn_4 2 r 1.5))",
-    "(fn_9 2 fn_6 4 (fn_4 6 c 3))",
-    "(fn_9 1 fn_6 4 (fn_4 8 c 1.5))",
-    "(fn_9 1 fn_6 4 (fn_4 6 r 1.5))",
-    "(fn_5 (fn_3 4) 1 (fn_4 6 c 1.5))",
-    "(C (fn_8 2) (fn_4 6 r 3))",
-    "(C (fn_8 2) (fn_4 8 r 3))",
-    "(C (fn_8 1) (fn_4 6 r 1.5))",
-    "(fn_9 2 fn_3 4 (fn_4 4 r 3))",
-    "(fn_9 1 fn_3 4 (fn_4 4 c 1.5))",
-    "(fn_9 1 fn_3 4 (fn_4 6 c 1.5))",
-    "(fn_9 1 fn_3 4 (fn_4 8 c 1.5))",
-    "(fn_9 1 fn_3 4 (fn_4 4 r 1.5))",
-    "(fn_9 1 fn_3 4 (fn_4 6 r 1.5))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 2 (fn_4 6 c 3))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 1 (fn_4 2 c 1.5))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 1 (fn_4 4 c 1.5))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 1 (fn_4 6 c 1.5))",
-    "(C (fn_7 4 (fn_3 2)) (fn_4 4 c 3))",
-    "(C (fn_7 4 (fn_3 1)) (fn_4 4 c 1.5))",
-    "(C (fn_7 4 (fn_3 1)) (fn_4 4 r 1.5))",
-    "(C (fn_7 4 (T r (fn_2 2))) (fn_4 8 c 3))",
-    "(C (fn_7 4 (T r (fn_2 1))) (fn_4 2 c 1.5))",
-    "(C (fn_7 4 (T r (fn_2 1))) (fn_4 2 r 1.5))",
-    "(fn_5 (fn_8 4.25) 2 (fn_4 6 c 3))",
-    "(fn_5 (fn_8 4.25) 1 (fn_4 6 c 1.5))",
-    "(fn_5 (fn_8 4.25) 1 (fn_4 2 r 1.5))",
-    "(fn_5 (fn_8 4.25) 1 (fn_4 4 r 1.5))",
-    "(C (C (fn_8 4.25) (fn_3 2)) (fn_4 2 c 3))",
-    "(C (C (fn_8 4.25) (fn_3 2)) (fn_4 6 c 3))",
-    "(C (C (fn_8 4.25) (fn_3 1)) (fn_4 6 r 1.5))",
-    "(C (fn_6 2) (fn_6 1))",
-    "(C (fn_6 2) (fn_6 0.5))",
-    "(C (fn_6 2) (fn_3 1))",
-    "(C (fn_6 2) (fn_3 0.5))",
-    "(C (fn_6 2) (T r (fn_2 1)))",
-    "(C (fn_6 2) (T r (fn_2 0.5)))",
-    "(C (fn_6 4) (fn_6 2))",
-    "(C (fn_6 4) (fn_6 1))",
-    "(C (fn_6 4) (fn_3 2))",
-    "(C (fn_6 4) (fn_3 1))",
-    "(C (fn_6 4) (T r (fn_2 2)))",
-    "(C (fn_6 4) (T r (fn_2 1)))",
-    "(fn_5 (fn_6 2) 2.25 (fn_6 1))",
-    "(fn_5 (fn_6 2) 2.25 (fn_6 0.5))",
-    "(fn_5 (fn_6 2) 2.25 (fn_3 1))",
-    "(fn_5 (fn_6 2) 2.25 (fn_3 0.5))",
-    "(fn_5 (fn_6 2) 2.25 (T r (fn_2 1)))",
-    "(fn_5 (fn_6 2) 2.25 (T r (fn_2 0.5)))",
-    "(fn_5 (fn_6 4) 4.25 (fn_6 2))",
-    "(fn_5 (fn_6 4) 4.25 (fn_6 1))",
-    "(fn_5 (fn_6 4) 4.25 (fn_3 1))",
-    "(fn_5 (fn_6 4) 4.25 (T r (fn_2 2)))",
-    "(fn_5 (fn_6 4) 4.25 (T r (fn_2 1)))",
-    "(C (fn_3 2) (fn_6 1))",
-    "(C (fn_3 2) (fn_6 0.5))",
-    "(C (fn_3 2) (fn_3 0.5))",
-    "(C (fn_3 2) (T r (fn_2 1)))",
-    "(C (fn_3 2) (T r (fn_2 0.5)))",
-    "(C (fn_3 4) (fn_6 2))",
-    "(C (fn_3 4) (fn_6 1))",
-    "(fn_8 2)",
-    "(fn_8 1)",
-    "(C (fn_3 4) (T r (fn_2 2)))",
-    "(C (fn_3 4) (T r (fn_2 1)))",
-    "(C (C (fn_3 2) (fn_3 2.25)) (fn_6 1))",
-    "(C (C (fn_3 2) (fn_3 2.25)) (fn_6 0.5))",
-    "(C (C (fn_3 2) (fn_3 2.25)) (T r (fn_2 1)))",
-    "(C (C (fn_3 2) (fn_3 2.25)) (T r (fn_2 0.5)))",
-    "(C (fn_8 4.25) (fn_6 1))",
-    "(C (fn_8 4.25) (fn_3 2))",
-    "(C (fn_8 4.25) (fn_3 1))",
-    "(C (fn_8 4.25) (T r (fn_2 1)))",
-    "(fn_7 2 (fn_3 1))",
-    "(fn_7 2 (fn_3 0.5))",
-    "(fn_7 2 (T r (fn_2 1)))",
-    "(fn_7 4 (fn_6 2))",
-    "(fn_7 4 (fn_6 1))",
-    "(fn_7 4 (T r (fn_2 2)))",
-    "(fn_5 (fn_6 4) 2 (fn_4 2 c 3))",
-    "(fn_5 (fn_6 4) 2 (fn_4 4 c 3))",
-    "(fn_5 (fn_6 4) 2 (fn_4 6 c 3))",
-    "(fn_5 (fn_6 4) 2 (fn_4 8 c 3))",
-    "(fn_5 (fn_6 4) 2 (fn_4 2 r 3))",
-    "(fn_5 (fn_6 4) 2 (fn_4 6 r 3))",
-    "(fn_5 (fn_6 4) 2 (fn_4 8 r 3))",
-    "(fn_5 (fn_6 4) 1 (fn_4 2 c 1.5))",
-    "(fn_5 (fn_6 4) 1 (fn_4 4 c 1.5))",
-    "(fn_5 (fn_6 4) 1 (fn_4 6 c 1.5))",
-    "(fn_5 (fn_6 4) 1 (fn_4 8 c 1.5))",
-    "(fn_5 (fn_6 4) 1 (fn_4 2 r 1.5))",
-    "(C (C (fn_6 4) (fn_3 2)) (fn_4 2 c 3))",
-    "(C (C (fn_6 4) (fn_3 2)) (fn_4 6 c 3))",
-    "(C (C (fn_6 4) (fn_3 2)) (fn_4 8 c 3))",
-    "(C (C (fn_6 4) (fn_3 2)) (fn_4 2 r 3))",
-    "(C (C (fn_6 4) (fn_3 2)) (fn_4 4 r 3))",
-    "(C (C (fn_6 4) (fn_3 2)) (fn_4 6 r 3))",
-    "(C (C (fn_6 4) (fn_3 2)) (fn_4 8 r 3))",
-    "(C (C (fn_6 4) (fn_3 1)) (fn_4 2 c 1.5))",
-    "(C (C (fn_6 4) (fn_3 1)) (fn_4 6 c 1.5))",
-    "(C (C (fn_6 4) (fn_3 1)) (fn_4 4 r 1.5))",
-    "(C (C (fn_6 4) (fn_3 1)) (fn_4 6 r 1.5))",
-    "(C (C (fn_6 4) (fn_3 1)) (fn_4 8 r 1.5))",
-    "(fn_9 2 fn_6 4 (fn_4 2 c 3))",
-    "(fn_9 2 fn_6 4 (fn_4 4 c 3))",
-    "(fn_9 2 fn_6 4 (fn_4 8 c 3))",
-    "(fn_9 2 fn_6 4 (fn_4 2 r 3))",
-    "(fn_9 2 fn_6 4 (fn_4 4 r 3))",
-    "(fn_9 2 fn_6 4 (fn_4 6 r 3))",
-    "(fn_9 2 fn_6 4 (fn_4 8 r 3))",
-    "(fn_9 1 fn_6 4 (fn_4 2 c 1.5))",
-    "(fn_9 1 fn_6 4 (fn_4 4 c 1.5))",
-    "(fn_9 1 fn_6 4 (fn_4 6 c 1.5))",
-    "(fn_9 1 fn_6 4 (fn_4 2 r 1.5))",
-    "(fn_9 1 fn_6 4 (fn_4 4 r 1.5))",
-    "(fn_9 1 fn_6 4 (fn_4 8 r 1.5))",
-    "(fn_5 (fn_3 4) 2 (fn_4 2 c 3))",
-    "(fn_5 (fn_3 4) 2 (fn_4 4 c 3))",
-    "(fn_5 (fn_3 4) 2 (fn_4 6 c 3))",
-    "(fn_5 (fn_3 4) 2 (fn_4 8 c 3))",
-    "(fn_5 (fn_3 4) 2 (fn_4 2 r 3))",
-    "(fn_5 (fn_3 4) 2 (fn_4 4 r 3))",
-    "(fn_5 (fn_3 4) 2 (fn_4 6 r 3))",
-    "(fn_5 (fn_3 4) 2 (fn_4 8 r 3))",
-    "(fn_5 (fn_3 4) 1 (fn_4 2 c 1.5))",
-    "(fn_5 (fn_3 4) 1 (fn_4 4 c 1.5))",
-    "(fn_5 (fn_3 4) 1 (fn_4 8 c 1.5))",
-    "(fn_5 (fn_3 4) 1 (fn_4 2 r 1.5))",
-    "(fn_5 (fn_3 4) 1 (fn_4 4 r 1.5))",
-    "(fn_5 (fn_3 4) 1 (fn_4 6 r 1.5))",
-    "(fn_5 (fn_3 4) 1 (fn_4 8 r 1.5))",
-    "(C (fn_8 2) (fn_4 2 c 3))",
-    "(C (fn_8 2) (fn_4 4 c 3))",
-    "(C (fn_8 2) (fn_4 6 c 3))",
-    "(C (fn_8 2) (fn_4 8 c 3))",
-    "(C (fn_8 2) (fn_4 2 r 3))",
-    "(C (fn_8 2) (fn_4 4 r 3))",
-    "(C (fn_8 1) (fn_4 2 c 1.5))",
-    "(C (fn_8 1) (fn_4 4 c 1.5))",
-    "(C (fn_8 1) (fn_4 6 c 1.5))",
-    "(C (fn_8 1) (fn_4 8 c 1.5))",
-    "(C (fn_8 1) (fn_4 2 r 1.5))",
-    "(C (fn_8 1) (fn_4 4 r 1.5))",
-    "(C (fn_8 1) (fn_4 8 r 1.5))",
-    "(fn_9 2 fn_3 4 (fn_4 2 c 3))",
-    "(fn_9 2 fn_3 4 (fn_4 4 c 3))",
-    "(fn_9 2 fn_3 4 (fn_4 6 c 3))",
-    "(fn_9 2 fn_3 4 (fn_4 8 c 3))",
-    "(fn_9 2 fn_3 4 (fn_4 2 r 3))",
-    "(fn_9 2 fn_3 4 (fn_4 6 r 3))",
-    "(fn_9 2 fn_3 4 (fn_4 8 r 3))",
-    "(fn_9 1 fn_3 4 (fn_4 2 c 1.5))",
-    "(fn_9 1 fn_3 4 (fn_4 2 r 1.5))",
-    "(fn_9 1 fn_3 4 (fn_4 8 r 1.5))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 2 (fn_4 2 c 3))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 2 (fn_4 4 c 3))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 2 (fn_4 8 c 3))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 2 (fn_4 2 r 3))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 2 (fn_4 4 r 3))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 2 (fn_4 6 r 3))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 2 (fn_4 8 r 3))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 1 (fn_4 8 c 1.5))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 1 (fn_4 2 r 1.5))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 1 (fn_4 4 r 1.5))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 1 (fn_4 6 r 1.5))",
-    "(fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 1 (fn_4 8 r 1.5))",
-    "(C (fn_7 4 (fn_3 2)) (fn_4 2 c 3))",
-    "(C (fn_7 4 (fn_3 2)) (fn_4 6 c 3))",
-    "(C (fn_7 4 (fn_3 2)) (fn_4 8 c 3))",
-    "(C (fn_7 4 (fn_3 2)) (fn_4 2 r 3))",
-    "(C (fn_7 4 (fn_3 2)) (fn_4 4 r 3))",
-    "(C (fn_7 4 (fn_3 2)) (fn_4 6 r 3))",
-    "(C (fn_7 4 (fn_3 2)) (fn_4 8 r 3))",
-    "(C (fn_7 4 (fn_3 1)) (fn_4 2 c 1.5))",
-    "(C (fn_7 4 (fn_3 1)) (fn_4 6 c 1.5))",
-    "(C (fn_7 4 (fn_3 1)) (fn_4 8 c 1.5))",
-    "(C (fn_7 4 (fn_3 1)) (fn_4 2 r 1.5))",
-    "(C (fn_7 4 (fn_3 1)) (fn_4 6 r 1.5))",
-    "(C (fn_7 4 (fn_3 1)) (fn_4 8 r 1.5))",
-    "(C (fn_7 4 (T r (fn_2 2))) (fn_4 2 c 3))",
-    "(C (fn_7 4 (T r (fn_2 2))) (fn_4 4 c 3))",
-    "(C (fn_7 4 (T r (fn_2 2))) (fn_4 6 c 3))",
-    "(C (fn_7 4 (T r (fn_2 2))) (fn_4 2 r 3))",
-    "(C (fn_7 4 (T r (fn_2 2))) (fn_4 4 r 3))",
-    "(C (fn_7 4 (T r (fn_2 2))) (fn_4 6 r 3))",
-    "(C (fn_7 4 (T r (fn_2 2))) (fn_4 8 r 3))",
-    "(C (fn_7 4 (T r (fn_2 1))) (fn_4 4 c 1.5))",
-    "(C (fn_7 4 (T r (fn_2 1))) (fn_4 6 c 1.5))",
-    "(C (fn_7 4 (T r (fn_2 1))) (fn_4 8 c 1.5))",
-    "(C (fn_7 4 (T r (fn_2 1))) (fn_4 4 r 1.5))",
-    "(C (fn_7 4 (T r (fn_2 1))) (fn_4 6 r 1.5))",
-    "(C (fn_7 4 (T r (fn_2 1))) (fn_4 8 r 1.5))",
-    "(fn_5 (fn_8 4.25) 2 (fn_4 2 c 3))",
-    "(fn_5 (fn_8 4.25) 2 (fn_4 4 c 3))",
-    "(fn_5 (fn_8 4.25) 2 (fn_4 8 c 3))",
-    "(fn_5 (fn_8 4.25) 2 (fn_4 2 r 3))",
-    "(fn_5 (fn_8 4.25) 2 (fn_4 4 r 3))",
-    "(fn_5 (fn_8 4.25) 2 (fn_4 6 r 3))",
-    "(fn_5 (fn_8 4.25) 2 (fn_4 8 r 3))",
-    "(fn_5 (fn_8 4.25) 1 (fn_4 2 c 1.5))",
-    "(fn_5 (fn_8 4.25) 1 (fn_4 4 c 1.5))",
-    "(fn_5 (fn_8 4.25) 1 (fn_4 8 c 1.5))",
-    "(fn_5 (fn_8 4.25) 1 (fn_4 6 r 1.5))",
-    "(fn_5 (fn_8 4.25) 1 (fn_4 8 r 1.5))",
-    "(C (C (fn_8 4.25) (fn_3 2)) (fn_4 4 c 3))",
-    "(C (C (fn_8 4.25) (fn_3 2)) (fn_4 8 c 3))",
-    "(C (C (fn_8 4.25) (fn_3 2)) (fn_4 2 r 3))",
-    "(C (C (fn_8 4.25) (fn_3 2)) (fn_4 4 r 3))",
-    "(C (C (fn_8 4.25) (fn_3 2)) (fn_4 6 r 3))",
-    "(C (C (fn_8 4.25) (fn_3 2)) (fn_4 8 r 3))",
-    "(C (C (fn_8 4.25) (fn_3 1)) (fn_4 2 c 1.5))",
-    "(C (C (fn_8 4.25) (fn_3 1)) (fn_4 4 c 1.5))",
-    "(C (C (fn_8 4.25) (fn_3 1)) (fn_4 6 c 1.5))",
-    "(C (C (fn_8 4.25) (fn_3 1)) (fn_4 8 c 1.5))",
-    "(C (C (fn_8 4.25) (fn_3 1)) (fn_4 2 r 1.5))",
-    "(C (C (fn_8 4.25) (fn_3 1)) (fn_4 4 r 1.5))",
-    "(C (C (fn_8 4.25) (fn_3 1)) (fn_4 8 r 1.5))",
-    "(fn_9 2 fn_8 4.25 (fn_4 2 c 3))",
-    "(fn_9 2 fn_8 4.25 (fn_4 4 c 3))",
-    "(fn_9 2 fn_8 4.25 (fn_4 8 c 3))",
-    "(fn_9 2 fn_8 4.25 (fn_4 2 r 3))",
-    "(fn_9 2 fn_8 4.25 (fn_4 4 r 3))",
-    "(fn_9 2 fn_8 4.25 (fn_4 6 r 3))",
-    "(fn_9 2 fn_8 4.25 (fn_4 8 r 3))",
-    "(fn_9 1 fn_8 4.25 (fn_4 2 c 1.5))",
-    "(fn_9 1 fn_8 4.25 (fn_4 4 c 1.5))",
-    "(fn_9 1 fn_8 4.25 (fn_4 6 c 1.5))",
-    "(fn_9 1 fn_8 4.25 (fn_4 8 c 1.5))",
-    "(fn_9 1 fn_8 4.25 (fn_4 2 r 1.5))",
-    "(fn_9 1 fn_8 4.25 (fn_4 4 r 1.5))",
-    "(fn_9 1 fn_8 4.25 (fn_4 6 r 1.5))"
+    "(C (C (fn_8 4) (fn_8 4.25)) (fn_4 2 6))",
+    "(C (fn_4 2 6) (fn_4 1 6))",
+    "(C (C (fn_4 2 6) (fn_4 2.25 6)) (fn_4 1 6))",
+    "(C (C (fn_4 2 6) (fn_4 2.25 6)) (fn_4 0.5 6))",
+    "(fn_9 (fn_4 4.25 6) 6 (fn_8 2))",
+    "(fn_9 (fn_4 4.25 6) 6 (T r (fn_1 2)))",
+    "(C (fn_4 2 8) (fn_8 1))",
+    "(C (fn_4 2 8) (fn_8 0.5))",
+    "(C (fn_4 2 8) (T r (fn_1 0.5)))",
+    "(C (fn_4 4 8) (fn_4 2 6))",
+    "(C (fn_4 4 8) (fn_4 1 6))",
+    "(C (fn_4 4 8) (T r (fn_1 1)))",
+    "(C (C (fn_8 4) (fn_8 2)) (fn_6 3 r))",
+    "(C (C (fn_8 4) (fn_8 1)) (fn_6 1.5 r))",
+    "(C (C (fn_8 4) (fn_8 1)) (fn_3 1.5 r))",
+    "(C (C (fn_8 4) (fn_8 1)) (fn_7 1.5 r))",
+    "(C (C (fn_8 4) (fn_4 2 6)) (fn_6 3 c))",
+    "(C (C (fn_8 4) (fn_4 1 6)) (fn_6 1.5 c))",
+    "(C (C (fn_8 4) (fn_4 1 6)) (fn_7 1.5 c))",
+    "(C (C (fn_8 4) (fn_4 1 6)) (fn_5 1.5 r))",
+    "(C (C (fn_8 4) (T r (fn_1 2))) (fn_3 3 c))",
+    "(C (C (fn_8 4) (T r (fn_1 1))) (fn_7 1.5 c))",
+    "(C (C (fn_8 4) (T r (fn_1 1))) (fn_3 1.5 r))",
+    "(fn_9 (fn_8 1) 6 (fn_3 1.5 c))",
+    "(fn_9 (fn_4 2 6) 6 (fn_3 3 r))",
+    "(fn_9 (fn_4 2 6) 6 (fn_7 3 r))",
+    "(fn_9 (fn_4 1 6) 6 (fn_3 1.5 r))",
+    "(fn_9 (T r (fn_1 2)) 6 (fn_6 3 r))",
+    "(fn_9 (T r (fn_1 1)) 6 (fn_6 1.5 c))",
+    "(fn_9 (T r (fn_1 1)) 6 (fn_3 1.5 c))",
+    "(fn_9 (T r (fn_1 1)) 6 (fn_7 1.5 c))",
+    "(fn_9 (T r (fn_1 1)) 6 (fn_6 1.5 r))",
+    "(fn_9 (T r (fn_1 1)) 6 (fn_3 1.5 r))",
+    "(fn_9 (fn_8 2) 8 (fn_3 3 c))",
+    "(fn_9 (fn_8 1) 8 (fn_5 1.5 c))",
+    "(fn_9 (fn_8 1) 8 (fn_6 1.5 c))",
+    "(fn_9 (fn_8 1) 8 (fn_3 1.5 c))",
+    "(fn_9 (fn_4 2 6) 8 (fn_6 3 c))",
+    "(fn_9 (fn_4 1 6) 8 (fn_6 1.5 c))",
+    "(fn_9 (fn_4 1 6) 8 (fn_6 1.5 r))",
+    "(fn_9 (T r (fn_1 2)) 8 (fn_7 3 c))",
+    "(fn_9 (T r (fn_1 1)) 8 (fn_5 1.5 c))",
+    "(fn_9 (T r (fn_1 1)) 8 (fn_5 1.5 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 2)) (fn_3 3 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 1)) (fn_3 1.5 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 1)) (fn_5 1.5 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 1)) (fn_6 1.5 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 2 6)) (fn_5 3 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 2 6)) (fn_3 3 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 1 6)) (fn_3 1.5 r))",
+    "(C (fn_8 2) (fn_8 1))",
+    "(C (fn_8 2) (fn_8 0.5))",
+    "(C (fn_8 2) (fn_4 1 6))",
+    "(C (fn_8 2) (fn_4 0.5 6))",
+    "(C (fn_8 2) (T r (fn_1 1)))",
+    "(C (fn_8 2) (T r (fn_1 0.5)))",
+    "(C (fn_8 4) (fn_8 2))",
+    "(C (fn_8 4) (fn_8 1))",
+    "(C (fn_8 4) (fn_4 2 6))",
+    "(C (fn_8 4) (fn_4 1 6))",
+    "(C (fn_8 4) (T r (fn_1 2)))",
+    "(C (fn_8 4) (T r (fn_1 1)))",
+    "(C (C (fn_8 2) (fn_8 2.25)) (fn_8 1))",
+    "(C (C (fn_8 2) (fn_8 2.25)) (fn_8 0.5))",
+    "(C (C (fn_8 2) (fn_8 2.25)) (fn_4 1 6))",
+    "(C (C (fn_8 2) (fn_8 2.25)) (fn_4 0.5 6))",
+    "(C (C (fn_8 2) (fn_8 2.25)) (T r (fn_1 1)))",
+    "(C (C (fn_8 2) (fn_8 2.25)) (T r (fn_1 0.5)))",
+    "(C (C (fn_8 4) (fn_8 4.25)) (fn_8 2))",
+    "(C (C (fn_8 4) (fn_8 4.25)) (fn_8 1))",
+    "(C (C (fn_8 4) (fn_8 4.25)) (fn_4 1 6))",
+    "(C (C (fn_8 4) (fn_8 4.25)) (T r (fn_1 2)))",
+    "(C (C (fn_8 4) (fn_8 4.25)) (T r (fn_1 1)))",
+    "(C (fn_4 2 6) (fn_8 1))",
+    "(C (fn_4 2 6) (fn_8 0.5))",
+    "(C (fn_4 2 6) (fn_4 0.5 6))",
+    "(C (fn_4 2 6) (T r (fn_1 1)))",
+    "(C (fn_4 2 6) (T r (fn_1 0.5)))",
+    "(C (fn_4 4 6) (fn_8 2))",
+    "(C (fn_4 4 6) (fn_8 1))",
+    "(C (fn_4 4 6) (fn_4 2 6))",
+    "(C (fn_4 4 6) (fn_4 1 6))",
+    "(C (fn_4 4 6) (T r (fn_1 2)))",
+    "(C (fn_4 4 6) (T r (fn_1 1)))",
+    "(C (C (fn_4 2 6) (fn_4 2.25 6)) (fn_8 1))",
+    "(C (C (fn_4 2 6) (fn_4 2.25 6)) (fn_8 0.5))",
+    "(C (C (fn_4 2 6) (fn_4 2.25 6)) (T r (fn_1 1)))",
+    "(C (C (fn_4 2 6) (fn_4 2.25 6)) (T r (fn_1 0.5)))",
+    "(fn_9 (fn_4 4.25 6) 6 (fn_8 1))",
+    "(fn_9 (fn_4 4.25 6) 6 (fn_4 2 6))",
+    "(fn_9 (fn_4 4.25 6) 6 (fn_4 1 6))",
+    "(fn_9 (fn_4 4.25 6) 6 (T r (fn_1 1)))",
+    "(C (fn_4 2 8) (fn_4 1 6))",
+    "(C (fn_4 2 8) (fn_4 0.5 6))",
+    "(C (fn_4 2 8) (T r (fn_1 1)))",
+    "(C (fn_4 4 8) (fn_8 2))",
+    "(C (fn_4 4 8) (fn_8 1))",
+    "(C (fn_4 4 8) (T r (fn_1 2)))",
+    "(C (C (fn_8 4) (fn_8 2)) (fn_5 3 c))",
+    "(C (C (fn_8 4) (fn_8 2)) (fn_6 3 c))",
+    "(C (C (fn_8 4) (fn_8 2)) (fn_3 3 c))",
+    "(C (C (fn_8 4) (fn_8 2)) (fn_7 3 c))",
+    "(C (C (fn_8 4) (fn_8 2)) (fn_5 3 r))",
+    "(C (C (fn_8 4) (fn_8 2)) (fn_3 3 r))",
+    "(C (C (fn_8 4) (fn_8 2)) (fn_7 3 r))",
+    "(C (C (fn_8 4) (fn_8 1)) (fn_5 1.5 c))",
+    "(C (C (fn_8 4) (fn_8 1)) (fn_6 1.5 c))",
+    "(C (C (fn_8 4) (fn_8 1)) (fn_3 1.5 c))",
+    "(C (C (fn_8 4) (fn_8 1)) (fn_7 1.5 c))",
+    "(C (C (fn_8 4) (fn_8 1)) (fn_5 1.5 r))",
+    "(C (C (fn_8 4) (fn_4 2 6)) (fn_5 3 c))",
+    "(C (C (fn_8 4) (fn_4 2 6)) (fn_3 3 c))",
+    "(C (C (fn_8 4) (fn_4 2 6)) (fn_7 3 c))",
+    "(C (C (fn_8 4) (fn_4 2 6)) (fn_5 3 r))",
+    "(C (C (fn_8 4) (fn_4 2 6)) (fn_6 3 r))",
+    "(C (C (fn_8 4) (fn_4 2 6)) (fn_3 3 r))",
+    "(C (C (fn_8 4) (fn_4 2 6)) (fn_7 3 r))",
+    "(C (C (fn_8 4) (fn_4 1 6)) (fn_5 1.5 c))",
+    "(C (C (fn_8 4) (fn_4 1 6)) (fn_3 1.5 c))",
+    "(C (C (fn_8 4) (fn_4 1 6)) (fn_6 1.5 r))",
+    "(C (C (fn_8 4) (fn_4 1 6)) (fn_3 1.5 r))",
+    "(C (C (fn_8 4) (fn_4 1 6)) (fn_7 1.5 r))",
+    "(C (C (fn_8 4) (T r (fn_1 2))) (fn_5 3 c))",
+    "(C (C (fn_8 4) (T r (fn_1 2))) (fn_6 3 c))",
+    "(C (C (fn_8 4) (T r (fn_1 2))) (fn_7 3 c))",
+    "(C (C (fn_8 4) (T r (fn_1 2))) (fn_5 3 r))",
+    "(C (C (fn_8 4) (T r (fn_1 2))) (fn_6 3 r))",
+    "(C (C (fn_8 4) (T r (fn_1 2))) (fn_3 3 r))",
+    "(C (C (fn_8 4) (T r (fn_1 2))) (fn_7 3 r))",
+    "(C (C (fn_8 4) (T r (fn_1 1))) (fn_5 1.5 c))",
+    "(C (C (fn_8 4) (T r (fn_1 1))) (fn_6 1.5 c))",
+    "(C (C (fn_8 4) (T r (fn_1 1))) (fn_3 1.5 c))",
+    "(C (C (fn_8 4) (T r (fn_1 1))) (fn_5 1.5 r))",
+    "(C (C (fn_8 4) (T r (fn_1 1))) (fn_6 1.5 r))",
+    "(C (C (fn_8 4) (T r (fn_1 1))) (fn_7 1.5 r))",
+    "(fn_9 (fn_8 2) 6 (fn_5 3 c))",
+    "(fn_9 (fn_8 2) 6 (fn_6 3 c))",
+    "(fn_9 (fn_8 2) 6 (fn_3 3 c))",
+    "(fn_9 (fn_8 2) 6 (fn_7 3 c))",
+    "(fn_9 (fn_8 2) 6 (fn_5 3 r))",
+    "(fn_9 (fn_8 2) 6 (fn_6 3 r))",
+    "(fn_9 (fn_8 2) 6 (fn_3 3 r))",
+    "(fn_9 (fn_8 2) 6 (fn_7 3 r))",
+    "(fn_9 (fn_8 1) 6 (fn_5 1.5 c))",
+    "(fn_9 (fn_8 1) 6 (fn_6 1.5 c))",
+    "(fn_9 (fn_8 1) 6 (fn_7 1.5 c))",
+    "(fn_9 (fn_8 1) 6 (fn_5 1.5 r))",
+    "(fn_9 (fn_8 1) 6 (fn_6 1.5 r))",
+    "(fn_9 (fn_8 1) 6 (fn_3 1.5 r))",
+    "(fn_9 (fn_8 1) 6 (fn_7 1.5 r))",
+    "(fn_9 (fn_4 2 6) 6 (fn_5 3 c))",
+    "(fn_9 (fn_4 2 6) 6 (fn_6 3 c))",
+    "(fn_9 (fn_4 2 6) 6 (fn_3 3 c))",
+    "(fn_9 (fn_4 2 6) 6 (fn_7 3 c))",
+    "(fn_9 (fn_4 2 6) 6 (fn_5 3 r))",
+    "(fn_9 (fn_4 2 6) 6 (fn_6 3 r))",
+    "(fn_9 (fn_4 1 6) 6 (fn_5 1.5 c))",
+    "(fn_9 (fn_4 1 6) 6 (fn_6 1.5 c))",
+    "(fn_9 (fn_4 1 6) 6 (fn_3 1.5 c))",
+    "(fn_9 (fn_4 1 6) 6 (fn_7 1.5 c))",
+    "(fn_9 (fn_4 1 6) 6 (fn_5 1.5 r))",
+    "(fn_9 (fn_4 1 6) 6 (fn_6 1.5 r))",
+    "(fn_9 (fn_4 1 6) 6 (fn_7 1.5 r))",
+    "(fn_9 (T r (fn_1 2)) 6 (fn_5 3 c))",
+    "(fn_9 (T r (fn_1 2)) 6 (fn_6 3 c))",
+    "(fn_9 (T r (fn_1 2)) 6 (fn_3 3 c))",
+    "(fn_9 (T r (fn_1 2)) 6 (fn_7 3 c))",
+    "(fn_9 (T r (fn_1 2)) 6 (fn_5 3 r))",
+    "(fn_9 (T r (fn_1 2)) 6 (fn_3 3 r))",
+    "(fn_9 (T r (fn_1 2)) 6 (fn_7 3 r))",
+    "(fn_9 (T r (fn_1 1)) 6 (fn_5 1.5 c))",
+    "(fn_9 (T r (fn_1 1)) 6 (fn_5 1.5 r))",
+    "(fn_9 (T r (fn_1 1)) 6 (fn_7 1.5 r))",
+    "(fn_9 (fn_8 2) 8 (fn_5 3 c))",
+    "(fn_9 (fn_8 2) 8 (fn_6 3 c))",
+    "(fn_9 (fn_8 2) 8 (fn_7 3 c))",
+    "(fn_9 (fn_8 2) 8 (fn_5 3 r))",
+    "(fn_9 (fn_8 2) 8 (fn_6 3 r))",
+    "(fn_9 (fn_8 2) 8 (fn_3 3 r))",
+    "(fn_9 (fn_8 2) 8 (fn_7 3 r))",
+    "(fn_9 (fn_8 1) 8 (fn_7 1.5 c))",
+    "(fn_9 (fn_8 1) 8 (fn_5 1.5 r))",
+    "(fn_9 (fn_8 1) 8 (fn_6 1.5 r))",
+    "(fn_9 (fn_8 1) 8 (fn_3 1.5 r))",
+    "(fn_9 (fn_8 1) 8 (fn_7 1.5 r))",
+    "(fn_9 (fn_4 2 6) 8 (fn_5 3 c))",
+    "(fn_9 (fn_4 2 6) 8 (fn_3 3 c))",
+    "(fn_9 (fn_4 2 6) 8 (fn_7 3 c))",
+    "(fn_9 (fn_4 2 6) 8 (fn_5 3 r))",
+    "(fn_9 (fn_4 2 6) 8 (fn_6 3 r))",
+    "(fn_9 (fn_4 2 6) 8 (fn_3 3 r))",
+    "(fn_9 (fn_4 2 6) 8 (fn_7 3 r))",
+    "(fn_9 (fn_4 1 6) 8 (fn_5 1.5 c))",
+    "(fn_9 (fn_4 1 6) 8 (fn_3 1.5 c))",
+    "(fn_9 (fn_4 1 6) 8 (fn_7 1.5 c))",
+    "(fn_9 (fn_4 1 6) 8 (fn_5 1.5 r))",
+    "(fn_9 (fn_4 1 6) 8 (fn_3 1.5 r))",
+    "(fn_9 (fn_4 1 6) 8 (fn_7 1.5 r))",
+    "(fn_9 (T r (fn_1 2)) 8 (fn_5 3 c))",
+    "(fn_9 (T r (fn_1 2)) 8 (fn_6 3 c))",
+    "(fn_9 (T r (fn_1 2)) 8 (fn_3 3 c))",
+    "(fn_9 (T r (fn_1 2)) 8 (fn_5 3 r))",
+    "(fn_9 (T r (fn_1 2)) 8 (fn_6 3 r))",
+    "(fn_9 (T r (fn_1 2)) 8 (fn_3 3 r))",
+    "(fn_9 (T r (fn_1 2)) 8 (fn_7 3 r))",
+    "(fn_9 (T r (fn_1 1)) 8 (fn_6 1.5 c))",
+    "(fn_9 (T r (fn_1 1)) 8 (fn_3 1.5 c))",
+    "(fn_9 (T r (fn_1 1)) 8 (fn_7 1.5 c))",
+    "(fn_9 (T r (fn_1 1)) 8 (fn_6 1.5 r))",
+    "(fn_9 (T r (fn_1 1)) 8 (fn_3 1.5 r))",
+    "(fn_9 (T r (fn_1 1)) 8 (fn_7 1.5 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 2)) (fn_5 3 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 2)) (fn_6 3 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 2)) (fn_7 3 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 2)) (fn_5 3 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 2)) (fn_6 3 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 2)) (fn_3 3 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 2)) (fn_7 3 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 1)) (fn_5 1.5 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 1)) (fn_6 1.5 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 1)) (fn_7 1.5 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 1)) (fn_3 1.5 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_8 1)) (fn_7 1.5 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 2 6)) (fn_6 3 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 2 6)) (fn_7 3 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 2 6)) (fn_5 3 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 2 6)) (fn_6 3 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 2 6)) (fn_3 3 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 2 6)) (fn_7 3 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 1 6)) (fn_5 1.5 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 1 6)) (fn_6 1.5 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 1 6)) (fn_3 1.5 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 1 6)) (fn_7 1.5 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 1 6)) (fn_5 1.5 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 1 6)) (fn_6 1.5 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (fn_4 1 6)) (fn_7 1.5 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (T r (fn_1 2))) (fn_5 3 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (T r (fn_1 2))) (fn_6 3 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (T r (fn_1 2))) (fn_7 3 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (T r (fn_1 2))) (fn_5 3 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (T r (fn_1 2))) (fn_6 3 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (T r (fn_1 2))) (fn_3 3 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (T r (fn_1 2))) (fn_7 3 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (T r (fn_1 1))) (fn_5 1.5 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (T r (fn_1 1))) (fn_6 1.5 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (T r (fn_1 1))) (fn_3 1.5 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (T r (fn_1 1))) (fn_7 1.5 c))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (T r (fn_1 1))) (fn_5 1.5 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (T r (fn_1 1))) (fn_6 1.5 r))",
+    "(C (fn_9 (fn_4 4.25 6) 6 (T r (fn_1 1))) (fn_3 1.5 r))"
   ],
   "rewritten_dreamcoder": null,
   "abstractions": [
@@ -613,318 +613,306 @@
       "tdfa_annotation": null
     },
     {
-      "body": "(T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #0)))))",
-      "dreamcoder": "#(lambda (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi $0))))))",
-      "arity": 1,
-      "name": "fn_1",
-      "utility": 322089,
-      "final_cost": 1235788,
-      "compression_ratio": 1.2615335316413494,
-      "cumulative_compression_ratio": 1.2615335316413494,
-      "num_uses": 320,
-      "rewritten": null,
-      "rewritten_dreamcoder": null,
-      "uses": [
-        {
-          "fn_1 6": "(T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi 6)))))"
-        },
-        {
-          "fn_1 8": "(T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi 8)))))"
-        }
-      ],
-      "dc_comparison_millis": null,
-      "tdfa_annotation": null
-    },
-    {
       "body": "(M #0 0 0 0)",
       "dreamcoder": "#(lambda (M $0 0 0 0))",
       "arity": 1,
-      "name": "fn_2",
+      "name": "fn_1",
       "utility": 280780,
-      "final_cost": 954604,
-      "compression_ratio": 1.2945556482059577,
-      "cumulative_compression_ratio": 1.2945556482059577,
+      "final_cost": 1277804,
+      "compression_ratio": 1.2200525276176941,
+      "cumulative_compression_ratio": 1.2200525276176941,
       "num_uses": 928,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_2 0.5": "(M 0.5 0 0 0)"
+          "fn_1 0.5": "(M 0.5 0 0 0)"
         },
         {
-          "fn_2 1": "(M 1 0 0 0)"
+          "fn_1 1": "(M 1 0 0 0)"
         },
         {
-          "fn_2 2": "(M 2 0 0 0)"
+          "fn_1 2": "(M 2 0 0 0)"
         },
         {
-          "fn_2 2.25": "(M 2.25 0 0 0)"
+          "fn_1 2.25": "(M 2.25 0 0 0)"
         },
         {
-          "fn_2 4": "(M 4 0 0 0)"
+          "fn_1 4": "(M 4 0 0 0)"
         },
         {
-          "fn_2 4.25": "(M 4.25 0 0 0)"
+          "fn_1 4.25": "(M 4.25 0 0 0)"
         }
       ],
       "dc_comparison_millis": null,
       "tdfa_annotation": null
     },
     {
-      "body": "(T (repeat (fn_1 6) 6 (fn_0 6)) (fn_2 #0))",
-      "dreamcoder": "#(lambda (T (repeat (fn_1 6) 6 (fn_0 6)) (fn_2 $0)))",
+      "body": "(T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi #0)))))",
+      "dreamcoder": "#(lambda (T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi $0))))))",
       "arity": 1,
+      "name": "fn_2",
+      "utility": 322089,
+      "final_cost": 954604,
+      "compression_ratio": 1.3385697105815606,
+      "cumulative_compression_ratio": 1.3385697105815606,
+      "num_uses": 320,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
+        {
+          "fn_2 6": "(T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi 6)))))"
+        },
+        {
+          "fn_2 8": "(T l (M 1 0 -0.5 (/ 0.5 (tan (/ pi 8)))))"
+        }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null
+    },
+    {
+      "body": "(repeat (T (T #1 (fn_1 0.5)) (M 1 0 (* #0 (cos (/ pi 4))) (* #0 (sin (/ pi 4))))) 6 (fn_0 6))",
+      "dreamcoder": "#(lambda (lambda (repeat (T (T $0 (fn_1 0.5)) (M 1 0 (* $1 (cos (/ pi 4))) (* $1 (sin (/ pi 4))))) 6 (fn_0 6))))",
+      "arity": 2,
       "name": "fn_3",
-      "utility": 183012,
-      "final_cost": 770784,
-      "compression_ratio": 1.2384844521941296,
-      "cumulative_compression_ratio": 1.2384844521941296,
-      "num_uses": 260,
+      "utility": 97564,
+      "final_cost": 854917,
+      "compression_ratio": 1.116604301938083,
+      "cumulative_compression_ratio": 1.116604301938083,
+      "num_uses": 47,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_3 0.5": "(T (repeat (fn_1 6) 6 (fn_0 6)) (fn_2 0.5))"
+          "fn_3 1.5 c": "(repeat (T (T c (fn_1 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 6 (fn_0 6))"
         },
         {
-          "fn_3 1": "(T (repeat (fn_1 6) 6 (fn_0 6)) (fn_2 1))"
+          "fn_3 3 c": "(repeat (T (T c (fn_1 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 6 (fn_0 6))"
         },
         {
-          "fn_3 2": "(T (repeat (fn_1 6) 6 (fn_0 6)) (fn_2 2))"
+          "fn_3 1.5 r": "(repeat (T (T r (fn_1 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 6 (fn_0 6))"
         },
         {
-          "fn_3 2.25": "(T (repeat (fn_1 6) 6 (fn_0 6)) (fn_2 2.25))"
-        },
-        {
-          "fn_3 4": "(T (repeat (fn_1 6) 6 (fn_0 6)) (fn_2 4))"
-        },
-        {
-          "fn_3 4.25": "(T (repeat (fn_1 6) 6 (fn_0 6)) (fn_2 4.25))"
+          "fn_3 3 r": "(repeat (T (T r (fn_1 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 6 (fn_0 6))"
         }
       ],
       "dc_comparison_millis": null,
       "tdfa_annotation": null
     },
     {
-      "body": "(repeat (T (T #1 (fn_2 0.5)) (M 1 0 (* #2 (cos (/ pi 4))) (* #2 (sin (/ pi 4))))) #0 (fn_0 #0))",
-      "dreamcoder": "#(lambda (lambda (lambda (repeat (T (T $1 (fn_2 0.5)) (M 1 0 (* $0 (cos (/ pi 4))) (* $0 (sin (/ pi 4))))) $2 (fn_0 $2)))))",
-      "arity": 3,
+      "body": "(T (repeat (fn_2 #1) #1 (fn_0 #1)) (fn_1 #0))",
+      "dreamcoder": "#(lambda (lambda (T (repeat (fn_2 $0) $0 (fn_0 $0)) (fn_1 $1))))",
+      "arity": 2,
       "name": "fn_4",
-      "utility": 381877,
-      "final_cost": 386984,
-      "compression_ratio": 1.9917722696545594,
-      "cumulative_compression_ratio": 1.9917722696545594,
-      "num_uses": 190,
+      "utility": 193412,
+      "final_cost": 660997,
+      "compression_ratio": 1.2933750077534392,
+      "cumulative_compression_ratio": 1.2933750077534392,
+      "num_uses": 320,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_4 2 c 1.5": "(repeat (T (T c (fn_2 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 2 (fn_0 2))"
+          "fn_4 0.5 6": "(T (repeat (fn_2 6) 6 (fn_0 6)) (fn_1 0.5))"
         },
         {
-          "fn_4 4 c 1.5": "(repeat (T (T c (fn_2 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 4 (fn_0 4))"
+          "fn_4 1 6": "(T (repeat (fn_2 6) 6 (fn_0 6)) (fn_1 1))"
         },
         {
-          "fn_4 6 c 1.5": "(repeat (T (T c (fn_2 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 6 (fn_0 6))"
+          "fn_4 2 6": "(T (repeat (fn_2 6) 6 (fn_0 6)) (fn_1 2))"
         },
         {
-          "fn_4 8 c 1.5": "(repeat (T (T c (fn_2 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 8 (fn_0 8))"
+          "fn_4 2.25 6": "(T (repeat (fn_2 6) 6 (fn_0 6)) (fn_1 2.25))"
         },
         {
-          "fn_4 2 c 3": "(repeat (T (T c (fn_2 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 2 (fn_0 2))"
+          "fn_4 4 6": "(T (repeat (fn_2 6) 6 (fn_0 6)) (fn_1 4))"
         },
         {
-          "fn_4 4 c 3": "(repeat (T (T c (fn_2 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 4 (fn_0 4))"
+          "fn_4 4.25 6": "(T (repeat (fn_2 6) 6 (fn_0 6)) (fn_1 4.25))"
         },
         {
-          "fn_4 6 c 3": "(repeat (T (T c (fn_2 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 6 (fn_0 6))"
+          "fn_4 2 8": "(T (repeat (fn_2 8) 8 (fn_0 8)) (fn_1 2))"
         },
         {
-          "fn_4 8 c 3": "(repeat (T (T c (fn_2 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 8 (fn_0 8))"
-        },
-        {
-          "fn_4 2 r 1.5": "(repeat (T (T r (fn_2 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 2 (fn_0 2))"
-        },
-        {
-          "fn_4 4 r 1.5": "(repeat (T (T r (fn_2 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 4 (fn_0 4))"
-        },
-        {
-          "fn_4 6 r 1.5": "(repeat (T (T r (fn_2 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 6 (fn_0 6))"
-        },
-        {
-          "fn_4 8 r 1.5": "(repeat (T (T r (fn_2 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 8 (fn_0 8))"
-        },
-        {
-          "fn_4 2 r 3": "(repeat (T (T r (fn_2 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 2 (fn_0 2))"
-        },
-        {
-          "fn_4 4 r 3": "(repeat (T (T r (fn_2 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 4 (fn_0 4))"
-        },
-        {
-          "fn_4 6 r 3": "(repeat (T (T r (fn_2 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 6 (fn_0 6))"
-        },
-        {
-          "fn_4 8 r 3": "(repeat (T (T r (fn_2 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 8 (fn_0 8))"
+          "fn_4 4 8": "(T (repeat (fn_2 8) 8 (fn_0 8)) (fn_1 4))"
         }
       ],
       "dc_comparison_millis": null,
       "tdfa_annotation": null
     },
     {
-      "body": "(C (C #0 (T (T c (fn_2 2)) (fn_2 #1))))",
-      "dreamcoder": "#(lambda (lambda (C (C $1 (T (T c (fn_2 2)) (fn_2 $0))))))",
+      "body": "(repeat (T (T #1 (fn_1 0.5)) (M 1 0 (* #0 (cos (/ pi 4))) (* #0 (sin (/ pi 4))))) 2 (fn_0 2))",
+      "dreamcoder": "#(lambda (lambda (repeat (T (T $0 (fn_1 0.5)) (M 1 0 (* $1 (cos (/ pi 4))) (* $1 (sin (/ pi 4))))) 2 (fn_0 2))))",
       "arity": 2,
       "name": "fn_5",
-      "utility": 52923,
-      "final_cost": 333252,
-      "compression_ratio": 1.1612353414233072,
-      "cumulative_compression_ratio": 1.1612353414233072,
-      "num_uses": 76,
+      "utility": 99685,
+      "final_cost": 559189,
+      "compression_ratio": 1.182063667203754,
+      "cumulative_compression_ratio": 1.182063667203754,
+      "num_uses": 48,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_5 (C (fn_3 4) (fn_3 4.25)) 1": "(C (C (C (fn_3 4) (fn_3 4.25)) (T (T c (fn_2 2)) (fn_2 1))))"
+          "fn_5 1.5 c": "(repeat (T (T c (fn_1 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 2 (fn_0 2))"
         },
         {
-          "fn_5 (C (fn_3 4) (fn_3 4.25)) 2": "(C (C (C (fn_3 4) (fn_3 4.25)) (T (T c (fn_2 2)) (fn_2 2))))"
+          "fn_5 3 c": "(repeat (T (T c (fn_1 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 2 (fn_0 2))"
         },
         {
-          "fn_5 (T (T c (fn_2 2)) (fn_2 2)) 2.25": "(C (C (T (T c (fn_2 2)) (fn_2 2)) (T (T c (fn_2 2)) (fn_2 2.25))))"
+          "fn_5 1.5 r": "(repeat (T (T r (fn_1 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 2 (fn_0 2))"
         },
         {
-          "fn_5 (T (T c (fn_2 2)) (fn_2 4)) 1": "(C (C (T (T c (fn_2 2)) (fn_2 4)) (T (T c (fn_2 2)) (fn_2 1))))"
-        },
-        {
-          "fn_5 (T (T c (fn_2 2)) (fn_2 4)) 2": "(C (C (T (T c (fn_2 2)) (fn_2 4)) (T (T c (fn_2 2)) (fn_2 2))))"
-        },
-        {
-          "fn_5 (T (T c (fn_2 2)) (fn_2 4)) 4.25": "(C (C (T (T c (fn_2 2)) (fn_2 4)) (T (T c (fn_2 2)) (fn_2 4.25))))"
-        },
-        {
-          "fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 1": "(C (C (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) (T (T c (fn_2 2)) (fn_2 1))))"
-        },
-        {
-          "fn_5 (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) 2": "(C (C (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)) (T (T c (fn_2 2)) (fn_2 2))))"
-        },
-        {
-          "fn_5 (fn_3 4) 1": "(C (C (fn_3 4) (T (T c (fn_2 2)) (fn_2 1))))"
-        },
-        {
-          "fn_5 (fn_3 4) 2": "(C (C (fn_3 4) (T (T c (fn_2 2)) (fn_2 2))))"
+          "fn_5 3 r": "(repeat (T (T r (fn_1 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 2 (fn_0 2))"
         }
       ],
       "dc_comparison_millis": null,
       "tdfa_annotation": null
     },
     {
-      "body": "(T (T c (fn_2 2)) (fn_2 #0))",
-      "dreamcoder": "#(lambda (T (T c (fn_2 2)) (fn_2 $0)))",
-      "arity": 1,
+      "body": "(repeat (T (T #1 (fn_1 0.5)) (M 1 0 (* #0 (cos (/ pi 4))) (* #0 (sin (/ pi 4))))) 4 (fn_0 4))",
+      "dreamcoder": "#(lambda (lambda (repeat (T (T $0 (fn_1 0.5)) (M 1 0 (* $1 (cos (/ pi 4))) (* $1 (sin (/ pi 4))))) 4 (fn_0 4))))",
+      "arity": 2,
       "name": "fn_6",
-      "utility": 45854,
-      "final_cost": 286792,
-      "compression_ratio": 1.1619989399983264,
-      "cumulative_compression_ratio": 1.1619989399983264,
-      "num_uses": 92,
+      "utility": 99685,
+      "final_cost": 457381,
+      "compression_ratio": 1.2225890450193602,
+      "cumulative_compression_ratio": 1.2225890450193602,
+      "num_uses": 48,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_6 0.5": "(T (T c (fn_2 2)) (fn_2 0.5))"
+          "fn_6 1.5 c": "(repeat (T (T c (fn_1 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 4 (fn_0 4))"
         },
         {
-          "fn_6 1": "(T (T c (fn_2 2)) (fn_2 1))"
+          "fn_6 3 c": "(repeat (T (T c (fn_1 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 4 (fn_0 4))"
         },
         {
-          "fn_6 2": "(T (T c (fn_2 2)) (fn_2 2))"
+          "fn_6 1.5 r": "(repeat (T (T r (fn_1 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 4 (fn_0 4))"
         },
         {
-          "fn_6 4": "(T (T c (fn_2 2)) (fn_2 4))"
+          "fn_6 3 r": "(repeat (T (T r (fn_1 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 4 (fn_0 4))"
         }
       ],
       "dc_comparison_millis": null,
       "tdfa_annotation": null
     },
     {
-      "body": "(C (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 #0)))",
-      "dreamcoder": "#(lambda (C (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 $0))))",
-      "arity": 1,
+      "body": "(repeat (T (T #1 (fn_1 0.5)) (M 1 0 (* #0 (cos (/ pi 4))) (* #0 (sin (/ pi 4))))) 8 (fn_0 8))",
+      "dreamcoder": "#(lambda (lambda (repeat (T (T $0 (fn_1 0.5)) (M 1 0 (* $1 (cos (/ pi 4))) (* $1 (sin (/ pi 4))))) 8 (fn_0 8))))",
+      "arity": 2,
       "name": "fn_7",
-      "utility": 34643,
-      "final_cost": 251240,
-      "compression_ratio": 1.141506129597198,
-      "cumulative_compression_ratio": 1.141506129597198,
-      "num_uses": 44,
+      "utility": 97564,
+      "final_cost": 357694,
+      "compression_ratio": 1.2786935201596896,
+      "cumulative_compression_ratio": 1.2786935201596896,
+      "num_uses": 47,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_7 2": "(C (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 2)))"
+          "fn_7 1.5 c": "(repeat (T (T c (fn_1 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 8 (fn_0 8))"
         },
         {
-          "fn_7 4": "(C (T (repeat (fn_1 8) 8 (fn_0 8)) (fn_2 4)))"
+          "fn_7 3 c": "(repeat (T (T c (fn_1 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 8 (fn_0 8))"
+        },
+        {
+          "fn_7 1.5 r": "(repeat (T (T r (fn_1 0.5)) (M 1 0 (* 1.5 (cos (/ pi 4))) (* 1.5 (sin (/ pi 4))))) 8 (fn_0 8))"
+        },
+        {
+          "fn_7 3 r": "(repeat (T (T r (fn_1 0.5)) (M 1 0 (* 3 (cos (/ pi 4))) (* 3 (sin (/ pi 4))))) 8 (fn_0 8))"
         }
       ],
       "dc_comparison_millis": null,
       "tdfa_annotation": null
     },
     {
-      "body": "(C (fn_3 4) (fn_3 #0))",
-      "dreamcoder": "#(lambda (C (fn_3 4) (fn_3 $0)))",
+      "body": "(T (T c (fn_1 2)) (fn_1 #0))",
+      "dreamcoder": "#(lambda (T (T c (fn_1 2)) (fn_1 $0)))",
       "arity": 1,
       "name": "fn_8",
-      "utility": 20806,
-      "final_cost": 230030,
-      "compression_ratio": 1.0922053645176717,
-      "cumulative_compression_ratio": 1.0922053645176717,
-      "num_uses": 70,
+      "utility": 84234,
+      "final_cost": 272854,
+      "compression_ratio": 1.3109355186290104,
+      "cumulative_compression_ratio": 1.3109355186290104,
+      "num_uses": 168,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_8 1": "(C (fn_3 4) (fn_3 1))"
+          "fn_8 0.5": "(T (T c (fn_1 2)) (fn_1 0.5))"
         },
         {
-          "fn_8 2": "(C (fn_3 4) (fn_3 2))"
+          "fn_8 1": "(T (T c (fn_1 2)) (fn_1 1))"
         },
         {
-          "fn_8 4.25": "(C (fn_3 4) (fn_3 4.25))"
+          "fn_8 2": "(T (T c (fn_1 2)) (fn_1 2))"
+        },
+        {
+          "fn_8 2.25": "(T (T c (fn_1 2)) (fn_1 2.25))"
+        },
+        {
+          "fn_8 4": "(T (T c (fn_1 2)) (fn_1 4))"
+        },
+        {
+          "fn_8 4.25": "(T (T c (fn_1 2)) (fn_1 4.25))"
         }
       ],
       "dc_comparison_millis": null,
       "tdfa_annotation": null
     },
     {
-      "body": "(C (C (#1 #2) (T r (fn_2 #0))))",
-      "dreamcoder": "#(lambda (lambda (lambda (C (C ($1 $0) (T r (fn_2 $2)))))))",
-      "arity": 3,
+      "body": "(C (C (fn_4 4 #1) #0))",
+      "dreamcoder": "#(lambda (lambda (C (C (fn_4 4 $0) $1))))",
+      "arity": 2,
       "name": "fn_9",
-      "utility": 18077,
-      "final_cost": 211446,
-      "compression_ratio": 1.0878900523064992,
-      "cumulative_compression_ratio": 1.0878900523064992,
-      "num_uses": 46,
+      "utility": 44439,
+      "final_cost": 228010,
+      "compression_ratio": 1.1966755844041927,
+      "cumulative_compression_ratio": 1.1966755844041927,
+      "num_uses": 148,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_9 1 fn_3 4": "(C (C (fn_3 4) (T r (fn_2 1))))"
+          "fn_9 (T r (fn_1 1)) 6": "(C (C (fn_4 4 6) (T r (fn_1 1))))"
         },
         {
-          "fn_9 2 fn_3 4": "(C (C (fn_3 4) (T r (fn_2 2))))"
+          "fn_9 (T r (fn_1 2)) 6": "(C (C (fn_4 4 6) (T r (fn_1 2))))"
         },
         {
-          "fn_9 1 fn_6 4": "(C (C (fn_6 4) (T r (fn_2 1))))"
+          "fn_9 (fn_4 1 6) 6": "(C (C (fn_4 4 6) (fn_4 1 6)))"
         },
         {
-          "fn_9 2 fn_6 4": "(C (C (fn_6 4) (T r (fn_2 2))))"
+          "fn_9 (fn_4 2 6) 6": "(C (C (fn_4 4 6) (fn_4 2 6)))"
         },
         {
-          "fn_9 1 fn_8 4.25": "(C (C (fn_8 4.25) (T r (fn_2 1))))"
+          "fn_9 (fn_4 4.25 6) 6": "(C (C (fn_4 4 6) (fn_4 4.25 6)))"
         },
         {
-          "fn_9 2 fn_8 4.25": "(C (C (fn_8 4.25) (T r (fn_2 2))))"
+          "fn_9 (fn_8 1) 6": "(C (C (fn_4 4 6) (fn_8 1)))"
+        },
+        {
+          "fn_9 (fn_8 2) 6": "(C (C (fn_4 4 6) (fn_8 2)))"
+        },
+        {
+          "fn_9 (T r (fn_1 1)) 8": "(C (C (fn_4 4 8) (T r (fn_1 1))))"
+        },
+        {
+          "fn_9 (T r (fn_1 2)) 8": "(C (C (fn_4 4 8) (T r (fn_1 2))))"
+        },
+        {
+          "fn_9 (fn_4 1 6) 8": "(C (C (fn_4 4 8) (fn_4 1 6)))"
+        },
+        {
+          "fn_9 (fn_4 2 6) 8": "(C (C (fn_4 4 8) (fn_4 2 6)))"
+        },
+        {
+          "fn_9 (fn_8 1) 8": "(C (C (fn_4 4 8) (fn_8 1)))"
+        },
+        {
+          "fn_9 (fn_8 2) 8": "(C (C (fn_4 4 8) (fn_8 2)))"
         }
       ],
       "dc_comparison_millis": null,
