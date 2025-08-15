@@ -1183,6 +1183,8 @@ pub struct FinishedPattern {
 impl FinishedPattern {
     //#[inline(never)]
     pub fn new(pattern: Pattern, shared: &SharedData) -> Self {
+        let mut pattern = pattern;
+        pattern.pattern_args.sort_args();
         let arity = pattern.pattern_args.arity();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum();
         let compressive_utility = compressive_utility(&pattern,shared);
@@ -1267,24 +1269,6 @@ fn get_zippers(
             Node::IVar(_) => { unreachable!() }
             Node::Var(_, _) | Node::Prim(_) => {},
             Node::App(f,x) => {
-                // bubble from `f`
-                for f_zid in zids_of_node[&f].iter() {
-                    // clone and extend zip to get new zid for this node
-                    let mut zip = zip_of_zid[*f_zid].clone();
-                    zip.insert(0,ZNode::Func);
-                    let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
-                        let zid = zip_of_zid.len();
-                        zip_of_zid.push(zip);
-                        arg_of_zid_node.push(FxHashMap::default());
-                        zid
-                    });
-                    // add new zid to this node
-                    zids.push(*zid);
-                    // give it the same arg
-                    let arg = arg_of_zid_node[*f_zid][&f].clone();
-                    arg_of_zid_node[*zid].insert(idx, arg);
-                }
-
                 // bubble from `x`
                 for x_zid in zids_of_node[&x].iter() {
                     // clone and extend zip to get new zid for this node
@@ -1303,6 +1287,24 @@ fn get_zippers(
                     arg_of_zid_node[*zid].insert(idx, arg);
 
                 }
+                // bubble from `f`
+                for f_zid in zids_of_node[&f].iter() {
+                    // clone and extend zip to get new zid for this node
+                    let mut zip = zip_of_zid[*f_zid].clone();
+                    zip.insert(0,ZNode::Func);
+                    let zid = zid_of_zip.entry(zip.clone()).or_insert_with(|| {
+                        let zid = zip_of_zid.len();
+                        zip_of_zid.push(zip);
+                        arg_of_zid_node.push(FxHashMap::default());
+                        zid
+                    });
+                    // add new zid to this node
+                    zids.push(*zid);
+                    // give it the same arg
+                    let arg = arg_of_zid_node[*f_zid][&f].clone();
+                    arg_of_zid_node[*zid].insert(idx, arg);
+                }
+
             },
             Node::Lam(b, _) => {
                 for b_zid in zids_of_node[&b].iter() {
@@ -2280,13 +2282,74 @@ pub fn compression_step(
 
     if shared.cfg.follow_prune && !results.is_empty() {
         if let Some(follow) = &shared.cfg.follow {
-            assert_eq!(follow, &results[0].inv.body.to_string(), "found something other than the followed abstraction somehow");
+            let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+            let idx = set.parse_extend(follow).unwrap();
+            check_same_up_to_ivars(&ExprOwned {set, idx}, &results[0].inv.body);
         }
     }
 
     if !shared.cfg.quiet { println!("post processing: {:?}ms", tstart.elapsed().as_millis()) }
 
     results
+}
+
+fn check_same_up_to_ivars(
+    follow: &ExprOwned,
+    rewritten: &ExprOwned,
+) {
+    let set1 = &follow.set;
+    let set2 = &rewritten.set;
+    let mut ivar_mapping = FxHashMap::default();
+    fn helper(set1: &ExprSet, set2: &ExprSet, ivar_mapping: &mut FxHashMap<i32, i32>, node1: Idx, node2: Idx) -> bool {
+        match &set1[node1] {
+            Node::Prim(p1) => {
+                if let Node::Prim(p2) = &set2[node2] {
+                    *p1 == *p2
+                } else {
+                    false
+                }
+            },
+            Node::Var(_, v1) => {
+                if let Node::Var(_, v2) = &set2[node2] {
+                    *v1 == *v2
+                } else {
+                    false
+                }
+            },
+            Node::Lam(b1, _) => {
+                if let Node::Lam(b2, _) = &set2[node2] {
+                    helper(set1, set2, ivar_mapping, *b1, *b2)
+                } else {
+                    false
+                }
+            },
+            Node::App(f1, x1) => {
+                if let Node::App(f2, x2) = &set2[node2] {
+                    helper(set1, set2, ivar_mapping, *f1, *f2) && helper(set1, set2, ivar_mapping, *x1, *x2)
+                } else {
+                    false
+                }
+            },
+            Node::IVar(ivar1) => {
+                if let Node::IVar(ivar2) = &set2[node2] {
+                    if let Some(mapped) = ivar_mapping.get(&ivar1) {
+                        *mapped == *ivar2
+                    } else {
+                        ivar_mapping.insert(*ivar1, ivar2.clone());
+                        true
+                    }
+                } else {
+                    false
+                }
+            },
+        }
+    }
+    if !helper(set1, set2, &mut ivar_mapping, follow.idx, rewritten.idx) {
+        panic!("Follow and rewritten expressions are not the same up to ivars:\nFollow: {}\nRewritten: {}", follow.to_string(), rewritten.to_string());
+    }
+    if ivar_mapping.values().collect::<FxHashSet<_>>().len() != ivar_mapping.len() {
+        panic!("Follow and rewritten expressions have different number of ivars: Follow: {}, Rewritten: {}", follow.to_string(), rewritten.to_string());
+    }
 }
 
 /// toplevel entrypoint to compression used by most apis

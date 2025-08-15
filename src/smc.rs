@@ -351,7 +351,13 @@ pub fn compression_step_smc(
         return vec![];
     };
 
-    let finished_pattern = FinishedPattern::new(best.pattern.clone(), &shared);
+    let mut pat = best.pattern;
+
+    // println!("Pattern: {}", pat.info(&shared));
+
+    // println!("Pattern: {}", pat.info(&shared));
+
+    let finished_pattern = FinishedPattern::new(pat, &shared);
     let result = CompressionStepResult::new(
         finished_pattern,
         inv_name,

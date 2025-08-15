@@ -254,6 +254,30 @@ impl PatternArgs {
         }
     }
 
+    pub fn sort_args(&mut self) {
+        println!("Sorting args. Before: {:?}", self);
+        let mut min_zid_for_ivar: Vec<ZId> = vec![usize::MAX; self.variables.len()];
+        for labeled in self.arg_choices.iter() {
+            if labeled.zid < min_zid_for_ivar[labeled.ivar] {
+                min_zid_for_ivar[labeled.ivar] = labeled.zid;
+            }
+        }
+        let mut ivar_order: Vec<usize> = (0..self.variables.len()).collect();
+        ivar_order.sort_by_key(|&i| min_zid_for_ivar[i]);
+        // ivar_order.reverse();
+        let mut new_variables = vec![(0u32, VariableType::Unvalidated); self.variables.len()];
+        for (new_ivar, &old_ivar) in ivar_order.iter().enumerate() {
+            new_variables[new_ivar] = self.variables[old_ivar];
+        }
+        self.arg_choices.iter_mut().for_each(|labeled| {
+            let old_ivar = labeled.ivar;
+            let new_ivar = ivar_order.iter().position(|&x| x == old_ivar).unwrap();
+            labeled.ivar = new_ivar;
+        });
+        self.variables = new_variables;
+        println!("After: {:?}", self);
+    }
+
 }
 
 pub struct LocationsForReusableArgs<'a> {
