@@ -264,7 +264,7 @@ impl PatternArgs {
         }
         let mut ivar_order: Vec<usize> = (0..self.variables.len()).collect();
         ivar_order.sort_by_key(|&i| min_zid_for_ivar[i]);
-        ivar_order.reverse();
+        // ivar_order.reverse();
         let mut new_variables = vec![(0u32, VariableType::Unvalidated); self.variables.len()];
         for (new_ivar, &old_ivar) in ivar_order.iter().enumerate() {
             new_variables[new_ivar] = self.variables[old_ivar];
