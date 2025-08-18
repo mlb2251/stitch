@@ -161,6 +161,15 @@ pub fn rewrite_with_inventions(
     invs: &[Invention],
     cfg: &MultistepCompressionConfig,
 ) -> (Vec<String>, Vec<CompressionStepResult>, serde_json::Value) {
+    rewrite_with_inventions_resumable(programs, invs, cfg, &[])
+}
+
+pub fn rewrite_with_inventions_resumable(
+    programs: &[String],
+    invs: &[Invention],
+    cfg: &MultistepCompressionConfig,
+    prev_results: &[CompressionStepResult]
+) -> (Vec<String>, Vec<CompressionStepResult>, serde_json::Value) {
 
     // if invs.is_empty() {
     //     return programs.to_vec()
@@ -185,7 +194,10 @@ pub fn rewrite_with_inventions(
     // cfg.step.rewritten_dreamcoder = true;
     // cfg.step.rewritten_intermediates = true;
 
-    let (step_results, json_res) = multistep_compression(programs, None, None, None, follow, &cfg);
+    println!("Rewriting!");
+    println!("Following inventions: {:?}", follow.as_ref().unwrap()[0].body.to_string());
+
+    let (step_results, json_res) = multistep_compression_resumable(programs, None, None, None, follow, &cfg, prev_results);
 
     // return the last one - note that if an abstraction wasn't used anywhere it will not be included in the step_results so this
     // may be shorter than invs.len(), however we do ensure that we continue searching for the rest of the abstractions if this happens

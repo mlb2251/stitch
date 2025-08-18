@@ -134,24 +134,35 @@ impl std::fmt::Display for ExpandsTo {
 pub fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData) -> ExpandsTo {
     // apply the hole zipper to the original expr being tracked to get the subtree
     // this will expand into, then get the ExpandsTo of that
-    let idx = shared.tracking.as_ref().unwrap().expr.immut().zip(&shared.zip_of_zid[hole_zid]).idx;
-    match expands_to_of_node(&shared.tracking.as_ref().unwrap().expr.set[idx]) {
-        ExpandsTo(ExpandsToInner::IVar(i, VariableType::Metavar)) => {
-            ExpandsTo(ExpandsToInner::IVar(pattern.pattern_args.find_variable(shared, i as usize) as i32, VariableType::Metavar))
+    let zip = &shared.zip_of_zid[hole_zid];
+    let idx = shared.tracking.as_ref().unwrap().expr.immut().zip(zip).idx;
+    match expands_to_of_node(&shared.tracking.as_ref().unwrap().expr.set[idx], Some((pattern, shared))) {
+        ExpandsTo(ExpandsToInner::IVar(i, _)) => {
+            let idx_in_corpus = shared.set.get(pattern.match_locations[0]).zip(zip).idx;
+            let is_sym = shared.sym_var_info.as_ref().is_some_and(|s| s.is_symvar_spot(idx_in_corpus));
+            let vt = if is_sym {
+                assert!(invalid_metavar_location(shared, idx_in_corpus));
+                VariableType::Symvar
+            } else {
+                VariableType::Metavar
+            };
+            ExpandsTo(ExpandsToInner::IVar(pattern.pattern_args.find_variable(shared, i as usize) as i32, vt))
         }
         e => e
     }
 }
 
 
-pub fn expands_to_of_node(node: &Node) -> ExpandsTo {
+pub fn expands_to_of_node(node: &Node, pattern: Option<(&Pattern, &SharedData)>) -> ExpandsTo {
+    // pattern only used if node is IVar, to map to the correct variable index in the pattern
+    // it isn't used in other cases, so None is fine there
     ExpandsTo(
         match node {
             Node::Var(i, tag) => ExpandsToInner::Var(*i, *tag),
             Node::Prim(p) => ExpandsToInner::Prim(p.clone()),
             Node::Lam(_, tag) => ExpandsToInner::Lam(*tag),
             Node::App(_,_) => ExpandsToInner::App,
-            Node::IVar(i) => ExpandsToInner::IVar(*i, VariableType::Metavar),
+            Node::IVar(i) => ExpandsToInner::IVar(*i, /*placeholder, will be determined by caller*/ VariableType::Metavar),
         }
     )
 }
@@ -187,7 +198,7 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
         let locs = original_pattern.pattern_args.reusable_args_location(shared, var, arg_of_loc, &mut locs_for_reusable);
         if locs.is_empty() { continue; }
         all_reusable_locs.extend(locs.iter().cloned());
-        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32, VariableType::Metavar)), locs));
+        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32, original_pattern.pattern_args.type_of(var))), locs));
     }
     // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
     if original_pattern.pattern_args.num_ivars() < shared.cfg.max_arity {

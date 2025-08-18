@@ -491,7 +491,7 @@ impl Pattern {
 
         // to guarantee eta long we cant allow abstractions to start with a lambda at the top
         if cfg.eta_long {
-            match_locations.retain(|node| expands_to_of_node(&set[*node]).is_lam());
+            match_locations.retain(|node| expands_to_of_node(&set[*node], None).is_lam());
         }
 
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_fn, cost_of_node_all, num_paths_to_node, cfg);
@@ -650,6 +650,7 @@ pub struct SharedData {
     pub multistep_cfg: MultistepCompressionConfig,
     pub tracking: Option<Tracking>,
     pub fused_lambda_tags: Option<FxHashSet<Tag>>,
+    pub prev_results: Vec<CompressionStepResult>,
 }
 
 pub fn invalid_metavar_location(shared : &SharedData, node: Idx) -> bool {
@@ -676,6 +677,7 @@ fn fused_lambda_location(set : &ExprSet, fused_lambda_tags: &Option<FxHashSet<Ta
 pub struct Tracking {
     pub expr: ExprOwned,
     pub zids_of_ivar: Vec<Vec<ZId>>,
+    pub type_of_ivar: Vec<VariableType>,
 }
 
 impl CriticalMultithreadData {
@@ -954,7 +956,11 @@ fn stitch_search(
             {
                 // for debugging
                 let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, hole_zid, &shared);
-                if tracked { found_tracked = true; }
+                if tracked {
+                    // println!("{} tracking expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], Node::Prim(format!("<{expands_to}>").into())));
+                    // println!("Match locations containing fn_0: {:?}", locs.iter().map(|loc|shared.set.get(*loc).to_string()).filter(|x| x.contains("fn_0")).collect::<Vec<_>>());
+                    found_tracked = true;
+                }
                 if shared.cfg.follow_prune && !tracked { continue 'expansion; }
 
 
@@ -1060,7 +1066,7 @@ fn stitch_search(
                     if shared.cfg.rewrite_check {
                         // run rewriting just to make sure the assert in it passes
                         let rw_fast = rewrite_fast(&finished_pattern, &shared, &Node::Prim("fake_inv".into()), &shared.cost_fn);
-                        let (rw_slow, _, _) = rewrite_with_inventions(&shared.programs.iter().map(|p|p.to_string()).collect::<Vec<_>>(), &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.multistep_cfg);
+                        let (rw_slow, _, _) = rewrite_with_inventions_resumable(&shared.programs.iter().map(|p|p.to_string()).collect::<Vec<_>>(), &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.multistep_cfg, &shared.prev_results);
                         for (fast,slow) in rw_fast.iter().zip(rw_slow.iter()) {
                             assert_eq!(fast.to_string(), slow.to_string());
                         }
@@ -1208,7 +1214,7 @@ fn get_zippers(
         let node = set.get(idx).node().clone();
 
         arg_of_zid_node[EMPTY_ZID].insert(idx,
-            Arg { shifted_id: idx, unshifted_id: idx, shift: 0, cost: analyzed_cost[idx] as Cost, expands_to: expands_to_of_node(&node) });
+            Arg { shifted_id: idx, unshifted_id: idx, shift: 0, cost: analyzed_cost[idx] as Cost, expands_to: expands_to_of_node(&node, None) });
 
         match node {
             Node::IVar(_) => { unreachable!() }
@@ -1740,11 +1746,12 @@ pub fn multistep_compression_internal(
     weights: Option<Vec<f32>>,
     name_mapping: Option<Vec<(String, String)>>,
     follow: Option<Vec<Invention>>,
-    cfg: &MultistepCompressionConfig
+    cfg: &MultistepCompressionConfig,
+    prev_results: &[CompressionStepResult]
 ) -> Vec<CompressionStepResult> {
 
     let mut rewritten: Vec<ExprOwned> = train_programs.to_vec();
-    let mut step_results: Vec<CompressionStepResult> = Default::default();
+    let mut step_results: Vec<CompressionStepResult> = prev_results.to_vec();
     let cost_fn = &cfg.step.cost.expr_cost();
 
     let tstart = std::time::Instant::now();
@@ -1914,21 +1921,7 @@ pub fn construct_shared(
     if !cfg.quiet { println!("arg_of_zid_node size: {}", arg_of_zid_node.len()) }
 
     // set up tracking if any
-    let tracking: Option<Tracking> = {
-        if let Some(s) = &cfg.follow {
-            let mut set = ExprSet::empty(Order::ChildFirst, false, false);
-            let idx = set.parse_extend(s).unwrap();
-            let expr = ExprOwned::new(set,idx);
-            if let Some(zids_of_ivar) = zids_of_ivar_of_expr(&expr, &zid_of_zip) {
-                Some(Tracking { expr, zids_of_ivar })
-            } else {
-                if !cfg.quiet { println!("Tracking: can't possibly find a match for this in corpus because one if the necessary zippers ZIDs doesnt exist in corpus")}
-                return None;
-            }
-        } else {
-            None
-        }
-    };
+    let tracking: Option<Tracking> = compute_tracking_from_config(cfg, &zid_of_zip)?;
     
 
 
@@ -2100,11 +2093,28 @@ pub fn construct_shared(
         multistep_cfg: multistep_cfg.clone(),
         tracking,
         fused_lambda_tags: fused_copy,
+        prev_results: prev_results.to_vec(),
     });
 
     if !shared.cfg.quiet { println!("built SharedData: {:?}ms", tstart.elapsed().as_millis()) }
 
     Some(shared)
+}
+
+fn compute_tracking_from_config(cfg: &CompressionStepConfig, zid_of_zip: &FxHashMap<Vec<ZNode>, usize>) -> Option<Option<Tracking>> {
+    if let Some(s) = &cfg.follow {
+        let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+        let idx = set.parse_extend(s).unwrap();
+        let expr = ExprOwned::new(set,idx);
+        if let Some(zids_of_ivar) = zids_of_ivar_of_expr(&expr, zid_of_zip) {
+            Some(Some(Tracking { expr, zids_of_ivar, type_of_ivar: vec![] }))
+        } else {
+            if !cfg.quiet { println!("Tracking: can't possibly find a match for this in corpus because one if the necessary zippers ZIDs doesnt exist in corpus")}
+            None
+        }
+    } else {
+        Some(None)
+    }
 }
 
 /// Takes a set of programs and does one full step of compresison.
@@ -2236,6 +2246,20 @@ pub fn multistep_compression(
     follow: Option<Vec<Invention>>,
     cfg: &MultistepCompressionConfig
 )-> (Vec<CompressionStepResult>, serde_json::Value) {
+    multistep_compression_resumable(programs, tasks, weights, name_mapping, follow, cfg, &[])
+}
+
+
+// Like `multistep_compression` but allows for resumable compression, where you can provide the prior inventions
+pub fn multistep_compression_resumable(
+    programs: &[String],
+    tasks: Option<Vec<String>>,
+    weights: Option<Vec<f32>>,
+    name_mapping: Option<Vec<(String,String)>>,
+    follow: Option<Vec<Invention>>,
+    cfg: &MultistepCompressionConfig,
+    prev_results: &[CompressionStepResult]
+)-> (Vec<CompressionStepResult>, serde_json::Value) {
     let mut programs = programs.to_vec();
     let mut cfg = cfg.clone();
 
@@ -2280,7 +2304,8 @@ pub fn multistep_compression(
         weights.clone(),
         name_mapping, 
         follow,
-        &cfg, 
+        &cfg,
+        prev_results,
     );
 
     // write everything to json
