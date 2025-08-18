@@ -428,6 +428,7 @@ impl CostConfig {
 impl Pattern {
     /// create a single hole pattern `??`
     //#[inline(never)]
+    #[allow(clippy::too_many_arguments)]
     fn single_hole(corpus_span: &Span, cost_fn: &ExprCost, cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], tdfa_global_annotations: &Option<TDFAGlobalAnnotations>, set: &ExprSet, cfg: &CompressionStepConfig, follow: &Option<Invention>) -> Self {
         let body_utility = 0;
         let mut match_locations: Vec<Idx> = corpus_span.clone().collect();
@@ -732,11 +733,8 @@ impl Invention {
     }
 
     pub fn to_tracking(self, zid_of_zip: &FxHashMap<Vec<ZNode>, ZId>) -> Option<Tracking> {
-        if let Some(zids_of_ivar) = zids_of_ivar_of_expr(&self.body, &zid_of_zip) {
-            Some(Tracking { expr: self.body, zids_of_ivar })
-        } else {
-            return None;
-        }
+        let zids_of_ivar = zids_of_ivar_of_expr(&self.body, zid_of_zip)?;
+        Some(Tracking { expr: self.body, zids_of_ivar })
     }
 }
 
