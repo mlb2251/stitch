@@ -145,7 +145,7 @@ fn smc_regression_tests() {
 #[test]
 fn smc_regression_tests_small() {
     let args = "-i10 --rewrite-check".to_owned() + SMC_ARGS;
-    compare_out_jsons_testing("data/basic/furniture-small.json", "data/expected_outputs/smc-furniture-small.json", &args, InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/regression/furniture-small.json", "data/expected_outputs/smc-furniture-small.json", &args, InputFormat::ProgramsList);
 }
 
 fn python_args() -> String {
