@@ -255,7 +255,6 @@ impl PatternArgs {
     }
 
     pub fn sort_args(&mut self, shared: &SharedData) {
-        println!("Sorting args. Before: {:?}", self);
         let mut min_zip_for_ivar: Vec<Option<&Vec<ZNode>>> = vec![None; self.variables.len()];
         for labeled in self.arg_choices.iter() {
             let ivar = labeled.ivar;
@@ -278,7 +277,6 @@ impl PatternArgs {
             labeled.ivar = new_ivar;
         });
         self.variables = new_variables;
-        println!("After: {:?}", self);
     }
 
 }
