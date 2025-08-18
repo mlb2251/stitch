@@ -321,7 +321,10 @@ pub fn can_self_unify(pattern_args: &PatternArgs, shared: &SharedData, example_m
     // non-variable subtrees). An example is the pattern (#0 #1 x), which unifies with (#0 #1).
     // This is an overapproximation that does not take into account variable reuse.
     let zippers = pattern_args.zippers(shared);
-    let zippers = ZipTrie::new(zippers);
+    let Some(zippers) = ZipTrie::new(zippers) else {
+        // if the zippers are empty, there's no variables; we can't self-unify
+        return vec![];
+    };
     let zippers = ZipTrieSlice::new(&zippers);
     let mut self_unify_zids = Vec::new();
 

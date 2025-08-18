@@ -428,7 +428,8 @@ impl CostConfig {
 impl Pattern {
     /// create a single hole pattern `??`
     //#[inline(never)]
-    fn single_hole(corpus_span: &Span, cost_fn: &ExprCost, cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], tdfa_global_annotations: &Option<TDFAGlobalAnnotations>, set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
+    #[allow(clippy::too_many_arguments)]
+    fn single_hole(corpus_span: &Span, cost_fn: &ExprCost, cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], tdfa_global_annotations: &Option<TDFAGlobalAnnotations>, set: &ExprSet, cfg: &CompressionStepConfig, follow: &Option<Invention>) -> Self {
         let body_utility = 0;
         let mut match_locations: Vec<Idx> = corpus_span.clone().collect();
         match_locations.sort(); // we assume match_locations is always sorted
@@ -501,7 +502,7 @@ impl Pattern {
             match_locations, // single hole matches everywhere
             utility_upper_bound,
             body_utility, // 0 body utility
-            tracked: cfg.follow.is_some(),
+            tracked: follow.is_some(),
         }
     }
     /// convert pattern to an Expr
@@ -724,6 +725,18 @@ pub struct Invention {
 impl Invention {
     pub fn new(body: ExprOwned, arity: usize, name: &str) -> Self {
         Self { body, arity, name: String::from(name) }
+    }
+    pub fn from_string(name: &str, body: &str) -> Self {
+        let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+        let idx = set.parse_extend(body).unwrap();
+        let body = ExprOwned { set, idx };
+        let arity = AnalyzedExpr::new(IVarAnalysis).analyze_get(body.immut()).iter().max().map(|x|*x as usize + 1).unwrap_or(0);
+        Self { body, arity, name: String::from(name) }
+    }
+
+    pub fn to_tracking(self, zid_of_zip: &FxHashMap<Vec<ZNode>, ZId>) -> Option<Tracking> {
+        let zids_of_ivar = zids_of_ivar_of_expr(&self.body, zid_of_zip)?;
+        Some(Tracking { expr: self.body, zids_of_ivar })
     }
 }
 
@@ -1785,11 +1798,10 @@ pub fn multistep_compression_internal(
 
     for i in 0..cfg.iterations {
         if !cfg.step.quiet { println!("{}",format!("\n=======Iteration {i}=======").blue().bold()) }
-        let inv_name = if let Some(follow) = &follow {
-            cfg.step.follow = Some(follow[i].body.to_string());
-            follow[i].name.clone()
+        let (inv_name, follow_iter) = if let Some(follow) = &follow {
+            (follow[i].name.clone(), Some(follow[i].clone()))
         } else {
-            format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len())
+            (format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len()), cfg.step.follow.as_ref().map(|x| Invention::from_string("inv", x)))
         };
 
         // call actual compression
@@ -1802,7 +1814,8 @@ pub fn multistep_compression_internal(
             very_first_cost,
             &name_mapping,
             &step_results,
-            );
+            &follow_iter,
+        );
 
         if !res.is_empty() {
             // rewrite with the invention
@@ -1813,7 +1826,7 @@ pub fn multistep_compression_internal(
             step_results.push(res);
         } else if follow.is_some() {
             // if `follow` was given then we will keep going for the full set of iterations
-            if !cfg.step.quiet { println!("Invention not found: {}", cfg.step.follow.as_ref().unwrap() ) }
+            if !cfg.step.quiet { println!("Invention not found: {:?}", follow.as_ref().unwrap() ) }
         } else {
             if !cfg.step.quiet { println!("No inventions found at iteration {i}") }
             break;    
@@ -1848,6 +1861,7 @@ pub fn construct_shared(
     tasks: &[String],
     weights: &[f32],
     prev_results: &[CompressionStepResult],
+    follow: &Option<Invention>,
 ) -> Option<Arc<SharedData>> {
     let cfg = &multistep_cfg.step.clone();
 
@@ -1920,9 +1934,15 @@ pub fn construct_shared(
     if !cfg.quiet { println!("{} zips", zip_of_zid.len()) }
     if !cfg.quiet { println!("arg_of_zid_node size: {}", arg_of_zid_node.len()) }
 
-    // set up tracking if any
-    let tracking: Option<Tracking> = compute_tracking_from_config(cfg, &zid_of_zip)?;
-    
+    let tracking = match follow {
+        Some(follow) => if let Some(x) = follow.clone().to_tracking(&zid_of_zip) {
+            Some(x)
+        } else {
+            if !cfg.quiet { println!("Tracking: can't possibly find a match for this in corpus because one if the necessary zippers ZIDs doesnt exist in corpus")}
+            return None
+        }
+        None => None
+    };
 
 
     if !cfg.quiet { println!("Tracking setup: {:?}ms", tstart.elapsed().as_millis()) }
@@ -1947,7 +1967,7 @@ pub fn construct_shared(
 
     let tdfa_global_annotations = TDFAGlobalAnnotations::new(cfg, &set, &roots, prev_results, &sym_var_info);
 
-    let single_hole = Pattern::single_hole(&corpus_span, cost_fn, &cost_of_node_all, &num_paths_to_node, &tdfa_global_annotations, &set, cfg);
+    let single_hole = Pattern::single_hole(&corpus_span, cost_fn, &cost_of_node_all, &num_paths_to_node, &tdfa_global_annotations, &set, cfg, follow);
 
     let mut azero_pruning_cutoff = 0;
 
@@ -2128,6 +2148,7 @@ pub fn compression_step(
     very_first_cost: Cost,
     name_mapping: &[(String, String)],
     prev_results: &[CompressionStepResult],
+    follow: &Option<Invention>,
 ) -> Vec<CompressionStepResult> {
 
     let tstart_total = std::time::Instant::now();
@@ -2139,6 +2160,7 @@ pub fn compression_step(
         tasks,
         weights,
         prev_results,
+        follow,
     ) else {
         return vec![];
     };
@@ -2227,8 +2249,8 @@ pub fn compression_step(
     }
 
     if shared.cfg.follow_prune && !results.is_empty() {
-        if let Some(follow) = &shared.cfg.follow {
-            assert_eq!(follow, &results[0].inv.body.to_string(), "found something other than the followed abstraction somehow");
+        if let Some(follow) = follow {
+            assert_eq!(follow.body.to_string(), results[0].inv.body.to_string(), "found something other than the followed abstraction somehow");
         }
     }
 
