@@ -87,6 +87,10 @@ impl PatternArgs {
         self.variables.iter().map(|(_,t)| *t).collect()
     }
 
+    pub fn type_of(&self, ivar: usize) -> VariableType {
+        self.variables[ivar].1
+    }
+
     fn zippers(&self, shared: &SharedData) -> Vec<Vec<ZNode>> {
         self.arg_choices.iter().map(|lzid|
             shared.zip_of_zid[lzid.zid].clone()
