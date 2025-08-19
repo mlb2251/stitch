@@ -1174,7 +1174,7 @@ impl FinishedPattern {
         self.pattern.to_expr(shared)
     }
     pub fn to_invention(&self, name: &str, shared: &SharedData) -> Invention {
-        Invention::new(self.to_expr(shared), self.arity, name)
+        Invention::new(self.to_expr(shared), self.arity, name, self.pattern.pattern_args.variable_types())
     }
     pub fn info(&self, shared: &SharedData) -> String {
         format!("{} -> finished: utility={}, compressive_utility={}, arity={}, usages={}",self.pattern.info(shared), self.utility, self.compressive_utility, self.arity, self.usages)
