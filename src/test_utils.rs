@@ -39,7 +39,7 @@ fn write_json_for_diff(out: &Value, expected_out_path: &str) {
 pub fn compare_out_jsons_testing(file: &str, expected_out_file: &str, args: &str, input_format: InputFormat) {
     let input = input_format.load_programs_and_tasks(std::path::Path::new(file)).unwrap();
 
-    let mut cfg = MultistepCompressionConfig::parse_from(format!("compress {args}").split_whitespace());
+    let mut cfg = MultistepCompressionConfig::parse_from(shlex::split(&format!("compress {args}")).unwrap());
 
     cfg.previous_abstractions = input.name_mapping.clone().unwrap_or_default().len();
 

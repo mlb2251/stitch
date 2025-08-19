@@ -23,6 +23,7 @@ rustc-hash = "1.1.0"
 lambdas = { git = "https://github.com/mlb2251/lambdas", rev = "2c9bfd0"}
 test-case = "3.3.1"
 rand_chacha = "0.9.0"
+shlex = "1.3.0"
 
 
 # [patch.crates-io]
