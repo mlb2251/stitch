@@ -18,6 +18,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::PathBuf;
+use std::str::FromStr;
 use stitch_core::*;
 use serde_json::Value;
 
@@ -93,6 +94,11 @@ fn main() {
             },
             arity: invention["arity"].as_u64().unwrap() as usize,
             name: invention["name"].as_str().unwrap().parse().unwrap(),
+            variable_types: if let Some(var_types) = invention.get("variable_types") {
+                var_types.as_array().unwrap().iter().map(|v| VariableType::from_str(v.as_str().unwrap()).unwrap()).collect()
+            } else {
+                vec![VariableType::Metavar; invention["arity"].as_u64().unwrap() as usize]
+            }
         })
         .collect();
      println!("Number of inventions: {}", inventions.len());

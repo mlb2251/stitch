@@ -131,6 +131,10 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub follow: Option<String>,
 
+    /// Variable types for the `follow` invention. Use M for metavariable and S for symbolic variable.
+    #[clap(long)]
+    pub follow_types: Option<Vec<VariableType>>,
+
     /// For use with `follow`, enables aggressive pruning. Useful for ensuring that it is *possible* to find a particular
     /// abstraction by guiding the search directly towards it.
     #[clap(long)]
@@ -720,23 +724,24 @@ pub struct Invention {
     pub body: ExprOwned, // invention body (not wrapped in lambdas)
     pub arity: usize,
     pub name: String,
+    pub variable_types: Vec<VariableType>, // type of each variable
 }
 
 impl Invention {
-    pub fn new(body: ExprOwned, arity: usize, name: &str) -> Self {
-        Self { body, arity, name: String::from(name) }
+    pub fn new(body: ExprOwned, arity: usize, name: &str, variable_types: Vec<VariableType>) -> Self {
+        Self { body, arity, name: String::from(name), variable_types }
     }
-    pub fn from_string(name: &str, body: &str) -> Self {
+    pub fn from_string(name: &str, body: &str, variable_types: Option<Vec<VariableType>>) -> Self {
         let mut set = ExprSet::empty(Order::ChildFirst, false, false);
         let idx = set.parse_extend(body).unwrap();
         let body = ExprOwned { set, idx };
         let arity = AnalyzedExpr::new(IVarAnalysis).analyze_get(body.immut()).iter().max().map(|x|*x as usize + 1).unwrap_or(0);
-        Self { body, arity, name: String::from(name) }
+        Self { body, arity, name: String::from(name), variable_types: variable_types.unwrap_or_else(|| vec![VariableType::Metavar; arity]) }
     }
 
     pub fn to_tracking(self, zid_of_zip: &FxHashMap<Vec<ZNode>, ZId>) -> Option<Tracking> {
         let zids_of_ivar = zids_of_ivar_of_expr(&self.body, zid_of_zip)?;
-        Some(Tracking { expr: self.body, zids_of_ivar })
+        Some(Tracking { expr: self.body, zids_of_ivar, type_of_ivar: self.variable_types })
     }
 }
 
@@ -1179,7 +1184,7 @@ impl FinishedPattern {
         self.pattern.to_expr(shared)
     }
     pub fn to_invention(&self, name: &str, shared: &SharedData) -> Invention {
-        Invention::new(self.to_expr(shared), self.arity, name)
+        Invention::new(self.to_expr(shared), self.arity, name, self.pattern.pattern_args.variable_types())
     }
     pub fn info(&self, shared: &SharedData) -> String {
         format!("{} -> finished: utility={}, compressive_utility={}, arity={}, usages={}",self.pattern.info(shared), self.utility, self.compressive_utility, self.arity, self.usages)
@@ -1801,7 +1806,7 @@ pub fn multistep_compression_internal(
         let (inv_name, follow_iter) = if let Some(follow) = &follow {
             (follow[i].name.clone(), Some(follow[i].clone()))
         } else {
-            (format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len()), cfg.step.follow.as_ref().map(|x| Invention::from_string("inv", x)))
+            (format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len()), cfg.step.follow.as_ref().map(|x| Invention::from_string("inv", x, cfg.step.follow_types.clone())))
         };
 
         // call actual compression
