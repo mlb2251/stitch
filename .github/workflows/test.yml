@@ -20,6 +20,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - name: build
         run: |
+         rustup update stable
          cargo build --verbose
          cargo build --release --verbose
       - name: test
