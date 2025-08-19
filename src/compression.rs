@@ -1467,7 +1467,7 @@ impl CompressionStepResult {
             "uses": all_uses,
             "dc_comparison_millis": self.dc_comparison_millis,
             "tdfa_annotation": self.tdfa_annotation,
-            // "variable_types": variable_types,
+            "variable_types": variable_types,
         })
     }
 }
