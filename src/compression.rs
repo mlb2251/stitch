@@ -684,7 +684,6 @@ fn fused_lambda_location(set : &ExprSet, fused_lambda_tags: &Option<FxHashSet<Ta
 pub struct Tracking {
     pub expr: ExprOwned,
     pub zids_of_ivar: Vec<Vec<ZId>>,
-    pub type_of_ivar: Vec<VariableType>,
 }
 
 impl CriticalMultithreadData {
@@ -743,7 +742,7 @@ impl Invention {
 
     pub fn to_tracking(self, zid_of_zip: &FxHashMap<Vec<ZNode>, ZId>) -> Option<Tracking> {
         let zids_of_ivar = zids_of_ivar_of_expr(&self.body, zid_of_zip)?;
-        Some(Tracking { expr: self.body, zids_of_ivar, type_of_ivar: self.variable_types })
+        Some(Tracking { expr: self.body, zids_of_ivar })
     }
 
     pub fn from_compression_output(output: &Value) -> Invention {
