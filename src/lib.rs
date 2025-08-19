@@ -4,6 +4,7 @@ pub mod rewriting;
 pub mod egraphs;
 pub mod util;
 pub mod formats;
+pub mod smc;
 pub mod tdfa;
 pub mod expansion;
 pub mod pattern_args;
@@ -18,6 +19,7 @@ pub use {
     util::*,
     formats::*,
     lambdas::*,
+    smc::*,
     tdfa::*,
     expansion::*,
     pattern_args::*,
