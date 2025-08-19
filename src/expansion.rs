@@ -187,7 +187,7 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
         let locs = original_pattern.pattern_args.reusable_args_location(shared, var, arg_of_loc, &mut locs_for_reusable);
         if locs.is_empty() { continue; }
         all_reusable_locs.extend(locs.iter().cloned());
-        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32, VariableType::Metavar)), locs));
+        ivars_expansions.push((ExpandsTo(ExpandsToInner::IVar(var as i32, original_pattern.pattern_args.type_of(var))), locs));
     }
     // also consider one ivar greater, if this is within the arity limit. This will match at all the same locations as the original.
     if original_pattern.pattern_args.num_ivars() < shared.cfg.max_arity {
