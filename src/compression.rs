@@ -747,23 +747,6 @@ impl Invention {
     }
 
     pub fn from_compression_output(output: &Value) -> Invention {
-        Invention {
-            body: {
-                let mut set = ExprSet::empty(Order::ChildFirst, false, false);
-                let idx = set.parse_extend(output["body"].as_str().unwrap()).unwrap();
-                ExprOwned::new(set, idx)
-            },
-            arity: output["arity"].as_u64().unwrap() as usize,
-            name: output["name"].as_str().unwrap().parse().unwrap(),
-            variable_types: if let Some(var_types) = output.get("variable_types") {
-                var_types.as_array().unwrap().iter().map(|v| VariableType::from_str(v.as_str().unwrap()).unwrap()).collect()
-            } else {
-                vec![VariableType::Metavar; output["arity"].as_u64().unwrap() as usize]
-            }
-        }
-    }
-
-    pub fn from_compression_output(output: &Value) -> Invention {
         let arity = output["arity"].as_u64().unwrap() as usize;
         Invention {
             body: {
