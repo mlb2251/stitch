@@ -1,93 +1,108 @@
 {
-    "cmd": "/home/kavi/mit/stitch/target/release/deps/integration_tests-782ce716bce4ad30",
-    "args": {
-        "iterations": 3,
-        "abstraction_prefix": "fn_",
-        "previous_abstractions": 0,
-        "shuffle": false,
-        "truncate": null,
-        "no_opt": false,
-        "silent": false,
-        "verbose_rewrite": false,
-        "step": {
-            "max_arity": 2,
-            "threads": 1,
-            "no_stats": false,
-            "batch": 1,
-            "dynamic_batch": false,
-            "eta_long": false,
-            "no_curried_metavars": false,
-            "no_curried_bodies": false,
-            "inv_candidates": 1,
-            "hole_choice": "DepthFirst",
-            "cost": {
-                "cost_lam": 1,
-                "cost_app": 1,
-                "cost_var": 100,
-                "cost_ivar": 100,
-                "cost_prim_default": 100
-            },
-            "no_mismatch_check": false,
-            "follow": null,
-            "follow_prune": false,
-            "verbose_worklist": false,
-            "verbose_best": false,
-            "print_stats": 0,
-            "show_rewritten": false,
-            "rewritten_dreamcoder": false,
-            "rewritten_intermediates": false,
-            "inv_arg_cap": false,
-            "allow_single_task": false,
-            "no_opt_single_use": false,
-            "no_opt_upper_bound": false,
-            "no_opt_force_multiuse": false,
-            "no_opt_useless_abstract": false,
-            "no_opt_arity_zero": false,
-            "no_other_util": false,
-            "structure_penalty": 1.0,
-            "rewrite_check": false,
-            "utility_by_rewrite": false,
-            "dreamcoder_comparison": false,
-            "quiet": false,
-            "fused_lambda_tags": {
-                "tags": [
-                    2
-                ]
-            }
-        }
-    },
-    "original_cost": 810,
-    "final_cost": 204,
-    "compression_ratio": 3.9705882352941178,
-    "num_abstractions": 1,
-    "original": [
-        "(lam_1 (lam_2 (+ a b c)))",
-        "(lam_3 (lam_2 (+ a b c)))"
-    ],
-    "rewritten": [
-        "(lam_1 (lam_2 fn_0))",
-        "(lam_3 (lam_2 fn_0))"
-    ],
-    "rewritten_dreamcoder": null,
-    "abstractions": [
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-21175b69aaefd7be",
+  "args": {
+    "iterations": 3,
+    "abstraction_prefix": "fn_",
+    "previous_abstractions": 0,
+    "shuffle": false,
+    "truncate": null,
+    "no_opt": false,
+    "silent": false,
+    "verbose_rewrite": false,
+    "step": {
+      "max_arity": 2,
+      "threads": 1,
+      "no_stats": false,
+      "batch": 1,
+      "dynamic_batch": false,
+      "eta_long": false,
+      "no_curried_metavars": false,
+      "no_curried_bodies": false,
+      "inv_candidates": 1,
+      "hole_choice": "DepthFirst",
+      "cost": {
+        "cost_lam": 1,
+        "cost_app": 1,
+        "cost_var": 100,
+        "cost_ivar": 100,
+        "cost_prim_default": 100,
+        "cost_prim": "{}"
+      },
+      "no_mismatch_check": false,
+      "follow": null,
+      "follow_types": null,
+      "follow_prune": false,
+      "verbose_worklist": false,
+      "verbose_best": false,
+      "print_stats": 0,
+      "show_rewritten": false,
+      "rewritten_dreamcoder": false,
+      "rewritten_intermediates": false,
+      "inv_arg_cap": false,
+      "allow_single_task": false,
+      "no_opt_single_use": false,
+      "no_opt_upper_bound": false,
+      "no_opt_force_multiuse": false,
+      "no_opt_useless_abstract": false,
+      "no_opt_arity_zero": false,
+      "no_other_util": false,
+      "structure_penalty": 1.0,
+      "rewrite_check": false,
+      "utility_by_rewrite": false,
+      "dreamcoder_comparison": false,
+      "quiet": false,
+      "fused_lambda_tags": {
+        "tags": [
+          2
+        ]
+      },
+      "tdfa": {
+        "tdfa_json_path": null,
+        "tdfa_root": null,
+        "valid_metavars": null,
+        "valid_roots": null,
+        "tdfa_non_eta_long_states": null,
+        "tdfa_split": null
+      },
+      "symvar": {
+        "symvar_prefix": null
+      }
+    }
+  },
+  "original_cost": 810,
+  "final_cost": 204,
+  "compression_ratio": 3.9705882352941178,
+  "num_abstractions": 1,
+  "original": [
+    "(lam_1 (lam_2 (+ a b c)))",
+    "(lam_3 (lam_2 (+ a b c)))"
+  ],
+  "rewritten": [
+    "(lam_1 (lam_2 fn_0))",
+    "(lam_3 (lam_2 fn_0))"
+  ],
+  "rewritten_dreamcoder": null,
+  "abstractions": [
+    {
+      "body": "(+ a b c)",
+      "dreamcoder": "#(+ a b c)",
+      "arity": 0,
+      "name": "fn_0",
+      "utility": 203,
+      "final_cost": 204,
+      "compression_ratio": 3.9705882352941178,
+      "cumulative_compression_ratio": 3.9705882352941178,
+      "num_uses": 2,
+      "rewritten": null,
+      "rewritten_dreamcoder": null,
+      "uses": [
         {
-            "body": "(+ a b c)",
-            "dreamcoder": "#(+ a b c)",
-            "arity": 0,
-            "name": "fn_0",
-            "utility": 203,
-            "final_cost": 204,
-            "compression_ratio": 3.9705882352941178,
-            "cumulative_compression_ratio": 3.9705882352941178,
-            "num_uses": 2,
-            "rewritten": null,
-            "rewritten_dreamcoder": null,
-            "uses": [
-                {
-                    "fn_0 ": "(+ a b c)"
-                }
-            ],
-            "dc_comparison_millis": null
+          "fn_0 ": "(+ a b c)"
         }
-    ]
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": []
+    }
+  ]
 }

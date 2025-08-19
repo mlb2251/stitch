@@ -1,5 +1,5 @@
 {
-  "cmd": "/home/kavi/mit/stitch/target/debug/deps/fuzz_symbol_weighting_test-bb90388a4968aabc",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/fuzz_symbol_weighting_test-4586e884de5054b3",
   "args": {
     "iterations": 3,
     "abstraction_prefix": "fn_",
@@ -30,6 +30,7 @@
       },
       "no_mismatch_check": false,
       "follow": null,
+      "follow_types": null,
       "follow_prune": false,
       "verbose_worklist": false,
       "verbose_best": true,
@@ -996,7 +997,12 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M",
+        "M"
+      ]
     },
     {
       "body": "(C (T (fn_0 0 0 (repeat (repeat (T (C (fn_0 0 0 (T (r_s #2 3))) #1) (M 1 0 0 -3)) 1 (M 1 0 0 0)) 1)) (M 1 0 0 0.75)) (fn_0 0 -2.25 (T (r_s #0 4.5))))",
@@ -1031,7 +1037,12 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M",
+        "M"
+      ]
     },
     {
       "body": "(T #2 (M #1 0 0 #0))",
@@ -1399,7 +1410,12 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M",
+        "M"
+      ]
     }
   ]
 }
