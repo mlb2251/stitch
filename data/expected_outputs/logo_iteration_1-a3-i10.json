@@ -1,5 +1,5 @@
 {
-  "cmd": "/Users/matthewbowers/proj/rust/stitch/target/release/deps/integration_tests-38d27ecd504c7478",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-21175b69aaefd7be",
   "args": {
     "iterations": 10,
     "abstraction_prefix": "fn_",
@@ -8,23 +8,29 @@
     "truncate": null,
     "no_opt": false,
     "silent": false,
+    "verbose_rewrite": false,
     "step": {
       "max_arity": 3,
       "threads": 1,
       "no_stats": false,
       "batch": 1,
       "dynamic_batch": false,
+      "eta_long": false,
+      "no_curried_metavars": false,
+      "no_curried_bodies": false,
       "inv_candidates": 1,
       "hole_choice": "DepthFirst",
-      "cost": "Dreamcoder",
-      "cost_lam": null,
-      "cost_app": null,
-      "cost_var": null,
-      "cost_ivar": null,
-      "cost_prim_default": null,
+      "cost": {
+        "cost_lam": 1,
+        "cost_app": 1,
+        "cost_var": 100,
+        "cost_ivar": 100,
+        "cost_prim_default": 100,
+        "cost_prim": "{}"
+      },
       "no_mismatch_check": false,
-      "no_top_lambda": false,
       "follow": null,
+      "follow_types": null,
       "follow_prune": false,
       "verbose_worklist": false,
       "verbose_best": false,
@@ -33,17 +39,32 @@
       "rewritten_dreamcoder": false,
       "rewritten_intermediates": false,
       "inv_arg_cap": false,
-      "no_opt_single_use": false,
       "allow_single_task": false,
+      "no_opt_single_use": false,
       "no_opt_upper_bound": false,
       "no_opt_force_multiuse": false,
       "no_opt_useless_abstract": false,
       "no_opt_arity_zero": false,
       "no_other_util": false,
+      "structure_penalty": 1.0,
       "rewrite_check": true,
       "utility_by_rewrite": false,
       "dreamcoder_comparison": false,
-      "quiet": false
+      "quiet": false,
+      "fused_lambda_tags": {
+        "tags": null
+      },
+      "tdfa": {
+        "tdfa_json_path": null,
+        "tdfa_root": null,
+        "valid_metavars": null,
+        "valid_roots": null,
+        "tdfa_non_eta_long_states": null,
+        "tdfa_split": null
+      },
+      "symvar": {
+        "symvar_prefix": null
+      }
     }
   },
   "original_cost": 71510,
@@ -850,6 +871,12 @@
         {
           "fn_9 7 3": "(lam (logo_forLoop 7 (lam (lam (logo_FWRT (logo_MULL logo_UL 3) (logo_DIVA logo_UA 7) $0))) $0))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -1516,6 +1543,12 @@
         {
           "fn_10 (lam (lam (logo_PT (lam $0) (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0)))) logo_IFTY": "(lam (logo_forLoop logo_IFTY (lam (lam (logo_PT (lam $0) (logo_FWRT (logo_MULL logo_epsL 5) logo_epsA $0)))) $0))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -1576,6 +1609,12 @@
         {
           "fn_11 6 logo_epsA": "(fn_10 (lam (lam (logo_GETSET (lam (logo_FWRT logo_UL logo_epsA $0)) (logo_FWRT logo_ZL (logo_DIVA logo_UA 6) $0)))) 6)"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -1675,6 +1714,12 @@
         {
           "fn_12 logo_UA logo_IFTY": "(lam (logo_FWRT (logo_MULL logo_epsL logo_IFTY) logo_UA $0))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -1693,7 +1738,10 @@
         {
           "fn_13 ": "(logo_FWRT logo_UL logo_UA)"
         }
-      ]
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": []
     },
     {
       "body": "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA #1) (#0 $0)))",
@@ -1738,6 +1786,12 @@
         {
           "fn_14 (dreamcoder_abstraction_3 logo_epsL) 8": "(lam (logo_FWRT logo_ZL (logo_DIVA logo_UA 8) (dreamcoder_abstraction_3 logo_epsL $0)))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -1774,6 +1828,11 @@
         {
           "fn_15 (logo_FWRT (logo_MULL logo_epsL logo_IFTY) logo_UA)": "(fn_10 (lam (lam (logo_FWRT (logo_MULL logo_epsL logo_IFTY) logo_UA (logo_PT (lam (fn_13 $0)) $0)))))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M"
       ]
     },
     {
@@ -1828,6 +1887,13 @@
         {
           "fn_16 4 (logo_SUBA (logo_MULA (logo_DIVA logo_UA 9) 4) logo_UA) 9": "(lam (dreamcoder_abstraction_1 9 (logo_SUBA (logo_MULA (logo_DIVA logo_UA 9) 4) logo_UA) (logo_MULL logo_UL 4) $0))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M",
+        "M"
       ]
     },
     {
@@ -1942,6 +2008,12 @@
         {
           "fn_17 (logo_MULA (logo_DIVA logo_UA 4) 9) 5": "(lam (logo_FWRT (logo_MULL logo_UL 5) (logo_MULA (logo_DIVA logo_UA 4) 9) $0))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -1966,6 +2038,11 @@
         {
           "fn_18 3": "(lam (dreamcoder_abstraction_3 (logo_MULL logo_epsL 3) (dreamcoder_abstraction_8 3 $0)))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M"
       ]
     }
   ]
