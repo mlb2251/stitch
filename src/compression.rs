@@ -496,7 +496,7 @@ impl Pattern {
 
         // to guarantee eta long we cant allow abstractions to start with a lambda at the top
         if cfg.eta_long {
-            match_locations.retain(|node| expands_to_of_node(&set[*node], None).is_lam());
+            match_locations.retain(|node| expands_to_of_node(&set[*node]).is_lam());
         }
 
         let utility_upper_bound = utility_upper_bound(&match_locations, body_utility, cost_fn, cost_of_node_all, num_paths_to_node, cfg);
@@ -1233,7 +1233,7 @@ fn get_zippers(
         let node = set.get(idx).node().clone();
 
         arg_of_zid_node[EMPTY_ZID].insert(idx,
-            Arg { shifted_id: idx, unshifted_id: idx, shift: 0, cost: analyzed_cost[idx] as Cost, expands_to: expands_to_of_node(&node, None) });
+            Arg { shifted_id: idx, unshifted_id: idx, shift: 0, cost: analyzed_cost[idx] as Cost, expands_to: expands_to_of_node(&node) });
 
         match node {
             Node::IVar(_) => { unreachable!() }
