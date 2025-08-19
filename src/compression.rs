@@ -744,6 +744,18 @@ impl Invention {
         let zids_of_ivar = zids_of_ivar_of_expr(&self.body, zid_of_zip)?;
         Some(Tracking { expr: self.body, zids_of_ivar, type_of_ivar: self.variable_types })
     }
+    pub fn from_string(name: &str, body: &str) -> Self {
+        let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+        let idx = set.parse_extend(body).unwrap();
+        let body = ExprOwned { set, idx };
+        let arity = AnalyzedExpr::new(IVarAnalysis).analyze_get(body.immut()).iter().max().map(|x|*x as usize + 1).unwrap_or(0);
+        Self { body, arity, name: String::from(name) }
+    }
+
+    pub fn to_tracking(self, zid_of_zip: &FxHashMap<Vec<ZNode>, ZId>) -> Option<Tracking> {
+        let zids_of_ivar = zids_of_ivar_of_expr(&self.body, zid_of_zip)?;
+        Some(Tracking { expr: self.body, zids_of_ivar })
+    }
 }
 
 impl Display for Invention {
