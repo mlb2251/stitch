@@ -298,6 +298,7 @@ pub fn compression_step_smc(
         tasks,
         weights,
         prev_results,
+        &None, // we don't support following in SMC stitch.
     ) else {
         return vec![];
     };

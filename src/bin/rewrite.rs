@@ -85,15 +85,7 @@ fn main() {
 
     let inventions: Vec<Invention> = inventions
         .iter()
-        .map(|invention| Invention {
-            body: {
-                let mut set = ExprSet::empty(Order::ChildFirst, false, false);
-                let idx = set.parse_extend(invention["body"].as_str().unwrap()).unwrap();
-                ExprOwned::new(set, idx)
-            },
-            arity: invention["arity"].as_u64().unwrap() as usize,
-            name: invention["name"].as_str().unwrap().parse().unwrap(),
-        })
+        .map(Invention::from_compression_output)
         .collect();
      println!("Number of inventions: {}", inventions.len());
 
