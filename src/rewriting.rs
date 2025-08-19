@@ -194,9 +194,6 @@ pub fn rewrite_with_inventions_resumable(
     // cfg.step.rewritten_dreamcoder = true;
     // cfg.step.rewritten_intermediates = true;
 
-    println!("Rewriting!");
-    println!("Following inventions: {:?}", follow.as_ref().unwrap()[0].body.to_string());
-
     let (step_results, json_res) = multistep_compression_resumable(programs, None, None, None, follow, &cfg, prev_results);
 
     // return the last one - note that if an abstraction wasn't used anywhere it will not be included in the step_results so this

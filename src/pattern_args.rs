@@ -43,6 +43,7 @@ impl Ord for PatternArgs {
     }
 }
 
+
 impl PatternArgs {
     pub fn arity(&self) -> usize {
         self.variables.len()

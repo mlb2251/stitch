@@ -204,7 +204,6 @@ impl TDFAInventionAnnotation {
 
 impl TDFA {
     pub fn new(root: String, dfa: String, valid_metavars: Vec<State>, valid_roots: Vec<State>, tdfa_non_eta_long_states: HashMap<State, State>, prev_invs: Vec<(String, Option<TDFAInventionAnnotation>)>, split: Option<String>) -> Self {
-        println!("Prev inventions: {:?}", prev_invs);
         let mut dfa: HashMap<State, HashMap<Symbol, Vec<State>>> = serde_json::from_str(&dfa).unwrap();
         for (name, tdfa_annotation) in prev_invs {
             if let Some(annotation) = tdfa_annotation {

@@ -147,8 +147,6 @@ pub fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData)
 
 
 pub fn expands_to_of_node(node: &Node) -> ExpandsTo {
-    // pattern only used if node is IVar, to map to the correct variable index in the pattern
-    // it isn't used in other cases, so None is fine there
     ExpandsTo(
         match node {
             Node::Var(i, tag) => ExpandsToInner::Var(*i, *tag),

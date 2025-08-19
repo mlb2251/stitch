@@ -975,11 +975,7 @@ fn stitch_search(
             {
                 // for debugging
                 let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, hole_zid, &shared);
-                if tracked {
-                    // println!("{} tracking expanding {} to {}", "[TRACK]".red().bold(), original_pattern.to_expr(&shared), zipper_replace(original_pattern.to_expr(&shared), &shared.zip_of_zid[hole_zid], Node::Prim(format!("<{expands_to}>").into())));
-                    // println!("Match locations containing fn_0: {:?}", locs.iter().map(|loc|shared.set.get(*loc).to_string()).filter(|x| x.contains("fn_0")).collect::<Vec<_>>());
-                    found_tracked = true;
-                }
+                if tracked { found_tracked = true; }
                 if shared.cfg.follow_prune && !tracked { continue 'expansion; }
 
 
