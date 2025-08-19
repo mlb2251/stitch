@@ -718,18 +718,19 @@ pub struct Invention {
     pub body: ExprOwned, // invention body (not wrapped in lambdas)
     pub arity: usize,
     pub name: String,
+    pub variable_types: Vec<VariableType>, // type of each variable
 }
 
 impl Invention {
-    pub fn new(body: ExprOwned, arity: usize, name: &str) -> Self {
-        Self { body, arity, name: String::from(name) }
+    pub fn new(body: ExprOwned, arity: usize, name: &str, variable_types: Vec<VariableType>) -> Self {
+        Self { body, arity, name: String::from(name), variable_types }
     }
-    pub fn from_string(name: &str, body: &str) -> Self {
+    pub fn from_string(name: &str, body: &str, variable_types: Option<Vec<VariableType>>) -> Self {
         let mut set = ExprSet::empty(Order::ChildFirst, false, false);
         let idx = set.parse_extend(body).unwrap();
         let body = ExprOwned { set, idx };
         let arity = AnalyzedExpr::new(IVarAnalysis).analyze_get(body.immut()).iter().max().map(|x|*x as usize + 1).unwrap_or(0);
-        Self { body, arity, name: String::from(name) }
+        Self { body, arity, name: String::from(name), variable_types: variable_types.unwrap_or_else(|| vec![VariableType::Metavar; arity]) }
     }
 
     pub fn to_tracking(self, zid_of_zip: &FxHashMap<Vec<ZNode>, ZId>) -> Option<Tracking> {
