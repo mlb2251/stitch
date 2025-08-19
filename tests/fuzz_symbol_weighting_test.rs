@@ -73,7 +73,7 @@ fn generate_random_weights(selected_symbols: &[&String], rng: &mut ChaCha8Rng) -
 
 fn run_fuzz_compression(cost_prims: &serde_json::Value, test_file: &String, seed: u64) {
     let cost_prims_str = cost_prims.to_string();
-    let args = format!("-i3 -a3 --verbose-best --cost-prim {}", cost_prims_str);
+    let args = format!("-i3 -a3 --verbose-best --cost-prim {}", shlex::try_quote(&cost_prims_str).unwrap());
     let output_file = format!("data/expected_outputs/fuzz/{:0>3}_{}.json", seed, test_file.split("/").last().unwrap().split(".").next().unwrap());
     compare_out_jsons_testing(test_file, &output_file, &args, InputFormat::ProgramsList);
 }
