@@ -187,7 +187,7 @@ pub struct LocationsForReusableArgs<'a> {
 }
 
 impl LocationsForReusableArgs<'_> {
-    pub fn new(all_locs: &Vec<Idx>) -> LocationsForReusableArgs {
+    pub fn new<'a>(all_locs: &'a Vec<Idx>) -> LocationsForReusableArgs<'a> {
         LocationsForReusableArgs {
             all_locs,
             sym_locs: None,
