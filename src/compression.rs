@@ -7,7 +7,7 @@ use std::convert::TryInto;
 use std::fmt::{self, Formatter, Display};
 use std::hash::{Hash, Hasher};
 use itertools::Itertools;
-use serde_json::json;
+use serde_json::{json, Value};
 use clap::{Parser};
 use serde::Serialize;
 use std::thread;
@@ -735,6 +735,18 @@ impl Invention {
     pub fn to_tracking(self, zid_of_zip: &FxHashMap<Vec<ZNode>, ZId>) -> Option<Tracking> {
         let zids_of_ivar = zids_of_ivar_of_expr(&self.body, zid_of_zip)?;
         Some(Tracking { expr: self.body, zids_of_ivar })
+    }
+
+    pub fn from_compression_output(output: &Value) -> Invention {
+        Invention {
+            body: {
+                let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+                let idx = set.parse_extend(output["body"].as_str().unwrap()).unwrap();
+                ExprOwned::new(set, idx)
+            },
+            arity: output["arity"].as_u64().unwrap() as usize,
+            name: output["name"].as_str().unwrap().parse().unwrap(),
+        }
     }
 }
 
