@@ -104,19 +104,19 @@ fn neurosym_metavariable_with_tag() {
 #[test]
 fn symbol_weighting_test_higher_weight() {
     compare_out_jsons_testing("data/basic/symbol_weighting_test_1.json", "data/expected_outputs/symbol_weighting_1_default.json", "-i1 -a3", InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/basic/symbol_weighting_test_1.json", "data/expected_outputs/symbol_weighting_1_h_200.json", "-i1 -a3 --cost-prim {\"H\":200}", InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/basic/symbol_weighting_test_1.json", "data/expected_outputs/symbol_weighting_1_h_202.json", "-i1 -a3 --cost-prim {\"H\":202}", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/basic/symbol_weighting_test_1.json", "data/expected_outputs/symbol_weighting_1_h_200.json", "-i1 -a3 --cost-prim '{\"H\":200}'", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/basic/symbol_weighting_test_1.json", "data/expected_outputs/symbol_weighting_1_h_202.json", "-i1 -a3 --cost-prim '{\"H\":202}'", InputFormat::ProgramsList);
 }
 
 #[test]
 fn symbol_weighting_test_lower_weight() {
     compare_out_jsons_testing("data/basic/symbol_weighting_test_2.json", "data/expected_outputs/symbol_weighting_2_default.json", "-i1 -a3", InputFormat::ProgramsList);
     // l1,l2,l3 all should have value 60 in the following test
-    compare_out_jsons_testing("data/basic/symbol_weighting_test_2.json", "data/expected_outputs/symbol_weighting_2_l_60.json", "-i1 -a3 --cost-prim {\"L1\":60,\"L2\":60,\"L3\":60}", InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/basic/symbol_weighting_test_2.json", "data/expected_outputs/symbol_weighting_2_l_67.json", "-i1 -a3 --cost-prim {\"L1\":67,\"L2\":67,\"L3\":67}", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/basic/symbol_weighting_test_2.json", "data/expected_outputs/symbol_weighting_2_l_60.json", "-i1 -a3 --cost-prim '{\"L1\":60,\"L2\":60,\"L3\":60}'", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/basic/symbol_weighting_test_2.json", "data/expected_outputs/symbol_weighting_2_l_67.json", "-i1 -a3 --cost-prim '{\"L1\":67,\"L2\":67,\"L3\":67}'", InputFormat::ProgramsList);
 }
 
-const DFA_ARGS: &str = r#"--tdfa-json-path test_data/dfa.json --tdfa-root M --valid-metavars ["S","E","seqS"] --valid-roots ["S","E","seqS"] --tdfa-non-eta-long-states {"seqS":"S"}  --tdfa-split ~"#;
+const DFA_ARGS: &str = r#"--tdfa-json-path test_data/dfa.json --tdfa-root M --valid-metavars '["S","E","seqS"]' --valid-roots '["S","E","seqS"]' --tdfa-non-eta-long-states '{"seqS":"S"}'  --tdfa-split ~"#;
 
 #[test]
 fn tdfa_multi_arg_function() {
