@@ -171,7 +171,7 @@ pub fn rewrite_with_inventions(
     // programs.to_vec()
     let follow = Some(invs.to_vec());
     cfg.iterations = invs.len();
-    cfg.step.max_arity = invs.iter().map(|inv| inv.arity).max().unwrap();
+    cfg.step.max_arity = invs.iter().map(|inv| inv.arity).max().unwrap_or(0);
     cfg.silent = true;
     cfg.no_opt = true;
     cfg.step.allow_single_task = true;
