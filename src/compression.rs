@@ -131,6 +131,10 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub follow: Option<String>,
 
+    /// Variable types for the `follow` invention. Use M for metavariable and S for symbolic variable.
+    #[clap(long)]
+    pub follow_types: Option<Vec<VariableType>>,
+
     /// For use with `follow`, enables aggressive pruning. Useful for ensuring that it is *possible* to find a particular
     /// abstraction by guiding the search directly towards it.
     #[clap(long)]
