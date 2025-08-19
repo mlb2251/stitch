@@ -682,6 +682,7 @@ fn fused_lambda_location(set : &ExprSet, fused_lambda_tags: &Option<FxHashSet<Ta
 pub struct Tracking {
     pub expr: ExprOwned,
     pub zids_of_ivar: Vec<Vec<ZId>>,
+    pub type_of_ivar: Vec<VariableType>,
 }
 
 impl CriticalMultithreadData {
