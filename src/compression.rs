@@ -1815,7 +1815,7 @@ pub fn multistep_compression_internal(
         let (inv_name, follow_iter) = if let Some(follow) = &follow {
             (follow[i].name.clone(), Some(follow[i].clone()))
         } else {
-            (format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len()), cfg.step.follow.as_ref().map(|x| Invention::from_string("inv", x)))
+            (format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len()), cfg.step.follow.as_ref().map(|x| Invention::from_string("inv", x, cfg.step.follow_types.clone())))
         };
 
         // call actual compression
