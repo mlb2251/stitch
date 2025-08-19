@@ -2128,22 +2128,6 @@ pub fn construct_shared(
     Some(shared)
 }
 
-fn compute_tracking_from_config(cfg: &CompressionStepConfig, zid_of_zip: &FxHashMap<Vec<ZNode>, usize>) -> Option<Option<Tracking>> {
-    if let Some(s) = &cfg.follow {
-        let mut set = ExprSet::empty(Order::ChildFirst, false, false);
-        let idx = set.parse_extend(s).unwrap();
-        let expr = ExprOwned::new(set,idx);
-        if let Some(zids_of_ivar) = zids_of_ivar_of_expr(&expr, zid_of_zip) {
-            Some(Some(Tracking { expr, zids_of_ivar, type_of_ivar: vec![] }))
-        } else {
-            if !cfg.quiet { println!("Tracking: can't possibly find a match for this in corpus because one if the necessary zippers ZIDs doesnt exist in corpus")}
-            None
-        }
-    } else {
-        Some(None)
-    }
-}
-
 /// Takes a set of programs and does one full step of compresison.
 #[allow(clippy::too_many_arguments)]
 pub fn compression_step(
