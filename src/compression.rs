@@ -133,7 +133,7 @@ pub struct CompressionStepConfig {
     pub follow: Option<String>,
 
     /// Variable types for the `follow` invention. Use M for metavariable and S for symbolic variable.
-    #[clap(long)]
+    #[clap(long, value_parser, value_delimiter = ' ')]
     pub follow_types: Option<Vec<VariableType>>,
 
     /// For use with `follow`, enables aggressive pruning. Useful for ensuring that it is *possible* to find a particular
@@ -764,7 +764,11 @@ impl Invention {
 
 impl Display for Invention {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "[{} arity={}: {}]", self.name, self.arity, self.body.immut())
+        write!(f, "[{} arity={}: {}", self.name, self.arity, self.body.immut())?;
+        if self.variable_types.iter().any(|x| *x != VariableType::Metavar) {
+            write!(f, ", variable_types={}", self.variable_types.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(" "))?;
+        }
+        write!(f, "]")
     }
 }
 
