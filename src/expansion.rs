@@ -4,7 +4,7 @@ use itertools::Itertools;
 use lambdas::{Idx, Node, Symbol, Tag, ZId, ZNode};
 use rustc_hash::{FxHashMap, FxHashSet};
 
-use crate::{invalid_metavar_location, Arg, Cost, LocationsForReusableArgs, Pattern, PatternArgs, SharedData, SymvarInfo, VariableType, ZIdExtension};
+use crate::{invalid_metavar_location, Arg, Cost, Invention, LocationsForReusableArgs, Pattern, PatternArgs, SharedData, SymvarInfo, VariableType, ZIdExtension};
 
 /// Tells us what a hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
@@ -139,13 +139,8 @@ pub fn tracked_expands_to(pattern: &Pattern, hole_zid: ZId, shared: &SharedData)
     match expands_to_of_node(&shared.tracking.as_ref().unwrap().expr.set[idx], Some((pattern, shared))) {
         ExpandsTo(ExpandsToInner::IVar(i, _)) => {
             let idx_in_corpus = shared.set.get(pattern.match_locations[0]).zip(zip).idx;
-            let is_sym = shared.sym_var_info.as_ref().is_some_and(|s| s.is_symvar_spot(idx_in_corpus));
-            let vt = if is_sym {
-                assert!(invalid_metavar_location(shared, idx_in_corpus));
-                VariableType::Symvar
-            } else {
-                VariableType::Metavar
-            };
+            // let is_sym = shared.sym_var_info.as_ref().is_some_and(|s| s.is_symvar_spot(idx_in_corpus));
+            let vt = shared.follow.as_ref().unwrap().variable_types[i as usize];
             ExpandsTo(ExpandsToInner::IVar(pattern.pattern_args.find_variable(shared, i as usize) as i32, vt))
         }
         e => e
