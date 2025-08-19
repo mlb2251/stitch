@@ -1,8 +1,9 @@
+use lambdas::{ExprOwned, ExprSet, Order};
 use serde_json::Value;
 use clap::Parser;
 use std::path::Path;
 
-use crate::{multistep_compression, Input, MultistepCompressionConfig, InputFormat};
+use crate::{multistep_compression, rewrite_with_inventions, Input, InputFormat, Invention, MultistepCompressionConfig};
 use crate::util::timestamp;
 
 pub const CLOBBER: bool = false;
@@ -45,6 +46,20 @@ pub fn compare_out_jsons_testing(file: &str, expected_out_file: &str, args: &str
 
     let output = run_compression_testing(&input, &cfg);
 
+    let invs: Vec<Invention> = output["abstractions"].as_array().unwrap().iter().map(
+        |item| {
+            Invention::from_compression_output(item)
+        }
+    ).collect::<Vec<_>>();
+
+    let (rewritten, _, _) = rewrite_with_inventions(&input.train_programs, &invs, &cfg);
+    if let Some(expected_rewritten) = output.get("rewritten") {
+        assert_eq!(rewritten, expected_rewritten.as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect::<Vec<_>>(),
+                   "Rewritten programs do not match expected output");
+    } else {
+        panic!("Expected output does not contain 'rewritten' field");
+    }
+
     println!("{}", serde_json::to_string(&output).unwrap());
 
     let expected_out_file_path = std::path::Path::new(expected_out_file);
@@ -61,6 +76,8 @@ pub fn compare_out_jsons_testing(file: &str, expected_out_file: &str, args: &str
     check_eq(&output["num_abstractions"], &expected_output["num_abstractions"], vec!["num_abstractions".into()], &output, expected_out_file);
     check_eq(&output["abstractions"], &expected_output["abstractions"], vec!["abstractions".into()], &output, expected_out_file);
     check_eq(&output["rewritten"], &expected_output["rewritten"], vec!["rewritten".into()], &output, expected_out_file);
+
+
 
 }
 

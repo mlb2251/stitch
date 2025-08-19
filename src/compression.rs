@@ -6,8 +6,9 @@ use core::panic;
 use std::convert::TryInto;
 use std::fmt::{self, Formatter, Display};
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
 use itertools::Itertools;
-use serde_json::json;
+use serde_json::{json, Value};
 use clap::{Parser};
 use serde::Serialize;
 use std::thread;
@@ -744,6 +745,23 @@ impl Invention {
         let zids_of_ivar = zids_of_ivar_of_expr(&self.body, zid_of_zip)?;
         Some(Tracking { expr: self.body, zids_of_ivar, type_of_ivar: self.variable_types })
     }
+
+    pub fn from_compression_output(output: &Value) -> Invention {
+        Invention {
+            body: {
+                let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+                let idx = set.parse_extend(output["body"].as_str().unwrap()).unwrap();
+                ExprOwned::new(set, idx)
+            },
+            arity: output["arity"].as_u64().unwrap() as usize,
+            name: output["name"].as_str().unwrap().parse().unwrap(),
+            variable_types: if let Some(var_types) = output.get("variable_types") {
+                var_types.as_array().unwrap().iter().map(|v| VariableType::from_str(v.as_str().unwrap()).unwrap()).collect()
+            } else {
+                vec![VariableType::Metavar; output["arity"].as_u64().unwrap() as usize]
+            }
+        }
+    }
 }
 
 impl Display for Invention {
@@ -1432,6 +1450,8 @@ impl CompressionStepResult {
         let rewritten = if !cfg.rewritten_intermediates { None } else { Some(self.rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>()) };
         let rewritten_dreamcoder = if !cfg.rewritten_intermediates { &None } else { &self.rewritten_dreamcoder };
 
+        let variable_types = self.inv.variable_types.iter().map(|ty| ty.to_string()).collect::<Vec<_>>();
+
         json!({            
             "body": self.inv.body.to_string(),
             "dreamcoder": self.dc_inv_str,
@@ -1447,6 +1467,7 @@ impl CompressionStepResult {
             "uses": all_uses,
             "dc_comparison_millis": self.dc_comparison_millis,
             "tdfa_annotation": self.tdfa_annotation,
+            // "variable_types": variable_types,
         })
     }
 }

@@ -86,20 +86,7 @@ fn main() {
 
     let inventions: Vec<Invention> = inventions
         .iter()
-        .map(|invention| Invention {
-            body: {
-                let mut set = ExprSet::empty(Order::ChildFirst, false, false);
-                let idx = set.parse_extend(invention["body"].as_str().unwrap()).unwrap();
-                ExprOwned::new(set, idx)
-            },
-            arity: invention["arity"].as_u64().unwrap() as usize,
-            name: invention["name"].as_str().unwrap().parse().unwrap(),
-            variable_types: if let Some(var_types) = invention.get("variable_types") {
-                var_types.as_array().unwrap().iter().map(|v| VariableType::from_str(v.as_str().unwrap()).unwrap()).collect()
-            } else {
-                vec![VariableType::Metavar; invention["arity"].as_u64().unwrap() as usize]
-            }
-        })
+        .map(Invention::from_compression_output)
         .collect();
      println!("Number of inventions: {}", inventions.len());
 

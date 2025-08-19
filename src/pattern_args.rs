@@ -23,6 +23,15 @@ impl FromStr for VariableType {
     }
 }
 
+impl ToString for VariableType {
+    fn to_string(&self) -> String {
+        match self {
+            VariableType::Metavar => "M".to_string(),
+            VariableType::Symvar => "S".to_string(),
+        }
+    }
+}
+
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct PatternArgs {
