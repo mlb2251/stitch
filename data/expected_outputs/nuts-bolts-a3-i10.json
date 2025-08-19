@@ -1,5 +1,5 @@
 {
-  "cmd": "/Users/maddy/proj/rust/stitch/target/release/deps/integration_tests-86577b075cb41836",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-21175b69aaefd7be",
   "args": {
     "iterations": 10,
     "abstraction_prefix": "fn_",
@@ -30,6 +30,7 @@
       },
       "no_mismatch_check": false,
       "follow": null,
+      "follow_types": null,
       "follow_prune": false,
       "verbose_worklist": false,
       "verbose_best": false,
@@ -615,7 +616,11 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
+      ]
     },
     {
       "body": "(repeat (T (T #2 (M 0.5 0 0 0)) (M 1 0 (* #1 (cos (/ pi 4))) (* #1 (sin (/ pi 4))))) #0 (M 1 (/ (* 2 pi) #0) 0 0))",
@@ -680,7 +685,12 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M",
+        "M"
+      ]
     },
     {
       "body": "(T (T c (M 2 0 0 0)) (M #0 0 0 0))",
@@ -715,7 +725,10 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M"
+      ]
     },
     {
       "body": "(C #1 (T r (M #0 0 0 0)))",
@@ -792,7 +805,11 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
+      ]
     },
     {
       "body": "(C (fn_0 4 #1) (fn_0 #0 6))",
@@ -824,7 +841,11 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
+      ]
     },
     {
       "body": "(C #2 (fn_1 #1 1.5 #0))",
@@ -1126,7 +1147,12 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M",
+        "M"
+      ]
     },
     {
       "body": "(C #2 (fn_1 #1 3 #0))",
@@ -1428,7 +1454,12 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M",
+        "M"
+      ]
     },
     {
       "body": "(C #1 (fn_0 #0 6))",
@@ -1496,7 +1527,11 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
+      ]
     },
     {
       "body": "(C (fn_0 4 #1) (fn_2 #0))",
@@ -1525,7 +1560,11 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
+      ]
     },
     {
       "body": "(fn_4 4.25 6)",
@@ -1545,7 +1584,8 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": []
     }
   ]
 }

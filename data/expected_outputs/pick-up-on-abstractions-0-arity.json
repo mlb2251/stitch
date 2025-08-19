@@ -1,5 +1,5 @@
 {
-  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-56fda90633a32865 symbols_basic",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-21175b69aaefd7be",
   "args": {
     "iterations": 1,
     "abstraction_prefix": "fn_",
@@ -30,6 +30,7 @@
       },
       "no_mismatch_check": false,
       "follow": null,
+      "follow_types": null,
       "follow_prune": false,
       "verbose_worklist": false,
       "verbose_best": false,
@@ -58,7 +59,8 @@
         "tdfa_root": "M",
         "valid_metavars": "[\"S\",\"E\",\"seqS\"]",
         "valid_roots": "[\"S\",\"E\",\"seqS\"]",
-        "tdfa_non_eta_long_states": "{\"seqS\":\"S\"}"
+        "tdfa_non_eta_long_states": "{\"seqS\":\"S\"}",
+        "tdfa_split": "~"
       },
       "symvar": {
         "symvar_prefix": "&"
@@ -103,7 +105,11 @@
           "Name",
           "Name"
         ]
-      }
+      },
+      "variable_types": [
+        "S",
+        "S"
+      ]
     }
   ]
 }
