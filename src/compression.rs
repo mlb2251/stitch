@@ -1424,6 +1424,8 @@ impl CompressionStepResult {
         let rewritten = if !cfg.rewritten_intermediates { None } else { Some(self.rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>()) };
         let rewritten_dreamcoder = if !cfg.rewritten_intermediates { &None } else { &self.rewritten_dreamcoder };
 
+        let variable_types = self.inv.variable_types.iter().map(|ty| ty.to_string()).collect::<Vec<_>>();
+
         json!({            
             "body": self.inv.body.to_string(),
             "dreamcoder": self.dc_inv_str,
@@ -1439,6 +1441,7 @@ impl CompressionStepResult {
             "uses": all_uses,
             "dc_comparison_millis": self.dc_comparison_millis,
             "tdfa_annotation": self.tdfa_annotation,
+            "variable_types": variable_types,
         })
     }
 }
