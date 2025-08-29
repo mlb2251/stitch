@@ -18,6 +18,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::PathBuf;
+use std::str::FromStr;
 use stitch_core::*;
 use serde_json::Value;
 

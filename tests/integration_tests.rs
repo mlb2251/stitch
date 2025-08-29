@@ -120,14 +120,14 @@ const DFA_ARGS: &str = r#" --tdfa-json-path test_data/dfa.json --tdfa-root M --v
 
 #[test]
 fn tdfa_multi_arg_function() {
-    compare_out_jsons_testing("data/python/multi-arg-function.json", "data/expected_outputs/multi-arg-function-basic.json", "-i2 -a3", InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/python/multi-arg-function.json", "data/expected_outputs/multi-arg-function-with-dfa.json", &("-i2 -a3 ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/multi-arg-function.json", "data/expected_outputs/multi-arg-function-basic.json", "-i2 -a3  --rewrite-check", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/multi-arg-function.json", "data/expected_outputs/multi-arg-function-with-dfa.json", &("-i2 -a3  --rewrite-check ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
 }
 
 #[test]
 fn tdfa_sequence() {
-    compare_out_jsons_testing("data/python/front-of-sequence.json", "data/expected_outputs/front-of-sequence.json", &("-i2 -a3 ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/python/back-of-sequence.json", "data/expected_outputs/back-of-sequence.json", &("-i2 -a3 ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/front-of-sequence.json", "data/expected_outputs/front-of-sequence.json", &("-i2 -a3  --rewrite-check ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/back-of-sequence.json", "data/expected_outputs/back-of-sequence.json", &("-i2 -a3  --rewrite-check ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
 }
 
 fn python_args() -> String {
@@ -136,7 +136,7 @@ fn python_args() -> String {
 
 #[test]
 fn python_symbols_regression() {
-    compare_out_jsons_testing("data/python/10.json", "data/expected_outputs/10.json", &("-i10 -a2 --symvar-prefix & ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/10.json", "data/expected_outputs/10.json", &("-i10 -a2 --rewrite-check --symvar-prefix & ".to_owned() + DFA_ARGS), InputFormat::ProgramsList);
 }
 
 
