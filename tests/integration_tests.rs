@@ -152,9 +152,9 @@ fn symbols_basic() {
 
 #[test]
 fn symbols_following() {
-    compare_out_jsons_testing("data/python/symbol-reuse.json", "data/expected_outputs/symbol-reuse.json", "-i1 -a0 --symvar-prefix & ", InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/python/symbol-reuse.json", "data/expected_outputs/symbol-reuse-sss.json", "-i1 -a6 --symvar-prefix & --follow '(+ 1 #2 #2 #1 #0 2 3 4)' --follow-types 'S S S' ", InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/python/symbol-reuse.json", "data/expected_outputs/symbol-reuse-ssm.json", "-i1 -a6 --symvar-prefix & --follow '(+ 1 #2 #2 #1 #0 2 3 4)' --follow-types 'S S M' ", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/symbol-reuse.json", "data/expected_outputs/symbol-reuse.json", "-i1 -a0 --symvar-prefix & --rewrite-check ", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/symbol-reuse.json", "data/expected_outputs/symbol-reuse-sss.json", "-i1 -a6 --symvar-prefix & --follow '(+ 1 #2 #2 #1 #0 2 3 4)' --follow-types 'S S S' --rewrite-check ", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/symbol-reuse.json", "data/expected_outputs/symbol-reuse-ssm.json", "-i1 -a6 --symvar-prefix & --follow '(+ 1 #2 #2 #1 #0 2 3 4)' --follow-types 'S S M' --rewrite-check ", InputFormat::ProgramsList);
 }
 
 #[test]
