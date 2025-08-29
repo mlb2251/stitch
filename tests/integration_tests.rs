@@ -91,32 +91,32 @@ fn origami_2_a3_i10() {
 
 #[test]
 fn neurosym_match_at_tag() {
-    compare_out_jsons_testing("data/neurosym/match_at_tag.json", "data/expected_outputs/neurosym_match_at_tag.json", "", InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/neurosym/match_at_tag.json", "data/expected_outputs/neurosym_match_at_tag_excluded.json", "--fused-lambda-tags 2", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/neurosym/match_at_tag.json", "data/expected_outputs/neurosym_match_at_tag.json", " --rewrite-check", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/neurosym/match_at_tag.json", "data/expected_outputs/neurosym_match_at_tag_excluded.json", "--fused-lambda-tags 2 --rewrite-check", InputFormat::ProgramsList);
 }
 
 #[test]
 fn neurosym_metavariable_with_tag() {
     compare_out_jsons_testing("data/neurosym/metavariable_with_tag.json", "data/expected_outputs/neurosym_metavariable_with_tag.json", "", InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/neurosym/metavariable_with_tag.json", "data/expected_outputs/neurosym_metavariable_with_tag_excluded.json", "--fused-lambda-tags 2", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/neurosym/metavariable_with_tag.json", "data/expected_outputs/neurosym_metavariable_with_tag_excluded.json", "--fused-lambda-tags 2 --rewrite-check", InputFormat::ProgramsList);
 }
 
 #[test]
 fn symbol_weighting_test_higher_weight() {
-    compare_out_jsons_testing("data/basic/symbol_weighting_test_1.json", "data/expected_outputs/symbol_weighting_1_default.json", "-i1 -a3", InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/basic/symbol_weighting_test_1.json", "data/expected_outputs/symbol_weighting_1_h_200.json", "-i1 -a3 --cost-prim '{\"H\":200}'", InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/basic/symbol_weighting_test_1.json", "data/expected_outputs/symbol_weighting_1_h_202.json", "-i1 -a3 --cost-prim '{\"H\":202}'", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/basic/symbol_weighting_test_1.json", "data/expected_outputs/symbol_weighting_1_default.json", "-i1 -a3 --rewrite-check", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/basic/symbol_weighting_test_1.json", "data/expected_outputs/symbol_weighting_1_h_200.json", "-i1 -a3  --rewrite-check --cost-prim '{\"H\":200}'", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/basic/symbol_weighting_test_1.json", "data/expected_outputs/symbol_weighting_1_h_202.json", "-i1 -a3  --rewrite-check --cost-prim '{\"H\":202}'", InputFormat::ProgramsList);
 }
 
 #[test]
 fn symbol_weighting_test_lower_weight() {
-    compare_out_jsons_testing("data/basic/symbol_weighting_test_2.json", "data/expected_outputs/symbol_weighting_2_default.json", "-i1 -a3", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/basic/symbol_weighting_test_2.json", "data/expected_outputs/symbol_weighting_2_default.json", "-i1 -a3  --rewrite-check", InputFormat::ProgramsList);
     // l1,l2,l3 all should have value 60 in the following test
-    compare_out_jsons_testing("data/basic/symbol_weighting_test_2.json", "data/expected_outputs/symbol_weighting_2_l_60.json", "-i1 -a3 --cost-prim '{\"L1\":60,\"L2\":60,\"L3\":60}'", InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/basic/symbol_weighting_test_2.json", "data/expected_outputs/symbol_weighting_2_l_67.json", "-i1 -a3 --cost-prim '{\"L1\":67,\"L2\":67,\"L3\":67}'", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/basic/symbol_weighting_test_2.json", "data/expected_outputs/symbol_weighting_2_l_60.json", "-i1 -a3  --rewrite-check --cost-prim '{\"L1\":60,\"L2\":60,\"L3\":60}'", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/basic/symbol_weighting_test_2.json", "data/expected_outputs/symbol_weighting_2_l_67.json", "-i1 -a3  --rewrite-check --cost-prim '{\"L1\":67,\"L2\":67,\"L3\":67}'", InputFormat::ProgramsList);
 }
 
-const DFA_ARGS: &str = r#"--tdfa-json-path test_data/dfa.json --tdfa-root M --valid-metavars '["S","E","seqS"]' --valid-roots '["S","E","seqS"]' --tdfa-non-eta-long-states '{"seqS":"S"}'  --tdfa-split ~"#;
+const DFA_ARGS: &str = r#" --tdfa-json-path test_data/dfa.json --tdfa-root M --valid-metavars '["S","E","seqS"]' --valid-roots '["S","E","seqS"]' --tdfa-non-eta-long-states '{"seqS":"S"}'  --tdfa-split ~"#;
 
 #[test]
 fn tdfa_multi_arg_function() {
@@ -153,7 +153,7 @@ fn symbols_basic() {
 #[test]
 #[should_panic(expected = "Inconsistent symbols: \"NameStr\" and \"Name\" for expr &os:0")]
 fn symbols_basic_inconsistent_symbols() {
-    compare_out_jsons_testing("data/python/non-working-import-and-number-in-same-spot.json", "data/expected_outputs/non-working-import-and-number-in-same-spot.json", &("-i3 -a0 ".to_owned() + &python_args()), InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/non-working-import-and-number-in-same-spot.json", "data/expected_outputs/non-working-import-and-number-in-same-spot.json", &("-i3 -a0 --rewrite-check ".to_owned() + &python_args()), InputFormat::ProgramsList);
 }
 
 
