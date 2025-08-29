@@ -1,6 +1,72 @@
 {
-  "cmd": null,
-  "args": null,
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-21175b69aaefd7be",
+  "args": {
+    "iterations": 10,
+    "abstraction_prefix": "fn_",
+    "previous_abstractions": 0,
+    "shuffle": false,
+    "truncate": null,
+    "no_opt": false,
+    "silent": false,
+    "verbose_rewrite": false,
+    "step": {
+      "max_arity": 2,
+      "threads": 1,
+      "no_stats": false,
+      "batch": 1,
+      "dynamic_batch": false,
+      "eta_long": false,
+      "no_curried_metavars": false,
+      "no_curried_bodies": false,
+      "inv_candidates": 1,
+      "hole_choice": "DepthFirst",
+      "cost": {
+        "cost_lam": 1,
+        "cost_app": 1,
+        "cost_var": 100,
+        "cost_ivar": 100,
+        "cost_prim_default": 100,
+        "cost_prim": "{}"
+      },
+      "no_mismatch_check": false,
+      "follow": null,
+      "follow_types": null,
+      "follow_prune": false,
+      "verbose_worklist": false,
+      "verbose_best": false,
+      "print_stats": 0,
+      "show_rewritten": false,
+      "rewritten_dreamcoder": false,
+      "rewritten_intermediates": false,
+      "inv_arg_cap": false,
+      "allow_single_task": false,
+      "no_opt_single_use": false,
+      "no_opt_upper_bound": false,
+      "no_opt_force_multiuse": false,
+      "no_opt_useless_abstract": false,
+      "no_opt_arity_zero": false,
+      "no_other_util": false,
+      "structure_penalty": 1.0,
+      "rewrite_check": true,
+      "utility_by_rewrite": false,
+      "dreamcoder_comparison": false,
+      "quiet": false,
+      "fused_lambda_tags": {
+        "tags": null
+      },
+      "tdfa": {
+        "tdfa_json_path": null,
+        "tdfa_root": null,
+        "valid_metavars": null,
+        "valid_roots": null,
+        "tdfa_non_eta_long_states": null,
+        "tdfa_split": null
+      },
+      "symvar": {
+        "symvar_prefix": null
+      }
+    }
+  },
   "original_cost": 3577776,
   "final_cost": 974804,
   "compression_ratio": 3.6702516608466933,
@@ -510,7 +576,6 @@
     "(C (C (C (C (fn_2 -6 (fn_6 1.6875 (r_s 2 3.375))) (fn_2 0 (fn_6 2.25 (r_s 10 4.5)))) (fn_2 6 (fn_6 1.6875 (r_s 2 3.375)))) (fn_6 5 (r_s 7.5 1))) (fn_2 -3.375 (fn_5 6.75 (repeat (C (C (C (fn_1 2.25 c) (fn_1 2.75 c)) (fn_1 0.5 r)) (fn_3 1.5708 4)) 2))))"
   ],
   "rewritten_dreamcoder": null,
-  "test_output": null,
   "abstractions": [
     {
       "body": "(M 1 0)",
@@ -528,7 +593,10 @@
         {
           "fn_0 ": "(M 1 0)"
         }
-      ]
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": []
     },
     {
       "body": "(T #1 (M #0 0 0 0))",
@@ -579,6 +647,12 @@
         {
           "fn_1 1.5 r": "(T r (M 1.5 0 0 0))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -1086,6 +1160,12 @@
         {
           "fn_2 -0.5 l": "(T l (fn_0 -0.5 0))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -1107,6 +1187,12 @@
         {
           "fn_3 0.785398 8": "(repeat (T (fn_1 0.25 c) (fn_0 0.53033 0.53033)) 8 (M 1 0.785398 0 0))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -1128,6 +1214,12 @@
         {
           "fn_4 0 fn_2": "(T (C (C (C (fn_2 0 (fn_2 0 (T l (M 3 1.5708 0 -2)))) (T (fn_1 2 (fn_2 -0.5 l)) (fn_0 0 1))) (fn_2 0 (fn_2 0 (fn_2 -0.5 l)))) (T (fn_1 0 (fn_2 -0.5 l)) (fn_0 0 -1))) (fn_0 0 8))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -1512,6 +1604,12 @@
         {
           "fn_5 17 (repeat (fn_2 -1.625 (repeat (C (C (C (fn_1 2.25 c) (fn_1 2.75 c)) (fn_1 0.5 r)) (fn_3 1.5708 4)) 2 (fn_0 3.25 0))) 2)": "(repeat (repeat (fn_2 -1.625 (repeat (C (C (C (fn_1 2.25 c) (fn_1 2.75 c)) (fn_1 0.5 r)) (fn_3 1.5708 4)) 2 (fn_0 3.25 0))) 2 (fn_0 17 0)) 1 (fn_0 0 0))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -1578,6 +1676,12 @@
         {
           "fn_6 2.5 (r_s 9 5)": "(T (r_s 9 5) (fn_0 0 2.5))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -1596,7 +1700,10 @@
         {
           "fn_7 ": "(C (C (C (C (C (fn_2 -11.75 (fn_6 1.875 (r_s 1.5 3.75))) (fn_2 -7.25 (fn_6 2.5 (r_s 7 5)))) (fn_2 0 (fn_6 2.5 (r_s 7 5)))) (fn_2 7.25 (fn_6 2.5 (r_s 7 5)))) (fn_2 11.75 (fn_6 1.875 (r_s 1.5 3.75)))))"
         }
-      ]
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": []
     },
     {
       "body": "(C (C (C (C (fn_2 -8.125 (fn_6 1.875 (r_s 1.5 3.75))) (fn_2 -3.625 (fn_6 2.5 (r_s 7 5)))) (fn_2 3.625 (fn_6 2.5 (r_s 7 5)))) (fn_2 8.125 (fn_6 1.875 (r_s 1.5 3.75)))))",
@@ -1614,7 +1721,10 @@
         {
           "fn_8 ": "(C (C (C (C (fn_2 -8.125 (fn_6 1.875 (r_s 1.5 3.75))) (fn_2 -3.625 (fn_6 2.5 (r_s 7 5)))) (fn_2 3.625 (fn_6 2.5 (r_s 7 5)))) (fn_2 8.125 (fn_6 1.875 (r_s 1.5 3.75)))))"
         }
-      ]
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": []
     },
     {
       "body": "(C (C (C (C (fn_2 -10.125 (fn_6 1.875 (r_s 1.5 3.75))) (fn_2 -4.625 (fn_6 2.5 (r_s 9 5)))) (fn_2 4.625 (fn_6 2.5 (r_s 9 5)))) (fn_2 10.125 (fn_6 1.875 (r_s 1.5 3.75)))))",
@@ -1632,7 +1742,10 @@
         {
           "fn_9 ": "(C (C (C (C (fn_2 -10.125 (fn_6 1.875 (r_s 1.5 3.75))) (fn_2 -4.625 (fn_6 2.5 (r_s 9 5)))) (fn_2 4.625 (fn_6 2.5 (r_s 9 5)))) (fn_2 10.125 (fn_6 1.875 (r_s 1.5 3.75)))))"
         }
-      ]
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": []
     }
   ]
 }

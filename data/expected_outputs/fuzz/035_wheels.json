@@ -1,5 +1,5 @@
 {
-  "cmd": "/home/kavi/mit/stitch/target/debug/deps/fuzz_symbol_weighting_test-bb90388a4968aabc",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/fuzz_symbol_weighting_test-4586e884de5054b3",
   "args": {
     "iterations": 3,
     "abstraction_prefix": "fn_",
@@ -30,6 +30,7 @@
       },
       "no_mismatch_check": false,
       "follow": null,
+      "follow_types": null,
       "follow_prune": false,
       "verbose_worklist": false,
       "verbose_best": true,
@@ -1044,7 +1045,12 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M",
+        "M"
+      ]
     },
     {
       "body": "(repeat (C #2 (repeat (T (T c (M 0.25 0 0 0)) (M 1 0 0.53033 0.53033)) #1 (M 1 #0 0 0))))",
@@ -1109,7 +1115,12 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M",
+        "M"
+      ]
     },
     {
       "body": "(C (C (C (C #2 #1) (T (r_s #0 1) (M 1 0 0 5))) (T (C (C (C (fn_0 0 0 (T (T l (M 3 1.5708 0 -2)))) (T (T (T l (M 1 0 -0.5 0)) (M 2 0 0 0)) (M 1 0 0 1))) (fn_0 0 0 (T (T l (M 1 0 -0.5 0))))) (T (T (T l (M 1 0 -0.5 0)) (M 0 0 0 0)) (M 1 0 0 -1))) (M 1 0 0 8))))",
@@ -1138,7 +1149,12 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M",
+        "M"
+      ]
     }
   ]
 }

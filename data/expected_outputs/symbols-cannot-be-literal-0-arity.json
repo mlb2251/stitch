@@ -1,5 +1,5 @@
 {
-  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-56fda90633a32865 symbols_basic",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-21175b69aaefd7be",
   "args": {
     "iterations": 2,
     "abstraction_prefix": "fn_",
@@ -30,6 +30,7 @@
       },
       "no_mismatch_check": false,
       "follow": null,
+      "follow_types": null,
       "follow_prune": false,
       "verbose_worklist": false,
       "verbose_best": false,
@@ -54,11 +55,12 @@
         "tags": null
       },
       "tdfa": {
-        "tdfa_json_path": "",
-        "tdfa_root": "",
-        "valid_metavars": "",
-        "valid_roots": "",
-        "tdfa_non_eta_long_states": ""
+        "tdfa_json_path": null,
+        "tdfa_root": null,
+        "valid_metavars": null,
+        "valid_roots": null,
+        "tdfa_non_eta_long_states": null,
+        "tdfa_split": null
       },
       "symvar": {
         "symvar_prefix": "&"
@@ -97,7 +99,12 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "S",
+        "S",
+        "S"
+      ]
     }
   ]
 }

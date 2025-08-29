@@ -1,5 +1,5 @@
 {
-  "cmd": "/home/kavi/mit/stitch/target/debug/deps/fuzz_symbol_weighting_test-bb90388a4968aabc",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/fuzz_symbol_weighting_test-4586e884de5054b3",
   "args": {
     "iterations": 3,
     "abstraction_prefix": "fn_",
@@ -30,6 +30,7 @@
       },
       "no_mismatch_check": false,
       "follow": null,
+      "follow_types": null,
       "follow_prune": false,
       "verbose_worklist": false,
       "verbose_best": true,
@@ -102,7 +103,8 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": []
     },
     {
       "body": "(fn_0 (fn_0 1 2) (fn_0 3 4))",
@@ -122,7 +124,8 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": []
     },
     {
       "body": "(* (/ 5 6) (& H))",
@@ -142,7 +145,8 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": []
     }
   ]
 }

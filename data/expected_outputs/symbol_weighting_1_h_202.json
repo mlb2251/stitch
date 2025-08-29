@@ -1,5 +1,5 @@
 {
-  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-f95e5967f904c08a symbol_weighting_test",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-21175b69aaefd7be",
   "args": {
     "iterations": 1,
     "abstraction_prefix": "fn_",
@@ -30,6 +30,7 @@
       },
       "no_mismatch_check": false,
       "follow": null,
+      "follow_types": null,
       "follow_prune": false,
       "verbose_worklist": false,
       "verbose_best": false,
@@ -52,6 +53,17 @@
       "quiet": false,
       "fused_lambda_tags": {
         "tags": null
+      },
+      "tdfa": {
+        "tdfa_json_path": null,
+        "tdfa_root": null,
+        "valid_metavars": null,
+        "valid_roots": null,
+        "tdfa_non_eta_long_states": null,
+        "tdfa_split": null
+      },
+      "symvar": {
+        "symvar_prefix": null
       }
     }
   },
@@ -90,7 +102,9 @@
           "fn_0 ": "(* (/ 5 6) (& H))"
         }
       ],
-      "dc_comparison_millis": null
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": []
     }
   ]
 }

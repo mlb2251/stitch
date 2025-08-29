@@ -1,5 +1,5 @@
 {
-  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-09cb50e8cd06ecd4 python_symbols_regression --nocapture",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-21175b69aaefd7be",
   "args": {
     "iterations": 10,
     "abstraction_prefix": "fn_",
@@ -30,6 +30,7 @@
       },
       "no_mismatch_check": false,
       "follow": null,
+      "follow_types": null,
       "follow_prune": false,
       "verbose_worklist": false,
       "verbose_best": false,
@@ -1029,7 +1030,11 @@
           "E",
           "Name"
         ]
-      }
+      },
+      "variable_types": [
+        "M",
+        "S"
+      ]
     },
     {
       "body": "(Name #0 Load)",
@@ -1681,7 +1686,10 @@
         "metavariable_states": [
           "Name"
         ]
-      }
+      },
+      "variable_types": [
+        "S"
+      ]
     },
     {
       "body": "(Call #1 (list (_starred_content #0)) nil)",
@@ -2268,7 +2276,11 @@
           "E",
           "E"
         ]
-      }
+      },
+      "variable_types": [
+        "M",
+        "M"
+      ]
     },
     {
       "body": "(Assign (list (Subscript (fn_1 #2) (_slice_content #1) Store)) (fn_1 #0) None~TC)",
@@ -2463,7 +2475,12 @@
           "E",
           "Name"
         ]
-      }
+      },
+      "variable_types": [
+        "S",
+        "M",
+        "S"
+      ]
     },
     {
       "body": "(FunctionDef #3 (arguments nil (list (arg #2 None~E None~TC) (arg #1 None~E None~TC)) None~A nil nil None~A nil) #0 nil None~E None~TC)",
@@ -2542,7 +2559,13 @@
           "Name",
           "Name"
         ]
-      }
+      },
+      "variable_types": [
+        "M",
+        "S",
+        "S",
+        "S"
+      ]
     },
     {
       "body": "(FunctionDef #2 (arguments nil (list (arg #1 None~E None~TC)) None~A nil nil None~A nil) #0 nil None~E None~TC)",
@@ -2629,7 +2652,12 @@
           "Name",
           "Name"
         ]
-      }
+      },
+      "variable_types": [
+        "M",
+        "S",
+        "S"
+      ]
     },
     {
       "body": "(Subscript (fn_1 #1) (_slice_content #0) Load)",
@@ -2886,7 +2914,11 @@
           "E",
           "Name"
         ]
-      }
+      },
+      "variable_types": [
+        "M",
+        "S"
+      ]
     },
     {
       "body": "(/seq (fn_0 (fn_2 #2 (fn_1 #1)) #0))",
@@ -3081,7 +3113,12 @@
           "Name",
           "E"
         ]
-      }
+      },
+      "variable_types": [
+        "S",
+        "S",
+        "M"
+      ]
     },
     {
       "body": "(FunctionDef #4 (arguments nil (list (arg #3 None~E None~TC) (arg #2 None~E None~TC) (arg #1 None~E None~TC)) None~A nil nil None~A nil) #0 nil None~E None~TC)",
@@ -3134,7 +3171,14 @@
           "Name",
           "Name"
         ]
-      }
+      },
+      "variable_types": [
+        "M",
+        "S",
+        "S",
+        "S",
+        "S"
+      ]
     },
     {
       "body": "(Compare (fn_1 #0) (list Is) (list (Constant None~Const None~ConstKind)))",
@@ -3213,7 +3257,10 @@
         "metavariable_states": [
           "Name"
         ]
-      }
+      },
+      "variable_types": [
+        "S"
+      ]
     }
   ]
 }
