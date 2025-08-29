@@ -656,6 +656,7 @@ pub struct SharedData {
     pub multistep_cfg: MultistepCompressionConfig,
     pub tracking: Option<Tracking>,
     pub fused_lambda_tags: Option<FxHashSet<Tag>>,
+    pub follow: Option<Invention>,
 }
 
 pub fn invalid_metavar_location(shared : &SharedData, node: Idx) -> bool {
@@ -2137,6 +2138,7 @@ pub fn construct_shared(
         multistep_cfg: multistep_cfg.clone(),
         tracking,
         fused_lambda_tags: fused_copy,
+        follow: follow.clone(),
     });
 
     if !shared.cfg.quiet { println!("built SharedData: {:?}ms", tstart.elapsed().as_millis()) }
