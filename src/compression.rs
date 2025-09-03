@@ -656,7 +656,7 @@ pub struct SharedData {
     pub multistep_cfg: MultistepCompressionConfig,
     pub tracking: Option<Tracking>,
     pub fused_lambda_tags: Option<FxHashSet<Tag>>,
-    pub prev_results: Vec<CompressionStepResult>,
+    pub prev_results: Vec<CompressionStepResult>, // necessary for TDFA
     pub follow: Option<Invention>,
 }
 
