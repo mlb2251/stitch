@@ -77,8 +77,6 @@ pub fn compare_out_jsons_testing(file: &str, expected_out_file: &str, args: &str
     check_eq(&output["rewritten"], &expected_output["rewritten"], vec!["rewritten".into()], &output, expected_out_file);
     check_eq(&output["variable_types"], &expected_output["variable_types"], vec!["rewritten".into()], &output, expected_out_file);
 
-
-
 }
 
 //todo add write_json_for_diff calls and also make it add a random suffix too

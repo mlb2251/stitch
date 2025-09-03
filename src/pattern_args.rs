@@ -79,12 +79,12 @@ impl PatternArgs {
         }
     }
 
-    pub fn type_of(&self, ivar: usize) -> VariableType {
-        self.variables[ivar].1
-    }
-
     pub fn variable_types(&self) -> Vec<VariableType> {
         self.variables.iter().map(|(_,t)| *t).collect()
+    }
+
+    pub fn type_of(&self, ivar: usize) -> VariableType {
+        self.variables[ivar].1
     }
 
     fn zippers(&self, shared: &SharedData) -> Vec<Vec<ZNode>> {
