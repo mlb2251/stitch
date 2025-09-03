@@ -1,5 +1,5 @@
 {
-  "cmd": "/home/kavi/mit/stitch/target/debug/deps/fuzz_symbol_weighting_test-bb90388a4968aabc",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/fuzz_symbol_weighting_test-4586e884de5054b3",
   "args": {
     "iterations": 3,
     "abstraction_prefix": "fn_",
@@ -30,6 +30,7 @@
       },
       "no_mismatch_check": false,
       "follow": null,
+      "follow_types": null,
       "follow_prune": false,
       "verbose_worklist": false,
       "verbose_best": true,
@@ -14022,7 +14023,10 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M"
+      ]
     },
     {
       "body": "(fn_0 #1 (l 5) t (r 6) t (l #0) h)",
@@ -16061,7 +16065,11 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
+      ]
     },
     {
       "body": "(fn_0 (fn_0 (fn_0 (fn_0 (fn_0 (fn_0 (fn_0 (fn_0 (fn_0 (fn_0 (fn_0 (fn_0 (fn_0 (fn_0 (fn_0 (fn_0 #0 (l 20) h))))) (l 18) h)))) (l 14) h))) (l 10) h)) (l 6) h) (l 2) h)",
@@ -16579,7 +16587,10 @@
         }
       ],
       "dc_comparison_millis": null,
-      "tdfa_annotation": null
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M"
+      ]
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "cmd": "/Users/matthewbowers/proj/rust/stitch/target/release/deps/integration_tests-38d27ecd504c7478",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-21175b69aaefd7be",
   "args": {
     "iterations": 10,
     "abstraction_prefix": "fn_",
@@ -8,23 +8,29 @@
     "truncate": null,
     "no_opt": false,
     "silent": false,
+    "verbose_rewrite": false,
     "step": {
       "max_arity": 3,
       "threads": 1,
       "no_stats": false,
       "batch": 1,
       "dynamic_batch": false,
+      "eta_long": false,
+      "no_curried_metavars": false,
+      "no_curried_bodies": false,
       "inv_candidates": 1,
       "hole_choice": "DepthFirst",
-      "cost": "Dreamcoder",
-      "cost_lam": null,
-      "cost_app": null,
-      "cost_var": null,
-      "cost_ivar": null,
-      "cost_prim_default": null,
+      "cost": {
+        "cost_lam": 1,
+        "cost_app": 1,
+        "cost_var": 100,
+        "cost_ivar": 100,
+        "cost_prim_default": 100,
+        "cost_prim": "{}"
+      },
       "no_mismatch_check": false,
-      "no_top_lambda": false,
       "follow": null,
+      "follow_types": null,
       "follow_prune": false,
       "verbose_worklist": false,
       "verbose_best": false,
@@ -33,17 +39,32 @@
       "rewritten_dreamcoder": false,
       "rewritten_intermediates": false,
       "inv_arg_cap": false,
-      "no_opt_single_use": false,
       "allow_single_task": false,
+      "no_opt_single_use": false,
       "no_opt_upper_bound": false,
       "no_opt_force_multiuse": false,
       "no_opt_useless_abstract": false,
       "no_opt_arity_zero": false,
       "no_other_util": false,
+      "structure_penalty": 1.0,
       "rewrite_check": true,
       "utility_by_rewrite": false,
       "dreamcoder_comparison": false,
-      "quiet": false
+      "quiet": false,
+      "fused_lambda_tags": {
+        "tags": null
+      },
+      "tdfa": {
+        "tdfa_json_path": null,
+        "tdfa_root": null,
+        "valid_metavars": null,
+        "valid_roots": null,
+        "tdfa_non_eta_long_states": null,
+        "tdfa_split": null
+      },
+      "symvar": {
+        "symvar_prefix": null
+      }
     }
   },
   "original_cost": 9923,
@@ -255,6 +276,11 @@
         {
           "fn_9 1": "(lam (lam (car (dreamcoder_abstraction_0 (dreamcoder_abstraction_8 (lam $2) 1) (lam (lam (cdr $1))) $0))))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M"
       ]
     },
     {
@@ -321,6 +347,11 @@
         {
           "fn_10 (lam (dreamcoder_abstraction_2 (dreamcoder_abstraction_7 (dreamcoder_abstraction_2 $0))))": "(lam (dreamcoder_abstraction_3 $0 (lam (dreamcoder_abstraction_2 (dreamcoder_abstraction_7 (dreamcoder_abstraction_2 $0))))))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M"
       ]
     },
     {
@@ -354,6 +385,12 @@
         {
           "fn_11 (cons 0 empty) cons": "(lam (dreamcoder_abstraction_0 $0 (lam (lam (cons $0 $1))) (cons 0 empty)))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -384,6 +421,11 @@
         {
           "fn_12 dreamcoder_abstraction_2": "(fn_10 (lam (dreamcoder_abstraction_2 $0)))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M"
       ]
     },
     {
@@ -408,6 +450,12 @@
         {
           "fn_13 1 gt?": "(lam (dreamcoder_abstraction_5 (lam (gt? $0 1)) $0))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -429,6 +477,12 @@
         {
           "fn_14 0 -": "(lam (dreamcoder_abstraction_8 (lam (- $0 $1)) 0))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -456,6 +510,12 @@
         {
           "fn_15 (dreamcoder_abstraction_3 $1 (lam $0)) (cons $0)": "(cons $0 (cons $0 (dreamcoder_abstraction_3 $1 (lam $0))))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -474,7 +534,10 @@
         {
           "fn_16 ": "(+ 1)"
         }
-      ]
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": []
     }
   ]
 }

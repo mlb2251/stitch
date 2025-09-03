@@ -1,5 +1,5 @@
 {
-  "cmd": "/Users/matthewbowers/proj/rust/stitch/target/release/deps/integration_tests-38d27ecd504c7478",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-21175b69aaefd7be",
   "args": {
     "iterations": 10,
     "abstraction_prefix": "fn_",
@@ -8,23 +8,29 @@
     "truncate": null,
     "no_opt": false,
     "silent": false,
+    "verbose_rewrite": false,
     "step": {
       "max_arity": 3,
       "threads": 1,
       "no_stats": false,
       "batch": 1,
       "dynamic_batch": false,
+      "eta_long": false,
+      "no_curried_metavars": false,
+      "no_curried_bodies": false,
       "inv_candidates": 1,
       "hole_choice": "DepthFirst",
-      "cost": "Dreamcoder",
-      "cost_lam": null,
-      "cost_app": null,
-      "cost_var": null,
-      "cost_ivar": null,
-      "cost_prim_default": null,
+      "cost": {
+        "cost_lam": 1,
+        "cost_app": 1,
+        "cost_var": 100,
+        "cost_ivar": 100,
+        "cost_prim_default": 100,
+        "cost_prim": "{}"
+      },
       "no_mismatch_check": false,
-      "no_top_lambda": false,
       "follow": null,
+      "follow_types": null,
       "follow_prune": false,
       "verbose_worklist": false,
       "verbose_best": false,
@@ -33,17 +39,32 @@
       "rewritten_dreamcoder": false,
       "rewritten_intermediates": false,
       "inv_arg_cap": false,
-      "no_opt_single_use": false,
       "allow_single_task": false,
+      "no_opt_single_use": false,
       "no_opt_upper_bound": false,
       "no_opt_force_multiuse": false,
       "no_opt_useless_abstract": false,
       "no_opt_arity_zero": false,
       "no_other_util": false,
+      "structure_penalty": 1.0,
       "rewrite_check": true,
       "utility_by_rewrite": false,
       "dreamcoder_comparison": false,
-      "quiet": false
+      "quiet": false,
+      "fused_lambda_tags": {
+        "tags": null
+      },
+      "tdfa": {
+        "tdfa_json_path": null,
+        "tdfa_root": null,
+        "valid_metavars": null,
+        "valid_roots": null,
+        "tdfa_non_eta_long_states": null,
+        "tdfa_split": null
+      },
+      "symvar": {
+        "symvar_prefix": null
+      }
     }
   },
   "original_cost": 15273,
@@ -176,6 +197,13 @@
         {
           "fn_0 $0 $1 empty": "(if (empty? (cdr $0)) empty ($1 (cdr $0)))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M",
+        "M"
       ]
     },
     {
@@ -197,6 +225,12 @@
         {
           "fn_1 + (- 0)": "(lam (fix1 $0 (lam (lam (if (eq? 0 $0) empty (cons (- 0 $0) ($1 (+ $0 1))))))))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -353,6 +387,11 @@
         {
           "fn_2 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty)))": "(lam (fix1 $0 (lam (lam (if (gt? 0 $0) (cons (- 0 $0) ($1 (+ 1 $0))) empty)))))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M"
       ]
     },
     {
@@ -377,6 +416,13 @@
         {
           "fn_3 $0 $1 (- 0)": "(if (empty? $0) $0 (cons (- 0 (car $0)) ($1 (cdr $0))))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M",
+        "M"
       ]
     },
     {
@@ -398,6 +444,13 @@
         {
           "fn_4 $0 $1 (cons (car $0))": "(if (empty? $0) $0 (cons (car $0) (cons (car $0) ($1 (cdr $0)))))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M",
+        "M"
       ]
     },
     {
@@ -419,6 +472,12 @@
         {
           "fn_5 (cons 0 empty) cons": "(fn_2 (lam (lam (cons (car $0) (fn_0 $0 $1 (cons 0 empty))))))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -440,6 +499,12 @@
         {
           "fn_6 cons fn_4": "(fn_2 (lam (lam (fn_4 $0 $1 (cons (car $0))))))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M"
       ]
     },
     {
@@ -461,6 +526,11 @@
         {
           "fn_7 (- 0)": "(fn_2 (lam (lam (fn_3 $0 $1 (- 0)))))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M"
       ]
     },
     {
@@ -479,7 +549,10 @@
         {
           "fn_8 ": "(+ 1)"
         }
-      ]
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": []
     },
     {
       "body": "(if (empty? #0) empty (#2 (#1 #0)))",
@@ -500,6 +573,13 @@
         {
           "fn_9 (cdr $0) $1 (cons (car $0))": "(if (empty? (cdr $0)) empty (cons (car $0) ($1 (cdr $0))))"
         }
+      ],
+      "dc_comparison_millis": null,
+      "tdfa_annotation": null,
+      "variable_types": [
+        "M",
+        "M",
+        "M"
       ]
     }
   ]

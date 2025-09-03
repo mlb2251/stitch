@@ -1,5 +1,5 @@
 {
-  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-e3a9d4911874cf31 tdfa_sequence",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-21175b69aaefd7be",
   "args": {
     "iterations": 2,
     "abstraction_prefix": "fn_",
@@ -30,6 +30,7 @@
       },
       "no_mismatch_check": false,
       "follow": null,
+      "follow_types": null,
       "follow_prune": false,
       "verbose_worklist": false,
       "verbose_best": false,
@@ -54,11 +55,15 @@
         "tags": null
       },
       "tdfa": {
-        "tdfa_json_path": "../Stitch.jl/data_for_testing/dfa_imp.json",
+        "tdfa_json_path": "test_data/dfa.json",
         "tdfa_root": "M",
         "valid_metavars": "[\"S\",\"E\",\"seqS\"]",
         "valid_roots": "[\"S\",\"E\",\"seqS\"]",
-        "tdfa_non_eta_long_states": "{\"seqS\":\"S\"}"
+        "tdfa_non_eta_long_states": "{\"seqS\":\"S\"}",
+        "tdfa_split": "~"
+      },
+      "symvar": {
+        "symvar_prefix": null
       }
     }
   },
@@ -111,7 +116,16 @@
           "fn_0 (Name g_z5 Load)": "(/seq (Expr (Call (Name g_function Load) (list (_starred_content (Name g_x Load)) (_starred_content (Name g_y Load)) (_starred_content (Name g_z5 Load))) nil)) (Expr (BinOp (BinOp (Constant i2 None) Add (Constant i3 None)) Add (Constant i4 None))))"
         }
       ],
-      "dc_comparison_millis": null
+      "dc_comparison_millis": null,
+      "tdfa_annotation": {
+        "root_state": "seqS",
+        "metavariable_states": [
+          "E"
+        ]
+      },
+      "variable_types": [
+        "M"
+      ]
     },
     {
       "body": "(fn_0 #2 (Expr #1) (Expr (BinOp (BinOp (BinOp #0 Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None))))",
@@ -133,7 +147,20 @@
           "fn_1 (Name g_distraction4 Load) (Name g_distraction3 Load) (Name g_z3 Load)": "(fn_0 (Name g_z3 Load) (Expr (Name g_distraction3 Load)) (Expr (BinOp (BinOp (BinOp (Name g_distraction4 Load) Add (Constant i2 None)) Add (Constant i3 None)) Add (Constant i4 None))))"
         }
       ],
-      "dc_comparison_millis": null
+      "dc_comparison_millis": null,
+      "tdfa_annotation": {
+        "root_state": "seqS",
+        "metavariable_states": [
+          "E",
+          "E",
+          "E"
+        ]
+      },
+      "variable_types": [
+        "M",
+        "M",
+        "M"
+      ]
     }
   ]
 }
