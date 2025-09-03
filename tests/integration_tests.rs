@@ -142,12 +142,19 @@ fn python_symbols_regression() {
 
 #[test]
 fn symbols_basic() {
-    compare_out_jsons_testing("data/python/symbols-alignment.json", "data/expected_outputs/symbols-alignment.json", "-i2 -a3 --symvar-prefix & ", InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/python/symbols-cannot-be-literal.json", "data/expected_outputs/symbols-cannot-be-literal.json", "-i2 -a3 --symvar-prefix & ", InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/python/symbols-cannot-be-literal-0-arity.json", "data/expected_outputs/symbols-cannot-be-literal-0-arity.json", "-i2 -a3 --symvar-prefix & ", InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/python/symbol-reuse.json", "data/expected_outputs/symbol-reuse.json", "-i1 -a0 --symvar-prefix & ", InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/python/symbol-reuse-dfa.json", "data/expected_outputs/symbol-reuse-dfa.json", &("-i1 -a0 ".to_owned() + &python_args()), InputFormat::ProgramsList);
-    compare_out_jsons_testing("data/python/pick-up-on-abstractions-0-arity.json", "data/expected_outputs/pick-up-on-abstractions-0-arity.json", &("-i1 -a0 ".to_owned() + &python_args()), InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/symbols-alignment.json", "data/expected_outputs/symbols-alignment.json", "-i2 -a3  --rewrite-check --symvar-prefix & ", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/symbols-cannot-be-literal.json", "data/expected_outputs/symbols-cannot-be-literal.json", "-i2 -a3  --rewrite-check --symvar-prefix & ", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/symbols-cannot-be-literal-0-arity.json", "data/expected_outputs/symbols-cannot-be-literal-0-arity.json", "-i2 -a3  --rewrite-check --symvar-prefix & ", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/symbol-reuse.json", "data/expected_outputs/symbol-reuse.json", "-i1 -a0 --rewrite-check --symvar-prefix & ", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/symbol-reuse-dfa.json", "data/expected_outputs/symbol-reuse-dfa.json", &("-i1 -a0 --rewrite-check ".to_owned() + &python_args()), InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/pick-up-on-abstractions-0-arity.json", "data/expected_outputs/pick-up-on-abstractions-0-arity.json", &("-i1 -a0 --rewrite-check ".to_owned() + &python_args()), InputFormat::ProgramsList);
+}
+
+#[test]
+fn symbols_following() {
+    compare_out_jsons_testing("data/python/symbol-reuse.json", "data/expected_outputs/symbol-reuse.json", "-i1 -a0 --symvar-prefix & --rewrite-check ", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/symbol-reuse.json", "data/expected_outputs/symbol-reuse-sss.json", "-i1 -a6 --symvar-prefix & --follow '(+ 1 #2 #2 #1 #0 2 3 4)' --follow-types 'S S S' --rewrite-check ", InputFormat::ProgramsList);
+    compare_out_jsons_testing("data/python/symbol-reuse.json", "data/expected_outputs/symbol-reuse-ssm.json", "-i1 -a6 --symvar-prefix & --follow '(+ 1 #2 #2 #1 #0 2 3 4)' --follow-types 'S S M' --rewrite-check ", InputFormat::ProgramsList);
 }
 
 #[test]
