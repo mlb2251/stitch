@@ -1,4 +1,3 @@
-use lambdas::{ExprOwned, ExprSet, Order};
 use serde_json::Value;
 use clap::Parser;
 use std::path::Path;
@@ -77,8 +76,6 @@ pub fn compare_out_jsons_testing(file: &str, expected_out_file: &str, args: &str
     check_eq(&output["abstractions"], &expected_output["abstractions"], vec!["abstractions".into()], &output, expected_out_file);
     check_eq(&output["rewritten"], &expected_output["rewritten"], vec!["rewritten".into()], &output, expected_out_file);
     check_eq(&output["variable_types"], &expected_output["variable_types"], vec!["rewritten".into()], &output, expected_out_file);
-
-
 
 }
 
