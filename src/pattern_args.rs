@@ -29,6 +29,7 @@ impl std::fmt::Display for VariableType {
         match self {
             VariableType::Metavar => write!(f, "M"),
             VariableType::Symvar => write!(f, "S"),
+            VariableType::Unvalidated => panic!("Unvalidated variable type should not be displayed"),
         }
     }
 }
