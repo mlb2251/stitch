@@ -544,6 +544,7 @@ impl Pattern {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn single_var(corpus_span: &Span, cost_fn: &ExprCost, cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], tdfa_global_annotations: &Option<TDFAGlobalAnnotations>, set: &ExprSet, cfg: &CompressionStepConfig, follow: &Option<Invention>) -> Self {
         let mut pattern = Self::single_hole(corpus_span, cost_fn, cost_of_node_all, num_paths_to_node, tdfa_global_annotations, set, cfg, follow);
         let hole_zid = pattern.holes.pop().unwrap();
