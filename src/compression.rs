@@ -656,6 +656,7 @@ pub struct SharedData {
     pub multistep_cfg: MultistepCompressionConfig,
     pub tracking: Option<Tracking>,
     pub fused_lambda_tags: Option<FxHashSet<Tag>>,
+    pub prev_results: Vec<CompressionStepResult>, // necessary for TDFA
     pub follow: Option<Invention>,
 }
 
@@ -1102,7 +1103,7 @@ fn stitch_search(
                     if shared.cfg.rewrite_check {
                         // run rewriting just to make sure the assert in it passes
                         let rw_fast = rewrite_fast(&finished_pattern, &shared, &Node::Prim("fake_inv".into()), &shared.cost_fn);
-                        let (rw_slow, _, _) = rewrite_with_inventions(&shared.programs.iter().map(|p|p.to_string()).collect::<Vec<_>>(), &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.multistep_cfg);
+                        let (rw_slow, _, _) = rewrite_with_inventions_resumable(&shared.programs.iter().map(|p|p.to_string()).collect::<Vec<_>>(), &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.multistep_cfg, &shared.prev_results);
                         for (fast,slow) in rw_fast.iter().zip(rw_slow.iter()) {
                             assert_eq!(fast.to_string(), slow.to_string());
                         }
@@ -1785,11 +1786,12 @@ pub fn multistep_compression_internal(
     weights: Option<Vec<f32>>,
     name_mapping: Option<Vec<(String, String)>>,
     follow: Option<Vec<Invention>>,
-    cfg: &MultistepCompressionConfig
+    cfg: &MultistepCompressionConfig,
+    prev_results: &[CompressionStepResult]
 ) -> Vec<CompressionStepResult> {
 
     let mut rewritten: Vec<ExprOwned> = train_programs.to_vec();
-    let mut step_results: Vec<CompressionStepResult> = Default::default();
+    let mut step_results: Vec<CompressionStepResult> = prev_results.to_vec();
     let cost_fn = &cfg.step.cost.expr_cost();
 
     let tstart = std::time::Instant::now();
@@ -2138,6 +2140,7 @@ pub fn construct_shared(
         multistep_cfg: multistep_cfg.clone(),
         tracking,
         fused_lambda_tags: fused_copy,
+        prev_results: prev_results.to_vec(),
         follow: follow.clone(),
     });
 
@@ -2277,6 +2280,20 @@ pub fn multistep_compression(
     follow: Option<Vec<Invention>>,
     cfg: &MultistepCompressionConfig
 )-> (Vec<CompressionStepResult>, serde_json::Value) {
+    multistep_compression_resumable(programs, tasks, weights, name_mapping, follow, cfg, &[])
+}
+
+
+// Like `multistep_compression` but allows for resumable compression, where you can provide the prior inventions
+pub fn multistep_compression_resumable(
+    programs: &[String],
+    tasks: Option<Vec<String>>,
+    weights: Option<Vec<f32>>,
+    name_mapping: Option<Vec<(String,String)>>,
+    follow: Option<Vec<Invention>>,
+    cfg: &MultistepCompressionConfig,
+    prev_results: &[CompressionStepResult]
+)-> (Vec<CompressionStepResult>, serde_json::Value) {
     let mut programs = programs.to_vec();
     let mut cfg = cfg.clone();
 
@@ -2321,7 +2338,8 @@ pub fn multistep_compression(
         weights.clone(),
         name_mapping, 
         follow,
-        &cfg, 
+        &cfg,
+        prev_results,
     );
 
     // write everything to json
