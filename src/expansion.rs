@@ -4,7 +4,7 @@ use itertools::Itertools;
 use lambdas::{Idx, Node, Symbol, Tag, ZId, ZNode};
 use rustc_hash::{FxHashMap, FxHashSet};
 
-use crate::{invalid_metavar_location, Arg, Cost, LocationsForReusableArgs, Pattern, PatternArgs, SharedData, SymvarInfo, VariableType, ZIdExtension};
+use crate::{compatible_locations, invalid_metavar_location, Arg, Cost, LocationsForReusableArgs, Pattern, PatternArgs, SharedData, SymvarInfo, VariableType, ZIdExtension};
 
 /// Tells us what a hole will expand into at this node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
@@ -71,7 +71,7 @@ impl ExpandsTo {
     #[inline]
     pub fn local_expansion_utility(&self, shared: &SharedData) -> Cost {
         let ExpandsTo(s) = self;
-        let res = match &s {
+        let res = match s {
             ExpandsToInner::Lam(_) => shared.cost_fn.cost_lam,
             ExpandsToInner::App => shared.cost_fn.cost_app,
             ExpandsToInner::Var(_, _) => shared.cost_fn.cost_var,
@@ -162,9 +162,13 @@ pub fn expands_to_of_node(node: &Node) -> ExpandsTo {
 pub fn get_syntactic_expansions(arg_of_loc: &FxHashMap<usize, Arg>, match_locations: Vec<usize>, sym_var_info: &Option<SymvarInfo>) -> Vec<(ExpandsTo, Vec<Idx>)> {
     match_locations.into_iter()
         .group_by(|loc| &arg_of_loc[loc].expands_to).into_iter()
-        .filter(|(expands_to, _)| sym_var_info.as_ref().is_none_or(|s| !expands_to.is_prim_symbol(s)))
+        .filter(|(expands_to, _)| valid_syntactic_expansion_loc(sym_var_info, expands_to))
         .map(|(expands_to, locs)| (expands_to.clone(), locs.collect::<Vec<Idx>>()))
         .collect::<Vec<_>>()
+}
+
+pub fn valid_syntactic_expansion_loc(sym_var_info: &Option<SymvarInfo>, expands_to: &ExpandsTo) -> bool {
+    sym_var_info.as_ref().is_none_or(|s| !expands_to.is_prim_symbol(s))
 }
 
 
@@ -210,6 +214,92 @@ pub fn get_ivars_expansions(original_pattern: &Pattern, arg_of_loc: &FxHashMap<I
     ivars_expansions
 }
 
+
+/* Perform expansions on variables -- largely for SMC */
+
+pub fn perform_expansion_variable(
+    pattern: Pattern,
+    shared: &SharedData,
+    variable_ivar: i32,
+    expands_to: ExpandsTo,
+) -> Option<Pattern> {
+    let mut pattern = pattern;
+    let mut expands_to = expands_to;
+
+    let variable_zids: Vec<usize> = pattern.pattern_args.remove_variable_at(variable_ivar, match &mut expands_to {
+        ExpandsTo(ExpandsToInner::IVar(i, _)) => {
+            Some(i)
+        }
+        _ => None,
+
+    });
+
+    let body_utility = pattern.body_utility +  expands_to.local_expansion_utility(shared) * variable_zids.len() as Cost;
+    pattern.body_utility = body_utility;
+
+    let num_vars = pattern.pattern_args.arity() as i32;
+
+    for variable_zid in &variable_zids {
+        expands_to.add_variables(*variable_zid, &mut pattern.pattern_args);
+        expands_to.syntactic_expansion(&shared.extensions_of_zid[*variable_zid], |zid, i| {
+            pattern.pattern_args.add_variable_at(zid, num_vars + (i as i32));
+        });
+    }
+    Some (pattern)
+}
+
+
+pub fn get_num_variables(pattern: &Pattern) -> usize {
+    pattern.pattern_args.arity()
+}
+
+
+fn sample_in_range_without_value(max_range_excl: usize, avoid: i32, rng: &mut impl rand::Rng) -> Option<i32> {
+    if max_range_excl <= 1 {
+        return None; // no other variable to expand to
+    }
+    let mut new_ivar = rng.gen_range(0..max_range_excl - 1) as i32;
+    if new_ivar >= avoid {
+        new_ivar += 1; // skip the variable we are expanding
+    }
+    Some(new_ivar)
+}
+
+pub fn sample_variable_reuse_expansion(
+    pattern: &Pattern,
+    shared: &SharedData,
+    variable_ivar: i32,
+    match_location: usize,
+    rng: &mut impl rand::Rng,
+) -> Option<(Pattern, ExpandsTo)> {
+    let new_ivar = sample_in_range_without_value(get_num_variables(pattern), variable_ivar, rng)?;
+    let zid_original = pattern.pattern_args.zid_for_ivar(variable_ivar);
+    let zid_new = pattern.pattern_args.zid_for_ivar(new_ivar);
+    let arg_of_loc_original = &shared.arg_of_zid_node[zid_original];
+    let arg_of_loc_new = &shared.arg_of_zid_node[zid_new];
+    if compatible_locations(
+        shared,
+        &[match_location],
+        arg_of_loc_original,
+        arg_of_loc_new,
+        pattern.pattern_args.type_for_ivar(new_ivar)
+    ).is_empty() {
+        return None; // no compatible locations for the new ivar
+    }
+
+    let locs = compatible_locations(
+        shared,
+        &pattern.match_locations,
+        arg_of_loc_original,
+        arg_of_loc_new,
+        pattern.pattern_args.type_for_ivar(new_ivar)
+    );
+    assert!(!locs.is_empty());
+    let mut pattern = pattern.clone();
+    pattern.match_locations = locs;
+    let expands_to = ExpandsTo(ExpandsToInner::IVar(new_ivar,  pattern.pattern_args.type_for_ivar(new_ivar)));
+    Some((pattern, expands_to))
+}
 
 pub fn svar_locations(original_pattern: &Pattern, arg_of_loc: &FxHashMap<Idx,Arg>, reusable_locs: FxHashSet<Idx>, sym_var_info: &SymvarInfo) -> Vec<Idx> {
 

@@ -232,9 +232,42 @@ pub struct CompressionStepConfig {
     #[clap(long)]
     pub quiet: bool,
 
-    // Fused lambda tags
+    /// Fused lambda tags
     #[clap(long, value_parser = clap::value_parser!(FusedLambdaTags), default_value="")]
     pub fused_lambda_tags: FusedLambdaTags,
+
+    /// If true, we will use Sequential Monte Carlo (SMC) to sample patterns
+    #[clap(long)]
+    pub smc: bool,
+
+    /// Seed for the random number generator used in SMC
+    #[clap(long, default_value = "0")]
+    pub seed: u64,
+
+    /// Number of particles to use in SMC
+    #[clap(long, default_value = "1000")]
+    pub smc_particles: usize,
+
+    /// If true, we will use "fast utility" in SMC, which is a heuristic that
+    /// estimates the utility of a pattern without fully rewriting it.
+    #[clap(long)]
+    pub smc_fast_utility: bool,
+
+    /// Number of smc steps we will run after finding a best pattern
+    /// before stopping. e.g., if --smc-extra-step=10, we will stop at
+    /// step 29 if a best pattern is found at step 19.
+    #[clap(long, default_value = "10")]
+    pub smc_extra_steps: usize,
+
+    /// Number of expansions to make before recalculating the utility of a pattern
+    /// in SMC. This is used to control the tradeoff between exploration and exploitation.
+    #[clap(long, default_value = "1")]
+    pub smc_expand_per_step: usize,
+
+    /// SMC temperature, used to control the exploration-exploitation tradeoff.
+    /// A higher temperature means more exploration, while a lower temperature means more exploitation.
+    #[clap(long, default_value = "1.0")]
+    pub smc_temperature: f32,
 
     /// TDFA settings
     #[clap(flatten)]
@@ -510,6 +543,28 @@ impl Pattern {
             tracked: follow.is_some(),
         }
     }
+
+    #[allow(clippy::too_many_arguments)]
+    fn single_var(corpus_span: &Span, cost_fn: &ExprCost, cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], tdfa_global_annotations: &Option<TDFAGlobalAnnotations>, set: &ExprSet, cfg: &CompressionStepConfig, follow: &Option<Invention>) -> Self {
+        let mut pattern = Self::single_hole(corpus_span, cost_fn, cost_of_node_all, num_paths_to_node, tdfa_global_annotations, set, cfg, follow);
+        let hole_zid = pattern.holes.pop().unwrap();
+        pattern.pattern_args.add_variable_at(hole_zid, 0);
+        pattern
+    }
+
+    pub fn single_var_from_shared(shared: &SharedData) -> Self {
+        Self::single_var(
+            &shared.corpus_span,
+            &shared.cost_fn,
+            &shared.cost_of_node_all,
+            &shared.num_paths_to_node,
+            &shared.tdfa_global_annotations,
+            &shared.set,
+            &shared.cfg,
+            &None, // no follow in single var, since this is only used by SMC
+        )
+    }
+
     /// convert pattern to an Expr
     fn to_expr(&self, shared: &SharedData) -> ExprOwned {
         let mut set = ExprSet::empty(Order::ChildFirst, false, false);
@@ -1172,7 +1227,7 @@ pub struct FinishedPattern {
 
 impl FinishedPattern {
     //#[inline(never)]
-    fn new(pattern: Pattern, shared: &SharedData) -> Self {
+    pub fn new(pattern: Pattern, shared: &SharedData) -> Self {
         let arity = pattern.pattern_args.arity();
         let usages = pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum();
         let compressive_utility = compressive_utility(&pattern,shared);
@@ -1380,7 +1435,7 @@ pub struct CompressionStepResult {
 }
 
 impl CompressionStepResult {
-    fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, very_first_cost: Cost, name_mapping: &[(String,String)], dc_comparison_millis: Option<usize>) -> Self {
+    pub fn new(done: FinishedPattern, inv_name: &str, shared: &mut SharedData, very_first_cost: Cost, name_mapping: &[(String,String)], dc_comparison_millis: Option<usize>) -> Self {
 
         let inv = done.to_invention(inv_name, shared);
         let rewritten = rewrite_fast(&done, shared, &Node::Prim(inv.name.clone().into()), &shared.cost_fn);
@@ -1504,7 +1559,7 @@ fn utility_upper_bound(
 /// to changes in size that come from rewriting with an invention. Currently this is just the
 /// size of the abstraction itself
 //#[inline(never)]
-fn noncompressive_utility(
+pub fn noncompressive_utility(
     body_utility: Cost,
     cfg: &CompressionStepConfig,
 ) -> Cost {
@@ -1580,7 +1635,7 @@ pub fn compressive_utility_from_marginals(
 }
 
 //#[inline(never)]
-fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
+pub fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalculation {
 
     // * BASIC CALCULATION
     // Roughly speaking compressive utility is num_usages(invention) * size(invention), however there are a few extra
@@ -1830,19 +1885,29 @@ pub fn multistep_compression_internal(
         } else {
             (format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len()), cfg.step.follow.as_ref().map(|x| Invention::from_string("inv", x, cfg.step.follow_types.clone())))
         };
-
-        // call actual compression
-        let res: Vec<CompressionStepResult> = compression_step(
-            &rewritten,
-            &inv_name,
-            &cfg,
-            &tasks,
-            &weights,
-            very_first_cost,
-            &name_mapping,
-            &step_results,
-            &follow_iter,
-        );
+        let res: Vec<CompressionStepResult> = if cfg.step.smc {
+            assert!(follow_iter.is_none());
+            smc::compression_step_smc(
+                &rewritten,
+                &inv_name,
+                &cfg,
+                &tasks,
+                &weights,
+                &step_results,
+            )
+        } else {
+            compression_step(
+                &rewritten,
+                &inv_name,
+                &cfg,
+                &tasks,
+                &weights,
+                very_first_cost,
+                &name_mapping,
+                &step_results,
+                &follow_iter,
+            )
+        };
 
         if !res.is_empty() {
             // rewrite with the invention
