@@ -46,14 +46,9 @@ pub fn compare_out_jsons_testing(file: &str, expected_out_file: &str, args: &str
 
     let output = run_compression_testing(&input, &cfg);
 
-        let invs = output["abstractions"].as_array().unwrap().iter().map(
+    let invs: Vec<Invention> = output["abstractions"].as_array().unwrap().iter().map(
         |item| {
-            let mut set = ExprSet::empty(Order::ChildFirst, false, false);
-            let name = item["name"].as_str().unwrap();
-            let body = item["body"].as_str().unwrap();
-            let arity = item["arity"].as_u64().unwrap() as usize;
-            let idx = set.parse_extend(body).unwrap();
-            Invention::new(ExprOwned {set, idx}, arity, name)
+            Invention::from_compression_output(item)
         }
     ).collect::<Vec<_>>();
 
