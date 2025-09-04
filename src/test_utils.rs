@@ -2,7 +2,7 @@ use serde_json::Value;
 use clap::Parser;
 use std::path::Path;
 
-use crate::{multistep_compression, Input, MultistepCompressionConfig, InputFormat};
+use crate::{multistep_compression, rewrite_with_inventions, Input, InputFormat, Invention, MultistepCompressionConfig};
 use crate::util::timestamp;
 
 pub const CLOBBER: bool = false;
@@ -44,6 +44,20 @@ pub fn compare_out_jsons_testing(file: &str, expected_out_file: &str, args: &str
     cfg.previous_abstractions = input.name_mapping.clone().unwrap_or_default().len();
 
     let output = run_compression_testing(&input, &cfg);
+
+    let invs: Vec<Invention> = output["abstractions"].as_array().unwrap().iter().map(
+        |item| {
+            Invention::from_compression_output(item)
+        }
+    ).collect::<Vec<_>>();
+
+    let (rewritten, _, _) = rewrite_with_inventions(&input.train_programs, &invs, &cfg);
+    if let Some(expected_rewritten) = output.get("rewritten") {
+        assert_eq!(rewritten, expected_rewritten.as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect::<Vec<_>>(),
+                   "Rewritten programs do not match expected output");
+    } else {
+        panic!("Expected output does not contain 'rewritten' field");
+    }
 
     println!("{}", serde_json::to_string(&output).unwrap());
 
