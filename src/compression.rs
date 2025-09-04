@@ -6,8 +6,9 @@ use core::panic;
 use std::convert::TryInto;
 use std::fmt::{self, Formatter, Display};
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
 use itertools::Itertools;
-use serde_json::json;
+use serde_json::{json, Value};
 use clap::{Parser};
 use serde::Serialize;
 use std::thread;
@@ -130,6 +131,10 @@ pub struct CompressionStepConfig {
     /// are encountered.
     #[clap(long)]
     pub follow: Option<String>,
+
+    /// Variable types for the `follow` invention. Use M for metavariable and S for symbolic variable.
+    #[clap(long, value_parser, value_delimiter = ' ')]
+    pub follow_types: Option<Vec<VariableType>>,
 
     /// For use with `follow`, enables aggressive pruning. Useful for ensuring that it is *possible* to find a particular
     /// abstraction by guiding the search directly towards it.
@@ -461,7 +466,8 @@ impl CostConfig {
 impl Pattern {
     /// create a single hole pattern `??`
     //#[inline(never)]
-    fn single_hole(corpus_span: &Span, cost_fn: &ExprCost, cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], tdfa_global_annotations: &Option<TDFAGlobalAnnotations>, set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
+    #[allow(clippy::too_many_arguments)]
+    fn single_hole(corpus_span: &Span, cost_fn: &ExprCost, cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], tdfa_global_annotations: &Option<TDFAGlobalAnnotations>, set: &ExprSet, cfg: &CompressionStepConfig, follow: &Option<Invention>) -> Self {
         let body_utility = 0;
         let mut match_locations: Vec<Idx> = corpus_span.clone().collect();
         match_locations.sort(); // we assume match_locations is always sorted
@@ -534,12 +540,12 @@ impl Pattern {
             match_locations, // single hole matches everywhere
             utility_upper_bound,
             body_utility, // 0 body utility
-            tracked: cfg.follow.is_some(),
+            tracked: follow.is_some(),
         }
     }
 
-    fn single_var(corpus_span: &Span, cost_fn: &ExprCost, cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], tdfa_global_annotations: &Option<TDFAGlobalAnnotations>, set: &ExprSet, cfg: &CompressionStepConfig) -> Self {
-        let mut pattern = Self::single_hole(corpus_span, cost_fn, cost_of_node_all, num_paths_to_node, tdfa_global_annotations, set, cfg);
+    fn single_var(corpus_span: &Span, cost_fn: &ExprCost, cost_of_node_all: &[Cost], num_paths_to_node: &[Cost], tdfa_global_annotations: &Option<TDFAGlobalAnnotations>, set: &ExprSet, cfg: &CompressionStepConfig, follow: &Option<Invention>) -> Self {
+        let mut pattern = Self::single_hole(corpus_span, cost_fn, cost_of_node_all, num_paths_to_node, tdfa_global_annotations, set, cfg, follow);
         let hole_zid = pattern.holes.pop().unwrap();
         pattern.pattern_args.add_variable_at(hole_zid, 0);
         pattern
@@ -553,7 +559,8 @@ impl Pattern {
             &shared.num_paths_to_node,
             &shared.tdfa_global_annotations,
             &shared.set,
-            &shared.cfg
+            &shared.cfg,
+            &None, // no follow in single var, since this is only used by SMC
         )
     }
 
@@ -703,6 +710,8 @@ pub struct SharedData {
     pub multistep_cfg: MultistepCompressionConfig,
     pub tracking: Option<Tracking>,
     pub fused_lambda_tags: Option<FxHashSet<Tag>>,
+    pub prev_results: Vec<CompressionStepResult>, // necessary for TDFA
+    pub follow: Option<Invention>,
 }
 
 pub fn invalid_metavar_location(shared : &SharedData, node: Idx) -> bool {
@@ -770,17 +779,52 @@ pub struct Invention {
     pub body: ExprOwned, // invention body (not wrapped in lambdas)
     pub arity: usize,
     pub name: String,
+    pub variable_types: Vec<VariableType>, // type of each variable
 }
 
 impl Invention {
-    pub fn new(body: ExprOwned, arity: usize, name: &str) -> Self {
-        Self { body, arity, name: String::from(name) }
+    pub fn new(body: ExprOwned, arity: usize, name: &str, variable_types: Vec<VariableType>) -> Self {
+        Self { body, arity, name: String::from(name), variable_types }
+    }
+    pub fn from_string(name: &str, body: &str, variable_types: Option<Vec<VariableType>>) -> Self {
+        let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+        let idx = set.parse_extend(body).unwrap();
+        let body = ExprOwned { set, idx };
+        let arity = AnalyzedExpr::new(IVarAnalysis).analyze_get(body.immut()).iter().max().map(|x|*x as usize + 1).unwrap_or(0);
+        Self { body, arity, name: String::from(name), variable_types: variable_types.unwrap_or_else(|| vec![VariableType::Metavar; arity]) }
+    }
+
+    pub fn to_tracking(self, zid_of_zip: &FxHashMap<Vec<ZNode>, ZId>) -> Option<Tracking> {
+        let zids_of_ivar = zids_of_ivar_of_expr(&self.body, zid_of_zip)?;
+        Some(Tracking { expr: self.body, zids_of_ivar })
+    }
+
+    pub fn from_compression_output(output: &Value) -> Invention {
+        let arity = output["arity"].as_u64().unwrap() as usize;
+        Invention {
+            body: {
+                let mut set = ExprSet::empty(Order::ChildFirst, false, false);
+                let idx = set.parse_extend(output["body"].as_str().unwrap()).unwrap();
+                ExprOwned::new(set, idx)
+            },
+            arity,
+            name: output["name"].as_str().unwrap().parse().unwrap(),
+            variable_types: if let Some(var_types) = output.get("variable_types") {
+                var_types.as_array().unwrap().iter().map(|v| VariableType::from_str(v.as_str().unwrap()).unwrap()).collect()
+            } else {
+                vec![VariableType::Metavar; arity]
+            }
+        }
     }
 }
 
 impl Display for Invention {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "[{} arity={}: {}]", self.name, self.arity, self.body.immut())
+        write!(f, "[{} arity={}: {}", self.name, self.arity, self.body.immut())?;
+        if self.variable_types.iter().any(|x| *x != VariableType::Metavar) {
+            write!(f, ", variable_types={}", self.variable_types.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(" "))?;
+        }
+        write!(f, "]")
     }
 }
 
@@ -1113,7 +1157,7 @@ fn stitch_search(
                     if shared.cfg.rewrite_check {
                         // run rewriting just to make sure the assert in it passes
                         let rw_fast = rewrite_fast(&finished_pattern, &shared, &Node::Prim("fake_inv".into()), &shared.cost_fn);
-                        let (rw_slow, _, _) = rewrite_with_inventions(&shared.programs.iter().map(|p|p.to_string()).collect::<Vec<_>>(), &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.multistep_cfg);
+                        let (rw_slow, _, _) = rewrite_with_inventions_resumable(&shared.programs.iter().map(|p|p.to_string()).collect::<Vec<_>>(), &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.multistep_cfg, &shared.prev_results);
                         for (fast,slow) in rw_fast.iter().zip(rw_slow.iter()) {
                             assert_eq!(fast.to_string(), slow.to_string());
                         }
@@ -1213,7 +1257,7 @@ impl FinishedPattern {
         self.pattern.to_expr(shared)
     }
     pub fn to_invention(&self, name: &str, shared: &SharedData) -> Invention {
-        Invention::new(self.to_expr(shared), self.arity, name)
+        Invention::new(self.to_expr(shared), self.arity, name, self.pattern.pattern_args.variable_types())
     }
     pub fn info(&self, shared: &SharedData) -> String {
         format!("{} -> finished: utility={}, compressive_utility={}, arity={}, usages={}",self.pattern.info(shared), self.utility, self.compressive_utility, self.arity, self.usages)
@@ -1464,6 +1508,8 @@ impl CompressionStepResult {
         let rewritten = if !cfg.rewritten_intermediates { None } else { Some(self.rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>()) };
         let rewritten_dreamcoder = if !cfg.rewritten_intermediates { &None } else { &self.rewritten_dreamcoder };
 
+        let variable_types = self.inv.variable_types.iter().map(|ty| ty.to_string()).collect::<Vec<_>>();
+
         json!({            
             "body": self.inv.body.to_string(),
             "dreamcoder": self.dc_inv_str,
@@ -1479,6 +1525,7 @@ impl CompressionStepResult {
             "uses": all_uses,
             "dc_comparison_millis": self.dc_comparison_millis,
             "tdfa_annotation": self.tdfa_annotation,
+            "variable_types": variable_types,
         })
     }
 }
@@ -1793,11 +1840,12 @@ pub fn multistep_compression_internal(
     weights: Option<Vec<f32>>,
     name_mapping: Option<Vec<(String, String)>>,
     follow: Option<Vec<Invention>>,
-    cfg: &MultistepCompressionConfig
+    cfg: &MultistepCompressionConfig,
+    prev_results: &[CompressionStepResult]
 ) -> Vec<CompressionStepResult> {
 
     let mut rewritten: Vec<ExprOwned> = train_programs.to_vec();
-    let mut step_results: Vec<CompressionStepResult> = Default::default();
+    let mut step_results: Vec<CompressionStepResult> = prev_results.to_vec();
     let cost_fn = &cfg.step.cost.expr_cost();
 
     let tstart = std::time::Instant::now();
@@ -1831,13 +1879,13 @@ pub fn multistep_compression_internal(
 
     for i in 0..cfg.iterations {
         if !cfg.step.quiet { println!("{}",format!("\n=======Iteration {i}=======").blue().bold()) }
-        let inv_name = if let Some(follow) = &follow {
-            cfg.step.follow = Some(follow[i].body.to_string());
-            follow[i].name.clone()
+        let (inv_name, follow_iter) = if let Some(follow) = &follow {
+            (follow[i].name.clone(), Some(follow[i].clone()))
         } else {
-            format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len())
+            (format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len()), cfg.step.follow.as_ref().map(|x| Invention::from_string("inv", x, cfg.step.follow_types.clone())))
         };
         let res: Vec<CompressionStepResult> = if cfg.step.smc {
+            assert!(follow_iter.is_none());
             smc::compression_step_smc(
                 &rewritten,
                 &inv_name,
@@ -1856,6 +1904,7 @@ pub fn multistep_compression_internal(
                 very_first_cost,
                 &name_mapping,
                 &step_results,
+                &follow_iter,
             )
         };
 
@@ -1868,7 +1917,7 @@ pub fn multistep_compression_internal(
             step_results.push(res);
         } else if follow.is_some() {
             // if `follow` was given then we will keep going for the full set of iterations
-            if !cfg.step.quiet { println!("Invention not found: {}", cfg.step.follow.as_ref().unwrap() ) }
+            if !cfg.step.quiet { println!("Invention not found: {:?}", follow.as_ref().unwrap() ) }
         } else {
             if !cfg.step.quiet { println!("No inventions found at iteration {i}") }
             break;    
@@ -1903,6 +1952,7 @@ pub fn construct_shared(
     tasks: &[String],
     weights: &[f32],
     prev_results: &[CompressionStepResult],
+    follow: &Option<Invention>,
 ) -> Option<Arc<SharedData>> {
     let cfg = &multistep_cfg.step.clone();
 
@@ -1975,23 +2025,15 @@ pub fn construct_shared(
     if !cfg.quiet { println!("{} zips", zip_of_zid.len()) }
     if !cfg.quiet { println!("arg_of_zid_node size: {}", arg_of_zid_node.len()) }
 
-    // set up tracking if any
-    let tracking: Option<Tracking> = {
-        if let Some(s) = &cfg.follow {
-            let mut set = ExprSet::empty(Order::ChildFirst, false, false);
-            let idx = set.parse_extend(s).unwrap();
-            let expr = ExprOwned::new(set,idx);
-            if let Some(zids_of_ivar) = zids_of_ivar_of_expr(&expr, &zid_of_zip) {
-                Some(Tracking { expr, zids_of_ivar })
-            } else {
-                if !cfg.quiet { println!("Tracking: can't possibly find a match for this in corpus because one if the necessary zippers ZIDs doesnt exist in corpus")}
-                return None;
-            }
+    let tracking = match follow {
+        Some(follow) => if let Some(x) = follow.clone().to_tracking(&zid_of_zip) {
+            Some(x)
         } else {
-            None
+            if !cfg.quiet { println!("Tracking: can't possibly find a match for this in corpus because one if the necessary zippers ZIDs doesnt exist in corpus")}
+            return None
         }
+        None => None
     };
-    
 
 
     if !cfg.quiet { println!("Tracking setup: {:?}ms", tstart.elapsed().as_millis()) }
@@ -2016,7 +2058,7 @@ pub fn construct_shared(
 
     let tdfa_global_annotations = TDFAGlobalAnnotations::new(cfg, &set, &roots, prev_results, &sym_var_info);
 
-    let single_hole = Pattern::single_hole(&corpus_span, cost_fn, &cost_of_node_all, &num_paths_to_node, &tdfa_global_annotations, &set, cfg);
+    let single_hole = Pattern::single_hole(&corpus_span, cost_fn, &cost_of_node_all, &num_paths_to_node, &tdfa_global_annotations, &set, cfg, follow);
 
     let mut azero_pruning_cutoff = 0;
 
@@ -2162,6 +2204,8 @@ pub fn construct_shared(
         multistep_cfg: multistep_cfg.clone(),
         tracking,
         fused_lambda_tags: fused_copy,
+        prev_results: prev_results.to_vec(),
+        follow: follow.clone(),
     });
 
     if !shared.cfg.quiet { println!("built SharedData: {:?}ms", tstart.elapsed().as_millis()) }
@@ -2180,6 +2224,7 @@ pub fn compression_step(
     very_first_cost: Cost,
     name_mapping: &[(String, String)],
     prev_results: &[CompressionStepResult],
+    follow: &Option<Invention>,
 ) -> Vec<CompressionStepResult> {
 
     let tstart_total = std::time::Instant::now();
@@ -2191,6 +2236,7 @@ pub fn compression_step(
         tasks,
         weights,
         prev_results,
+        follow,
     ) else {
         return vec![];
     };
@@ -2279,8 +2325,8 @@ pub fn compression_step(
     }
 
     if shared.cfg.follow_prune && !results.is_empty() {
-        if let Some(follow) = &shared.cfg.follow {
-            assert_eq!(follow, &results[0].inv.body.to_string(), "found something other than the followed abstraction somehow");
+        if let Some(follow) = follow {
+            assert_eq!(follow.body.to_string(), results[0].inv.body.to_string(), "found something other than the followed abstraction somehow");
         }
     }
 
@@ -2297,6 +2343,20 @@ pub fn multistep_compression(
     name_mapping: Option<Vec<(String,String)>>,
     follow: Option<Vec<Invention>>,
     cfg: &MultistepCompressionConfig
+)-> (Vec<CompressionStepResult>, serde_json::Value) {
+    multistep_compression_resumable(programs, tasks, weights, name_mapping, follow, cfg, &[])
+}
+
+
+// Like `multistep_compression` but allows for resumable compression, where you can provide the prior inventions
+pub fn multistep_compression_resumable(
+    programs: &[String],
+    tasks: Option<Vec<String>>,
+    weights: Option<Vec<f32>>,
+    name_mapping: Option<Vec<(String,String)>>,
+    follow: Option<Vec<Invention>>,
+    cfg: &MultistepCompressionConfig,
+    prev_results: &[CompressionStepResult]
 )-> (Vec<CompressionStepResult>, serde_json::Value) {
     let mut programs = programs.to_vec();
     let mut cfg = cfg.clone();
@@ -2342,7 +2402,8 @@ pub fn multistep_compression(
         weights.clone(),
         name_mapping, 
         follow,
-        &cfg, 
+        &cfg,
+        prev_results,
     );
 
     // write everything to json

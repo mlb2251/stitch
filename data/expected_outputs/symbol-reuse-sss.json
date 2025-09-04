@@ -1,5 +1,5 @@
 {
-  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-21175b69aaefd7be",
+  "cmd": "/home/kavi/mit/stitch/target/debug/deps/integration_tests-6cddd9da19e4976e symbols_following",
   "args": {
     "iterations": 1,
     "abstraction_prefix": "fn_",
@@ -10,7 +10,7 @@
     "silent": false,
     "verbose_rewrite": false,
     "step": {
-      "max_arity": 3,
+      "max_arity": 6,
       "threads": 1,
       "no_stats": false,
       "batch": 1,
@@ -26,11 +26,15 @@
         "cost_var": 100,
         "cost_ivar": 100,
         "cost_prim_default": 100,
-        "cost_prim": "{\"H\":202}"
+        "cost_prim": "{}"
       },
       "no_mismatch_check": false,
-      "follow": null,
-      "follow_types": null,
+      "follow": "(+ 1 #2 #2 #1 #0 2 3 4)",
+      "follow_types": [
+        "Symvar",
+        "Symvar",
+        "Symvar"
+      ],
       "follow_prune": false,
       "verbose_worklist": false,
       "verbose_best": false,
@@ -63,48 +67,56 @@
         "tdfa_split": null
       },
       "symvar": {
-        "symvar_prefix": null
+        "symvar_prefix": "&"
       }
     }
   },
-  "original_cost": 2826,
-  "final_cost": 1612,
-  "compression_ratio": 1.7531017369727047,
+  "original_cost": 2724,
+  "final_cost": 1209,
+  "compression_ratio": 2.2531017369727047,
   "num_abstractions": 1,
   "original": [
-    "(+ (+ 1 2) (+ 3 4))",
-    "(+ (+ 1 2) (+ 3 4))",
-    "(* (/ 5 6) (& H))",
-    "(* (/ 5 6) (& H))"
+    "(+ 1 &x &x &y &z 2 3 4)",
+    "(+ 1 &y &y &x &z 2 3 4)",
+    "(+ 1 &x &x &x &z 2 3 4)"
   ],
   "rewritten": [
-    "(+ (+ 1 2) (+ 3 4))",
-    "(+ (+ 1 2) (+ 3 4))",
-    "fn_0",
-    "fn_0"
+    "(fn_0 &z &y &x)",
+    "(fn_0 &z &x &y)",
+    "(fn_0 &z &x &x)"
   ],
   "rewritten_dreamcoder": null,
   "abstractions": [
     {
-      "body": "(* (/ 5 6) (& H))",
-      "dreamcoder": "#(* (/ 5 6) (& H))",
-      "arity": 0,
+      "body": "(+ 1 #2 #2 #1 #0 2 3 4)",
+      "dreamcoder": "#(lambda (lambda (lambda (+ 1 $0 $0 $1 $2 2 3 4))))",
+      "arity": 3,
       "name": "fn_0",
-      "utility": 507,
-      "final_cost": 1612,
-      "compression_ratio": 1.7531017369727047,
-      "cumulative_compression_ratio": 1.7531017369727047,
-      "num_uses": 2,
+      "utility": 1007,
+      "final_cost": 1209,
+      "compression_ratio": 2.2531017369727047,
+      "cumulative_compression_ratio": 2.2531017369727047,
+      "num_uses": 3,
       "rewritten": null,
       "rewritten_dreamcoder": null,
       "uses": [
         {
-          "fn_0 ": "(* (/ 5 6) (& H))"
+          "fn_0 &z &x &x": "(+ 1 &x &x &x &z 2 3 4)"
+        },
+        {
+          "fn_0 &z &y &x": "(+ 1 &x &x &y &z 2 3 4)"
+        },
+        {
+          "fn_0 &z &x &y": "(+ 1 &y &y &x &z 2 3 4)"
         }
       ],
       "dc_comparison_millis": null,
       "tdfa_annotation": null,
-      "variable_types": []
+      "variable_types": [
+        "S",
+        "M",
+        "M"
+      ]
     }
   ]
 }
