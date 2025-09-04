@@ -352,7 +352,7 @@ pub fn compression_step_smc(
         return vec![];
     };
 
-    let finished_pattern = FinishedPattern::new(best.pattern.clone(), &shared);
+    let finished_pattern = FinishedPattern::new(sorted_arguments(best.pattern, &shared), &shared);
     let result = CompressionStepResult::new(
         finished_pattern,
         inv_name,
@@ -362,4 +362,10 @@ pub fn compression_step_smc(
         None,
     );
     vec![result]
+}
+
+fn sorted_arguments(pattern: Pattern, shared: &SharedData) -> Pattern {
+    let mut pattern = pattern;
+    pattern.pattern_args.sort_args(shared);
+    pattern
 }
