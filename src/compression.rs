@@ -6,6 +6,7 @@ use core::panic;
 use std::convert::TryInto;
 use std::fmt::{self, Formatter, Display};
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
 use itertools::Itertools;
 use serde_json::{json, Value};
 use clap::{Parser};
@@ -130,6 +131,10 @@ pub struct CompressionStepConfig {
     /// are encountered.
     #[clap(long)]
     pub follow: Option<String>,
+
+    /// Variable types for the `follow` invention. Use M for metavariable and S for symbolic variable.
+    #[clap(long, value_parser, value_delimiter = ' ')]
+    pub follow_types: Option<Vec<VariableType>>,
 
     /// For use with `follow`, enables aggressive pruning. Useful for ensuring that it is *possible* to find a particular
     /// abstraction by guiding the search directly towards it.
@@ -705,6 +710,8 @@ pub struct SharedData {
     pub multistep_cfg: MultistepCompressionConfig,
     pub tracking: Option<Tracking>,
     pub fused_lambda_tags: Option<FxHashSet<Tag>>,
+    pub prev_results: Vec<CompressionStepResult>, // necessary for TDFA
+    pub follow: Option<Invention>,
 }
 
 pub fn invalid_metavar_location(shared : &SharedData, node: Idx) -> bool {
@@ -772,18 +779,19 @@ pub struct Invention {
     pub body: ExprOwned, // invention body (not wrapped in lambdas)
     pub arity: usize,
     pub name: String,
+    pub variable_types: Vec<VariableType>, // type of each variable
 }
 
 impl Invention {
-    pub fn new(body: ExprOwned, arity: usize, name: &str) -> Self {
-        Self { body, arity, name: String::from(name) }
+    pub fn new(body: ExprOwned, arity: usize, name: &str, variable_types: Vec<VariableType>) -> Self {
+        Self { body, arity, name: String::from(name), variable_types }
     }
-    pub fn from_string(name: &str, body: &str) -> Self {
+    pub fn from_string(name: &str, body: &str, variable_types: Option<Vec<VariableType>>) -> Self {
         let mut set = ExprSet::empty(Order::ChildFirst, false, false);
         let idx = set.parse_extend(body).unwrap();
         let body = ExprOwned { set, idx };
         let arity = AnalyzedExpr::new(IVarAnalysis).analyze_get(body.immut()).iter().max().map(|x|*x as usize + 1).unwrap_or(0);
-        Self { body, arity, name: String::from(name) }
+        Self { body, arity, name: String::from(name), variable_types: variable_types.unwrap_or_else(|| vec![VariableType::Metavar; arity]) }
     }
 
     pub fn to_tracking(self, zid_of_zip: &FxHashMap<Vec<ZNode>, ZId>) -> Option<Tracking> {
@@ -792,21 +800,31 @@ impl Invention {
     }
 
     pub fn from_compression_output(output: &Value) -> Invention {
+        let arity = output["arity"].as_u64().unwrap() as usize;
         Invention {
             body: {
                 let mut set = ExprSet::empty(Order::ChildFirst, false, false);
                 let idx = set.parse_extend(output["body"].as_str().unwrap()).unwrap();
                 ExprOwned::new(set, idx)
             },
-            arity: output["arity"].as_u64().unwrap() as usize,
+            arity,
             name: output["name"].as_str().unwrap().parse().unwrap(),
+            variable_types: if let Some(var_types) = output.get("variable_types") {
+                var_types.as_array().unwrap().iter().map(|v| VariableType::from_str(v.as_str().unwrap()).unwrap()).collect()
+            } else {
+                vec![VariableType::Metavar; arity]
+            }
         }
     }
 }
 
 impl Display for Invention {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "[{} arity={}: {}]", self.name, self.arity, self.body.immut())
+        write!(f, "[{} arity={}: {}", self.name, self.arity, self.body.immut())?;
+        if self.variable_types.iter().any(|x| *x != VariableType::Metavar) {
+            write!(f, ", variable_types={}", self.variable_types.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(" "))?;
+        }
+        write!(f, "]")
     }
 }
 
@@ -1139,7 +1157,7 @@ fn stitch_search(
                     if shared.cfg.rewrite_check {
                         // run rewriting just to make sure the assert in it passes
                         let rw_fast = rewrite_fast(&finished_pattern, &shared, &Node::Prim("fake_inv".into()), &shared.cost_fn);
-                        let (rw_slow, _, _) = rewrite_with_inventions(&shared.programs.iter().map(|p|p.to_string()).collect::<Vec<_>>(), &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.multistep_cfg);
+                        let (rw_slow, _, _) = rewrite_with_inventions_resumable(&shared.programs.iter().map(|p|p.to_string()).collect::<Vec<_>>(), &[finished_pattern.clone().to_invention("fake_inv", &shared)], &shared.multistep_cfg, &shared.prev_results);
                         for (fast,slow) in rw_fast.iter().zip(rw_slow.iter()) {
                             assert_eq!(fast.to_string(), slow.to_string());
                         }
@@ -1239,7 +1257,7 @@ impl FinishedPattern {
         self.pattern.to_expr(shared)
     }
     pub fn to_invention(&self, name: &str, shared: &SharedData) -> Invention {
-        Invention::new(self.to_expr(shared), self.arity, name)
+        Invention::new(self.to_expr(shared), self.arity, name, self.pattern.pattern_args.variable_types())
     }
     pub fn info(&self, shared: &SharedData) -> String {
         format!("{} -> finished: utility={}, compressive_utility={}, arity={}, usages={}",self.pattern.info(shared), self.utility, self.compressive_utility, self.arity, self.usages)
@@ -1490,6 +1508,8 @@ impl CompressionStepResult {
         let rewritten = if !cfg.rewritten_intermediates { None } else { Some(self.rewritten.iter().map(|p| p.to_string()).collect::<Vec<String>>()) };
         let rewritten_dreamcoder = if !cfg.rewritten_intermediates { &None } else { &self.rewritten_dreamcoder };
 
+        let variable_types = self.inv.variable_types.iter().map(|ty| ty.to_string()).collect::<Vec<_>>();
+
         json!({            
             "body": self.inv.body.to_string(),
             "dreamcoder": self.dc_inv_str,
@@ -1505,6 +1525,7 @@ impl CompressionStepResult {
             "uses": all_uses,
             "dc_comparison_millis": self.dc_comparison_millis,
             "tdfa_annotation": self.tdfa_annotation,
+            "variable_types": variable_types,
         })
     }
 }
@@ -1819,11 +1840,12 @@ pub fn multistep_compression_internal(
     weights: Option<Vec<f32>>,
     name_mapping: Option<Vec<(String, String)>>,
     follow: Option<Vec<Invention>>,
-    cfg: &MultistepCompressionConfig
+    cfg: &MultistepCompressionConfig,
+    prev_results: &[CompressionStepResult]
 ) -> Vec<CompressionStepResult> {
 
     let mut rewritten: Vec<ExprOwned> = train_programs.to_vec();
-    let mut step_results: Vec<CompressionStepResult> = Default::default();
+    let mut step_results: Vec<CompressionStepResult> = prev_results.to_vec();
     let cost_fn = &cfg.step.cost.expr_cost();
 
     let tstart = std::time::Instant::now();
@@ -1860,7 +1882,7 @@ pub fn multistep_compression_internal(
         let (inv_name, follow_iter) = if let Some(follow) = &follow {
             (follow[i].name.clone(), Some(follow[i].clone()))
         } else {
-            (format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len()), cfg.step.follow.as_ref().map(|x| Invention::from_string("inv", x)))
+            (format!("{}{}", cfg.abstraction_prefix, cfg.previous_abstractions + step_results.len()), cfg.step.follow.as_ref().map(|x| Invention::from_string("inv", x, cfg.step.follow_types.clone())))
         };
         let res: Vec<CompressionStepResult> = if cfg.step.smc {
             assert!(follow_iter.is_none());
@@ -2182,6 +2204,8 @@ pub fn construct_shared(
         multistep_cfg: multistep_cfg.clone(),
         tracking,
         fused_lambda_tags: fused_copy,
+        prev_results: prev_results.to_vec(),
+        follow: follow.clone(),
     });
 
     if !shared.cfg.quiet { println!("built SharedData: {:?}ms", tstart.elapsed().as_millis()) }
@@ -2320,6 +2344,20 @@ pub fn multistep_compression(
     follow: Option<Vec<Invention>>,
     cfg: &MultistepCompressionConfig
 )-> (Vec<CompressionStepResult>, serde_json::Value) {
+    multistep_compression_resumable(programs, tasks, weights, name_mapping, follow, cfg, &[])
+}
+
+
+// Like `multistep_compression` but allows for resumable compression, where you can provide the prior inventions
+pub fn multistep_compression_resumable(
+    programs: &[String],
+    tasks: Option<Vec<String>>,
+    weights: Option<Vec<f32>>,
+    name_mapping: Option<Vec<(String,String)>>,
+    follow: Option<Vec<Invention>>,
+    cfg: &MultistepCompressionConfig,
+    prev_results: &[CompressionStepResult]
+)-> (Vec<CompressionStepResult>, serde_json::Value) {
     let mut programs = programs.to_vec();
     let mut cfg = cfg.clone();
 
@@ -2364,7 +2402,8 @@ pub fn multistep_compression(
         weights.clone(),
         name_mapping, 
         follow,
-        &cfg, 
+        &cfg,
+        prev_results,
     );
 
     // write everything to json

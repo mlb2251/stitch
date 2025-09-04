@@ -1,4 +1,4 @@
-use std::ops::DerefMut;
+use std::{ops::DerefMut, str::FromStr};
 use itertools::Itertools;
 
 use lambdas::*;
@@ -6,12 +6,33 @@ use rustc_hash::FxHashMap;
 
 use crate::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, PartialOrd, Ord, serde::Serialize)]
 pub enum VariableType {
     Metavar,
     Symvar,
     Unvalidated, // this is used for variables that have not been validated to be metavars or symvars yet
 }
+
+impl FromStr for VariableType {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "M" => Ok(VariableType::Metavar),
+            "S" => Ok(VariableType::Symvar),
+            _ => Err(format!("Invalid variable type: {}", s)),
+        }
+    }
+}
+
+impl std::fmt::Display for VariableType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VariableType::Metavar => write!(f, "M"),
+            VariableType::Symvar => write!(f, "S"),
+        }
+    }
+}
+
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct PatternArgs {
@@ -85,6 +106,14 @@ impl PatternArgs {
         if ivar == self.variables.len() {
             self.variables.push((zid as u32, vtype));
         }
+    }
+
+    pub fn variable_types(&self) -> Vec<VariableType> {
+        self.variables.iter().map(|(_,t)| *t).collect()
+    }
+
+    pub fn type_of(&self, ivar: usize) -> VariableType {
+        self.variables[ivar].1
     }
 
     fn zippers(&self, shared: &SharedData) -> Vec<Vec<ZNode>> {
