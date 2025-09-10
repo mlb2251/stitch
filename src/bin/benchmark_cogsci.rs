@@ -12,13 +12,15 @@ struct Args {
     /// Number of repetitions
     #[clap(short, long, default_value = "1")]
     count: usize,
+    #[clap(short, long, default_value = "false")]
+    smc: bool,
 }
 
 fn main() {
     let args = Args::parse();
     let mut geomeans = Vec::with_capacity(args.count);
     for _ in 0..args.count {
-        let geo = benchmark_cogsci_geomean();
+        let geo = benchmark_cogsci_geomean(args.smc);
         println!("{geo:.2}");
         geomeans.push(geo);
     }
@@ -28,7 +30,7 @@ fn main() {
     }
 }
 
-fn benchmark_cogsci_geomean() -> f64 {
+fn benchmark_cogsci_geomean(smc: bool) -> f64 {
     let cogsci_dir = PathBuf::from("data/cogsci");
     // Check if directory exists
     if !cogsci_dir.exists() {
@@ -54,8 +56,15 @@ fn benchmark_cogsci_geomean() -> f64 {
     }
     // Configuration for compression: -a3 -i10
     let mut cfg = MultistepCompressionConfig::default();
-    cfg.step.max_arity = 3;  // -a3
-    cfg.iterations = 10;     // -i10
+    if smc {
+        cfg.step.smc = true;
+        cfg.step.smc_particles = 1_000;
+        cfg.step.smc_extra_steps = 25;
+        cfg.iterations = 3;     // -i3
+    } else {
+        cfg.step.max_arity = 3;  // -a3
+        cfg.iterations = 10;     // -i10
+    }
     cfg.silent = true;       // Reduce output noise
     let mut compression_times = Vec::new();
     for file_path in json_files.iter() {
