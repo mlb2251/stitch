@@ -395,17 +395,17 @@ pub struct CostConfig {
 
 impl CostConfig {
 
-    fn compute_cost_prim(&self) -> HashMap<Symbol, i32> {
+    fn compute_cost_prim(&self) -> HashMap<Symbol, i64> {
         let cost_prim: serde_json::Value = serde_json::from_str(&self.cost_prim).unwrap_or_else(|_| {
             panic!("Invalid JSON for argument --cost-prim: {}", self.cost_prim);
         });
         let serde_json::Value::Object(map_obj) = cost_prim else {
             panic!("Expected a JSON object for --cost-prim, got: {}", self.cost_prim);
         };
-        let mut map: HashMap<Symbol, i32> = HashMap::default();
+        let mut map: HashMap<Symbol, i64> = HashMap::default();
         for (k, v) in map_obj {
             if let serde_json::Value::Number(ref num) = v {
-                let cost_opt: Option<i32> = num.as_i64().and_then(|x| TryInto::try_into(x).ok());
+                let cost_opt: Option<i64> = num.as_i64();
                 let cost = cost_opt.unwrap_or_else(|| {
                     panic!("Expected a number for cost of primitive '{}', got: {}", k, v);
                 });

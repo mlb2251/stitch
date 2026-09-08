@@ -22,8 +22,8 @@ pub struct Args {
 
 }
 
-fn get_stats(data: &[i32]) -> (f64, f64) {
-    let mean = data.iter().sum::<i32>() as f64 / data.len() as f64;
+fn get_stats(data: &[i64]) -> (f64, f64) {
+    let mean = data.iter().sum::<i64>() as f64 / data.len() as f64;
     let variance = data.iter().map(|x|f64::powi(*x as f64 - mean, 2)).sum::<f64>() / data.len() as f64;
     (mean, f64::sqrt(variance))
 }
@@ -42,9 +42,9 @@ fn main() {
     let cost_fn = ExprCost::dreamcoder();
     let length_fn = ExprCost::num_terminals();
 
-    let costs = programs.iter().map(|p| p.cost(&cost_fn)).collect::<Vec<i32>>();
-    let lengths = programs.iter().map(|p| p.cost(&length_fn)).collect::<Vec<i32>>();
-    let depths = programs.iter().map(|p| p.depth() as i32).collect::<Vec<i32>>();
+    let costs = programs.iter().map(|p| p.cost(&cost_fn)).collect::<Vec<i64>>();
+    let lengths = programs.iter().map(|p| p.cost(&length_fn)).collect::<Vec<i64>>();
+    let depths = programs.iter().map(|p| p.depth() as i64).collect::<Vec<i64>>();
 
     let (mean_cost, std_cost) = get_stats(&costs);
     let (mean_length, std_length) = get_stats(&lengths);
