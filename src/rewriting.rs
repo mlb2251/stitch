@@ -1,6 +1,5 @@
 use crate::*;
 use lambdas::*;
-use compression::*;
 
 /// a rule for determining when to shift and by how much.
 /// if anything points above the `depth_cutoff` (absolute depth
