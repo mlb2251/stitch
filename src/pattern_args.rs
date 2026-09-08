@@ -205,14 +205,13 @@ impl LocationsForReusableArgs<'_> {
     }
 
     fn sym_locs<'a>(&'a mut self, arg_of_loc: &FxHashMap<Idx, Arg>, sym_var_info: &SymvarInfo) -> &'a Vec<Idx> {
-        if self.sym_locs.is_some() {
-            return self.sym_locs.as_ref().unwrap();
+        if self.sym_locs.is_none() {
+            let locs: Vec<_> = self.all_locs.iter()
+                .filter(|loc| arg_of_loc[loc].expands_to.is_prim_symbol(sym_var_info))
+                .cloned().collect();
+            self.sym_locs = Some(locs);
         }
-        let locs: Vec<_> = self.all_locs.iter()
-            .filter(|loc| arg_of_loc[loc].expands_to.is_prim_symbol(sym_var_info))
-            .cloned().collect();
-        self.sym_locs = Some(locs.clone());
-        self.sym_locs.as_mut().unwrap()
+        self.sym_locs.as_ref().unwrap()
     }
 
     fn relevant_locs<'a>(&'a mut self, var_type: VariableType, arg_of_loc: &FxHashMap<Idx, Arg>, sym_var_info: &Option<SymvarInfo>) -> &'a Vec<Idx> {
