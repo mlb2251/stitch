@@ -965,7 +965,7 @@ fn stitch_search(
         for original_pattern in patterns {
 
             if !shared.cfg.no_stats { shared.stats.lock().deref_mut().worklist_steps += 1; };
-            if !shared.cfg.no_stats && shared.cfg.print_stats > 0 && shared.stats.lock().deref_mut().worklist_steps % shared.cfg.print_stats == 0 && !shared.cfg.quiet { println!("{:?} \n\t@ [bound={}; uses={}] chose: {}",shared.stats.lock().deref_mut(),   original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum::<Cost>(), original_pattern.to_expr(&shared)) };
+            if !shared.cfg.no_stats && shared.cfg.print_stats > 0 && shared.stats.lock().deref_mut().worklist_steps.is_multiple_of(shared.cfg.print_stats) && !shared.cfg.quiet { println!("{:?} \n\t@ [bound={}; uses={}] chose: {}",shared.stats.lock().deref_mut(),   original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum::<Cost>(), original_pattern.to_expr(&shared)) };
 
             if shared.cfg.verbose_worklist && !shared.cfg.quiet { println!("[bound={}; uses={}] chose: {}", original_pattern.utility_upper_bound, original_pattern.match_locations.iter().map(|loc| shared.num_paths_to_node[*loc]).sum::<Cost>(), original_pattern.to_expr(&shared)) }
 
@@ -993,7 +993,7 @@ fn stitch_search(
             // for each way of expanding the hole...
 
             'expansion:
-                for (expands_to, locs) in syntactic_expansions.into_iter().chain(ivars_expansions.into_iter())
+                for (expands_to, locs) in syntactic_expansions.into_iter().chain(ivars_expansions)
             {
                 // for debugging
                 let tracked = original_pattern.tracked && expands_to == tracked_expands_to(&original_pattern, hole_zid, &shared);
@@ -1927,7 +1927,7 @@ pub fn construct_shared(
     let tasks_of_node: Vec<FxHashSet<usize>> = associate_tasks(&roots, &set, &corpus_span, &task_of_root_idx);
 
     let init_cost_by_root_idx: Vec<Cost> = roots.iter().map(|idx| analyzed_cost[*idx] as Cost).collect();
-    let init_cost_by_root_idx_weighted: Vec<f32> = init_cost_by_root_idx.iter().zip(weights.iter()).map(|(cost,weight)| (*cost as f32 * weight)).collect();
+    let init_cost_by_root_idx_weighted: Vec<f32> = init_cost_by_root_idx.iter().zip(weights.iter()).map(|(cost,weight)| *cost as f32 * weight).collect();
     let init_cost: Cost = root_idxs_of_task.iter().map(|root_idxs|
         root_idxs.iter().map(|idx| init_cost_by_root_idx[*idx]).min().unwrap()
     ).sum();
