@@ -1588,7 +1588,13 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
 
     let Some(marginal_utilities) = get_utility_of_loc_once(pattern, shared) else {
         // All utilities were 0 or negative, so we should autoreject this pattern
-        return UtilityCalculation { util: 0, unused_locations: Default::default() };
+        // A rejected pattern must not rewrite at any matching location. In
+        // particular, utility_by_rewrite would otherwise rewrite the identity
+        // pattern #0 at the same node indefinitely.
+        return UtilityCalculation {
+            util: 0,
+            unused_locations: pattern.match_locations.iter().copied().collect(),
+        };
     };
     let self_intersects = can_self_unify(&pattern.pattern_args, shared, pattern.match_locations[0]);
     if self_intersects.is_empty() {
