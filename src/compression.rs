@@ -1590,6 +1590,40 @@ fn compressive_utility(pattern: &Pattern, shared: &SharedData) -> UtilityCalcula
         // All utilities were 0 or negative, so we should autoreject this pattern
         return UtilityCalculation { util: 0, unused_locations: Default::default() };
     };
+    if !pattern.pattern_args.multiuses().is_empty() {
+        // A captured argument is kept once even when it occurs several times in
+        // the body. Its nested rewrite savings must also be counted only once.
+        // Compare keeping the children with applying the pattern and keeping one
+        // copy of each argument, bottom-up. Positive marginal deltas telescope
+        // over the original tree, so the existing weighted/task aggregation and
+        // rewrite_fast's unused_locations contract remain unchanged.
+        fn subtree_utility(
+            loc: Idx,
+            shared: &SharedData,
+            memo: &mut FxHashMap<Idx, Cost>,
+            first_match: Idx,
+        ) -> Cost {
+            if loc < first_match { return 0; }
+            if let Some(util) = memo.get(&loc) { return *util; }
+            let util = shared.set.get(loc).children()
+                .map(|child| subtree_utility(child, shared, memo, first_match)).sum();
+            memo.insert(loc, util);
+            util
+        }
+        let mut memo = FxHashMap::default();
+        let first_match = pattern.match_locations[0];
+        let mut marginals = marginal_utilities;
+        for (i, loc) in pattern.match_locations.iter().enumerate() {
+            let keep_children: Cost = shared.set.get(*loc).children()
+                .map(|child| subtree_utility(child, shared, &mut memo, first_match)).sum();
+            let keep_arguments: Cost = pattern.pattern_args.iterate_one_zid_per_argument()
+                .map(|zid| subtree_utility(shared.arg_of_zid_node[zid][loc].unshifted_id,
+                    shared, &mut memo, first_match)).sum();
+            marginals[i] = (marginals[i] + keep_arguments - keep_children).max(0);
+            memo.insert(*loc, keep_children + marginals[i]);
+        }
+        return compressive_utility_from_marginals(pattern, shared, marginals);
+    }
     let self_intersects = can_self_unify(&pattern.pattern_args, shared, pattern.match_locations[0]);
     if self_intersects.is_empty() {
         // no conflicts, so we can just return the utility assuming no corrections
